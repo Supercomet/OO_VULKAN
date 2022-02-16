@@ -13,6 +13,7 @@ public:
 	~VulkanInstance();
 	bool Init(const oGFX::SetupInfo& si);
 private:
-	VkInstance m_instance{VK_NULL_HANDLE};
+	friend class VulkanRenderer;
+	VkInstance instance{VK_NULL_HANDLE};
 };
 

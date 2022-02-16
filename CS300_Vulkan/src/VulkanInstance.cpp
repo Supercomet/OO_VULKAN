@@ -103,11 +103,11 @@ bool checkInstanceExtensionSupport(std::vector<const char *> *extensionsToCheck)
 
 VulkanInstance::~VulkanInstance()
 {
-	if (m_instance != VK_NULL_HANDLE)
+	if (instance != VK_NULL_HANDLE)
 	{
-		vkDestroyInstance(m_instance, nullptr);
+		vkDestroyInstance(instance, nullptr);
 	}
-	m_instance = VK_NULL_HANDLE;
+	instance = VK_NULL_HANDLE;
 }
 
 bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
@@ -118,7 +118,7 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pApplicationName = "Vulkan App";				//custom application name
 	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);	//custom version of the application
-	appInfo.pEngineName = "Engine";			//custom engine name
+	appInfo.pEngineName = "Engine";							//custom engine name
 	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);		//custom engine version
 	appInfo.apiVersion = VK_API_VERSION_1_2;				//vulkan version, might need to change
 
@@ -132,21 +132,21 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 	{
 		// Enable surface extensions depending on os
 		#if defined(_WIN32)
-		requiredExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+				requiredExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 		#elif defined(VK_USE_PLATFORM_ANDROID_KHR)
-				Extensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+				requiredExtensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 		#elif defined(_DIRECT2DISPLAY)
-				Extensions.push_back(VK_KHR_DISPLAY_EXTENSION_NAME);
+				requiredExtensions.push_back(VK_KHR_DISPLAY_EXTENSION_NAME);
 		#elif defined(VK_USE_PLATFORM_DIRECTFB_EXT)
-				Extensions.push_back(VK_EXT_DIRECTFB_SURFACE_EXTENSION_NAME);
+				requiredExtensions.push_back(VK_EXT_DIRECTFB_SURFACE_EXTENSION_NAME);
 		#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-				Extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+				requiredExtensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
 		#elif defined(VK_USE_PLATFORM_XCB_KHR)
-				Extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+				requiredExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 		#elif defined(VK_USE_PLATFORM_IOS_MVK)
-				Extensions.push_back(VK_MVK_IOS_SURFACE_EXTENSION_NAME);
+				requiredExtensions.push_back(VK_MVK_IOS_SURFACE_EXTENSION_NAME);
 		#elif defined(VK_USE_PLATFORM_MACOS_MVK)
-				Extensions.push_back(VK_MVK_MACOS_SURFACE_EXTENSION_NAME);
+				requiredExtensions.push_back(VK_MVK_MACOS_SURFACE_EXTENSION_NAME);
 		#endif
 	}
 
@@ -201,7 +201,7 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 	//create instance
 
 
-	VkResult result = vkCreateInstance(&createInfo, nullptr, &m_instance);
+	VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
 
 	if (result != VK_SUCCESS)
 	{
