@@ -23,8 +23,7 @@ bool BoolQueryUser(const char * str)
         response  = std::tolower(response);
         if (response != 'y' && response != 'n'){
             std::cout<< "Invalid input["<< response<< "]please try again"<< std::endl;
-            response = 0;
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max());
+            response = 0;           
         }
     }
     return response == 'n' ? false : true;
@@ -71,15 +70,18 @@ int main(int argc, char argv[])
 
     oGFX::SetupInfo setupSpec;
 
-    setupSpec.debug = BoolQueryUser("Do you want debugging?");
-    setupSpec.renderDoc = BoolQueryUser("Do you want renderdoc?");
+    //setupSpec.debug = BoolQueryUser("Do you want debugging?");
+    //setupSpec.renderDoc = BoolQueryUser("Do you want renderdoc?");
+    setupSpec.debug = true;
+    setupSpec.renderDoc = false;
 
 	VulkanRenderer renderer;
     try
     {
-	    renderer.CreateInstance(setupSpec);
+        renderer.CreateInstance(setupSpec);
         renderer.CreateSurface(mainWindow);
         renderer.AcquirePhysicalDevice();
+        renderer.CreateLogicalDevice();
         std::cout << "Created vulkan instance!"<< std::endl;
     }
     catch (...)

@@ -5,15 +5,18 @@
 
 #include "gpuCommon.h"
 
-
-class VulkanInstance
+struct Window;
+struct VulkanInstance
 {
-public:
+
 	VulkanInstance() = default;
 	~VulkanInstance();
 	bool Init(const oGFX::SetupInfo& si);
-private:
-	friend class VulkanRenderer;
+	void CreateSurface(Window& window);
+	
+	VkInstance GetInstancePtr();
+
+	VkSurfaceKHR surface{VK_NULL_HANDLE};
 	VkInstance instance{VK_NULL_HANDLE};
 };
 

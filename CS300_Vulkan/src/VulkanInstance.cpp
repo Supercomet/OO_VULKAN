@@ -1,5 +1,6 @@
 #include "VulkanInstance.h"
 
+#include "Window.h"
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -103,6 +104,10 @@ bool checkInstanceExtensionSupport(std::vector<const char *> *extensionsToCheck)
 
 VulkanInstance::~VulkanInstance()
 {
+	if (surface)
+	{
+		vkDestroySurfaceKHR(instance, surface, nullptr);
+	}
 	if (instance != VK_NULL_HANDLE)
 	{
 		vkDestroyInstance(instance, nullptr);
@@ -207,5 +212,39 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 	{
 		throw std::runtime_error("Failed to create a runtime instance!\n");
 	}
+}
+
+void VulkanInstance::CreateSurface(Window& window)
+{
+	//
+	// Create the surface
+	//
+
+	// Get the Surface creation extension since we are about to use it
+	auto VKCreateWin32Surface = (PFN_vkCreateWin32SurfaceKHR)vkGetInstanceProcAddr(instance, "vkCreateWin32SurfaceKHR");
+	if (nullptr == VKCreateWin32Surface)
+	{
+		throw std::runtime_error("Vulkan Driver missing the VK_KHR_win32_surface extension");
+	}
+
+	VkWin32SurfaceCreateInfoKHR SurfaceCreateInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR
+		,   .pNext = nullptr
+		,   .flags = 0
+		,   .hinstance = GetModuleHandle(NULL)
+		,   .hwnd = reinterpret_cast<HWND>(window.GetRawHandle())
+	};
+
+	if (auto VKErr = VKCreateWin32Surface(instance, &SurfaceCreateInfo, nullptr, &surface); VKErr)
+	{
+		throw std::runtime_error("Vulkan Fail to create window surface");
+	}
+
+}
+
+VkInstance VulkanInstance::GetInstancePtr()
+{
+	return instance;
 }
 

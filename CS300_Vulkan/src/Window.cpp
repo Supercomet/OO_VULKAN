@@ -9,7 +9,9 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     switch( uMsg )
     {
     case WM_CLOSE:
-    PostMessage( hWnd, WM_QUIT, 0, 0 );
+    PostQuitMessage(0);
+    DestroyWindow(hWnd);
+    hWnd = NULL;
     break;
     case WM_SIZE:
     {
@@ -59,6 +61,15 @@ Window::Window(uint32_t width, uint32_t height):
     m_height{height},
     rawHandle{NULL}
 {
+}
+
+Window::~Window()
+{
+    if (rawHandle)
+    {
+        DestroyWindow(rawHandle);
+        rawHandle == NULL;
+    }
 }
 
 void Window::Init()

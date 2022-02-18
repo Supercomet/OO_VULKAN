@@ -24,6 +24,7 @@
     <ClCompile Include="src\VulkanRenderer.cpp" />
     <ClCompile Include="src\VulkanDevice.cpp" />
     <ClCompile Include="src\Window.cpp" />
+    <ClCompile Include="src\VulkanUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\gpuCommon.h" />
@@ -31,6 +32,7 @@
     <ClInclude Include="src\VulkanRenderer.h" />
     <ClInclude Include="src\VulkanDevice.h" />
     <ClInclude Include="src\Window.h" />
+    <ClInclude Include="src\VulkanUtils.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

@@ -9,46 +9,23 @@
 #include "VulkanDevice.h"
 #include "gpuCommon.h"
 
-class Window;
+struct Window;
 
 class VulkanRenderer
 {
 public:
+	~VulkanRenderer();
+
 	void CreateInstance(const oGFX::SetupInfo& setupSpecs);
-	void CreateSurface(const Window& window);
+	void CreateSurface(Window& window);
 	void AcquirePhysicalDevice();
-private:
+	void CreateLogicalDevice();
+
 	VulkanInstance m_instance;
 	VulkanDevice m_device;
-	VkSurfaceKHR m_surface;
 
-	// Indices (locations) of Queue Familities (if they exist)
-	struct QueueFamilyIndices
-	{
-		int graphicsFamily = -1; //location of graphics queue family //as per vulkan standard, if we have a graphics family, we have a transfer family
-		int presentationFamily = -1;
+	Window* windowPtr;
 
-		//check if queue familities are valid
-		bool isValid()
-		{
-			return graphicsFamily >= 0 && presentationFamily >=0;
-		}
-	};
 
-	struct SwapChainDetails
-	{
-		//surfaces properties , image sizes/extents etc...
-		VkSurfaceCapabilitiesKHR surfaceCapabilities;
-		//surface image formats, eg. RGBA, data size of each color
-		std::vector<VkSurfaceFormatKHR> formats;
-		//how images should be presentated to screen, filo fifo etc..
-		std::vector<VkPresentModeKHR> presentationModes;
-		SwapChainDetails() :surfaceCapabilities{} {}
-	};
-
-	bool CheckDeviceSuitable(VkPhysicalDevice device);
-	QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device);
-	bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
-	SwapChainDetails GetSwapchainDetails(VkPhysicalDevice device);
 };
 
