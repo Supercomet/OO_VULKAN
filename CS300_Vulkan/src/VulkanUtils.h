@@ -3,6 +3,8 @@
 #include <vulkan/vulkan.h>
 
 #include <vector>
+struct VulkanInstance;
+struct VulkanDevice;
 namespace oGFX
 {
 	// Indices (locations) of Queue Familities (if they exist)
@@ -29,5 +31,21 @@ namespace oGFX
 		std::vector<VkPresentModeKHR> presentationModes;
 		SwapChainDetails() :surfaceCapabilities{} {}
 	};
+
+	struct SwapChainImage
+	{
+		VkImage image;
+		VkImageView imageView;
+	};
+
+	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance,VkPhysicalDevice device);
+	oGFX::QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
+
+	VkSurfaceFormatKHR ChooseBestSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats);
+	VkPresentModeKHR ChooseBestPresentationMode(const std::vector<VkPresentModeKHR> presentationModes);
+	VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& surfaceCapabilities);
+
+	VkImageView CreateImageView(VulkanDevice& device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+
 }
 

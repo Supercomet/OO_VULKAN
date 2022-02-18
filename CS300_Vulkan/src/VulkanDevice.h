@@ -20,10 +20,8 @@ struct VulkanDevice
 	VkQueue graphicsQueue;
 	VkQueue presentationQueue;
 	bool CheckDeviceSuitable(VkPhysicalDevice device);
-	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance,VkPhysicalDevice device);
 	
 	bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
 
-	oGFX::QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 };
 

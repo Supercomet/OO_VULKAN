@@ -7,6 +7,7 @@
 
 #include "VulkanInstance.h"
 #include "VulkanDevice.h"
+#include "VulkanSwapchain.h"
 #include "gpuCommon.h"
 
 struct Window;
@@ -20,9 +21,11 @@ public:
 	void CreateSurface(Window& window);
 	void AcquirePhysicalDevice();
 	void CreateLogicalDevice();
+	void SetupSwapchain();
 
 	VulkanInstance m_instance;
 	VulkanDevice m_device;
+	VulkanSwapchain m_swapchain;
 
 	Window* windowPtr;
 

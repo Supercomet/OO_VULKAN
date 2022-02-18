@@ -61,6 +61,9 @@ int main(int argc, char argv[])
         }
         else
         {
+            //for now
+            break;
+
             //run our core game loop
             //updatePhys();
             //draw();
@@ -82,6 +85,7 @@ int main(int argc, char argv[])
         renderer.CreateSurface(mainWindow);
         renderer.AcquirePhysicalDevice();
         renderer.CreateLogicalDevice();
+        renderer.SetupSwapchain();
         std::cout << "Created vulkan instance!"<< std::endl;
     }
     catch (...)

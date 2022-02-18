@@ -1,10 +1,8 @@
 #include "VulkanRenderer.h"
-
 #include <vector>
 #include <set>
-#define VK_USE_PLATFORM_WIN32_KHR
-#include "vulkan/vulkan.h"
 #include <stdexcept>
+
 
 #include "VulkanUtils.h"
 #include "Window.h"
@@ -41,6 +39,11 @@ void VulkanRenderer::AcquirePhysicalDevice()
 void VulkanRenderer::CreateLogicalDevice()
 {
     m_device.InitLogicalDevice(m_instance);
+}
+
+void VulkanRenderer::SetupSwapchain()
+{
+	m_swapchain.Init(m_instance,m_device);
 }
 
 

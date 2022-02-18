@@ -15,6 +15,7 @@
 
 VulkanDevice::~VulkanDevice()
 {
+    // no need destory phys device
 	if (logicalDevice)
 	{
 		vkDestroyDevice(logicalDevice,NULL);
@@ -54,7 +55,7 @@ void VulkanDevice::InitPhysicalDevice(VulkanInstance& instance)
 void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
 {
     //get the queue family indices for the chosen Physical Device
-    oGFX::QueueFamilyIndices indices = GetQueueFamilies(physicalDevice, instance.surface);
+    oGFX::QueueFamilyIndices indices = oGFX::GetQueueFamilies(physicalDevice, instance.surface);
 
     //vector for queue creation information and set for family indices
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -118,51 +119,19 @@ bool VulkanDevice::CheckDeviceSuitable(VkPhysicalDevice device)
 	VkPhysicalDeviceFeatures deviceFeatures;
 	vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
-	oGFX::QueueFamilyIndices indices = GetQueueFamilies(device,m_instancePtr->surface);
+	oGFX::QueueFamilyIndices indices = oGFX::GetQueueFamilies(device,m_instancePtr->surface);
 
 	bool extensionsSupported = CheckDeviceExtensionSupport(device);
 
 	bool swapChainValid = false;
 	if (extensionsSupported)
 	{
-		oGFX::SwapChainDetails swapChainDetails = GetSwapchainDetails(*m_instancePtr,device);
+		oGFX::SwapChainDetails swapChainDetails = oGFX::GetSwapchainDetails(*m_instancePtr,device);
 		swapChainValid = !swapChainDetails.presentationModes.empty() && !swapChainDetails.formats.empty();
 	}
 	return indices.isValid() && extensionsSupported && swapChainValid && deviceFeatures.samplerAnisotropy;
 }
 
-oGFX::SwapChainDetails VulkanDevice::GetSwapchainDetails(VulkanInstance& instance,VkPhysicalDevice device)
-{
-    oGFX::SwapChainDetails swapChainDetails;
-
-    //CAPABILITIES
-    //get the surface capabilities for the given surface on the given physical device
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, instance.surface , &swapChainDetails.surfaceCapabilities);
-
-    // FORMATS
-    uint32_t formatCount = 0;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, instance.surface, &formatCount, nullptr);
-
-    //if formats returned get the list of formats
-    if (formatCount != 0)
-    {
-        swapChainDetails.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, instance.surface, &formatCount, swapChainDetails.formats.data());
-    }
-
-    // PRESENTATION MODES
-    uint32_t presentationCount = 0;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, instance.surface, &presentationCount, nullptr);
-
-    //if presentation modes returned get list of presentation modes.
-    if (presentationCount != 0)
-    {
-        swapChainDetails.presentationModes.resize(presentationCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, instance.surface, &presentationCount, swapChainDetails.presentationModes.data());
-    }
-
-    return swapChainDetails;
-}
 
 bool VulkanDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device)
 {
@@ -208,46 +177,3 @@ bool VulkanDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device)
 }
 
 
-oGFX::QueueFamilyIndices VulkanDevice::GetQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
-{
-    oGFX::QueueFamilyIndices indices;
-
-    //get the queue family properties for the device
-    uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-    std::vector<VkQueueFamilyProperties> queueFamilyList(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilyList.data());
-
-    //go through each queue family and check if it has at least one of the required types of queue
-    // it is possible to have a graphics queue family with no queues in it
-    int i = 0;
-    for (const auto &queueFamily : queueFamilyList)
-    {
-        // is there at least one queue in the queue family? 
-        // queues can be multiple types, bitwise and VK_QUEUE and type to check it has required type
-        if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-        {
-            //found queue family get the index
-            indices.graphicsFamily = i;
-        }
-
-        //check if queue family supports presentation
-        VkBool32 presentationSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentationSupport);
-        //check if queue is presentation type ( can be both graphics and presentation)
-        if (queueFamily.queueCount > 0 && presentationSupport)
-        {
-            indices.presentationFamily = i;
-        }
-
-        // check if queue family indeces are in a valid state, stop searching
-        if (indices.isValid())
-        {
-            break;
-        }
-        i++;
-    }
-
-    return indices;
-}
