@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <fstream>
+#include <vector>
 
 #include "VulkanUtils.h"
 #include "VulkanInstance.h"
@@ -196,4 +198,179 @@ namespace oGFX
 
 		return imageView;
 	}
+
+	VkFormat ChooseSupportedFormat(VulkanDevice& device, const std::vector<VkFormat> &formats, VkImageTiling tiling, VkFormatFeatureFlags featureFlags)
+	{
+		// loop through optpions and find compatible one
+		for (VkFormat format : formats)
+		{
+			//get properties for given format on this device
+			VkFormatProperties properties;
+			vkGetPhysicalDeviceFormatProperties(device.physicalDevice, format, &properties);
+
+			//depending on tilting choice, check the bit flag
+			if (tiling == VK_IMAGE_TILING_LINEAR && (properties.linearTilingFeatures & featureFlags) == featureFlags)
+			{
+				return format;
+			}
+			else if (tiling == VK_IMAGE_TILING_OPTIMAL && (properties.optimalTilingFeatures & featureFlags) == featureFlags)
+			{
+				return format;
+			}
+		}
+
+		throw std::runtime_error("Failed to find a matching format!");
+	}
+
+	VkImage CreateImage(VulkanDevice& device,uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags useFlags, VkMemoryPropertyFlags propFlags, VkDeviceMemory *imageMemory)
+	{
+		// Create image
+		// Image creation info
+		VkImageCreateInfo imageCreateInfo{};
+		imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;				//type of image, (1D, 2D ,3D)
+		imageCreateInfo.extent.width = width;						// width of image extents
+		imageCreateInfo.extent.height = height;						// height of image extents
+		imageCreateInfo.extent.depth = 1;							// depth of image (just 1, no 3d)
+		imageCreateInfo.mipLevels = 1;								// Number of mipmap levels
+		imageCreateInfo.arrayLayers = 1;							// number of leves in image array
+		imageCreateInfo.format = format;							// Format type of image
+		imageCreateInfo.tiling = tiling;							// How image data should be "tiled"
+		imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;	// layout of image data on creation
+		imageCreateInfo.usage = useFlags;							// Bit flags definining wha timage will be used for
+		imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;			// number of samples for multisampling
+		imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;	// Whether image can be shared between queues
+		VkImage image;
+		VkResult result = vkCreateImage(device.logicalDevice, &imageCreateInfo, nullptr, &image);
+		if (result != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create an image!");
+		}
+		// Create memory for iamge
+		//get memeory requirements for a type of image
+		VkMemoryRequirements memoryRequirements;
+		vkGetImageMemoryRequirements(device.logicalDevice, image, &memoryRequirements);
+
+		// allocate memory using image requirements and user defined properties
+		VkMemoryAllocateInfo memoryAllocInfo{};
+		memoryAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		memoryAllocInfo.allocationSize = memoryRequirements.size;
+		memoryAllocInfo.memoryTypeIndex = FindMemoryTypeIndex(device.physicalDevice,memoryRequirements.memoryTypeBits,propFlags);
+
+		result = vkAllocateMemory(device.logicalDevice, &memoryAllocInfo, nullptr, imageMemory);
+		if (result != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed allocate memory for an image!");
+		}
+
+		// connect memory to image
+		vkBindImageMemory(device.logicalDevice, image, *imageMemory, 0);
+
+		return image;
+	}
+
+	uint32_t FindMemoryTypeIndex(VkPhysicalDevice physicalDevice,uint32_t allowedTypes, VkMemoryPropertyFlags properties)
+	{
+		//get properties of my physical device memory
+		VkPhysicalDeviceMemoryProperties memoryproperties;
+		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryproperties);
+
+		for (uint32_t i = 0; i < memoryproperties.memoryTypeCount; i++)
+		{
+			if ((allowedTypes & (1 << i)) //index of memory type must match correspoding bit in allowedTypes
+				&& (memoryproperties.memoryTypes[i].propertyFlags & properties) == properties) // desired property bit flags are part of  memory type's properties flags
+			{
+				//this memory type is valid so return its index
+				return i;
+			}
+		}
+	}
+
+	VkShaderModule CreateShaderModule(VulkanDevice& device,const std::vector<char> &code)
+	{
+		// Shader module creation information
+		VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
+		shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		//size of code
+		shaderModuleCreateInfo.codeSize = code.size();
+		//pointer to code (cast to uint32_t)
+		shaderModuleCreateInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
+
+		VkShaderModule shaderModule;
+		VkResult result = vkCreateShaderModule(device.logicalDevice, &shaderModuleCreateInfo, nullptr, &shaderModule);
+		if (result != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create a shader module!");
+		}
+		return shaderModule;
+	}
+
+	std::vector<char> readFile(const std::string &filename)
+	{
+		//open stream from given file
+		//std::ios:binary , tells stream to read file as binary
+		//std::ios::ate , tells stream to start reading from the end of file
+		std::ifstream file(filename, std::ios::binary | std::ios::ate);
+
+		//check if file stream success fully opened
+		if (!file.is_open())
+		{
+			throw std::runtime_error("Failed to open a file!");
+		}
+
+		// get current read position and use to resize buffer
+		size_t fileSize = (size_t)file.tellg();
+		std::vector<char> fileBuffer(fileSize);
+
+		//move cursor to start of file
+		file.seekg(0);
+
+		//read data into the buffer
+		file.read(fileBuffer.data(),fileSize);
+
+		//close the stream
+		file.close();
+
+		return fileBuffer;
+	}
+
+	void CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags bufferProperties, VkBuffer* buffer, VkDeviceMemory* bufferMemory)
+	{
+		//CREATE VERTEX BUFFER
+		//information to create a buffer ( doesnt include assigning memory)
+		VkBufferCreateInfo bufferInfo = {};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size =bufferSize;							// size of buffer (size of 1 vertex pos * number of verts)
+		bufferInfo.usage = bufferUsage;							//multiple types of buffer possible
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;		// similar to swapchain images , we can share vertex buffers
+
+		VkResult result = vkCreateBuffer(device, &bufferInfo, nullptr, buffer);
+		if (result != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create a Vertex Buffer!");
+		}
+
+		//get buffer memory requirements
+		VkMemoryRequirements memoryRequirements;
+		vkGetBufferMemoryRequirements(device, *buffer, &memoryRequirements);
+
+		// Allocate memory to buffer
+		VkMemoryAllocateInfo memoryAllocInfo = {};
+		memoryAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		memoryAllocInfo.allocationSize = memoryRequirements.size;
+		memoryAllocInfo.memoryTypeIndex = FindMemoryTypeIndex(physicalDevice,memoryRequirements.memoryTypeBits,								//index of memory type on physical device that has required bit flags
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);	// VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT : CPU can interact with memory
+																							// VK_MEMORY_PROPERTY_HOST_COHERENT_BIT : Allows placement of data straight into buffer after mapping (otherwise would have to specify manually)
+																							//Allocate memory to VkDeviceMemory
+		result = vkAllocateMemory(device, &memoryAllocInfo, nullptr, bufferMemory);
+		if (result != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to allocate Vertex Buffer Memory!");
+		}
+
+		//Allocate memory to given vertex buffer
+		vkBindBufferMemory(device, *buffer, *bufferMemory, 0);
+	}
+
+
 }

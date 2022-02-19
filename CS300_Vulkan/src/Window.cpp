@@ -21,25 +21,31 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
         case SIZE_MAXIMIZED: //The window has been maximized.
         {
-            std::cout << "Window maximized" << std::endl;
+        //    std::cout << "Window maximized" << std::endl;
 
         }
         break;
         case  SIZE_MAXSHOW: //Message is sent to all pop-up windows when some other window has been restored to its former size.
-        std::cout << "Window max show" << std::endl;
+        //std::cout << "Window max show" << std::endl;
         break;
         case SIZE_MINIMIZED: //The window has been minimized.
-        std::cout << "Window minimized" << std::endl;
+        //std::cout << "Window minimized" << std::endl;
         break;
         case SIZE_RESTORED: //The window has been resized, but neither the SIZE_MINIMIZED nor SIZE_MAXIMIZED value applies.
         {
-            std::cout << "Window restored" << std::endl;
+        //    std::cout << "Window restored" << std::endl;
         }
         break;                
         }      
         uint32_t width = LOWORD(lParam);
         uint32_t height = HIWORD(lParam);
-        std::cout << "Window size changed to ["<< width << "," << height << "]" << std::endl;
+        Window* window = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+        if (window)
+        {
+            window->m_width = width;
+            window->m_height = height;
+        }
+        //std::cout << "Window size changed to ["<< width << "," << height << "]" << std::endl;
     }
     break;
     case WM_KEYDOWN:

@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan.h>
 
+#include <string>
 #include <vector>
 struct VulkanInstance;
 struct VulkanDevice;
@@ -38,6 +39,16 @@ namespace oGFX
 		VkImageView imageView;
 	};
 
+	struct Vertex
+	{
+		float pos[3] ; // Vertex position (x, y, z)
+		float col[3] ; // Vertex colour (r, g, b)
+		float tex[2] ; // Texture Coords(u,v)
+		//glm::vec3 pos; // Vertex position (x, y, z)
+		//glm::vec3 col; // Vertex colour (r, g, b)
+		//glm::vec2 tex; // Texture Coords(u,v)
+	};
+
 	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance,VkPhysicalDevice device);
 	oGFX::QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 
@@ -46,6 +57,22 @@ namespace oGFX
 	VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& surfaceCapabilities);
 
 	VkImageView CreateImageView(VulkanDevice& device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+
+	VkFormat ChooseSupportedFormat(VulkanDevice& device, const std::vector<VkFormat>& formats, VkImageTiling tiling, VkFormatFeatureFlags featureFlags);
+
+	VkImage CreateImage(VulkanDevice& device,uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags useFlags, VkMemoryPropertyFlags propFlags, VkDeviceMemory* imageMemory);
+
+	uint32_t FindMemoryTypeIndex(VkPhysicalDevice physicalDevice, uint32_t allowedTypes, VkMemoryPropertyFlags properties);
+
+	VkShaderModule CreateShaderModule(VulkanDevice& device, const std::vector<char>& code);
+
+	std::vector<char> readFile(const std::string& filename);
+
+	void CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize bufferSize,
+		VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags bufferProperties,
+		VkBuffer* buffer, VkDeviceMemory* bufferMemory);
+
+
 
 }
 

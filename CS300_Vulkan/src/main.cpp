@@ -37,6 +37,43 @@ int main(int argc, char argv[])
     mainWindow.Init();
 
     
+    oGFX::SetupInfo setupSpec;
+
+    //setupSpec.debug = BoolQueryUser("Do you want debugging?");
+    //setupSpec.renderDoc = BoolQueryUser("Do you want renderdoc?");
+    setupSpec.debug = true;
+    setupSpec.renderDoc = false;
+
+    VulkanRenderer renderer;
+    try
+    {
+        renderer.CreateInstance(setupSpec);
+        renderer.CreateSurface(mainWindow);
+        renderer.AcquirePhysicalDevice();
+        renderer.CreateLogicalDevice();
+        renderer.SetupSwapchain();
+        renderer.CreateRenderpass();
+        renderer.CreateDescriptorSetLayout();
+        renderer.CreatePushConstantRange();
+        renderer.CreateGraphicsPipeline();
+        renderer.CreateDepthBufferImage();
+        renderer.CreateFramebuffers();
+        renderer.CreateCommandPool();
+        renderer.CreateCommandBuffers();
+        renderer.CreateTextureSampler();
+        renderer.CreateUniformBuffers();
+
+        renderer.CreateDescriptorPool();
+        renderer.CreateDescriptorSets();
+        renderer.CreateSynchronisation();
+
+        std::cout << "Created vulkan instance!"<< std::endl;
+    }
+    catch (...)
+    {
+        std::cout << "Cannot create vulkan instance!"<< std::endl;
+    }
+
     //handling winOS messages
     // This will handle inputs and pass it to our input callback
     MSG msg; // this is a good flavouring for fried rice
@@ -61,8 +98,9 @@ int main(int argc, char argv[])
         }
         else
         {
+            renderer.Draw();
             //for now
-            break;
+            //break;
 
             //run our core game loop
             //updatePhys();
@@ -71,27 +109,7 @@ int main(int argc, char argv[])
     }
     
 
-    oGFX::SetupInfo setupSpec;
-
-    //setupSpec.debug = BoolQueryUser("Do you want debugging?");
-    //setupSpec.renderDoc = BoolQueryUser("Do you want renderdoc?");
-    setupSpec.debug = true;
-    setupSpec.renderDoc = false;
-
-	VulkanRenderer renderer;
-    try
-    {
-        renderer.CreateInstance(setupSpec);
-        renderer.CreateSurface(mainWindow);
-        renderer.AcquirePhysicalDevice();
-        renderer.CreateLogicalDevice();
-        renderer.SetupSwapchain();
-        std::cout << "Created vulkan instance!"<< std::endl;
-    }
-    catch (...)
-    {
-        std::cout << "Cannot create vulkan instance!"<< std::endl;
-    }
+   
 
     std::cout << "Exiting application..."<< std::endl;
 

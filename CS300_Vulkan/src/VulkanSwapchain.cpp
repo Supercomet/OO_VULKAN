@@ -1,5 +1,6 @@
 #include "VulkanSwapchain.h"
 #include  <stdexcept>
+#include  <array>
 
 #include "VulkanInstance.h"
 #include "VulkanDevice.h"
@@ -22,6 +23,19 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 	using namespace oGFX;
 	m_devicePtr = &device;
 
+	//wait until nothing is using it
+	vkDeviceWaitIdle(device.logicalDevice);
+
+	VkSwapchainKHR oldSwapchain = swapchain;
+	if (oldSwapchain)
+	{
+		for (auto& img : swapChainImages)
+		{
+			vkDestroyImageView(m_devicePtr->logicalDevice, img.imageView, nullptr);
+		}
+		swapChainImages.clear();
+	}
+
 	// get swap chain details so we can pick best settings
 	SwapChainDetails swapChainDetails = oGFX::GetSwapchainDetails(instance,device.physicalDevice);
 
@@ -41,6 +55,7 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 	//if maximagecount is 0, we are unrestricted 
 	if (swapChainDetails.surfaceCapabilities.maxImageCount > 0 && swapChainDetails.surfaceCapabilities.maxImageCount < imageCount)
 	{
+
 		imageCount = swapChainDetails.surfaceCapabilities.maxImageCount;
 	}
 
@@ -85,7 +100,7 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 
 	//if old swapchain been destroyed, and this one replaces it, 
 	//then link old one and quickly hand over responsibilities
-	swapChainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
+	swapChainCreateInfo.oldSwapchain = oldSwapchain;
 
 	//create swapchain
 	VkResult result = vkCreateSwapchainKHR(device.logicalDevice, &swapChainCreateInfo, nullptr, &swapchain);
@@ -113,5 +128,14 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 
 		//add to swapchain image list
 		swapChainImages.push_back(swapChainImage);
+	}
+
+	
+	if (oldSwapchain)
+	{
+		if (oldSwapchain)
+		{
+			vkDestroySwapchainKHR(m_devicePtr->logicalDevice,oldSwapchain, nullptr);
+		}
 	}
 }

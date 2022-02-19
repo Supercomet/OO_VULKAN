@@ -11,11 +11,12 @@ struct VulkanSwapchain
 	VkSwapchainKHR swapchain;
 	std::vector<oGFX::SwapChainImage> swapChainImages;
 
-	VulkanDevice* m_devicePtr;
-
 	//utility
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
 	VkFormat depthFormat;
+
+	VulkanDevice* m_devicePtr;
+
 };
 
