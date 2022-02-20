@@ -94,34 +94,9 @@ int main(int argc, char argv[])
     MSG msg; // this is a good flavouring for fried rice
     while( mainWindow.windowShouldClose == false )  // infinite loop
     {
-        // 1. Check if theres a message in the WinOS message queue and remove it using PM_REMOVE
-        if( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) ) // process every single message in the queue
-        {
-             //process the message
-            if( msg.message == WM_QUIT )
-            {
-                mainWindow.windowShouldClose = true;
-                break;  // BREAK OUT OF INFINITE LOOP
-                        // if user is trying to quit!
-            }
-            else
-            {
-                // Parses and translates the message for WndProc function
-                TranslateMessage(&msg);
-                // now we dispatch the compatible message to our WndProc function.
-                DispatchMessage(&msg);
-            }
-        }
-        else
-        {
-            renderer.Draw();
-            //for now
-            //break;
+        while(Window::PollEvents());
 
-            //run our core game loop
-            //updatePhys();
-            //draw();
-        }
+        renderer.Draw();
     }
     
 

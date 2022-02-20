@@ -863,22 +863,8 @@ bool VulkanRenderer::ResizeSwapchain()
 	MSG msg;
 	while (windowPtr->m_height == 0 || windowPtr->m_width == 0)
 	{
-		if( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) ) // process every single message in the queue
-		{
-			//process the message
-			if( msg.message == WM_QUIT )
-			{
-				windowPtr->windowShouldClose = true;
-				return false;
-			}
-			else
-			{
-				// Parses and translates the message for WndProc function
-				TranslateMessage(&msg);
-				// now we dispatch the compatible message to our WndProc function.
-				DispatchMessage(&msg);
-			}
-		}
+		Window::PollEvents();
+		if (windowPtr->windowShouldClose) return false;
 	}
 	m_swapchain.Init(m_instance, m_device);
 	CreateRenderpass();
@@ -1010,8 +996,8 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 {		
 
-	float height = windowPtr->m_height;
-	float width = windowPtr->m_width;
+	float height = static_cast<float>(windowPtr->m_height);
+	float width = static_cast<float>(windowPtr->m_width);
 	float ar = width / height;
 
 	uboViewProjection.projection = oGFX::ortho(ar, 1, -0.1f, 100);

@@ -308,7 +308,7 @@ namespace oGFX
 				return i;
 			}
 		}
-		
+		return static_cast<uint32_t>(-1);
 	}
 
 	VkShaderModule CreateShaderModule(VulkanDevice& device,const std::vector<char> &code)

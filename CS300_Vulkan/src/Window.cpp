@@ -10,8 +10,14 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_CLOSE:
     PostQuitMessage(0);
-    DestroyWindow(hWnd);
-    hWnd = NULL;
+    case WM_QUIT:
+    {
+        Window* window = reinterpret_cast<Window*>( GetWindowLongPtr(hWnd, GWLP_USERDATA) );
+        if (window)
+        {
+            window->windowShouldClose = true;
+        }
+    }
     break;
     case WM_SIZE:
     {
@@ -78,7 +84,7 @@ Window::~Window()
     if (rawHandle)
     {
         DestroyWindow(rawHandle);
-        rawHandle == NULL;
+        rawHandle = NULL;
     }
 }
 
@@ -222,4 +228,19 @@ void Window::Init()
 HWND Window::GetRawHandle()const
 {
     return rawHandle;
+}
+
+bool Window::PollEvents()
+{
+    MSG msg;
+    // 1. Check if theres a message in the WinOS message queue and remove it using PM_REMOVE
+    if(PeekMessage( &msg, NULL, 0, 0, PM_REMOVE )) // process every single message in the queue
+    {
+            // Parses and translates the message for WndProc function
+            TranslateMessage(&msg);
+            // now we dispatch the compatible message to our WndProc function.
+            DispatchMessage(&msg);
+            return true;
+    }
+    return false;
 }

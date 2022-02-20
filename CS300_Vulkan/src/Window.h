@@ -15,6 +15,7 @@ struct Window
 
     HWND GetRawHandle()const;
 
+    static bool PollEvents();
 
     uint32_t m_width;
     uint32_t m_height;
