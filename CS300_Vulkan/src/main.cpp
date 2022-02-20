@@ -91,7 +91,6 @@ int main(int argc, char argv[])
 
     //handling winOS messages
     // This will handle inputs and pass it to our input callback
-    MSG msg; // this is a good flavouring for fried rice
     while( mainWindow.windowShouldClose == false )  // infinite loop
     {
         while(Window::PollEvents());

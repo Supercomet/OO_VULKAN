@@ -212,6 +212,8 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 	{
 		throw std::runtime_error("Failed to create a runtime instance!\n");
 	}
+
+	return true;
 }
 
 void VulkanInstance::CreateSurface(Window& window)

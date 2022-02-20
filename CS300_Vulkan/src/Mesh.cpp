@@ -2,8 +2,8 @@
 
 Mesh::Mesh(VkPhysicalDevice newPhysicalDevice, VkDevice newDevice, VkQueue transferQueue, VkCommandPool transferCommandPool, std::vector<oGFX::Vertex>* vertices, std::vector<uint32_t>* indices, int newTexId)
 {
-	vertexCount = vertices->size();
-	indexCount = indices->size();
+	vertexCount = static_cast<int>(vertices->size());
+	indexCount = static_cast<int>(indices->size());
 	physicalDevice = newPhysicalDevice;
 	device = newDevice;
 	CreateVertexBuffer(transferQueue,transferCommandPool,vertices);

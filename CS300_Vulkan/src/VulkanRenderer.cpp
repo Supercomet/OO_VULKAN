@@ -860,7 +860,6 @@ void VulkanRenderer::Draw()
 
 bool VulkanRenderer::ResizeSwapchain()
 {
-	MSG msg;
 	while (windowPtr->m_height == 0 || windowPtr->m_width == 0)
 	{
 		Window::PollEvents();
@@ -896,7 +895,7 @@ uint32_t VulkanRenderer::CreateMeshModel(std::vector<oGFX::Vertex>& vertices,std
 	Mesh mesh(m_device.physicalDevice, m_device.logicalDevice, m_device.graphicsQueue, graphicsCommandPool, &vertices, &indices,0);
 	MeshModel model({ mesh });
 	modelList.push_back(model);
-	return modelList.size() - 1;
+	return static_cast<uint32_t>(modelList.size() - 1);
 }
 
 void VulkanRenderer::RecordCommands(uint32_t currentImage)
@@ -1067,7 +1066,7 @@ uint32_t VulkanRenderer::CreateTextureImage(uint32_t width, uint32_t height, con
 	vkFreeMemory(m_device.logicalDevice, imageStagingBufferMemory, nullptr);
 
 	// Return index of new texture image
-	return textureImages.size() - 1;
+	return static_cast<uint32_t>(textureImages.size() - 1);
 }
 
 uint32_t VulkanRenderer:: CreateTextureDescriptor(VkImageView textureImage)
@@ -1111,5 +1110,5 @@ uint32_t VulkanRenderer:: CreateTextureDescriptor(VkImageView textureImage)
 	// Add descriptor set to list
 	samplerDescriptorSets.push_back(descriptorSet);
 
-	return samplerDescriptorSets.size() - 1;
+	return static_cast<uint32_t>(samplerDescriptorSets.size() - 1);
 }
