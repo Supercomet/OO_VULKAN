@@ -483,6 +483,7 @@ void VulkanRenderer::CreateDepthBufferImage()
 	{
 		vkDestroyImageView(m_device.logicalDevice, depthBufferImageView,nullptr);
 		vkDestroyImage(m_device.logicalDevice, depthBufferImage,nullptr);
+		vkFreeMemory(m_device.logicalDevice, depthBufferImageMemory, nullptr);
 	}
 	using namespace oGFX;
 	//get supported format for depth buffer
@@ -767,9 +768,9 @@ void VulkanRenderer::CreateDescriptorSets()
 
 void VulkanRenderer::Draw()
 {
-	if (resizeSwapchain)
+	if (resizeSwapchain || windowPtr->m_width == 0 ||windowPtr->m_height ==0)
 	{
-		ResizeSwapchain();
+		if (ResizeSwapchain() == false) return;
 		resizeSwapchain = false;
 	}
 
@@ -846,12 +847,33 @@ void VulkanRenderer::Draw()
 	currentFrame = (currentFrame + 1) % MAX_FRAME_DRAWS;
 }
 
-void VulkanRenderer::ResizeSwapchain()
+bool VulkanRenderer::ResizeSwapchain()
 {
+	MSG msg;
+	while (windowPtr->m_height == 0 or windowPtr->m_width == 0)
+	{
+		if( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) ) // process every single message in the queue
+		{
+			//process the message
+			if( msg.message == WM_QUIT )
+			{
+				return false;
+			}
+			else
+			{
+				// Parses and translates the message for WndProc function
+				TranslateMessage(&msg);
+				// now we dispatch the compatible message to our WndProc function.
+				DispatchMessage(&msg);
+			}
+		}
+	}
 	m_swapchain.Init(m_instance, m_device);
 	CreateRenderpass();
 	CreateDepthBufferImage();
 	CreateFramebuffers();
+
+	return true;
 }
 
 void VulkanRenderer::RecordCommands(uint32_t currentImage)

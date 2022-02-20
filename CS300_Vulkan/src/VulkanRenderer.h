@@ -49,7 +49,7 @@ static constexpr int MAX_OBJECTS = 1024;
 	void RecordCommands(uint32_t currentImage);
 	void UpdateUniformBuffers(uint32_t imageIndex);
 
-	void ResizeSwapchain();
+	bool ResizeSwapchain();
 
 	Window* windowPtr;
 
