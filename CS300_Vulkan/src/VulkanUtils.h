@@ -8,6 +8,16 @@ struct VulkanInstance;
 struct VulkanDevice;
 namespace oGFX
 {
+
+	struct mat4
+	{
+		mat4();
+		float m[16];
+	};
+
+	oGFX::mat4 ortho(float aspect_ratio, float size, float nr, float fr);
+	
+
 	// Indices (locations) of Queue Familities (if they exist)
 	struct QueueFamilyIndices
 	{
@@ -72,6 +82,18 @@ namespace oGFX
 		VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags bufferProperties,
 		VkBuffer* buffer, VkDeviceMemory* bufferMemory);
 
+	void CopyBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,
+		VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize);
+
+	VkCommandBuffer beginCommandBuffer(VkDevice device, VkCommandPool commandPool);
+
+	void endAndSubmitCommandBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkCommandBuffer commandBuffer);
+	
+	void TransitionImageLayout(VkDevice device, VkQueue queue, VkCommandPool commandPool,
+		VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
+
+	void CopyImageBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,
+		VkBuffer srcBuffer, VkImage image, uint32_t width, uint32_t height);
 
 
 }

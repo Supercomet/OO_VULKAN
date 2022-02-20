@@ -64,6 +64,7 @@ void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
     //queues the logical device needs to create in the info to do so.
     for (int queueFamilyIndex : queueFamilyIndices)
     {
+        (void)queueFamilyIndex;
         VkDeviceQueueCreateInfo queueCreateInfo = {};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         //the index of the family to create a queue from

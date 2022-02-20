@@ -55,7 +55,6 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 	//if maximagecount is 0, we are unrestricted 
 	if (swapChainDetails.surfaceCapabilities.maxImageCount > 0 && swapChainDetails.surfaceCapabilities.maxImageCount < imageCount)
 	{
-
 		imageCount = swapChainDetails.surfaceCapabilities.maxImageCount;
 	}
 

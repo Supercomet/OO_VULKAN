@@ -17,7 +17,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         uint32_t width = LOWORD(lParam);
         uint32_t height = HIWORD(lParam);
-        Window* window = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+        Window* window = reinterpret_cast<Window*>( GetWindowLongPtr(hWnd, GWLP_USERDATA) );
         switch (wParam)
         {
         case SIZE_MAXHIDE: // Message is sent to all pop-up windows when some other window is maximized.
@@ -32,8 +32,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         //std::cout << "Window max show" << std::endl;
         break;
         case SIZE_MINIMIZED: //The window has been minimized.
-        width = 0;
-        height = 0;
+            width = 0;
+            height = 0;
         //std::cout << "Window minimized" << std::endl;
         break;
         case SIZE_RESTORED: //The window has been resized, but neither the SIZE_MINIMIZED nor SIZE_MAXIMIZED value applies.
@@ -56,11 +56,11 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return 0;
     break;
     case WM_PAINT:
-    ValidateRect( hWnd, NULL );
+        ValidateRect( hWnd, NULL );
     break;
     }    // End switch
 
-         // Pass Unhandled Messages To DefWindowProc
+    // Pass Unhandled Messages To DefWindowProc
     return DefWindowProc (hWnd, uMsg, wParam, lParam);
 }
 
@@ -68,7 +68,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 Window::Window(uint32_t width, uint32_t height):
     m_width{width},
     m_height{height},
-    rawHandle{NULL}
+    rawHandle{NULL},
+    windowShouldClose{false}
 {
 }
 
@@ -124,10 +125,6 @@ void Window::Init()
     }
 
 
-    //Lets start creating the window
-    int width = 400;
-    int height = 400;
-
     //system metrics macro allows you to get the metrix of the main monitor.
     const int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     const int screenHeight = GetSystemMetrics(SM_CYSCREEN);
@@ -147,7 +144,7 @@ void Window::Init()
         dmScreenSettings.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
 
         // perform a check to see if the window width and height are not the screen height
-        if ((width != screenWidth) && (height != screenHeight))
+        if ((m_width != screenWidth) && (m_height != screenHeight))
         {
             // what change display settings does it inform WinOS that it wishes to set the system resolution to this.
             // CSD_FULLSCREEN tells WinOS this change is temporary while application is focused. 
@@ -174,10 +171,10 @@ void Window::Init()
     }
     else
     {
-        windowRect.left = static_cast<LONG>(screenWidth) / 2 - width / 2;
-        windowRect.right = static_cast<LONG>(width);
-        windowRect.top = static_cast<LONG>(screenHeight) / 2 - height / 2;
-        windowRect.bottom = static_cast<LONG>(height);
+        windowRect.left = static_cast<LONG>(screenWidth) / 2 - m_width / 2;
+        windowRect.right = static_cast<LONG>(m_width);
+        windowRect.top = static_cast<LONG>(screenHeight) / 2 - m_height / 2;
+        windowRect.bottom = static_cast<LONG>(m_height);
     }
 
     // this function calculates the window's size that the system will use. 

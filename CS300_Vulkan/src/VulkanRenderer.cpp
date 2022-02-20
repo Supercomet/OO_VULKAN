@@ -18,6 +18,17 @@ VulkanRenderer::~VulkanRenderer()
 	//wait until no actions being run on device before destorying
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
+	for (size_t i = 0; i < modelList.size(); i++)
+	{
+		modelList[i].destroyMeshModel();
+	}	
+	for (size_t i = 0; i < textureImages.size(); i++)
+	{
+		vkDestroyImageView(m_device.logicalDevice, textureImageViews[i], nullptr);
+		vkDestroyImage(m_device.logicalDevice, textureImages[i], nullptr);
+		vkFreeMemory(m_device.logicalDevice, textureImageMemory[i], nullptr);
+	}
+
 	vkDestroyDescriptorPool(m_device.logicalDevice, samplerDescriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(m_device.logicalDevice, samplerSetLayout, nullptr);
 
@@ -259,8 +270,8 @@ void VulkanRenderer::CreateGraphicsPipeline()
 {
 	using namespace oGFX;
 	//read in SPIR-V code of shaders
-	auto vertexShaderCode = readFile("Shaders/vert.spv");
-	auto fragmentShaderCode = readFile("Shaders/frag.spv");
+	auto vertexShaderCode = readFile("Shaders/shader.vert.spv");
+	auto fragmentShaderCode = readFile("Shaders/shader.frag.spv");
 
 	//build shader modules to link to graphics pipeline
 	VkShaderModule vertexShaderModule = CreateShaderModule(m_device,vertexShaderCode);
@@ -452,7 +463,7 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	pipelineCreateInfo.pVertexInputState = &vertexInputCreateInfo;	//all the fixed funciton pipeline states
 	pipelineCreateInfo.pInputAssemblyState = &inputAssembly;
 	pipelineCreateInfo.pViewportState = &viewportStateCreateInfo;
-	pipelineCreateInfo.pDynamicState = nullptr;
+	pipelineCreateInfo.pDynamicState = &dynamicStateCreateInfo;
 	pipelineCreateInfo.pRasterizationState = &rasterizerCreateInfo;
 	pipelineCreateInfo.pMultisampleState = &multisamplingCreateInfo;
 	pipelineCreateInfo.pColorBlendState = &colourBlendingCreateInfo;
@@ -850,13 +861,14 @@ void VulkanRenderer::Draw()
 bool VulkanRenderer::ResizeSwapchain()
 {
 	MSG msg;
-	while (windowPtr->m_height == 0 or windowPtr->m_width == 0)
+	while (windowPtr->m_height == 0 || windowPtr->m_width == 0)
 	{
 		if( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) ) // process every single message in the queue
 		{
 			//process the message
 			if( msg.message == WM_QUIT )
 			{
+				windowPtr->windowShouldClose = true;
 				return false;
 			}
 			else
@@ -876,6 +888,31 @@ bool VulkanRenderer::ResizeSwapchain()
 	return true;
 }
 
+
+uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, const char* imgData)
+{
+	using namespace oGFX;
+	auto ind = CreateTextureImage(width, height, imgData);
+
+	VkImageView imageView = CreateImageView(m_device,textureImages[ind], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+	textureImageViews.push_back(imageView);
+
+	//create texture descriptor
+	int descriptorLoc = CreateTextureDescriptor(imageView);
+
+	//return location of set with texture
+	return descriptorLoc;
+
+}
+
+uint32_t VulkanRenderer::CreateMeshModel(std::vector<oGFX::Vertex>& vertices,std::vector<uint32_t>& indices)
+{
+	Mesh mesh(m_device.physicalDevice, m_device.logicalDevice, m_device.graphicsQueue, graphicsCommandPool, &vertices, &indices,0);
+	MeshModel model({ mesh });
+	modelList.push_back(model);
+	return modelList.size() - 1;
+}
+
 void VulkanRenderer::RecordCommands(uint32_t currentImage)
 {
 	//Information about how to begin each command buffer
@@ -892,7 +929,8 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 	renderPassBeginInfo.renderArea.extent = m_swapchain.swapChainExtent; //size of region to run render pass on (Starting from offset)
 	std::array<VkClearValue, 2> clearValues{};
 
-	clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
+	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
+	clearValues[0].color = { 0.0f,0.0f,0.0f,1.0f };
 	clearValues[1].depthStencil.depth = {1.0f };
 
 	renderPassBeginInfo.pClearValues = clearValues.data(); //list of clear values
@@ -910,53 +948,52 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 
 	//Begin Render Pass
 	vkCmdBeginRenderPass(commandBuffers[currentImage], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-	VkViewport viewport = { 0, 0, float(windowPtr->m_width), float(windowPtr->m_height), 0, 1 };
-	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width), uint32_t(windowPtr->m_height)} };
-
-	vkCmdSetViewport(commandBuffers[currentImage], 0, 1, &viewport);
-	vkCmdSetScissor(commandBuffers[currentImage], 0, 1, &scissor);
+	
 
 	//Bind pipeline to be used in render pass
 	vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
+	VkViewport viewport = { 0, float(windowPtr->m_height), float(windowPtr->m_width), -float(windowPtr->m_height), 0, 1 };
+	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
+	vkCmdSetViewport(commandBuffers[currentImage], 0, 1, &viewport);
+	vkCmdSetScissor(commandBuffers[currentImage], 0, 1, &scissor);
+
 	for (size_t j = 0; j < modelList.size(); ++j)
 	{
-		//MeshModel thisModel = modelList[j];
-		//
-		//// Push constants tot shader stage directly, (no buffer)
-		//vkCmdPushConstants(commandBuffers[currentImage],
-		//	pipelineLayout,
-		//	VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
-		//	0,							// offset of push constants to update
-		//	sizeof(Model),				// size of data being pushed
-		//	&thisModel.getModel());		// actualy data being pushed (could be an array)
-		//
-		//for (size_t k = 0; k < thisModel.getMeshCount(); k++)
-		//{
-		//	VkBuffer vertexBuffers[] = { thisModel.getMesh(k)->getVertexBuffer() };					// buffers to bind
-		//	VkDeviceSize offsets[] = { 0 };												//offsets into buffers being bound
-		//	vkCmdBindVertexBuffers(commandBuffers[currentImage], 0, 1, vertexBuffers, offsets);		//command to bind vertex buffer before drawing with them
-		//
-		//																							//bind mesh index buffer with 0 offset and using the uint32 type
-		//	vkCmdBindIndexBuffer(commandBuffers[currentImage], thisModel.getMesh(k)->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-		//
-		//	// Dyanimc offset amount 
-		//	//uint32_t dynamicOffset = static_cast<uint32_t>(modelUniformAlignment) * j;
-		//
-		//
-		//
-		//	std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[currentImage],
-		//		samplerDescriptorSets[thisModel.getMesh(k)->getTexId()] };
-		//
-		//	// bind descriptor sets
-		//	vkCmdBindDescriptorSets(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
-		//		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0 /*1*/, nullptr /*&dynamicOffset*/);
-		//
-		//	//Execute pipeline
-		//	vkCmdDrawIndexed(commandBuffers[currentImage], thisModel.getMesh(k)->getIndexCount(), 1, 0, 0, 0);
-		//}
-
+		MeshModel thisModel = modelList[j];
+		
+		// Push constants tot shader stage directly, (no buffer)
+		vkCmdPushConstants(commandBuffers[currentImage],
+			pipelineLayout,
+			VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+			0,							// offset of push constants to update
+			sizeof(Model),				// size of data being pushed
+			&thisModel.getModel());		// actualy data being pushed (could be an array)
+		
+		for (size_t k = 0; k < thisModel.getMeshCount(); k++)
+		{
+			VkBuffer vertexBuffers[] = { thisModel.getMesh(k)->getVertexBuffer() };					// buffers to bind
+			VkDeviceSize offsets[] = { 0 };												//offsets into buffers being bound
+			vkCmdBindVertexBuffers(commandBuffers[currentImage], 0, 1, vertexBuffers, offsets);		//command to bind vertex buffer before drawing with them
+		
+																									//bind mesh index buffer with 0 offset and using the uint32 type
+			vkCmdBindIndexBuffer(commandBuffers[currentImage], thisModel.getMesh(k)->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+		
+			// Dyanimc offset amount 
+			//uint32_t dynamicOffset = static_cast<uint32_t>(modelUniformAlignment) * j;
+		
+		
+		
+			std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[currentImage],
+				samplerDescriptorSets[thisModel.getMesh(k)->getTexId()] };
+		
+			// bind descriptor sets
+			vkCmdBindDescriptorSets(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+				0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0 /*1*/, nullptr /*&dynamicOffset*/);
+		
+			//Execute pipeline
+			vkCmdDrawIndexed(commandBuffers[currentImage], thisModel.getMesh(k)->getIndexCount(), 1, 0, 0, 0);
+		}
 	}
 	// End Render  Pass
 	vkCmdEndRenderPass(commandBuffers[currentImage]);
@@ -971,7 +1008,15 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 }
 
 void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
-{	
+{		
+
+	float height = windowPtr->m_height;
+	float width = windowPtr->m_width;
+	float ar = width / height;
+
+	uboViewProjection.projection = oGFX::ortho(ar, 1, -0.1f, 100);
+	uboViewProjection.projection.m[10] *= -1.0f;
+
 	//copy VP data
 	void *data;
 	vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[imageIndex], 0, sizeof(UboViewProjection), 0, &data);
@@ -988,4 +1033,97 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 	//memcpy(data, modelTransferSpace, modelUniformAlignment * meshList.size());
 	//vkUnmapMemory(mainDevice.logicalDevice, modelDUniformBufferMemory[imageIndex]);
 
+}
+
+uint32_t VulkanRenderer::CreateTextureImage(uint32_t width, uint32_t height, const char* imgData)
+{
+	using namespace oGFX;
+	//Load image file
+	VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * 4;
+
+	// Create staging buffer to hold loaded data, ready to copy to device
+	VkBuffer imageStagingBuffer;
+	VkDeviceMemory imageStagingBufferMemory;
+	CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		&imageStagingBuffer, &imageStagingBufferMemory);
+
+	// copy image data to staging buffer
+	void *data;
+	vkMapMemory(m_device.logicalDevice, imageStagingBufferMemory, 0, imageSize, 0, &data);
+	memcpy(data, imgData, static_cast<size_t>(imageSize));
+	vkUnmapMemory(m_device.logicalDevice, imageStagingBufferMemory);
+
+	// Create image to hold final texture
+	VkImage texImage;
+	VkDeviceMemory texImageMemory;
+	texImage = CreateImage(m_device,width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &texImageMemory);
+
+	// Copy data to image
+	//transition image to be DST for copy operation
+	TransitionImageLayout(m_device.logicalDevice, m_device.graphicsQueue, graphicsCommandPool,
+		texImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	// Copy image data
+	CopyImageBuffer(m_device.logicalDevice, m_device.graphicsQueue, graphicsCommandPool, imageStagingBuffer, texImage, width, height);
+
+	//transition image to be Shader readable for shader usage
+	TransitionImageLayout(m_device.logicalDevice,m_device. graphicsQueue, graphicsCommandPool,
+		texImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	//Add texture data to vector for refrence.
+	textureImages.push_back(texImage);
+	textureImageMemory.push_back(texImageMemory);
+
+	// Destroy staginb uffers
+	vkDestroyBuffer(m_device.logicalDevice, imageStagingBuffer, nullptr);
+	vkFreeMemory(m_device.logicalDevice, imageStagingBufferMemory, nullptr);
+
+	// Return index of new texture image
+	return textureImages.size() - 1;
+}
+
+uint32_t VulkanRenderer:: CreateTextureDescriptor(VkImageView textureImage)
+{
+	VkDescriptorSet descriptorSet;
+
+	// Descriptor set allocation info
+	VkDescriptorSetAllocateInfo setAllocInfo{};
+	setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	setAllocInfo.descriptorPool = samplerDescriptorPool;
+	setAllocInfo.descriptorSetCount = 1;
+	setAllocInfo.pSetLayouts = &samplerSetLayout;
+
+	// Allocate our descriptor sets
+	VkResult result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, &descriptorSet);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("FAiled to allocate texture descriptor sets!");
+	}
+
+	// Texture image info
+	VkDescriptorImageInfo imageInfo{};
+	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image outout when in use
+	imageInfo.imageView = textureImage;// image to bind to set
+	imageInfo.sampler = textureSampler; // sampler to use for set
+
+
+										//Descriptor write info
+	VkWriteDescriptorSet descriptorWrite{};
+	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrite.dstSet = descriptorSet;
+	descriptorWrite.dstBinding = 0;
+	descriptorWrite.dstArrayElement = 0;
+	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptorWrite.descriptorCount = 1;
+	descriptorWrite.pImageInfo = &imageInfo;
+
+	// Update the new descriptor set
+	vkUpdateDescriptorSets(m_device.logicalDevice, 1, &descriptorWrite, 0, nullptr);
+
+	// Add descriptor set to list
+	samplerDescriptorSets.push_back(descriptorSet);
+
+	return samplerDescriptorSets.size() - 1;
 }

@@ -12,6 +12,9 @@
     <Link>
       <AdditionalDependencies>%VULKAN_SDK%\Lib\vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy "$(SolutionDir)CS300_Vulkan\shaders" "$(OutDir)\shaders" /Q /E /S /Y /I </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup />
 </Project>

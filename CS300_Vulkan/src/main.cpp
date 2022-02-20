@@ -20,7 +20,7 @@ bool BoolQueryUser(const char * str)
     std::cout<< str << " [y/n]"<< std::endl;
     while (! response ){
         std::cin>> response;
-        response  = std::tolower(response);
+        response  = static_cast<char>(std::tolower(response));
         if (response != 'y' && response != 'n'){
             std::cout<< "Invalid input["<< response<< "]please try again"<< std::endl;
             response = 0;           
@@ -32,6 +32,8 @@ bool BoolQueryUser(const char * str)
 
 int main(int argc, char argv[])
 {
+    (void)argc;
+    (void)argv;
 
     Window mainWindow;
     mainWindow.Init();
@@ -42,7 +44,7 @@ int main(int argc, char argv[])
     //setupSpec.debug = BoolQueryUser("Do you want debugging?");
     //setupSpec.renderDoc = BoolQueryUser("Do you want renderdoc?");
     setupSpec.debug = true;
-    setupSpec.renderDoc = false;
+    setupSpec.renderDoc = true;
 
     VulkanRenderer renderer;
     try
@@ -74,10 +76,23 @@ int main(int argc, char argv[])
         std::cout << "Cannot create vulkan instance!"<< std::endl;
     }
 
+    uint32_t colour = 0xffffffff;
+    renderer.CreateTexture(1, 1, reinterpret_cast<const char*>(&colour));
+
+    std::vector<oGFX::Vertex>verts{
+            oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f } ,{ 0.0f,0.0f } },
+            oGFX::Vertex{ { 0.5,-0.5,0.0} ,{ 0.0f,1.0f,0.0f }, { 0.0f,0.0f } },
+            oGFX::Vertex{ { 0.0, 0.5,0.0}, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f } }
+    };
+    std::vector<uint32_t> indices{
+        0,1,2
+    };
+    uint32_t obj = renderer.CreateMeshModel(verts, indices);
+
     //handling winOS messages
     // This will handle inputs and pass it to our input callback
     MSG msg; // this is a good flavouring for fried rice
-    while( 1 )  // infinite loop
+    while( mainWindow.windowShouldClose == false )  // infinite loop
     {
         // 1. Check if theres a message in the WinOS message queue and remove it using PM_REMOVE
         if( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) ) // process every single message in the queue
@@ -85,6 +100,7 @@ int main(int argc, char argv[])
              //process the message
             if( msg.message == WM_QUIT )
             {
+                mainWindow.windowShouldClose = true;
                 break;  // BREAK OUT OF INFINITE LOOP
                         // if user is trying to quit!
             }

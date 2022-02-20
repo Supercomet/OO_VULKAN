@@ -59,7 +59,31 @@ namespace oGFX
 		return indices;
 	}	   
 
-    oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance, VkPhysicalDevice device)
+	oGFX::mat4 ortho(float aspect_ratio, float size, float nr, float fr)
+	{
+		
+			oGFX::mat4 mat;
+
+			//float top = size * 0.5f;
+			float top = size;
+			float bottom = -top;
+			float right = top * aspect_ratio;
+			float left = bottom * aspect_ratio;
+
+			mat.m[0*4 +0] = 2.0f / (right - left);
+			mat.m[1*4 +1] = 2.0f / (top - bottom);
+			mat.m[2*4 +2] = 1.0f / (fr - nr);
+
+			//this was missing..
+			mat.m[3*4+ 0] = -(right + left) / (right - left);
+			mat.m[3*4+ 1] = -(top + bottom) / (top - bottom);
+			mat.m[3*4+ 2] = fr/(fr-nr);
+
+			return mat;
+		
+	}
+
+	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance, VkPhysicalDevice device)
     {
         oGFX::SwapChainDetails swapChainDetails;
 
@@ -284,6 +308,7 @@ namespace oGFX
 				return i;
 			}
 		}
+		
 	}
 
 	VkShaderModule CreateShaderModule(VulkanDevice& device,const std::vector<char> &code)
@@ -336,6 +361,7 @@ namespace oGFX
 
 	void CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags bufferProperties, VkBuffer* buffer, VkDeviceMemory* bufferMemory)
 	{
+		(void)bufferProperties;
 		//CREATE VERTEX BUFFER
 		//information to create a buffer ( doesnt include assigning memory)
 		VkBufferCreateInfo bufferInfo = {};
@@ -372,5 +398,149 @@ namespace oGFX
 		vkBindBufferMemory(device, *buffer, *bufferMemory, 0);
 	}
 
+	void CopyBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize)
+	{
+		//Create buffer
+		VkCommandBuffer transferCommandBuffer = beginCommandBuffer(device,transferCommandPool);
+
+		// region of data to copy from and to
+		VkBufferCopy bufferCopyRegion{};
+		bufferCopyRegion.srcOffset = 0;
+		bufferCopyRegion.dstOffset = 0;
+		bufferCopyRegion.size = bufferSize;
+
+		// command to copy src buffer to dst buffer
+		vkCmdCopyBuffer(transferCommandBuffer, srcBuffer, dstBuffer, 1, &bufferCopyRegion);
+
+		endAndSubmitCommandBuffer(device, transferCommandPool, transferQueue, transferCommandBuffer);
+	}
+
+	VkCommandBuffer beginCommandBuffer(VkDevice device, VkCommandPool commandPool)
+	{
+		//command buffer to hold transfer commands
+		VkCommandBuffer commandBuffer;
+
+		//command buffer details
+		VkCommandBufferAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandPool = commandPool;
+		allocInfo.commandBufferCount = 1;
+
+		//allocate command buffer from pool
+		vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+		//information to begin the command buffer record.
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // only using the command buffer once, so its a one time submit
+
+																	   //begin recording transfer commands
+		vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+		return commandBuffer;
+	}
+
+	void endAndSubmitCommandBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkCommandBuffer commandBuffer)
+
+	{
+		// End commands
+		vkEndCommandBuffer(commandBuffer);
+
+		//queue submission information
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		//assuming we have only a few meshes to load we will pause here until we load the previous object
+		//submit transfer commands to transfer queue and wait until it finishes
+		vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(queue);
+
+		// Free temporary command buffer to pool
+		vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+	}
+
+	void TransitionImageLayout(VkDevice device, VkQueue queue, VkCommandPool commandPool, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout)
+	{
+			//Create buffer
+			VkCommandBuffer commandBuffer = beginCommandBuffer(device, commandPool);
+
+			VkImageMemoryBarrier imageMemoryBarrier{};
+			imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;	
+			imageMemoryBarrier.oldLayout = oldLayout;							// Layout to transition from
+			imageMemoryBarrier.newLayout = newLayout;							// Layout to transition to
+			imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;	// Queue family to transition from
+			imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;	// Queue family to transition to
+			imageMemoryBarrier.image = image;									// image being accessed and modified as part of barrier
+			imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // Aspect of image being altered
+			imageMemoryBarrier.subresourceRange.baseMipLevel = 0;				// First mip level to start alterations on													   // 
+			imageMemoryBarrier.subresourceRange.levelCount = 1;					// number of mip levels to alter starting from base value
+			imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;				// First layer to start alterations on
+			imageMemoryBarrier.subresourceRange.layerCount = 1;					// Number of layers to alter starting from base array layer
+
+			VkPipelineStageFlags srcStage{};
+			VkPipelineStageFlags dstStage{};
+
+
+			// If transitioning from new image to image ready to recieve data..
+			if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+			{
+				imageMemoryBarrier.srcAccessMask = 0;								// Memory access stage transition must happen after..
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;	// Memory access stage transition must happen before...
+
+				srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+				dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			}
+			// If transitioning from trasnferred destination to shader readable format..
+			else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+			{
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+				dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; //ready to be read before we reach the fragment shader
+
+			}
+
+			vkCmdPipelineBarrier(commandBuffer,
+				srcStage,dstStage,					// pipline stages (match to src and dst access masks)
+				0,						// depencendy flags
+				0, nullptr,			// Memory barrier count and data
+				0, nullptr,			// Buffer memory barrier and data
+				1,&imageMemoryBarrier	// Image memeory barrier count + data
+			);
+
+			endAndSubmitCommandBuffer(device, commandPool, queue, commandBuffer);
+	}
+
+	void CopyImageBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool, VkBuffer srcBuffer, VkImage image, uint32_t width, uint32_t height)
+	{
+		//Create buffer
+		VkCommandBuffer transferCommandBuffer = beginCommandBuffer(device, transferCommandPool);
+
+		VkBufferImageCopy imageRegion{};
+		imageRegion.bufferOffset = 0;											// Offset into data
+		imageRegion.bufferRowLength = 0;										// Row length of data to calculate data spacing
+		imageRegion.bufferImageHeight = 0;										// Image height to calculate data spacing
+		imageRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;	// Which aspect of image to copy
+		imageRegion.imageSubresource.mipLevel = 0;								// Mipmap Level to copy
+		imageRegion.imageSubresource.baseArrayLayer = 0;						// Starting array layer (if array)
+		imageRegion.imageSubresource.layerCount = 1;							// Number of layers to copy starting at baseArray layer
+		imageRegion.imageOffset = { 0,0,0 };									//	Offset into image (as opposed to raw data in buffer offset)
+		imageRegion.imageExtent = { width, height, 1 };							//  Size of region to copy as XYZ values
+
+																				// Copy buffer to given image
+		vkCmdCopyBufferToImage(transferCommandBuffer, srcBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageRegion);
+
+		endAndSubmitCommandBuffer(device, transferCommandPool, transferQueue, transferCommandBuffer);
+	}
+
+	mat4::mat4():
+	m{0.0f}
+	{
+		 m[0] = m[5] = m[10] = m[15] = 1.0f; 
+	}
 
 }

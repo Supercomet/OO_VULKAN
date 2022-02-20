@@ -7,13 +7,13 @@
 
 #include "MeshModel.h"
 
+#include "VulkanUtils.h"
 #include "VulkanInstance.h"
 #include "VulkanDevice.h"
 #include "VulkanSwapchain.h"
 #include "gpuCommon.h"
 
 struct Window;
-
 
 class VulkanRenderer
 {
@@ -49,38 +49,46 @@ static constexpr int MAX_OBJECTS = 1024;
 	void RecordCommands(uint32_t currentImage);
 	void UpdateUniformBuffers(uint32_t imageIndex);
 
+	uint32_t CreateMeshModel(std::vector<oGFX::Vertex>& vertices,std::vector<uint32_t>& indices);
+	uint32_t CreateTexture(uint32_t width, uint32_t height,const char* imgData);
+
 	bool ResizeSwapchain();
 
-	Window* windowPtr;
+	Window* windowPtr{nullptr};
 
 	//Scene objects
 	std::vector<MeshModel> modelList;
+
+	//textures
+	std::vector<VkImage> textureImages;
+	std::vector<VkDeviceMemory> textureImageMemory;
+	std::vector<VkImageView> textureImageViews;
 
 	// - Synchronisation
 	std::vector<VkSemaphore> imageAvailable;
 	std::vector<VkSemaphore> renderFinished;
 	std::vector<VkFence> drawFences;
 
-	VulkanInstance m_instance;
-	VulkanDevice m_device;
-	VulkanSwapchain m_swapchain;
+	VulkanInstance m_instance{};
+	VulkanDevice m_device{};
+	VulkanSwapchain m_swapchain{};
 	std::vector<VkFramebuffer> swapChainFramebuffers;
 
 	// - Pipeline
-	VkPipeline graphicsPipeline;
-	VkPipelineLayout pipelineLayout;
-	VkRenderPass renderPass;
+	VkPipeline graphicsPipeline{};
+	VkPipelineLayout pipelineLayout{};
+	VkRenderPass renderPass{};
 
 	// - Pools
-	VkCommandPool graphicsCommandPool;
+	VkCommandPool graphicsCommandPool{};
 
 	// - Descriptors
-	VkDescriptorSetLayout descriptorSetLayout;
-	VkDescriptorSetLayout samplerSetLayout;
-	VkPushConstantRange pushConstantRange;
+	VkDescriptorSetLayout descriptorSetLayout{};
+	VkDescriptorSetLayout samplerSetLayout{};
+	VkPushConstantRange pushConstantRange{};
 
-	VkDescriptorPool descriptorPool;
-	VkDescriptorPool samplerDescriptorPool;
+	VkDescriptorPool descriptorPool{};
+	VkDescriptorPool samplerDescriptorPool{};
 	std::vector<VkDescriptorSet> descriptorSets;
 	std::vector<VkDescriptorSet> samplerDescriptorSets;
 
@@ -88,11 +96,11 @@ static constexpr int MAX_OBJECTS = 1024;
 	std::vector<VkDeviceMemory> vpUniformBufferMemory;
 
 
-	VkImage depthBufferImage;
-	VkDeviceMemory depthBufferImageMemory;
-	VkImageView depthBufferImageView;
+	VkImage depthBufferImage{};
+	VkDeviceMemory depthBufferImageMemory{};
+	VkImageView depthBufferImageView{};
 
-	VkSampler textureSampler;
+	VkSampler textureSampler{};
 
 	std::vector<VkCommandBuffer> commandBuffers;
 
@@ -105,10 +113,14 @@ static constexpr int MAX_OBJECTS = 1024;
 
 	struct UboViewProjection
 	{
-		float projection[16];
-		float view[16];
+		oGFX::mat4 projection;
+		oGFX::mat4 view;
 	} uboViewProjection;
 
 	bool resizeSwapchain = false;
+
+	private:
+		uint32_t CreateTextureImage(uint32_t width, uint32_t height, const char* imgData);
+		uint32_t CreateTextureDescriptor(VkImageView textureImage);
 };
 
