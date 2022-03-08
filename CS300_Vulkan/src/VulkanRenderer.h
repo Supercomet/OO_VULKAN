@@ -55,6 +55,8 @@ static constexpr int MAX_OBJECTS = 1024;
 	uint32_t CreateTexture(uint32_t width, uint32_t height,const unsigned char* imgData);
 	uint32_t CreateTexture(const std::string& fileName);
 
+	void UpdateModel(int modelId, glm::mat4 newModel);
+
 	bool ResizeSwapchain();
 
 	Window* windowPtr{nullptr};

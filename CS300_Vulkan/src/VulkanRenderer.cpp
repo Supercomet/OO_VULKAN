@@ -865,6 +865,12 @@ void VulkanRenderer::Draw()
 	currentFrame = (currentFrame + 1) % MAX_FRAME_DRAWS;
 }
 
+void VulkanRenderer::UpdateModel(int modelId, glm::mat4 newModel)
+{
+	if(modelId>= modelList.size())return; //error selection!!
+	modelList[modelId].setModel(newModel);
+}
+
 bool VulkanRenderer::ResizeSwapchain()
 {
 	while (windowPtr->m_height == 0 || windowPtr->m_width == 0)
@@ -921,6 +927,7 @@ uint32_t VulkanRenderer::CreateMeshModel(std::vector<oGFX::Vertex>& vertices,std
 	modelList.push_back(model);
 	return static_cast<uint32_t>(modelList.size() - 1);
 }
+
 
 uint32_t VulkanRenderer::CreateMeshModel(const std::string& file)
 {
@@ -1064,7 +1071,8 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 	float width = static_cast<float>(windowPtr->m_width);
 	float ar = width / height;
 
-	uboViewProjection.projection = glm::ortho(-ar, ar, -1.0f, 1.0f, -10.0f, 10.0f);
+	uboViewProjection.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
+	uboViewProjection.projection = glm::ortho(-ar, ar, -1.0f, 1.0f, -100.f, 100.0f);
 	//uboViewProjection.projection = oGFX::customOrtho(1.0,10.0f,-1.0f,10.0f);
 	//uboViewProjection.projection[2][2] *= -1.0f;
 
