@@ -8,7 +8,7 @@ Mesh::Mesh(VkPhysicalDevice newPhysicalDevice, VkDevice newDevice, VkQueue trans
 	device = newDevice;
 	CreateVertexBuffer(transferQueue,transferCommandPool,vertices);
 	CreateIndexBuffer(transferQueue, transferCommandPool, indices);
-	model = oGFX::mat4();
+	model = glm::mat4(1.0f);
 	texId = newTexId;
 }
 
@@ -16,12 +16,12 @@ Mesh::~Mesh()
 {
 }
 
-void Mesh::SetTransform(oGFX::mat4 newModel)
+void Mesh::SetTransform(glm::mat4 newModel)
 {
 	model = newModel;
 }
 
-const oGFX::mat4& Mesh::GetTransform()
+const glm::mat4& Mesh::GetTransform()
 {
 	return model;
 }

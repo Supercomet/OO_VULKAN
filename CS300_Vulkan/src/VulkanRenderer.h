@@ -108,13 +108,13 @@ static constexpr int MAX_OBJECTS = 1024;
 
 	struct Model
 	{
-		float mdl[16];
+		glm::mat4 mdl{ 1.0f };
 	};
 
 	struct UboViewProjection
 	{
-		oGFX::mat4 projection;
-		oGFX::mat4 view;
+		glm::mat4 projection{ 1.0f };
+		glm::mat4 view{ 1.0f };
 	} uboViewProjection;
 
 	bool resizeSwapchain = false;

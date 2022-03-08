@@ -5,6 +5,9 @@
 #include <stdexcept>
 #include <array>
 
+#define GLM_DEPTH_ZERO_TO_ONE
+#include "glm/gtc/matrix_transform.hpp"
+
 #include <iostream>
 
 #include <vulkan/vulkan.h>
@@ -14,7 +17,7 @@
 
 
 VulkanRenderer::~VulkanRenderer()
-{
+{ 
 	//wait until no actions being run on device before destorying
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
@@ -999,8 +1002,9 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 	float width = static_cast<float>(windowPtr->m_width);
 	float ar = width / height;
 
-	uboViewProjection.projection = oGFX::ortho(ar, 1, -0.1f, 100);
-	uboViewProjection.projection.m[10] *= -1.0f;
+	uboViewProjection.projection = glm::ortho(-1.0f,1.0f,-1.0f,1.0f,-10.0f,10.0f);
+	//uboViewProjection.projection = oGFX::customOrtho(1.0,10.0f,-1.0f,10.0f);
+	//uboViewProjection.projection[2][2] *= -1.0f;
 
 	//copy VP data
 	void *data;

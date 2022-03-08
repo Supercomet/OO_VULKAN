@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <fstream>
 #include <vector>
+#include "glm/glm.hpp"
 
 #include "VulkanUtils.h"
 #include "VulkanInstance.h"
@@ -59,28 +60,50 @@ namespace oGFX
 		return indices;
 	}	   
 
-	oGFX::mat4 ortho(float aspect_ratio, float size, float nr, float fr)
-	{
-		
-			oGFX::mat4 mat;
+	//glm::mat4 ortho(float aspect_ratio, float size, float nr, float fr)
+	//{
+	//	
+	//		glm::mat4 mat;
+	//
+	//		//float top = size * 0.5f;
+	//		float top = size;
+	//		float bottom = -top;
+	//		float right = top * aspect_ratio;
+	//		float left = bottom * aspect_ratio;
+	//
+	//		mat[0*4 +0] = 2.0f / (right - left);
+	//		mat[1*4 +1] = 2.0f / (top - bottom);
+	//		mat[2*4 +2] = 1.0f / (fr - nr);
+	//
+	//		//this was missing..
+	//		mat.m[3*4+ 0] = -(right + left) / (right - left);
+	//		mat.m[3*4+ 1] = -(top + bottom) / (top - bottom);
+	//		mat.m[3*4+ 2] = fr/(fr-nr);
+	//
+	//		return mat;
+	//	
+	//}
 
+	glm::mat4 customOrtho(float aspect_ratio, float size, float nr, float fr)
+	{
+			glm::mat4 mat;
+	
 			//float top = size * 0.5f;
 			float top = size;
 			float bottom = -top;
 			float right = top * aspect_ratio;
 			float left = bottom * aspect_ratio;
-
-			mat.m[0*4 +0] = 2.0f / (right - left);
-			mat.m[1*4 +1] = 2.0f / (top - bottom);
-			mat.m[2*4 +2] = 1.0f / (fr - nr);
-
+	
+			mat[0 ][0] = 2.0f / (right - left);
+			mat[1 ][1] = 2.0f / (top - bottom);
+			mat[2 ][2] = 1.0f / (fr - nr);
+	
 			//this was missing..
-			mat.m[3*4+ 0] = -(right + left) / (right - left);
-			mat.m[3*4+ 1] = -(top + bottom) / (top - bottom);
-			mat.m[3*4+ 2] = fr/(fr-nr);
-
+			mat[3][ 0] = -(right + left) / (right - left);
+			mat[3][ 1] = -(top + bottom) / (top - bottom);
+			mat[3][ 2] = fr/(fr-nr);
+	
 			return mat;
-		
 	}
 
 	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance, VkPhysicalDevice device)
@@ -537,10 +560,5 @@ namespace oGFX
 		endAndSubmitCommandBuffer(device, transferCommandPool, transferQueue, transferCommandBuffer);
 	}
 
-	mat4::mat4():
-	m{0.0f}
-	{
-		 m[0] = m[5] = m[10] = m[15] = 1.0f; 
-	}
 
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+#include "glm/glm.hpp"
 #include <vector>
 #include "VulkanUtils.h"
 
@@ -13,8 +14,8 @@ public:
 
 	~Mesh();
 
-	void SetTransform(oGFX::mat4 newModel);
-	const oGFX::mat4& GetTransform();
+	void SetTransform(glm::mat4 newModel);
+	const glm::mat4& GetTransform();
 
 	int getTexId();
 
@@ -29,7 +30,7 @@ public:
 
 private:
 
-	oGFX::mat4 model;
+	glm::mat4 model{ 1.0f };
 	int texId;
 
 	int vertexCount;

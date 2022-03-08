@@ -1,6 +1,6 @@
 #pragma once
-
 #include <vulkan/vulkan.h>
+#include "glm/glm.hpp"
 
 #include <string>
 #include <vector>
@@ -9,15 +9,8 @@ struct VulkanDevice;
 namespace oGFX
 {
 
-	struct mat4
-	{
-		mat4();
-		float m[16];
-	};
-
-	oGFX::mat4 ortho(float aspect_ratio, float size, float nr, float fr);
+	glm::mat4 customOrtho(float aspect_ratio, float size, float nr, float fr);
 	
-
 	// Indices (locations) of Queue Familities (if they exist)
 	struct QueueFamilyIndices
 	{
@@ -51,12 +44,12 @@ namespace oGFX
 
 	struct Vertex
 	{
-		float pos[3] ; // Vertex position (x, y, z)
-		float col[3] ; // Vertex colour (r, g, b)
-		float tex[2] ; // Texture Coords(u,v)
-		//glm::vec3 pos; // Vertex position (x, y, z)
-		//glm::vec3 col; // Vertex colour (r, g, b)
-		//glm::vec2 tex; // Texture Coords(u,v)
+		//float pos[3] ; // Vertex position (x, y, z)
+		//float col[3] ; // Vertex colour (r, g, b)
+		//float tex[2] ; // Texture Coords(u,v)
+		glm::vec3 pos; // Vertex position (x, y, z)
+		glm::vec3 col; // Vertex colour (r, g, b)
+		glm::vec2 tex; // Texture Coords(u,v)
 	};
 
 	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance,VkPhysicalDevice device);
