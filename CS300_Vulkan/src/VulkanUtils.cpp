@@ -9,6 +9,7 @@
 #include <fstream>
 #include <vector>
 #include "glm/glm.hpp"
+#include "stb_image.h"
 
 #include "VulkanUtils.h"
 #include "VulkanInstance.h"
@@ -558,6 +559,25 @@ namespace oGFX
 		vkCmdCopyBufferToImage(transferCommandBuffer, srcBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageRegion);
 
 		endAndSubmitCommandBuffer(device, transferCommandPool, transferQueue, transferCommandBuffer);
+	}
+
+	unsigned char* LoadTextureFromFile(const std::string& fileName, int& width, int& height, uint64_t& imageSize)
+	{
+		// Number of channels image uses
+		int channels;
+
+		// Load pixeldata for image
+		std::string fileLoc = "Textures/" + fileName;
+		unsigned char *image = stbi_load(fileLoc.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+		if (!image)
+		{
+			throw std::runtime_error("Failed to load a texture file! (" + fileName + ")");
+		}
+
+		// Calculate image size using given and known data
+		imageSize = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * 4;
+
+		return image;
 	}
 
 

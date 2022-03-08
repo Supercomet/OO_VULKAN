@@ -77,7 +77,7 @@ int main(int argc, char argv[])
     }
 
     uint32_t colour = 0xffffffff;
-    renderer.CreateTexture(1, 1, reinterpret_cast<const char*>(&colour));
+    renderer.CreateTexture(1, 1, reinterpret_cast<const unsigned char*>(&colour));
 
     std::vector<oGFX::Vertex>verts{
             oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f } ,{ 0.0f,0.0f } },

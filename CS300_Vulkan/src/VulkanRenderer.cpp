@@ -5,12 +5,16 @@
 #include <stdexcept>
 #include <array>
 
-#define GLM_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "glm/gtc/matrix_transform.hpp"
 
 #include <iostream>
 
 #include <vulkan/vulkan.h>
+
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 
 #include "VulkanUtils.h"
 #include "Window.h"
@@ -877,12 +881,29 @@ bool VulkanRenderer::ResizeSwapchain()
 }
 
 
-uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, const char* imgData)
+uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, const unsigned char* imgData)
 {
 	using namespace oGFX;
 	auto ind = CreateTextureImage(width, height, imgData);
 
 	VkImageView imageView = CreateImageView(m_device,textureImages[ind], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+	textureImageViews.push_back(imageView);
+
+	//create texture descriptor
+	int descriptorLoc = CreateTextureDescriptor(imageView);
+
+	//return location of set with texture
+	return descriptorLoc;
+
+}
+
+uint32_t VulkanRenderer::CreateTexture(const std::string& file)
+{
+	// Create texture image and get its location in array
+	uint32_t textureImageLoc = CreateTextureImage(file);
+
+	// Create image view and add to list
+	VkImageView imageView = oGFX::CreateImageView(m_device,textureImages[textureImageLoc], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
 	textureImageViews.push_back(imageView);
 
 	//create texture descriptor
@@ -899,6 +920,47 @@ uint32_t VulkanRenderer::CreateMeshModel(std::vector<oGFX::Vertex>& vertices,std
 	MeshModel model({ mesh });
 	modelList.push_back(model);
 	return static_cast<uint32_t>(modelList.size() - 1);
+}
+
+uint32_t VulkanRenderer::CreateMeshModel(const std::string& file)
+{
+	Assimp::Importer importer;
+	const aiScene *scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+
+	if (!scene)
+	{
+		throw std::runtime_error("Failed to load model! (" + file + ")");
+	}
+
+	//get vector of all materials with 1:1 ID placement
+	std::vector<std::string> textureNames = MeshModel::LoadMaterials(scene);
+
+	// Conversion from the materials list IDs  to our Descriptor Array IDs
+	std::vector<int> matToTex(textureNames.size());
+
+	// Loop over textureNames and create textures for them
+	for (size_t i = 0; i < textureNames.size(); i++)
+	{
+		// if material had no texture, set '0' to indicate no texture, texxture 0 will be reserved fora  default texture
+		if (textureNames[i].empty())
+		{
+			matToTex[i] = 0;
+		}
+		else
+		{
+			// otherwise create texture and set value to index of new texture
+			matToTex[i] =  CreateTexture(textureNames[i]);
+		}
+	}
+
+	// load in all our meshes
+	std::vector<Mesh> modelMeshes = MeshModel::LoadNode(m_device.physicalDevice, m_device.logicalDevice, 
+		 m_device.graphicsQueue, graphicsCommandPool, scene->mRootNode, scene, matToTex);
+
+	MeshModel meshModel = MeshModel(modelMeshes);
+	modelList.push_back(meshModel);
+	return modelList.size() - 1;
+
 }
 
 void VulkanRenderer::RecordCommands(uint32_t currentImage)
@@ -1002,7 +1064,7 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 	float width = static_cast<float>(windowPtr->m_width);
 	float ar = width / height;
 
-	uboViewProjection.projection = glm::ortho(-1.0f,1.0f,-1.0f,1.0f,-10.0f,10.0f);
+	uboViewProjection.projection = glm::ortho(-ar, ar, -1.0f, 1.0f, -10.0f, 10.0f);
 	//uboViewProjection.projection = oGFX::customOrtho(1.0,10.0f,-1.0f,10.0f);
 	//uboViewProjection.projection[2][2] *= -1.0f;
 
@@ -1024,7 +1086,18 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 
 }
 
-uint32_t VulkanRenderer::CreateTextureImage(uint32_t width, uint32_t height, const char* imgData)
+uint32_t VulkanRenderer::CreateTextureImage(const std::string& fileName)
+{
+	//Load image file
+	int width{}, height{};
+	VkDeviceSize imageSize;
+	unsigned char *imageData = oGFX::LoadTextureFromFile(fileName, width, height, imageSize);
+
+	return CreateTextureImage(width, height, imageData);
+}
+
+
+uint32_t VulkanRenderer::CreateTextureImage(uint32_t width, uint32_t height, const unsigned char* imgData)
 {
 	using namespace oGFX;
 	//Load image file

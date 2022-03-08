@@ -88,6 +88,6 @@ namespace oGFX
 	void CopyImageBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,
 		VkBuffer srcBuffer, VkImage image, uint32_t width, uint32_t height);
 
-
+	unsigned char* LoadTextureFromFile(const std::string& fileName, int& width, int& height, uint64_t& imageSize);
 }
 

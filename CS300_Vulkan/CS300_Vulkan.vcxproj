@@ -22,6 +22,7 @@
     <ClCompile Include="src\Mesh.cpp" />
     <ClCompile Include="src\MeshModel.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\stbi_impl.cpp" />
     <ClCompile Include="src\VulkanInstance.cpp" />
     <ClCompile Include="src\VulkanRenderer.cpp" />
     <ClCompile Include="src\VulkanDevice.cpp" />
@@ -33,6 +34,7 @@
     <ClInclude Include="src\Mesh.h" />
     <ClInclude Include="src\MeshModel.h" />
     <ClInclude Include="src\gpuCommon.h" />
+    <ClInclude Include="src\stb_image.h" />
     <ClInclude Include="src\VulkanInstance.h" />
     <ClInclude Include="src\VulkanRenderer.h" />
     <ClInclude Include="src\VulkanDevice.h" />

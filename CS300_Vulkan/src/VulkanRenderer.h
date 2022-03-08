@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <string>
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
@@ -50,7 +51,9 @@ static constexpr int MAX_OBJECTS = 1024;
 	void UpdateUniformBuffers(uint32_t imageIndex);
 
 	uint32_t CreateMeshModel(std::vector<oGFX::Vertex>& vertices,std::vector<uint32_t>& indices);
-	uint32_t CreateTexture(uint32_t width, uint32_t height,const char* imgData);
+	uint32_t CreateMeshModel(const std::string& file);
+	uint32_t CreateTexture(uint32_t width, uint32_t height,const unsigned char* imgData);
+	uint32_t CreateTexture(const std::string& fileName);
 
 	bool ResizeSwapchain();
 
@@ -120,7 +123,8 @@ static constexpr int MAX_OBJECTS = 1024;
 	bool resizeSwapchain = false;
 
 	private:
-		uint32_t CreateTextureImage(uint32_t width, uint32_t height, const char* imgData);
+		uint32_t CreateTextureImage(const std::string& fileName);
+		uint32_t CreateTextureImage(uint32_t width, uint32_t height, const unsigned char* imgData);
 		uint32_t CreateTextureDescriptor(VkImageView textureImage);
 };
 
