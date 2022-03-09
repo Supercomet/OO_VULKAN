@@ -4,7 +4,11 @@
 #include "glm/glm.hpp"
 #include "VulkanUtils.h"
 #include "Mesh.h"
+
+#pragma warning( push )
+#pragma warning( disable : 26451 ) // vendor overflow
 #include "assimp/scene.h"
+#pragma warning( pop )
 
 class MeshModel
 {

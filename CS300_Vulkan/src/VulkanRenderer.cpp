@@ -12,9 +12,12 @@
 
 #include <vulkan/vulkan.h>
 
+#pragma warning( push )
+#pragma warning( disable : 26451 ) // vendor overflow
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#pragma warning( pop )
 
 #include "VulkanUtils.h"
 #include "Window.h"
@@ -968,7 +971,7 @@ uint32_t VulkanRenderer::CreateMeshModel(const std::string& file)
 
 	MeshModel meshModel = MeshModel(modelMeshes);
 	modelList.push_back(meshModel);
-	return modelList.size() - 1;
+	return static_cast<uint32_t>(modelList.size() - 1);
 
 }
 
@@ -989,7 +992,7 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 	std::array<VkClearValue, 2> clearValues{};
 
 	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
-	clearValues[0].color = { 0.0f,0.0f,0.0f,1.0f };
+	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
 	clearValues[1].depthStencil.depth = {1.0f };
 
 	renderPassBeginInfo.pClearValues = clearValues.data(); //list of clear values

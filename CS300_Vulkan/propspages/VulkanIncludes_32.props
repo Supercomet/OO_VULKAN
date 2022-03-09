@@ -13,7 +13,10 @@
       <AdditionalDependencies>%VULKAN_SDK%\Lib32\vulkan-1.lib;$(SolutionDir)vendor\assimp\BINARIES\Win32\lib\Release\assimp-vc142-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy "$(SolutionDir)CS300_Vulkan\shaders" "$(OutDir)\shaders" /Q /E /S /Y /I </Command>
+      <Command>xcopy "$(SolutionDir)CS300_Vulkan\shaders" "$(OutDir)\shaders" /Q /E /S /Y /I 
+xcopy "$(SolutionDir)CS300_Vulkan\models" "$(OutDir)\models" /Q /E /S /Y /I 
+xcopy "$(SolutionDir)CS300_Vulkan\textures" "$(OutDir)\textures" /Q /E /S /Y /I 
+xcopy "$(SolutionDir)vendor\assimp\BINARIES\Win32\bin\Release\assimp-vc142-mt.dll" "$(OutDir)" /Q /E /S /Y /I </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup />

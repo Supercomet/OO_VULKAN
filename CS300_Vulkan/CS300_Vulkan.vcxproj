@@ -156,7 +156,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <UACExecutionLevel>HighestAvailable</UACExecutionLevel>
+      <UACExecutionLevel>AsInvoker</UACExecutionLevel>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

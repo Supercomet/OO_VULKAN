@@ -68,7 +68,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		Input::keysTriggered[wParam] = true;
 		Input::keysHeld[wParam] = true;
 
-		std::cout << "Key Pressed" << wParam<<std::endl;
+		//std::cout << "Key Pressed" << wParam<<std::endl;
 	}
 	break;
     case WM_KEYUP:
@@ -76,7 +76,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         Input::keysRelease[wParam] = true;
         Input::keysHeld[wParam] = false;
 
-        std::cout << "Key Release\n";
+       // std::cout << "Key Release\n";
     }
     break;
     case WM_MOUSEMOVE:

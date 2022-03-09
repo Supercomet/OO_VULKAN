@@ -132,7 +132,7 @@ int main(int argc, char argv[])
 
     renderer.camera.SetRotation(glm::vec3(-4.35f, 16.25f, 0.0f));
     renderer.camera.SetRotationSpeed(0.5f);
-    renderer.camera.SetPosition(glm::vec3(0.1f, -3.0f, -5.5f));
+    renderer.camera.SetPosition(glm::vec3(0.1f, -2.0f, -10.5f));
 
     glm::vec3 pos{0.1f, 1.1f, -3.5f};
     //handling winOS messages

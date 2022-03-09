@@ -89,6 +89,7 @@ void Input::Begin()
 	 return mouseButtonTriggered[MouseButton::middle];
 	 break;
 	 }
+     return false;
  }
 
  bool Input::GetMouseHeld(int32_t key)
@@ -105,6 +106,7 @@ void Input::Begin()
 	 return mouseButtonHeld[MouseButton::middle];
 	 break;
 	 }
+	 return false;
  }
 
  bool Input::GetMouseReleased(int32_t key)
@@ -121,5 +123,6 @@ void Input::Begin()
 	 return mouseButtonRelease[MouseButton::middle];
 	 break;
 	 }
+	 return false;
  }
 
