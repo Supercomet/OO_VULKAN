@@ -11,6 +11,8 @@
 #define KEY_S 0x53
 #define KEY_D 0x44
 #define KEY_P 0x50
+#define KEY_Q 0x51
+#define KEY_E 0x45
 #define KEY_SPACE 0x20
 #define KEY_KPADD 0x6B
 #define KEY_KPSUB 0x6D
@@ -20,3 +22,11 @@
 #define KEY_N 0x4E
 #define KEY_O 0x4F
 #define KEY_T 0x54
+
+#define VK_LBUTTON       0x01 
+#define VK_RBUTTON       0x02 
+#define VK_CANCEL        0x03 
+#define VK_MBUTTON       0x04 
+#define MOUSE_LEFT VK_LBUTTON
+#define MOUSE_RIGHT VK_RBUTTON
+#define MOUSE_MID VK_MBUTTON 

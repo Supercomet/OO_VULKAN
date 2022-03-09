@@ -14,6 +14,8 @@
 #include "VulkanSwapchain.h"
 #include "gpuCommon.h"
 
+#include "Camera.h"
+
 struct Window;
 
 class VulkanRenderer
@@ -123,6 +125,8 @@ static constexpr int MAX_OBJECTS = 1024;
 	} uboViewProjection;
 
 	bool resizeSwapchain = false;
+
+	Camera camera;
 
 	private:
 		uint32_t CreateTextureImage(const std::string& fileName);

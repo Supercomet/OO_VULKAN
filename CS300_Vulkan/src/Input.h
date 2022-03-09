@@ -45,6 +45,10 @@ static glm::vec2 GetMousePos();
 
 static float GetMouseWheel();
 
+static bool GetMouseTriggered(int32_t key);
+static bool GetMouseHeld(int32_t key);
+static bool GetMouseReleased(int32_t key);
+
 
 }; // namespace Input
 

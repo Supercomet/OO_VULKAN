@@ -67,7 +67,6 @@ int main(int argc, char argv[])
         renderer.CreateCommandBuffers();
         renderer.CreateTextureSampler();
         renderer.CreateUniformBuffers();
-
         renderer.CreateDescriptorPool();
         renderer.CreateDescriptorSets();
         renderer.CreateSynchronisation();
@@ -92,32 +91,50 @@ int main(int argc, char argv[])
     };
 
     std::vector<oGFX::Vertex>boxverts{
-        oGFX::Vertex{ {-0.5,-0.5,0.0}, { 0.5f,0.0f,0.0f } ,{ 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5,-0.5,0.0} ,{ 0.0f,0.5f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ {-0.5, 0.5,0.0}, { 0.0f,0.0f,0.5f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5, 0.5,0.0}, { 0.0f,0.5f,0.5f }, { 0.0f,0.0f } }
+        oGFX::Vertex{ {-0.5,-0.5,-0.5}, { 0.3f,0.3f,0.3f } ,{ 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5,-0.5,-0.5}, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ {-0.5, 0.5,-0.5}, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5, 0.5,-0.5}, { 0.0f,1.0f,1.0f }, { 0.0f,0.0f } },
+                                          
+        oGFX::Vertex{ {-0.5,-0.5, 0.5}, { 1.0f,0.0f,0.0f } ,{ 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5,-0.5, 0.5}, { 1.0f,0.0f,1.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ {-0.5, 0.5, 0.5}, { 1.0f,1.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5, 0.5, 0.5}, { 1.0f,1.0f,1.0f }, { 0.0f,0.0f } }
     };
     std::vector<uint32_t> boxindices{
-        0,1,2
-       ,1,3,2
+         1,0,2
+        ,3,1,2
+        ,5,1,3
+        ,5,3,7
+        ,4,5,7
+        ,4,7,6
+        ,0,4,6
+        ,0,6,2
+        ,3,2,6
+        ,3,6,7
+        ,5,4,0
+        ,5,0,1
     };
 
     uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");
-    auto objmat = glm::translate(glm::mat4(1.0f), glm::vec3(-0.2f, 0.0f, -0.5f));
-    objmat = glm::scale(objmat, glm::vec3(0.1f, 0.1f, 0.1f));
-    renderer.UpdateModel(Object, objmat);
 
-    uint32_t obj = renderer.CreateMeshModel(verts, indices);
-    renderer.UpdateModel(obj, glm::translate(glm::mat4(1.0f), glm::vec3(-0.f, -0.5f, -0.5f)));
+   uint32_t obj = renderer.CreateMeshModel(verts, indices);
+   glm::mat4 xform{ 1.0f };
+   xform = glm::translate(xform, glm::vec3(-3.0f, 0.0f, -3.0f));
+   xform = glm::scale(xform, glm::vec3{ 4.0f,4.0f,4.0f });
+   renderer.UpdateModel(obj,xform );
 
-    uint32_t obj2 = renderer.CreateMeshModel(boxverts, boxindices);
-    renderer.UpdateModel(obj2, glm::translate(glm::mat4(1.0f), glm::vec3(-0.2f, 0.0f, -0.5f)));
-    //renderer.updateModel(Object, testMat);
+   uint32_t obj2 = renderer.CreateMeshModel(boxverts, boxindices);
+   renderer.UpdateModel(obj2, xform);
 
     float angle = 0.0f;
     auto lastTime = std::chrono::high_resolution_clock::now();
 
-    glm::vec3 pos{ };
+    renderer.camera.SetRotation(glm::vec3(-4.35f, 16.25f, 0.0f));
+    renderer.camera.SetRotationSpeed(0.5f);
+    renderer.camera.SetPosition(glm::vec3(0.1f, -3.0f, -5.5f));
+
+    glm::vec3 pos{0.1f, 1.1f, -3.5f};
     //handling winOS messages
     // This will handle inputs and pass it to our input callback
     while( mainWindow.windowShouldClose == false )  // infinite loop
@@ -129,46 +146,75 @@ int main(int argc, char argv[])
         float deltaTime = std::chrono::duration<float>( now - lastTime).count();
         lastTime = now;
 
-        float speed = 10.0f;
+        renderer.camera.Update(deltaTime);
+        float speed = 0.05f;
 
+
+        renderer.camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 256.0f);
         auto mousedel = Input::GetMouseDelta();
 
-        std::cout << "Mouse delta [" << mousedel.x << "," << mousedel.y << "]\n";
+        //pos.y += mousedel.y* 0.001f;
+        //pos.x += mousedel.x * 0.001f;
+        //renderer.camera.SetPosition(pos);
+        
+        float wheelDelta = Input::GetMouseWheel();
 
-        pos.y += mousedel.y* 0.001f;
-        pos.x += mousedel.x * 0.001f;
+        renderer.camera.Translate(glm::vec3(0.0f, 0.0f, wheelDelta * 0.005f));
+
+        if (Input::GetMouseHeld(MOUSE_LEFT)) {
+            renderer.camera.Rotate(glm::vec3(-mousedel.y * renderer.camera.rotationSpeed, -mousedel.x * renderer.camera.rotationSpeed, 0.0f));
+        }
 
         if (Input::GetKeyHeld(KEY_W))
         {
-            pos.y += deltaTime* speed;
+            renderer.camera.Translate(glm::vec3{ 0.0f,0.0f,1.0f }* speed);
+            renderer.camera.keys.up = true;
         }
         if (Input::GetKeyHeld(KEY_S))
         {
-            pos.y -= deltaTime* speed;
+            renderer.camera.Translate(glm::vec3{ 0.0f,0.0f,-1.0f }* speed);
+            renderer.camera.keys.down = true;
         }
         if (Input::GetKeyHeld(KEY_A))
         {
-            pos.x += deltaTime* speed;
+            renderer.camera.Translate(glm::vec3{ 1.0f,0.0f,0.0f }* speed);
+            renderer.camera.keys.left = true;
         }
         if (Input::GetKeyHeld(KEY_D))
         {
-            pos.x -= deltaTime* speed;
+            renderer.camera.Translate(glm::vec3{ -1.0f,0.0f,0.0f }* speed);
+            renderer.camera.keys.right = true;
+        }
+        if (Input::GetKeyHeld(KEY_Q))
+        {
+            renderer.camera.Translate(glm::vec3{ 0.0f,1.0f,0.0f }* speed);
+            renderer.camera.keys.right = true;
         }
 
-        angle += 180.f * deltaTime;
+        if (Input::GetKeyHeld(KEY_E))
+        {
+            renderer.camera.Translate(glm::vec3{ 0.0f,-1.0f,0.0f } * speed);
+            renderer.camera.keys.right = true;
+        }
+
+        angle += 5.0f * deltaTime;
         if (angle > 360.0f) { angle -= 360.0f; }
 
         glm::mat4 testMat = glm::mat4(1.0f);
-        testMat = glm::translate(testMat,  pos);
-        testMat = glm::rotate(testMat, glm::radians(angle), glm::vec3(1.0f, 1.0f, 0.0f));
-        testMat = glm::scale(testMat, glm::vec3{ 0.1f,0.1f,0.1f });
+        //testMat = glm::translate(testMat, {0.0f,0.0f,0.0f});
+        //testMat = glm::rotate(testMat, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
+        testMat = glm::scale(testMat, glm::vec3{ 0.5f,0.5f,0.5f });
         renderer.UpdateModel(Object, testMat);
 
-        renderer.Draw();
-    }
-    
 
-   
+        xform = { 1.0f };
+        xform = glm::translate(xform, glm::vec3(3.0f, 0.0f, 3.0f));
+        //xform = glm::rotate(xform,angle, glm::vec3(0.0f, 1.0f, 0.0f));
+        xform = glm::scale(xform, glm::vec3{ 3.0f,3.0f,3.0f });
+        renderer.UpdateModel(obj2, xform);
+
+        renderer.Draw();
+    }   
 
     std::cout << "Exiting application..."<< std::endl;
 

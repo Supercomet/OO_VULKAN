@@ -15,6 +15,7 @@ short Input::wheelDelta{0};
 void Input::Begin()
 {
 	mouseChange={};
+	wheelDelta = {};
 	for (size_t i = 0; i < 1024; ++i)
 	{
 		keysTriggered[i] = false;
@@ -72,5 +73,53 @@ void Input::Begin()
  float Input::GetMouseWheel()
  {
 	 return static_cast<float>(wheelDelta);
+ }
+
+ bool Input::GetMouseTriggered(int32_t key)
+ {
+	 switch (key)
+	 {
+	 case MOUSE_LEFT:
+	 return mouseButtonTriggered[MouseButton::left];
+	 break;
+	 case MOUSE_RIGHT:
+	 return mouseButtonTriggered[MouseButton::right];
+	 break;
+	 case MOUSE_MID:
+	 return mouseButtonTriggered[MouseButton::middle];
+	 break;
+	 }
+ }
+
+ bool Input::GetMouseHeld(int32_t key)
+ {
+	 switch (key)
+	 {
+	 case MOUSE_LEFT:
+	 return mouseButtonHeld[MouseButton::left];
+	 break;
+	 case MOUSE_RIGHT:
+	 return mouseButtonHeld[MouseButton::right];
+	 break;
+	 case MOUSE_MID:
+	 return mouseButtonHeld[MouseButton::middle];
+	 break;
+	 }
+ }
+
+ bool Input::GetMouseReleased(int32_t key)
+ {
+	 switch (key)
+	 {
+	 case MOUSE_LEFT:
+	 return mouseButtonRelease[MouseButton::left];
+	 break;
+	 case MOUSE_RIGHT:
+	 return mouseButtonRelease[MouseButton::right];
+	 break;
+	 case MOUSE_MID:
+	 return mouseButtonRelease[MouseButton::middle];
+	 break;
+	 }
  }
 

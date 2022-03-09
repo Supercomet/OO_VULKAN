@@ -807,7 +807,9 @@ void VulkanRenderer::Draw()
 		resizeSwapchain = true;
 	}
 	RecordCommands(imageIndex);
-	UpdateUniformBuffers(imageIndex);
+
+	if(camera.updated)
+		UpdateUniformBuffers(imageIndex);
 
 	//2. Submit command buffer to queue for execution, make sure it waits for image to be signalled as available before drawing
 	//		and signals when it has finished rendering
@@ -1071,9 +1073,13 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 	float width = static_cast<float>(windowPtr->m_width);
 	float ar = width / height;
 
-	uboViewProjection.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-	uboViewProjection.projection = glm::ortho(-ar, ar, -1.0f, 1.0f, -100.f, 100.0f);
-	uboViewProjection.projection = glm::perspective(45.f,ar,0.01f,100.0f);
+	//uboViewProjection.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+	//uboViewProjection.projection = glm::ortho(-ar, ar, -1.0f, 1.0f, -100.f, 100.0f);
+	//uboViewProjection.projection = glm::perspective(45.f,ar,0.01f,100.0f);
+
+	uboViewProjection.projection = camera.matrices.perspective;
+	uboViewProjection.view = camera.matrices.view;
+
 	//uboViewProjection.projection = oGFX::customOrtho(1.0,10.0f,-1.0f,10.0f);
 	//uboViewProjection.projection[1][1] *= -1.0f;
 

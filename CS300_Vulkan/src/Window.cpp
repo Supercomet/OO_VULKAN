@@ -68,7 +68,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		Input::keysTriggered[wParam] = true;
 		Input::keysHeld[wParam] = true;
 
-		std::cout << "Key Pressed\n";
+		std::cout << "Key Pressed" << wParam<<std::endl;
 	}
 	break;
     case WM_KEYUP:
@@ -110,9 +110,10 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     break;
     case WM_MOUSEWHEEL:
     {
-        short wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
-        break;
+        short wd = GET_WHEEL_DELTA_WPARAM(wParam);
+        Input::wheelDelta = wd;
     }
+    break;
 
 	}    // End switch
 
