@@ -1,73 +1,123 @@
 #include <Windows.h>
 
 #include <iostream>
-
+#include "keycodes.h"
+#include "Input.h"
 #include "Window.h"
+
+
 
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    switch( uMsg )
-    {
-    case WM_CLOSE:
-    PostQuitMessage(0);
-    case WM_QUIT:
-    {
-        Window* window = reinterpret_cast<Window*>( GetWindowLongPtr(hWnd, GWLP_USERDATA) );
-        if (window)
-        {
-            window->windowShouldClose = true;
-        }
-    }
-    break;
-    case WM_SIZE:
-    {
-        uint32_t width = LOWORD(lParam);
-        uint32_t height = HIWORD(lParam);
-        Window* window = reinterpret_cast<Window*>( GetWindowLongPtr(hWnd, GWLP_USERDATA) );
-        switch (wParam)
-        {
-        case SIZE_MAXHIDE: // Message is sent to all pop-up windows when some other window is maximized.
-        break;
-        case SIZE_MAXIMIZED: //The window has been maximized.
-        {
-        //    std::cout << "Window maximized" << std::endl;
-
-        }
-        break;
-        case  SIZE_MAXSHOW: //Message is sent to all pop-up windows when some other window has been restored to its former size.
-        //std::cout << "Window max show" << std::endl;
-        break;
-        case SIZE_MINIMIZED: //The window has been minimized.
-            width = 0;
-            height = 0;
-        //std::cout << "Window minimized" << std::endl;
-        break;
-        case SIZE_RESTORED: //The window has been resized, but neither the SIZE_MINIMIZED nor SIZE_MAXIMIZED value applies.
-        {
-        //    std::cout << "Window restored" << std::endl;
-        }
-        break;                
-        }      
-        
-        if (window)
-        {
-            window->m_width = width;
-            window->m_height = height;
-        }
-        //std::cout << "Window size changed to ["<< width << "," << height << "]" << std::endl;
-    }
-    break;
-    case WM_KEYDOWN:
-    std::cout << "Key Pressed\n";
-    return 0;
-    break;
+	switch (uMsg)
+	{
     case WM_PAINT:
-        ValidateRect( hWnd, NULL );
+    ValidateRect(hWnd, NULL);
     break;
-    }    // End switch
+	case WM_CLOSE:
+	PostQuitMessage(0);
+	case WM_QUIT:
+	{
+		Window* window = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		if (window)
+		{
+			window->windowShouldClose = true;
+		}
+	}
+	break;
+	case WM_SIZE:
+	{
+		uint32_t width = LOWORD(lParam);
+		uint32_t height = HIWORD(lParam);
+		Window* window = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		switch (wParam)
+		{
+		case SIZE_MAXHIDE: // Message is sent to all pop-up windows when some other window is maximized.
+		break;
+		case SIZE_MAXIMIZED: //The window has been maximized.
+		{
+			//    std::cout << "Window maximized" << std::endl;
 
-    // Pass Unhandled Messages To DefWindowProc
-    return DefWindowProc (hWnd, uMsg, wParam, lParam);
+		}
+		break;
+		case  SIZE_MAXSHOW: //Message is sent to all pop-up windows when some other window has been restored to its former size.
+		//std::cout << "Window max show" << std::endl;
+		break;
+		case SIZE_MINIMIZED: //The window has been minimized.
+		width = 0;
+		height = 0;
+		//std::cout << "Window minimized" << std::endl;
+		break;
+		case SIZE_RESTORED: //The window has been resized, but neither the SIZE_MINIMIZED nor SIZE_MAXIMIZED value applies.
+		{
+			//    std::cout << "Window restored" << std::endl;
+		}
+		break;
+		}
+
+		if (window)
+		{
+			window->m_width = width;
+			window->m_height = height;
+		}
+		//std::cout << "Window size changed to ["<< width << "," << height << "]" << std::endl;
+	}
+	break;
+	case WM_KEYDOWN:
+	{
+		Input::keysTriggered[wParam] = true;
+		Input::keysHeld[wParam] = true;
+
+		std::cout << "Key Pressed\n";
+	}
+	break;
+    case WM_KEYUP:
+    {
+        Input::keysRelease[wParam] = true;
+        Input::keysHeld[wParam] = false;
+
+        std::cout << "Key Release\n";
+    }
+    break;
+    case WM_MOUSEMOVE:
+    {
+        Input::HandleMouseMove(LOWORD(lParam), HIWORD(lParam));
+        break;
+    }
+    case WM_LBUTTONDOWN:
+    Input::mouseButtonTriggered[Input::MouseButton::left] = true;
+    Input::mouseButtonHeld[Input::MouseButton::left] = true;
+    break;
+    case WM_RBUTTONDOWN:
+    Input::mouseButtonTriggered[Input::MouseButton::right] = true;
+    Input::mouseButtonHeld[Input::MouseButton::right] = true;
+    break;
+    case WM_MBUTTONDOWN:
+    Input::mouseButtonTriggered[Input::MouseButton::middle] = true;
+    Input::mouseButtonHeld[Input::MouseButton::middle] = true;
+    break;
+    case WM_LBUTTONUP:
+    Input::mouseButtonRelease[Input::MouseButton::left] = true;
+    Input::mouseButtonHeld[Input::MouseButton::left] = false;
+    break;
+    case WM_RBUTTONUP:
+    Input::mouseButtonRelease[Input::MouseButton::right] = true;
+    Input::mouseButtonHeld[Input::MouseButton::right] = false;
+    break;
+    case WM_MBUTTONUP:
+    Input::mouseButtonRelease[Input::MouseButton::middle] = true;
+    Input::mouseButtonHeld[Input::MouseButton::middle] = false;
+    break;
+    case WM_MOUSEWHEEL:
+    {
+        short wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+        break;
+    }
+
+	}    // End switch
+
+	// Pass Unhandled Messages To DefWindowProc
+	return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
 

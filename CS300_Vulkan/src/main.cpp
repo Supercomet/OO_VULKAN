@@ -14,6 +14,7 @@
 #include <thread>
 
 #include "window.h"
+#include "input.h"
 
 
 bool BoolQueryUser(const char * str)
@@ -116,21 +117,49 @@ int main(int argc, char argv[])
     float angle = 0.0f;
     auto lastTime = std::chrono::high_resolution_clock::now();
 
+    glm::vec3 pos{ };
     //handling winOS messages
     // This will handle inputs and pass it to our input callback
     while( mainWindow.windowShouldClose == false )  // infinite loop
     {
+        Input::Begin();
         while(Window::PollEvents());
 
         auto now = std::chrono::high_resolution_clock::now();
         float deltaTime = std::chrono::duration<float>( now - lastTime).count();
         lastTime = now;
 
+        float speed = 10.0f;
+
+        auto mousedel = Input::GetMouseDelta();
+
+        std::cout << "Mouse delta [" << mousedel.x << "," << mousedel.y << "]\n";
+
+        pos.y += mousedel.y* 0.001f;
+        pos.x += mousedel.x * 0.001f;
+
+        if (Input::GetKeyHeld(KEY_W))
+        {
+            pos.y += deltaTime* speed;
+        }
+        if (Input::GetKeyHeld(KEY_S))
+        {
+            pos.y -= deltaTime* speed;
+        }
+        if (Input::GetKeyHeld(KEY_A))
+        {
+            pos.x += deltaTime* speed;
+        }
+        if (Input::GetKeyHeld(KEY_D))
+        {
+            pos.x -= deltaTime* speed;
+        }
+
         angle += 180.f * deltaTime;
         if (angle > 360.0f) { angle -= 360.0f; }
 
         glm::mat4 testMat = glm::mat4(1.0f);
-        testMat = glm::translate(testMat,  glm::vec3(0.5f, 0.0f, -0.5));
+        testMat = glm::translate(testMat,  pos);
         testMat = glm::rotate(testMat, glm::radians(angle), glm::vec3(1.0f, 1.0f, 0.0f));
         testMat = glm::scale(testMat, glm::vec3{ 0.1f,0.1f,0.1f });
         renderer.UpdateModel(Object, testMat);

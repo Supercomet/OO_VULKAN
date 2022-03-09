@@ -1071,10 +1071,11 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 	float width = static_cast<float>(windowPtr->m_width);
 	float ar = width / height;
 
-	uboViewProjection.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
+	uboViewProjection.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
 	uboViewProjection.projection = glm::ortho(-ar, ar, -1.0f, 1.0f, -100.f, 100.0f);
+	uboViewProjection.projection = glm::perspective(45.f,ar,0.01f,100.0f);
 	//uboViewProjection.projection = oGFX::customOrtho(1.0,10.0f,-1.0f,10.0f);
-	//uboViewProjection.projection[2][2] *= -1.0f;
+	//uboViewProjection.projection[1][1] *= -1.0f;
 
 	//copy VP data
 	void *data;
