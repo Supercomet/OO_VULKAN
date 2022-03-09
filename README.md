@@ -11,3 +11,11 @@ To see the examples you will need to run a batch located: **Build/updateExamples
 it will gather and build the dependencies:
 - [GLM](https://https://github.com/g-truc/glm)
 - [assimp](https://github.com/assimp/assimp)
+
+
+### Controls
+The demo will show a model in the centre of the scene.
+
+WASD------------- to move horizontally
+QE--------------- to move vertically
+Click and drag -- to rotate around the focused object

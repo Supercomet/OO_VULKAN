@@ -209,7 +209,7 @@ int main(int argc, char argv[])
 
         xform = { 1.0f };
         xform = glm::translate(xform, glm::vec3(3.0f, 0.0f, 3.0f));
-        //xform = glm::rotate(xform,angle, glm::vec3(0.0f, 1.0f, 0.0f));
+        xform = glm::rotate(xform,angle, glm::vec3(0.0f, 1.0f, 0.0f));
         xform = glm::scale(xform, glm::vec3{ 3.0f,3.0f,3.0f });
         renderer.UpdateModel(obj2, xform);
 
