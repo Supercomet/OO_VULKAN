@@ -179,7 +179,7 @@ void VulkanRenderer::CreateRenderpass()
 	subpassDependancies[0].dstSubpass = 0;
 	subpassDependancies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	subpassDependancies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	subpassDependancies[0].dependencyFlags = 0;
+	subpassDependancies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
 
 	//conversion from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
@@ -191,7 +191,7 @@ void VulkanRenderer::CreateRenderpass()
 	subpassDependancies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
 	subpassDependancies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 	subpassDependancies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	subpassDependancies[1].dependencyFlags = 0;
+	subpassDependancies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
 	std::array<VkAttachmentDescription, 2> renderpassAttachments = { colourAttachment,depthAttachment };
 
@@ -216,28 +216,14 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 {
 	//UNIFORM VALUES DESCRIPTOR SET LAYOUT
 	// UboViewProejction binding info
-	VkDescriptorSetLayoutBinding vpLayoutBinding{};
-	vpLayoutBinding.binding = 0;											// Binding point in shader (designated by binding number in shader)
-	vpLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;		// type of descriptor ( uniform, dynamic uniform, image sampler, etc)
-	vpLayoutBinding.descriptorCount = 1;									// Number of descriptors for binding
-	vpLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;				// Shader stage to bind to
-	vpLayoutBinding.pImmutableSamplers = nullptr;							// For texture : can make sampler immutable by specifiying in layout
-
-																			//// Model binding info
-																			//VkDescriptorSetLayoutBinding modelLayoutBinding{};
-																			//modelLayoutBinding.binding = 1;
-																			//modelLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-																			//modelLayoutBinding.descriptorCount = 1;
-																			//modelLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-																			//modelLayoutBinding.pImmutableSamplers = nullptr;
+	VkDescriptorSetLayoutBinding vpLayoutBinding = 
+		oGFX::vk::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
 
 	std::vector<VkDescriptorSetLayoutBinding> layoutBindings = { vpLayoutBinding/*, modelLayoutBinding*/ };
 
 	// Create Descriptor Set Layout with given bindings
-	VkDescriptorSetLayoutCreateInfo layoutCreateInfo{};
-	layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutCreateInfo.bindingCount = static_cast<uint32_t>(layoutBindings.size());	// number of binding infos
-	layoutCreateInfo.pBindings = layoutBindings.data();								// array of binding infos
+	VkDescriptorSetLayoutCreateInfo layoutCreateInfo = 
+		oGFX::vk::inits::descriptorSetLayoutCreateInfo(layoutBindings.data(),static_cast<uint32_t>(layoutBindings.size()));		
 
 																					// Create descriptor set layout
 	VkResult result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &layoutCreateInfo, nullptr, &descriptorSetLayout);
@@ -248,18 +234,12 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 
 	// CREATE TEXTURE SAMPLER DESCRIPTOR SET LAYOUT
 	// Texture binding info
-	VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-	samplerLayoutBinding.binding = 0;
-	samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerLayoutBinding.descriptorCount = 1;
-	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	samplerLayoutBinding.pImmutableSamplers = nullptr;
+	VkDescriptorSetLayoutBinding samplerLayoutBinding = 
+		oGFX::vk::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT,0);
 
 	// create a descriptor set layout with given bindings for texture
-	VkDescriptorSetLayoutCreateInfo textureLayoutCreateInfo{};
-	textureLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	textureLayoutCreateInfo.bindingCount = 1;
-	textureLayoutCreateInfo.pBindings = &samplerLayoutBinding;
+	VkDescriptorSetLayoutCreateInfo textureLayoutCreateInfo = 
+		oGFX::vk::inits::descriptorSetLayoutCreateInfo(&samplerLayoutBinding,1);
 
 	result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &textureLayoutCreateInfo, nullptr, &samplerSetLayout);
 	if (result != VK_SUCCESS)
@@ -316,110 +296,64 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	//create pipeline
 
 	//how the data for a single vertex (including infos such as pos, colour, texture, coords, normals etc) is as a whole
-	VkVertexInputBindingDescription bindingDescription = {};
-	bindingDescription.binding = 0; //can bind multiple streams of data, this defines which one
-	bindingDescription.stride = sizeof(Vertex); //size of a single vertex object in memory
-	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX; //how to move between data after each vertex
-																//VK_VERTEX_INPUT_RATE_INSTANCE : move to a vertex for the next instance
+	std::vector<VkVertexInputBindingDescription> bindingDescription {	
+		oGFX::vk::inits::vertexInputBindingDescription(0,sizeof(Vertex),VK_VERTEX_INPUT_RATE_VERTEX)
+	};
 
-																//how the data for an attirbute is define in the vertex
-	std::array<VkVertexInputAttributeDescription, 3>attributeDescriptions;
+	//how the data for an attirbute is define in the vertex
+	std::vector<VkVertexInputAttributeDescription>attributeDescriptions{
+		oGFX::vk::inits::vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, pos)),//Position attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(0,1,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, col)), //colour attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(0,2,VK_FORMAT_R32G32_SFLOAT,offsetof(Vertex, tex)),////Texture attribute
+	};
 
-	//Position attribute
-	attributeDescriptions[0].binding = 0; //which binding the data is at  ( should be same as above)
-	attributeDescriptions[0].location = 0; //location in shader where data will be read from
-	attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT; // format the data will take (also helps define the size of the data) 
-	attributeDescriptions[0].offset = offsetof(Vertex, pos); // where this attribute is defined in the data for a single vertex
-
-															 //colour attribute
-	attributeDescriptions[1].binding = 0; 
-	attributeDescriptions[1].location = 1; 
-	attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;  
-	attributeDescriptions[1].offset = offsetof(Vertex, col); 
-
-	//Texture attribute
-	attributeDescriptions[2].binding = 0;
-	attributeDescriptions[2].location = 2;
-	attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-	attributeDescriptions[2].offset = offsetof(Vertex, tex);
 
 	// -- VERTEX INPUT -- 
-	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {};
-	vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
-	vertexInputCreateInfo.pVertexBindingDescriptions = &bindingDescription; //list of vertext binding descriptions (data spacing / stride info)
-	vertexInputCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-	vertexInputCreateInfo.pVertexAttributeDescriptions = attributeDescriptions.data(); // list of vertext attribute descriptions (data format and wheret to bind to/from)
+	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = oGFX::vk::inits::pipelineVertexInputStateCreateInfo(bindingDescription,attributeDescriptions);
 
-																					   // __ INPUT ASSEMBLY __
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
-	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; // primitive type to assemble vertices as
-																  //allow overriding of strip topology to start new primitives
-	inputAssembly.primitiveRestartEnable = VK_FALSE;
+	// __ INPUT ASSEMBLY __
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly = oGFX::vk::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0 ,VK_FALSE);
 
-	// -- VIEWPORT & SCISSOR --
-	// Createa  viewport info struct
-	VkViewport viewport = {};
-	viewport.x = 0.0f;									//x start coord
-	viewport.y = 0.0f;									//y start coord
-	viewport.width = (float)m_swapchain.swapChainExtent.width;		// viewport width
-	viewport.height = (float)m_swapchain.swapChainExtent.height;	// viewport height
-	viewport.minDepth = 0.0f;							//min frame buffer depth
-	viewport.maxDepth = 1.0f;							//max frame buffer depth
+	//// -- VIEWPORT & SCISSOR --
+	//// Createa  viewport info struct
+	//VkViewport viewport = {};
+	//viewport.x = 0.0f;											//x start coord
+	//viewport.y = 0.0f;											//y start coord
+	//viewport.width = (float)m_swapchain.swapChainExtent.width;	// viewport width
+	//viewport.height = (float)m_swapchain.swapChainExtent.height;	// viewport height
+	//viewport.minDepth = 0.0f;										//min frame buffer depth
+	//viewport.maxDepth = 1.0f;										//max frame buffer depth
+	//
+	//																// create a sciossor info struct
+	//VkRect2D scissor = {};
+	//scissor.offset = { 0,0 };										//offset to use region from
+	//scissor.extent = m_swapchain.swapChainExtent;					//extent to describe region to use, starting at offset
 
-														// create a sciossor info struct
-	VkRect2D scissor = {};
-	scissor.offset = { 0,0 }; //offset to use region from
-	scissor.extent = m_swapchain.swapChainExtent; //extent to describe region to use, starting at offset
+	VkPipelineViewportStateCreateInfo viewportStateCreateInfo = oGFX::vk::inits::pipelineViewportStateCreateInfo(1,1,0);
+	//viewportStateCreateInfo.viewportCount = 1;
+	//viewportStateCreateInfo.pViewports = &viewport;
+	//viewportStateCreateInfo.scissorCount = 1;
+	//viewportStateCreateInfo.pScissors = &scissor;
 
-	VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {};
-	viewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-	viewportStateCreateInfo.viewportCount = 1;
-	viewportStateCreateInfo.pViewports = &viewport;
-	viewportStateCreateInfo.scissorCount = 1;
-	viewportStateCreateInfo.pScissors = &scissor;
-
-	// -- DYNAMIC STATES -- (TODO: )
-	//Dynami states to enable
-	std::vector<VkDynamicState> dynamicStateEnables;
-	dynamicStateEnables.push_back(VK_DYNAMIC_STATE_VIEWPORT); //dynamic viewport : can resize in command buffer with vkCmdSetViewport(commandbuffer,0,1,&viewport);
-	dynamicStateEnables.push_back(VK_DYNAMIC_STATE_SCISSOR); //dynamic viewport : can resize in command buffer with vkCmdSetScissor(commandbuffer,0,1,&scissor);
-
-															 //// Dyanimc state creation info
-	VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {};
-	dynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-	dynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
-	dynamicStateCreateInfo.pDynamicStates = dynamicStateEnables.data();
+	//Dynami states to enable	
+	std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+	VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = oGFX::vk::inits::pipelineDynamicStateCreateInfo(dynamicStateEnables);
 
 	// -- RASTERIZER --
-	VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = {};
-	rasterizerCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	rasterizerCreateInfo.depthClampEnable = VK_FALSE;					// change if fragments beyond/near the far planes are clipped(default) or clamped.. must enable depth clamp in device features
-	rasterizerCreateInfo.rasterizerDiscardEnable = VK_FALSE;			// wheter to desicard data and skip rasterizer. never creates fragments, only suitable for pipeline without framebuffer output.
-	rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;			// how to handle filling points between vertices
-	rasterizerCreateInfo.lineWidth = 1.0f;								// how thick lines should be when drawn
-	rasterizerCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;				// which face of the triangle to cull (backface cull)
-	rasterizerCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;	// Winding to determine which side is front
-	rasterizerCreateInfo.depthBiasEnable = VK_FALSE;					// Wheter to add debt biast to fragments. (good for stoppging "shadow acne" in shadow mapping)
+	VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = oGFX::vk::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL,VK_CULL_MODE_BACK_BIT,VK_FRONT_FACE_COUNTER_CLOCKWISE,0);
+	
+	// -- MULTI SAMPLING --
+	VkPipelineMultisampleStateCreateInfo multisamplingCreateInfo = oGFX::vk::inits::pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT,0);
 
+	//-- BLENDING --
+	//Blending decies how to blend a new color being written to a a fragment with the old value
 
-																		// -- MULTI SAMPLING --
-	VkPipelineMultisampleStateCreateInfo multisamplingCreateInfo = {};
-	multisamplingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisamplingCreateInfo.sampleShadingEnable = VK_FALSE; //enable multi sample shading or not;
-	multisamplingCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT; //number of samples to use per fragment;
+	//blend attachment state (how blending is handled
+	VkPipelineColorBlendAttachmentState colourState = 
+		oGFX::vk::inits::pipelineColorBlendAttachmentState(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
+		| VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT, VK_TRUE);
 
-																		  //-- BLENDING --
-																		  //Blending decies how to blend a new color being written to a a fragment with the old value
-
-																		  //blend attachment state (how blending is handled_
-	VkPipelineColorBlendAttachmentState colourState = {};
-	colourState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
-		| VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;//colors to apply blending to
-	colourState.blendEnable = VK_TRUE; //enable blending
-
-									   //blending uses equation : (srcColourBlendFactor * new colour ) colourBlendOp ( dstColourBlendFActor*old colour)
+	//blending uses equation : (srcColourBlendFactor * new colour ) colourBlendOp ( dstColourBlendFActor*old colour)
 	colourState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 	colourState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	colourState.colorBlendOp = VK_BLEND_OP_ADD;
@@ -433,19 +367,13 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	//summarised : (1 * new alpha) + (0 * old alpha) = new alpha
 
 
-	VkPipelineColorBlendStateCreateInfo colourBlendingCreateInfo = {};
-	colourBlendingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-	colourBlendingCreateInfo.logicOpEnable = VK_FALSE; // alternative to calculations is to use logical operations
-	colourBlendingCreateInfo.attachmentCount = 1;
-	colourBlendingCreateInfo.pAttachments = &colourState;
+	VkPipelineColorBlendStateCreateInfo colourBlendingCreateInfo = oGFX::vk::inits::pipelineColorBlendStateCreateInfo(1,&colourState);
 
 	// -- PIPELINE LAYOUT 
 	std::array<VkDescriptorSetLayout, 2> descriptorSetLayouts = { descriptorSetLayout, samplerSetLayout };
 
-	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
-	pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
-	pipelineLayoutCreateInfo.pSetLayouts = descriptorSetLayouts.data();
+	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo =  
+		oGFX::vk::inits::pipelineLayoutCreateInfo(descriptorSetLayouts.data(),static_cast<uint32_t>(descriptorSetLayouts.size()));
 	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
 	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 
@@ -457,17 +385,10 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	}
 
 	// -- DEPTH STENCIL TESTING --	
-	VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo{};
-	depthStencilCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depthStencilCreateInfo.depthTestEnable = VK_TRUE;				//enable checking depth to determine fragment write
-	depthStencilCreateInfo.depthWriteEnable = VK_TRUE;				// enable writing to depth buffer (to replace old values)
-	depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS;		// comparison operation that allows an overwrite (is in front)
-	depthStencilCreateInfo.depthBoundsTestEnable = VK_FALSE;		// Depth bounds test: does the depth value exist between 2 bounds
-	depthStencilCreateInfo.stencilTestEnable = VK_FALSE;			// Enable stencil test
+	VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo = oGFX::vk::inits::pipelineDepthStencilStateCreateInfo(VK_TRUE,VK_TRUE, VK_COMPARE_OP_LESS);
 
 																	// -- GRAPHICS PIPELINE CREATION --
-	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
-	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	VkGraphicsPipelineCreateInfo pipelineCreateInfo = oGFX::vk::inits::pipelineCreateInfo(pipelineLayout,renderPass);
 	pipelineCreateInfo.stageCount = 2;								//number of shader stages
 	pipelineCreateInfo.pStages = shaderStages;						//list of sader stages
 	pipelineCreateInfo.pVertexInputState = &vertexInputCreateInfo;	//all the fixed funciton pipeline states
@@ -478,13 +399,6 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	pipelineCreateInfo.pMultisampleState = &multisamplingCreateInfo;
 	pipelineCreateInfo.pColorBlendState = &colourBlendingCreateInfo;
 	pipelineCreateInfo.pDepthStencilState = &depthStencilCreateInfo;
-	pipelineCreateInfo.layout = pipelineLayout;						//pipeline layout pipeline should use
-	pipelineCreateInfo.renderPass = renderPass;						//render pass description the pipeline is compatible with
-	pipelineCreateInfo.subpass = 0;									//subpass of rneder pass to use with pipeline
-
-																	//pipeline derivatives : can create multiple pipels that derive from one another for optimization
-	pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; //existing pipeline to derive from
-	pipelineCreateInfo.basePipelineIndex = -1; //or index of pipeline being created to derive from (in case creating multiple at once)
 
 											   //create graphics pipeline
 	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPipeline);
