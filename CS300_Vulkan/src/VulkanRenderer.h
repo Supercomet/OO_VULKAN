@@ -27,6 +27,8 @@ static constexpr int MAX_OBJECTS = 1024;
 
 	~VulkanRenderer();
 
+	void Init(const oGFX::SetupInfo& setupSpecs, Window& window);
+
 	void CreateInstance(const oGFX::SetupInfo& setupSpecs);
 	void CreateSurface(Window& window);
 	void AcquirePhysicalDevice();
@@ -57,6 +59,8 @@ static constexpr int MAX_OBJECTS = 1024;
 	uint32_t CreateTexture(uint32_t width, uint32_t height,const unsigned char* imgData);
 	uint32_t CreateTexture(const std::string& fileName);
 
+	uint32_t LoadMeshFromFile(const std::string& file);
+
 	void UpdateModel(int modelId, glm::mat4 newModel);
 
 	bool ResizeSwapchain();
@@ -64,7 +68,7 @@ static constexpr int MAX_OBJECTS = 1024;
 	Window* windowPtr{nullptr};
 
 	//Scene objects
-	std::vector<MeshModel> modelList;
+	std::vector<MeshContainer> modelList;
 
 	//textures
 	std::vector<VkImage> textureImages;
@@ -111,9 +115,11 @@ static constexpr int MAX_OBJECTS = 1024;
 
 	std::vector<VkCommandBuffer> commandBuffers;
 
+	std::vector<Model> models;
+
 	uint32_t currentFrame = 0;
 
-	struct Model
+	struct Transform
 	{
 		glm::mat4 mdl{ 1.0f };
 	};

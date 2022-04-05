@@ -81,6 +81,35 @@ VulkanRenderer::~VulkanRenderer()
 	}
 }
 
+void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
+{
+	try
+	{	
+		CreateInstance(setupSpecs);
+		CreateSurface(window);
+		AcquirePhysicalDevice();
+		CreateLogicalDevice();
+		SetupSwapchain();
+		CreateRenderpass();
+		CreateDescriptorSetLayout();
+		CreatePushConstantRange();
+		CreateGraphicsPipeline();
+		CreateDepthBufferImage();
+		CreateFramebuffers();
+		CreateCommandPool();
+		CreateCommandBuffers();
+		CreateTextureSampler();
+		CreateUniformBuffers();
+		CreateDescriptorPool();
+		CreateDescriptorSets();
+		CreateSynchronisation();
+	}
+	catch (...)
+	{
+		throw;
+	}
+}
+
 void VulkanRenderer::CreateInstance(const oGFX::SetupInfo& setupSpecs)
 {
 	try

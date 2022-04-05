@@ -321,6 +321,8 @@ namespace oGFX
 	{
 		//get properties of my physical device memory
 		VkPhysicalDeviceMemoryProperties memoryproperties;
+		// VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT : CPU can interact with memory
+		// VK_MEMORY_PROPERTY_HOST_COHERENT_BIT : Allows placement of data straight into buffer after mapping (otherwise would have to specify manually)
 		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryproperties);
 
 		for (uint32_t i = 0; i < memoryproperties.memoryTypeCount; i++)
@@ -385,15 +387,9 @@ namespace oGFX
 
 	void CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags bufferProperties, VkBuffer* buffer, VkDeviceMemory* bufferMemory)
 	{
-		(void)bufferProperties;
 		//CREATE VERTEX BUFFER
 		//information to create a buffer ( doesnt include assigning memory)
-		VkBufferCreateInfo bufferInfo = {};
-		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size =bufferSize;							// size of buffer (size of 1 vertex pos * number of verts)
-		bufferInfo.usage = bufferUsage;							//multiple types of buffer possible
-		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;		// similar to swapchain images , we can share vertex buffers
-
+		VkBufferCreateInfo bufferInfo = oGFX::vk::inits::bufferCreateInfo(bufferUsage,bufferSize);
 		VkResult result = vkCreateBuffer(device, &bufferInfo, nullptr, buffer);
 		if (result != VK_SUCCESS)
 		{
@@ -405,13 +401,19 @@ namespace oGFX
 		vkGetBufferMemoryRequirements(device, *buffer, &memoryRequirements);
 
 		// Allocate memory to buffer
-		VkMemoryAllocateInfo memoryAllocInfo = {};
-		memoryAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		VkMemoryAllocateInfo memoryAllocInfo = oGFX::vk::inits::memoryAllocateInfo();
 		memoryAllocInfo.allocationSize = memoryRequirements.size;
-		memoryAllocInfo.memoryTypeIndex = FindMemoryTypeIndex(physicalDevice,memoryRequirements.memoryTypeBits,								//index of memory type on physical device that has required bit flags
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);	// VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT : CPU can interact with memory
-																							// VK_MEMORY_PROPERTY_HOST_COHERENT_BIT : Allows placement of data straight into buffer after mapping (otherwise would have to specify manually)
-																							//Allocate memory to VkDeviceMemory
+		memoryAllocInfo.memoryTypeIndex = FindMemoryTypeIndex(physicalDevice,memoryRequirements.memoryTypeBits,bufferProperties); //index of memory type on physical device that has required bit flags
+			
+		// If the buffer has VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT set we also need to enable the appropriate flag during allocation
+		VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
+		if (bufferUsage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
+			allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
+			allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
+			memoryAllocInfo.pNext = &allocFlagsInfo;
+		}
+																							
+		//Allocate memory to VkDeviceMemory
 		result = vkAllocateMemory(device, &memoryAllocInfo, nullptr, bufferMemory);
 		if (result != VK_SUCCESS)
 		{

@@ -52,24 +52,7 @@ int main(int argc, char argv[])
     VulkanRenderer renderer;
     try
     {
-        renderer.CreateInstance(setupSpec);
-        renderer.CreateSurface(mainWindow);
-        renderer.AcquirePhysicalDevice();
-        renderer.CreateLogicalDevice();
-        renderer.SetupSwapchain();
-        renderer.CreateRenderpass();
-        renderer.CreateDescriptorSetLayout();
-        renderer.CreatePushConstantRange();
-        renderer.CreateGraphicsPipeline();
-        renderer.CreateDepthBufferImage();
-        renderer.CreateFramebuffers();
-        renderer.CreateCommandPool();
-        renderer.CreateCommandBuffers();
-        renderer.CreateTextureSampler();
-        renderer.CreateUniformBuffers();
-        renderer.CreateDescriptorPool();
-        renderer.CreateDescriptorSets();
-        renderer.CreateSynchronisation();
+        renderer.Init(setupSpec, mainWindow);
 
         std::cout << "Created vulkan instance!"<< std::endl;
     }
