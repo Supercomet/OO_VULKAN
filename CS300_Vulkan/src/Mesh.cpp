@@ -122,3 +122,5 @@ void Mesh::CreateIndexBuffer(VkQueue transferQueue, VkCommandPool transferComman
 	vkDestroyBuffer(device, stagingBuffer, nullptr); 
 	vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
+
+

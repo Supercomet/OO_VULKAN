@@ -10,11 +10,11 @@
 #include "assimp/scene.h"
 #pragma warning( pop )
 
-class MeshModel
+class MeshContainer
 {
 public:
-	MeshModel();
-	MeshModel(std::vector<Mesh> newMeshList);
+	MeshContainer();
+	MeshContainer(std::vector<Mesh> newMeshList);
 
 	size_t getMeshCount();
 	Mesh *getMesh(size_t index);
@@ -30,10 +30,35 @@ public:
 	static Mesh LoadMesh(VkPhysicalDevice newPhysicalDevice, VkDevice newDevice, VkQueue transferQueue, VkCommandPool commandPool,
 		aiMesh *mesh, const aiScene *scene, std::vector<int> matToTex);
 
-	~MeshModel();
+	~MeshContainer();
 
 private:
 	std::vector<Mesh> meshList;
 	glm::mat4 model{ 1.0f };
+};
+
+struct Model
+{
+	~Model();
+
+	struct Vertices {
+		int count;
+		VkBuffer buffer;
+		VkDeviceMemory memory;
+	} vertices;
+	struct Indices {
+		int count;
+		VkBuffer buffer;
+		VkDeviceMemory memory;
+	} indices;
+
+	void loadNode(Node* parent,const aiScene* scene, const aiNode& node, uint32_t nodeIndex
+		,std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);
+
+	VulkanDevice* device;
+	std::vector<Node*> nodes;
+private:
+	oGFX::Mesh* processMesh(aiMesh* mesh, const aiScene* scene, std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);
+
 };
 

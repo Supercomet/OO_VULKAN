@@ -3,7 +3,19 @@
 #include <vulkan/vulkan.h>
 #include "glm/glm.hpp"
 #include <vector>
+#include "assimp/scene.h"
 #include "VulkanUtils.h"
+#include "Node.h"
+
+namespace oGFX
+{
+	struct Mesh
+	{
+		uint32_t vertexOffset;
+		uint32_t indicesOffset;
+		uint32_t textureIndex;
+	};
+}
 
 class Mesh
 {
@@ -46,5 +58,7 @@ private:
 
 	void CreateVertexBuffer(VkQueue transferQueue, VkCommandPool transferCommandPool, std::vector<oGFX::Vertex> *vertices);
 	void CreateIndexBuffer(VkQueue transferQueue, VkCommandPool transferCommandPool, std::vector<uint32_t> *indices);
+
+	
 };
 

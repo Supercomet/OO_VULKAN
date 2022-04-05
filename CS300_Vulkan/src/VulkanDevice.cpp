@@ -96,8 +96,20 @@ void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
     VkPhysicalDeviceFeatures deviceFeatures = {};
     //physical device features that logical device will use
     deviceFeatures.samplerAnisotropy = VK_TRUE; // Enabling anisotropy
-
     deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
+
+    // Bindless design requirement Descriptor indexing for descriptors
+    VkPhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_features{};
+    descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    // Enable non-uniform indexing
+    descriptor_indexing_features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    descriptor_indexing_features.runtimeDescriptorArray = VK_TRUE;
+    descriptor_indexing_features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    descriptor_indexing_features.descriptorBindingPartiallyBound = VK_TRUE;
+
+
+    deviceCreateInfo.pNext = &descriptor_indexing_features;
+
 
     // TODO: memory management
     // Create logical device for the given physical device
@@ -152,7 +164,8 @@ bool VulkanDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device)
 
     static const std::vector<const char*>deviceExtensions   = 
     { 
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
         //        ,   VK_NV_GLSL_SHADER_EXTENSION_NAME  // nVidia useful extension to be able to load GLSL shaders
     };
 
@@ -170,6 +183,7 @@ bool VulkanDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device)
         }
         if (!hasExtension)
         {
+            //TODO: throw what extension not supported
             return false;
         }
     }

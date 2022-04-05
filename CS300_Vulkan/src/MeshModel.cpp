@@ -1,23 +1,23 @@
 #include "MeshModel.h"
-
+#include "VulkanDevice.h"
 #include <stdexcept>
 
-MeshModel::MeshModel()
+MeshContainer::MeshContainer()
 {
 }
 
-MeshModel::MeshModel(std::vector<Mesh> newMeshList)
+MeshContainer::MeshContainer(std::vector<Mesh> newMeshList)
 {
 	meshList = newMeshList;
 	model = glm::mat4(1.0f);
 }
 
-size_t MeshModel::getMeshCount()
+size_t MeshContainer::getMeshCount()
 {
 	return meshList.size();
 }
 
-Mesh* MeshModel::getMesh(size_t index)
+Mesh* MeshContainer::getMesh(size_t index)
 {
 	if (index >= meshList.size())
 	{
@@ -27,17 +27,17 @@ Mesh* MeshModel::getMesh(size_t index)
 	return &meshList[index];
 }
 
-const glm::mat4& MeshModel::getModel()
+const glm::mat4& MeshContainer::getModel()
 {
 	return model;
 }
 
-void MeshModel::setModel(glm::mat4 newModel)
+void MeshContainer::setModel(glm::mat4 newModel)
 {
 	model = newModel;
 }
 
-void MeshModel::destroyMeshModel()
+void MeshContainer::destroyMeshModel()
 {
 	for (auto &mesh : meshList)
 	{
@@ -46,7 +46,7 @@ void MeshModel::destroyMeshModel()
 }
 
 
-std::vector<std::string> MeshModel::LoadMaterials(const aiScene *scene)
+std::vector<std::string> MeshContainer::LoadMaterials(const aiScene *scene)
 {
 	// create 1:1 size list of textures
 	std::vector <std::string> textureList(scene->mNumMaterials);
@@ -80,7 +80,7 @@ std::vector<std::string> MeshModel::LoadMaterials(const aiScene *scene)
 	return textureList;
 }
 
-std::vector<Mesh> MeshModel::LoadNode(VkPhysicalDevice newPhysicalDevice, VkDevice newDevice, VkQueue transferQueue, VkCommandPool commandPool, aiNode *node, const aiScene *scene, std::vector<int> matToTex)
+std::vector<Mesh> MeshContainer::LoadNode(VkPhysicalDevice newPhysicalDevice, VkDevice newDevice, VkQueue transferQueue, VkCommandPool commandPool, aiNode *node, const aiScene *scene, std::vector<int> matToTex)
 {
 	std::vector<Mesh> meshList;
 
@@ -101,7 +101,7 @@ std::vector<Mesh> MeshModel::LoadNode(VkPhysicalDevice newPhysicalDevice, VkDevi
 	return meshList;
 }
 
-Mesh MeshModel::LoadMesh(VkPhysicalDevice newPhysicalDevice, VkDevice newDevice, VkQueue transferQueue, VkCommandPool transferCommandPool,
+Mesh MeshContainer::LoadMesh(VkPhysicalDevice newPhysicalDevice, VkDevice newDevice, VkQueue transferQueue, VkCommandPool transferCommandPool,
 	aiMesh *mesh, const aiScene *scene, std::vector<int> matToTex)
 {
 	std::vector<oGFX::Vertex> vertices;
@@ -150,6 +150,103 @@ Mesh MeshModel::LoadMesh(VkPhysicalDevice newPhysicalDevice, VkDevice newDevice,
 }
 
 
-MeshModel::~MeshModel()
+MeshContainer::~MeshContainer()
 {
+}
+
+Model::~Model()
+{
+	if (device == nullptr) return;
+
+	vkDestroyBuffer(device->logicalDevice, vertices.buffer, nullptr);
+	vkFreeMemory(device->logicalDevice, vertices.memory, nullptr);
+	vkDestroyBuffer(device->logicalDevice, indices.buffer, nullptr);
+	vkFreeMemory(device->logicalDevice, indices.memory, nullptr);
+	for (auto& node : nodes)
+	{
+		delete node;
+		node = nullptr;
+	}
+}
+
+void Model::loadNode(Node* parent,const aiScene* scene, const aiNode& node, uint32_t nodeIndex, std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices)
+{
+	Node* newNode = new Node();
+	newNode->parent = parent;
+	newNode->index = nodeIndex;
+	newNode->name = node.mName.C_Str();
+
+	if (node.mNumChildren > 0)
+	{
+		for (size_t i = 0; i < node.mNumChildren; i++)
+		{
+			loadNode(newNode, scene, *node.mChildren[i], nodeIndex + static_cast<uint32_t>(i), vertices, indices);
+		}
+	}
+
+	if (node.mNumMeshes > 0)
+	{
+		for (size_t i = 0; i < node.mNumMeshes; i++)
+		{
+			aiMesh* aimesh = scene->mMeshes[node.mMeshes[i]];
+			newNode->meshes.push_back( processMesh(aimesh, scene, vertices, indices));
+		}
+	}
+
+	if (parent == nullptr)
+	{
+		nodes.push_back(newNode);	
+	}
+	else
+	{
+		parent->children.push_back(newNode);
+	}
+}
+
+oGFX::Mesh* Model::processMesh(aiMesh* aimesh, const aiScene* scene, std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices)
+{
+	oGFX::Mesh* mesh = new oGFX::Mesh;
+	mesh->vertexOffset  = static_cast<uint32_t>(vertices.size());
+	mesh->indicesOffset = static_cast<uint32_t>(indices.size());
+
+	for (size_t i = 0; i < aimesh->mNumVertices; i++)
+	{
+		oGFX::Vertex vertex;
+		const auto& aiVert = aimesh->mVertices[i];
+		vertex.pos = glm::vec3{ aimesh->mVertices[i].x,
+								aimesh->mVertices[i].y,
+								aimesh->mVertices[i].z };
+		if (aimesh->mTextureCoords[0]) // does the mesh contain texture coordinates?
+		{
+			vertex.tex = { aimesh->mTextureCoords[0][i].x,
+							aimesh->mTextureCoords[0][i].y };
+		}
+		if (aimesh->mColors[0])
+		{
+			vertex.col = {aimesh->mColors[0][i].r,
+				aimesh->mColors[0][i].g,
+				aimesh->mColors[0][i].b,
+				//aimesh->mColors[i]->a,
+			};
+		}
+		
+
+		//TODO : Normals
+
+		vertices.push_back(vertex);
+	}
+
+	for(uint32_t i = 0; i < aimesh->mNumFaces; i++)
+	{
+		const aiFace& face = aimesh->mFaces[i];
+		for(uint32_t j = 0; j < face.mNumIndices; j++)
+			indices.push_back(face.mIndices[j]);
+	} 
+
+	if (aimesh->mMaterialIndex >= 0)
+	{
+		mesh->textureIndex = aimesh->mMaterialIndex;
+	}
+
+	return mesh;
 }

@@ -101,6 +101,8 @@ int main(int argc, char argv[])
 
     uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");
 
+    uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
+
    uint32_t obj = renderer.CreateMeshModel(verts, indices);
    glm::mat4 xform{ 1.0f };
    xform = glm::translate(xform, glm::vec3(-3.0f, 0.0f, -3.0f));
@@ -132,8 +134,11 @@ int main(int argc, char argv[])
         renderer.camera.Update(deltaTime);
         float speed = 0.05f;
 
+        if (mainWindow.m_width != 0 && mainWindow.m_height != 0)
+        {
+            renderer.camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 256.0f);
+        }
 
-        renderer.camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 256.0f);
         auto mousedel = Input::GetMouseDelta();
 
         //pos.y += mousedel.y* 0.001f;

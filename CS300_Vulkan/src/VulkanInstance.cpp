@@ -130,9 +130,10 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 	//create list to hold instance extensions
 	std::vector<const char *> requiredExtensions = std::vector<const char *>();
 
-	requiredExtensions.push_back({ VK_KHR_SURFACE_EXTENSION_NAME 
-		// , VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME      // (NOT WORKING ON MANY GRAPHICS CARDS WILL HAVE TO WAIT...) Allows to change the vertex input to a pipeline (which should have been the default behavior)
-	});
+	requiredExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+	//requiredExtensions.push_back(// , VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME );     // (NOT WORKING ON MANY GRAPHICS CARDS WILL HAVE TO WAIT...) Allows to change the vertex input to a pipeline (which should have been the default behavior)
+	requiredExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME); // descriptor indexing
+	
 
 	{
 		// Enable surface extensions depending on os

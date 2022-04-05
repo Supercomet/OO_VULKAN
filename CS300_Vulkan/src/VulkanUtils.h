@@ -96,6 +96,25 @@ namespace oGFX
 		namespace inits
 		{
 
+			inline VkMemoryAllocateInfo memoryAllocateInfo()
+			{
+				VkMemoryAllocateInfo memAllocInfo {};
+				memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+				return memAllocInfo;
+			}
+
+			inline VkBufferCreateInfo bufferCreateInfo(
+				VkBufferUsageFlags usage,
+				VkDeviceSize size)
+			{
+				VkBufferCreateInfo bufCreateInfo {};
+				bufCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+				bufCreateInfo.usage = usage;// size of buffer (size of 1 vertex pos * number of verts)
+				bufCreateInfo.size = size;	//multiple types of buffer possible
+				bufCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;		// similar to swapchain images , we can share vertex buffers
+				return bufCreateInfo;
+			}
+
 			inline VkDescriptorSetLayoutBinding descriptorSetLayoutBinding(
 				VkDescriptorType type,
 				VkShaderStageFlags stageFlags,
@@ -311,6 +330,20 @@ namespace oGFX
 				return pipelineCreateInfo;
 			}
 
+
+			inline VkCommandBufferBeginInfo commandBufferBeginInfo()
+			{
+				VkCommandBufferBeginInfo cmdBufferBeginInfo {};
+				cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+				return cmdBufferBeginInfo;
+			}
+
+			inline VkRenderPassBeginInfo renderPassBeginInfo()
+			{
+				VkRenderPassBeginInfo renderPassBeginInfo {};
+				renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+				return renderPassBeginInfo;
+			}
 		}
 	}
 

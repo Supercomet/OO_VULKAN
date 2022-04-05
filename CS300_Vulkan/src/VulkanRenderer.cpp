@@ -32,6 +32,10 @@ VulkanRenderer::~VulkanRenderer()
 	{
 		modelList[i].destroyMeshModel();
 	}	
+	for (size_t i = 0; i < models.size(); i++)
+	{
+		models.clear();
+	}	
 	for (size_t i = 0; i < textureImages.size(); i++)
 	{
 		vkDestroyImageView(m_device.logicalDevice, textureImageViews[i], nullptr);
@@ -282,7 +286,7 @@ void VulkanRenderer::CreatePushConstantRange()
 {
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; //shader stage push constant will go to
 	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(Model);
+	pushConstantRange.size = sizeof(Transform);
 }
 
 void VulkanRenderer::CreateGraphicsPipeline()
@@ -594,7 +598,7 @@ void VulkanRenderer::CreateUniformBuffers()
 	// ViewProjection buffer size
 	VkDeviceSize vpBufferSize = sizeof(UboViewProjection);
 
-	//// Model bufffer size
+	//// Transform bufffer size
 	//VkDeviceSize modelBufferSize = modelUniformAlignment * MAX_OBJECTS;
 
 	// One uniform buffer for each image (and by extension, command buffer)
@@ -623,7 +627,7 @@ void VulkanRenderer::CreateDescriptorPool()
 	vpPoolsize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	vpPoolsize.descriptorCount = static_cast<uint32_t>(vpUniformBuffer.size());
 
-	//// Model pool (DYNAMIC)
+	//// Transform pool (DYNAMIC)
 	//VkDescriptorPoolSize modelPoolSize{};
 	//modelPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	//modelPoolSize.descriptorCount = static_cast<uint32_t>(modelDUniformBuffer.size());
@@ -834,6 +838,118 @@ bool VulkanRenderer::ResizeSwapchain()
 	return true;
 }
 
+uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
+{
+	// new model loader
+	
+	Assimp::Importer importer;
+	const aiScene *scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+
+	if (!scene)
+	{
+		throw std::runtime_error("Failed to load model! (" + file + ")");
+	}	
+	auto index = models.size();
+	models.emplace_back(std::move(Model()));
+	
+	auto& model = models[index];
+	model.device = &m_device;
+
+	std::vector<std::string> textureNames = MeshContainer::LoadMaterials(scene);
+	std::vector<int> matToTex(textureNames.size());
+	// Loop over textureNames and create textures for them
+	for (size_t i = 0; i < textureNames.size(); i++)
+	{
+		// if material had no texture, set '0' to indicate no texture, texxture 0 will be reserved fora  default texture
+		if (textureNames[i].empty())
+		{
+			matToTex[i] = 0;
+		}
+		else
+		{
+			// otherwise create texture and set value to index of new texture
+			matToTex[i] =  CreateTexture(textureNames[i]);
+		}
+	}
+
+	std::vector<oGFX::Vertex> verticeBuffer;
+	std::vector<uint32_t> indexBuffer;
+
+	for (size_t i = 0; i < scene->mRootNode->mNumChildren; i++)
+	{
+		model.loadNode(nullptr, scene, *scene->mRootNode->mChildren[i],static_cast<uint32_t>(i),verticeBuffer, indexBuffer);
+	}
+
+	model.indices.count = static_cast<uint32_t>(indexBuffer.size());
+	model.vertices.count = static_cast<uint32_t>(verticeBuffer.size());
+	
+
+	{
+		using namespace oGFX;
+		//get size of buffer needed for vertices
+		VkDeviceSize bufferSize = sizeof(Vertex) * verticeBuffer.size();
+
+		//temporary buffer to stage vertex data before transferring to GPU
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory; 
+		//create buffer and allocate memory to it
+		CreateBuffer(m_device.physicalDevice,m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
+
+		//MAP MEMORY TO VERTEX BUFFER
+		void *data = nullptr;												//1. create a pointer to a point in normal memory
+		vkMapMemory(m_device.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);	//2. map the vertex buffer to that point
+		memcpy(data, verticeBuffer.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
+		vkUnmapMemory(m_device.logicalDevice, stagingBufferMemory);							//4. unmap the vertex buffer memory
+
+																			//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
+																			// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
+		CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model.vertices.buffer, &model.vertices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
+
+																					  //copy staging buffer to vertex buffer on GPU
+		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, graphicsCommandPool, stagingBuffer, model.vertices.buffer, bufferSize);
+
+		//clean up staging buffer parts
+		vkDestroyBuffer(m_device.logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(m_device.logicalDevice, stagingBufferMemory, nullptr);
+	}
+
+	//CreateIndexBuffer
+	{
+		using namespace oGFX;
+		//get size of buffer needed for vertices
+		VkDeviceSize bufferSize = sizeof(decltype(indexBuffer)::value_type) * indexBuffer.size();
+
+		//temporary buffer to stage vertex data before transferring to GPU
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory; 
+		//create buffer and allocate memory to it
+		CreateBuffer(m_device.physicalDevice,m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
+
+		//MAP MEMORY TO VERTEX BUFFER
+		void *data = nullptr;												//1. create a pointer to a point in normal memory
+		vkMapMemory(m_device.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);	//2. map the vertex buffer to that point
+		memcpy(data, indexBuffer.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
+		vkUnmapMemory(m_device.logicalDevice, stagingBufferMemory);							//4. unmap the vertex buffer memory
+
+																							//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
+																							// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
+		CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model.indices.buffer, &model.indices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
+
+																								  //copy staging buffer to vertex buffer on GPU
+		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, graphicsCommandPool, stagingBuffer, model.indices.buffer, bufferSize);
+
+		//clean up staging buffer parts
+		vkDestroyBuffer(m_device.logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(m_device.logicalDevice, stagingBufferMemory, nullptr);
+	}
+
+	return static_cast<uint32_t>(index);
+}
+
 
 uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, const unsigned char* imgData)
 {
@@ -871,7 +987,7 @@ uint32_t VulkanRenderer::CreateTexture(const std::string& file)
 uint32_t VulkanRenderer::CreateMeshModel(std::vector<oGFX::Vertex>& vertices,std::vector<uint32_t>& indices)
 {
 	Mesh mesh(m_device.physicalDevice, m_device.logicalDevice, m_device.graphicsQueue, graphicsCommandPool, &vertices, &indices,0);
-	MeshModel model({ mesh });
+	MeshContainer model({ mesh });
 	modelList.push_back(model);
 	return static_cast<uint32_t>(modelList.size() - 1);
 }
@@ -888,7 +1004,7 @@ uint32_t VulkanRenderer::CreateMeshModel(const std::string& file)
 	}
 
 	//get vector of all materials with 1:1 ID placement
-	std::vector<std::string> textureNames = MeshModel::LoadMaterials(scene);
+	std::vector<std::string> textureNames = MeshContainer::LoadMaterials(scene);
 
 	// Conversion from the materials list IDs  to our Descriptor Array IDs
 	std::vector<int> matToTex(textureNames.size());
@@ -909,10 +1025,10 @@ uint32_t VulkanRenderer::CreateMeshModel(const std::string& file)
 	}
 
 	// load in all our meshes
-	std::vector<Mesh> modelMeshes = MeshModel::LoadNode(m_device.physicalDevice, m_device.logicalDevice, 
+	std::vector<Mesh> modelMeshes = MeshContainer::LoadNode(m_device.physicalDevice, m_device.logicalDevice, 
 		 m_device.graphicsQueue, graphicsCommandPool, scene->mRootNode, scene, matToTex);
 
-	MeshModel meshModel = MeshModel(modelMeshes);
+	MeshContainer meshModel = MeshContainer(modelMeshes);
 	modelList.push_back(meshModel);
 	return static_cast<uint32_t>(modelList.size() - 1);
 
@@ -921,24 +1037,19 @@ uint32_t VulkanRenderer::CreateMeshModel(const std::string& file)
 void VulkanRenderer::RecordCommands(uint32_t currentImage)
 {
 	//Information about how to begin each command buffer
-	VkCommandBufferBeginInfo bufferBeginInfo = {};
-	bufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	//using fences its not relevant
-	//bufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT; //buffer can be resubmitted when it has already been submitted and it is waiting for execution
-
-	//Information about how to begin a render pass (only needed for graphical applications)
-	VkRenderPassBeginInfo renderPassBeginInfo = {};
-	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginInfo.renderPass = renderPass; //render pass to begin
-	renderPassBeginInfo.renderArea.offset = { 0,0 }; //start point of render pass in pixels
-	renderPassBeginInfo.renderArea.extent = m_swapchain.swapChainExtent; //size of region to run render pass on (Starting from offset)
+	VkCommandBufferBeginInfo bufferBeginInfo = oGFX::vk::inits::commandBufferBeginInfo();
+	
 	std::array<VkClearValue, 2> clearValues{};
-
 	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
 	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
 	clearValues[1].depthStencil.depth = {1.0f };
 
-	renderPassBeginInfo.pClearValues = clearValues.data(); //list of clear values
+	//Information about how to begin a render pass (only needed for graphical applications)
+	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
+	renderPassBeginInfo.renderPass = renderPass;									//render pass to begin
+	renderPassBeginInfo.renderArea.offset = { 0,0 };								//start point of render pass in pixels
+	renderPassBeginInfo.renderArea.extent = m_swapchain.swapChainExtent;			//size of region to run render pass on (Starting from offset)
+	renderPassBeginInfo.pClearValues = clearValues.data();							//list of clear values
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 
 
@@ -953,7 +1064,6 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 
 	//Begin Render Pass
 	vkCmdBeginRenderPass(commandBuffers[currentImage], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-	
 
 	//Bind pipeline to be used in render pass
 	vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
@@ -965,14 +1075,14 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 
 	for (size_t j = 0; j < modelList.size(); ++j)
 	{
-		MeshModel thisModel = modelList[j];
+		MeshContainer thisModel = modelList[j];
 		
 		// Push constants tot shader stage directly, (no buffer)
 		vkCmdPushConstants(commandBuffers[currentImage],
 			pipelineLayout,
 			VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
 			0,							// offset of push constants to update
-			sizeof(Model),				// size of data being pushed
+			sizeof(Transform),				// size of data being pushed
 			&thisModel.getModel());		// actualy data being pushed (could be an array)
 		
 		for (size_t k = 0; k < thisModel.getMeshCount(); k++)
@@ -1000,6 +1110,13 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 			vkCmdDrawIndexed(commandBuffers[currentImage], thisModel.getMesh(k)->getIndexCount(), 1, 0, 0, 0);
 		}
 	}
+
+	auto& model = models[0];
+	VkDeviceSize offsets[] = { 0 };	
+	vkCmdBindVertexBuffers(commandBuffers[currentImage], 0, 1, &model.vertices.buffer, offsets);	
+	vkCmdBindIndexBuffer(commandBuffers[currentImage], model.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdDrawIndexed(commandBuffers[currentImage], model.indices.count, 1, 0, 0, 0);
+
 	// End Render  Pass
 	vkCmdEndRenderPass(commandBuffers[currentImage]);
 
@@ -1035,10 +1152,10 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 	memcpy(data, &uboViewProjection, sizeof(UboViewProjection));
 	vkUnmapMemory(m_device.logicalDevice, vpUniformBufferMemory[imageIndex]);
 
-	////copy Model data
+	////copy Transform data
 	//for (size_t i = 0; i < meshList.size(); ++i)
 	//{
-	//	Model *thisModel = (Model *)((uint64_t)modelTransferSpace + (i * modelUniformAlignment));
+	//	Transform *thisModel = (Transform *)((uint64_t)modelTransferSpace + (i * modelUniformAlignment));
 	//	*thisModel = meshList[i].getModel();
 	//}
 	//vkMapMemory(mainDevice.logicalDevice, modelDUniformBufferMemory[imageIndex], 0, modelUniformAlignment*meshList.size(), 0, &data);
