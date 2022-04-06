@@ -10,7 +10,7 @@ namespace oGFX
 {
 
 	glm::mat4 customOrtho(float aspect_ratio, float size, float nr, float fr);
-	
+
 	// Indices (locations) of Queue Familities (if they exist)
 	struct QueueFamilyIndices
 	{
@@ -20,7 +20,7 @@ namespace oGFX
 		//check if queue familities are valid
 		bool isValid()
 		{
-			return graphicsFamily >= 0 && presentationFamily >=0;
+			return graphicsFamily >= 0 && presentationFamily >= 0;
 		}
 	};
 
@@ -52,7 +52,7 @@ namespace oGFX
 		glm::vec2 tex; // Texture Coords(u,v)
 	};
 
-	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance,VkPhysicalDevice device);
+	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance, VkPhysicalDevice device);
 	oGFX::QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 
 	VkSurfaceFormatKHR ChooseBestSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats);
@@ -63,7 +63,7 @@ namespace oGFX
 
 	VkFormat ChooseSupportedFormat(VulkanDevice& device, const std::vector<VkFormat>& formats, VkImageTiling tiling, VkFormatFeatureFlags featureFlags);
 
-	VkImage CreateImage(VulkanDevice& device,uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags useFlags, VkMemoryPropertyFlags propFlags, VkDeviceMemory* imageMemory);
+	VkImage CreateImage(VulkanDevice& device, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags useFlags, VkMemoryPropertyFlags propFlags, VkDeviceMemory* imageMemory);
 
 	uint32_t FindMemoryTypeIndex(VkPhysicalDevice physicalDevice, uint32_t allowedTypes, VkMemoryPropertyFlags properties);
 
@@ -81,7 +81,7 @@ namespace oGFX
 	VkCommandBuffer beginCommandBuffer(VkDevice device, VkCommandPool commandPool);
 
 	void endAndSubmitCommandBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkCommandBuffer commandBuffer);
-	
+
 	void TransitionImageLayout(VkDevice device, VkQueue queue, VkCommandPool commandPool,
 		VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
 
@@ -93,22 +93,44 @@ namespace oGFX
 
 	namespace vk
 	{
+		namespace tools
+		{
+			void setImageLayout(
+				VkCommandBuffer cmdbuffer,
+				VkImage image,
+				VkImageLayout oldImageLayout,
+				VkImageLayout newImageLayout,
+				VkImageSubresourceRange subresourceRange,
+				VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+				VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+			// Uses a fixed sub resource layout with first mip level and layer
+			void setImageLayout(
+				VkCommandBuffer cmdbuffer,
+				VkImage image,
+				VkImageAspectFlags aspectMask,
+				VkImageLayout oldImageLayout,
+				VkImageLayout newImageLayout,
+				VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+				VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+		}
+
 		namespace inits
 		{
 
 			inline VkMemoryAllocateInfo memoryAllocateInfo()
 			{
-				VkMemoryAllocateInfo memAllocInfo {};
+				VkMemoryAllocateInfo memAllocInfo{};
 				memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 				return memAllocInfo;
 			}
 
 			inline VkCommandBufferAllocateInfo commandBufferAllocateInfo(
-				VkCommandPool commandPool, 
-				VkCommandBufferLevel level, 
+				VkCommandPool commandPool,
+				VkCommandBufferLevel level,
 				uint32_t bufferCount)
 			{
-				VkCommandBufferAllocateInfo commandBufferAllocateInfo {};
+				VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
 				commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 				commandBufferAllocateInfo.commandPool = commandPool;
 				commandBufferAllocateInfo.level = level;
@@ -118,29 +140,44 @@ namespace oGFX
 
 			inline VkSubmitInfo submitInfo()
 			{
-				VkSubmitInfo submitInfo {};
+				VkSubmitInfo submitInfo{};
 				submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 				return submitInfo;
 			}
 
 			inline VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags flags = 0)
 			{
-				VkFenceCreateInfo fenceCreateInfo {};
+				VkFenceCreateInfo fenceCreateInfo{};
 				fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 				fenceCreateInfo.flags = flags;
 				return fenceCreateInfo;
+			}
+
+
+			inline VkBufferCreateInfo bufferCreateInfo()
+			{
+				VkBufferCreateInfo bufCreateInfo{};
+				bufCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+				return bufCreateInfo;
 			}
 
 			inline VkBufferCreateInfo bufferCreateInfo(
 				VkBufferUsageFlags usage,
 				VkDeviceSize size)
 			{
-				VkBufferCreateInfo bufCreateInfo {};
+				VkBufferCreateInfo bufCreateInfo{};
 				bufCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 				bufCreateInfo.usage = usage;// size of buffer (size of 1 vertex pos * number of verts)
 				bufCreateInfo.size = size;	//multiple types of buffer possible
 				bufCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;		// similar to swapchain images , we can share vertex buffers
 				return bufCreateInfo;
+			}
+
+			inline VkImageCreateInfo imageCreateInfo()
+			{
+				VkImageCreateInfo imageCreateInfo{};
+				imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+				return imageCreateInfo;
 			}
 
 			inline VkDescriptorSetLayoutBinding descriptorSetLayoutBinding(
@@ -149,7 +186,7 @@ namespace oGFX
 				uint32_t binding,
 				uint32_t descriptorCount = 1)
 			{
-				VkDescriptorSetLayoutBinding setLayoutBinding {};
+				VkDescriptorSetLayoutBinding setLayoutBinding{};
 				setLayoutBinding.descriptorType = type;// type of descriptor ( uniform, dynamic uniform, image sampler, etc)
 				setLayoutBinding.stageFlags = stageFlags; // Shader stage to bind to
 				setLayoutBinding.binding = binding;// Binding point in shader (designated by binding number in shader)
@@ -157,6 +194,15 @@ namespace oGFX
 
 				setLayoutBinding.pImmutableSamplers = nullptr;							// For texture : can make sampler immutable by specifiying in layout
 				return setLayoutBinding;
+			}
+
+			inline VkImageMemoryBarrier imageMemoryBarrier()
+			{
+				VkImageMemoryBarrier imageMemoryBarrier{};
+				imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+				imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+				imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+				return imageMemoryBarrier;
 			}
 
 			inline VkDescriptorPoolCreateInfo descriptorPoolCreateInfo(
@@ -175,7 +221,7 @@ namespace oGFX
 				VkDescriptorType type,
 				uint32_t descriptorCount)
 			{
-				VkDescriptorPoolSize descriptorPoolSize {};
+				VkDescriptorPoolSize descriptorPoolSize{};
 				descriptorPoolSize.type = type;
 				descriptorPoolSize.descriptorCount = descriptorCount;
 				return descriptorPoolSize;
@@ -185,7 +231,7 @@ namespace oGFX
 				const VkDescriptorSetLayoutBinding* pBindings,
 				uint32_t bindingCount)
 			{
-				VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo {};
+				VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
 				descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 				descriptorSetLayoutCreateInfo.pBindings = pBindings;// array of binding infos
 				descriptorSetLayoutCreateInfo.bindingCount = bindingCount;// number of binding infos
@@ -194,9 +240,26 @@ namespace oGFX
 
 			inline VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo()
 			{
-				VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo {};
+				VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo{};
 				pipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 				return pipelineVertexInputStateCreateInfo;
+			}
+
+			inline VkWriteDescriptorSet writeDescriptorSet(
+				VkDescriptorSet dstSet,
+				VkDescriptorType type,
+				uint32_t binding,
+				VkDescriptorImageInfo *imageInfo,
+				uint32_t descriptorCount = 1)
+			{
+				VkWriteDescriptorSet writeDescriptorSet {};
+				writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				writeDescriptorSet.dstSet = dstSet;
+				writeDescriptorSet.descriptorType = type;
+				writeDescriptorSet.dstBinding = binding;
+				writeDescriptorSet.pImageInfo = imageInfo;
+				writeDescriptorSet.descriptorCount = descriptorCount;
+				return writeDescriptorSet;
 			}
 
 			inline VkVertexInputBindingDescription vertexInputBindingDescription(
@@ -204,7 +267,7 @@ namespace oGFX
 				uint32_t stride,
 				VkVertexInputRate inputRate)
 			{
-				VkVertexInputBindingDescription vInputBindDescription {};
+				VkVertexInputBindingDescription vInputBindDescription{};
 				vInputBindDescription.binding = binding;//can bind multiple streams of data, this defines which one
 				vInputBindDescription.stride = stride; //size of a single vertex object in memory
 				vInputBindDescription.inputRate = inputRate;//how to move between data after each vertex
@@ -218,7 +281,7 @@ namespace oGFX
 				VkFormat format,
 				uint32_t offset)
 			{
-				VkVertexInputAttributeDescription vInputAttribDescription {};
+				VkVertexInputAttributeDescription vInputAttribDescription{};
 				vInputAttribDescription.location = location;//location in shader where data will be read from
 				vInputAttribDescription.binding = binding; //which binding the data is at  ( should be same as above)
 				vInputAttribDescription.format = format; // format the data will take (also helps define the size of the data) 
@@ -228,8 +291,8 @@ namespace oGFX
 
 
 			inline VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo(
-				const std::vector<VkVertexInputBindingDescription> &vertexBindingDescriptions,
-				const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions
+				const std::vector<VkVertexInputBindingDescription>& vertexBindingDescriptions,
+				const std::vector<VkVertexInputAttributeDescription>& vertexAttributeDescriptions
 			)
 			{
 				VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo{};
@@ -246,7 +309,7 @@ namespace oGFX
 				VkPipelineInputAssemblyStateCreateFlags flags,
 				VkBool32 primitiveRestartEnable)
 			{
-				VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo {};
+				VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo{};
 				pipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 				pipelineInputAssemblyStateCreateInfo.topology = topology;// primitive type to assemble vertices as
 																		 //allow overriding of strip topology to start new primitives
@@ -266,20 +329,20 @@ namespace oGFX
 				pipelineRasterizationStateCreateInfo.polygonMode = polygonMode;			// how to handle filling points between vertices								
 				pipelineRasterizationStateCreateInfo.cullMode = cullMode;				// which face of the triangle to cull (backface cull)								
 				pipelineRasterizationStateCreateInfo.frontFace = frontFace;				// Winding to determine which side is front								
-				pipelineRasterizationStateCreateInfo.flags = flags;														
+				pipelineRasterizationStateCreateInfo.flags = flags;
 				pipelineRasterizationStateCreateInfo.depthClampEnable = VK_FALSE;		// change if fragments beyond/near the far planes are clipped(default) or clamped.. must enable depth clamp in device features								
 				pipelineRasterizationStateCreateInfo.lineWidth = 1.0f;					// how thick lines should be when drawn	
 
 				pipelineRasterizationStateCreateInfo.depthBiasEnable = VK_FALSE;			// Wheter to add debt biast to fragments. (good for stoppging "shadow acne" in shadow mapping)
 				pipelineRasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE;	// wheter to desicard data and skip rasterizer. never creates fragments, only suitable for pipeline without framebuffer output.
-				return pipelineRasterizationStateCreateInfo;							
-			}			
+				return pipelineRasterizationStateCreateInfo;
+			}
 
 			inline VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo(
 				VkSampleCountFlagBits rasterizationSamples,
 				VkPipelineMultisampleStateCreateFlags flags = 0)
 			{
-				VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo {};
+				VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo{};
 				pipelineMultisampleStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 				pipelineMultisampleStateCreateInfo.rasterizationSamples = rasterizationSamples; //number of samples to use per fragment;
 				pipelineMultisampleStateCreateInfo.flags = flags;
@@ -290,7 +353,7 @@ namespace oGFX
 				VkColorComponentFlags colorWriteMask,
 				VkBool32 blendEnable)
 			{
-				VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState {};
+				VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState{};
 				pipelineColorBlendAttachmentState.colorWriteMask = colorWriteMask; //colors to apply blending to
 				pipelineColorBlendAttachmentState.blendEnable = blendEnable;
 				return pipelineColorBlendAttachmentState;
@@ -298,9 +361,9 @@ namespace oGFX
 
 			inline VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo(
 				uint32_t attachmentCount,
-				const VkPipelineColorBlendAttachmentState * pAttachments)
+				const VkPipelineColorBlendAttachmentState* pAttachments)
 			{
-				VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo {};
+				VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo{};
 				pipelineColorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 				pipelineColorBlendStateCreateInfo.attachmentCount = attachmentCount;
 				pipelineColorBlendStateCreateInfo.pAttachments = pAttachments;
@@ -327,7 +390,7 @@ namespace oGFX
 				VkBool32 depthWriteEnable,
 				VkCompareOp depthCompareOp)
 			{
-				VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo {};
+				VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo{};
 				pipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 				pipelineDepthStencilStateCreateInfo.depthTestEnable = depthTestEnable; //enable checking depth to determine fragment write
 				pipelineDepthStencilStateCreateInfo.depthWriteEnable = depthWriteEnable;// enable writing to depth buffer (to replace old values)
@@ -343,7 +406,7 @@ namespace oGFX
 				uint32_t scissorCount,
 				VkPipelineViewportStateCreateFlags flags = 0)
 			{
-				VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo {};
+				VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo{};
 				pipelineViewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 				pipelineViewportStateCreateInfo.viewportCount = viewportCount;
 				pipelineViewportStateCreateInfo.scissorCount = scissorCount;
@@ -355,11 +418,24 @@ namespace oGFX
 				const VkDescriptorSetLayout* pSetLayouts,
 				uint32_t setLayoutCount = 1)
 			{
-				VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo {};
+				VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
 				pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 				pipelineLayoutCreateInfo.setLayoutCount = setLayoutCount;
 				pipelineLayoutCreateInfo.pSetLayouts = pSetLayouts;
 				return pipelineLayoutCreateInfo;
+			}
+
+			inline VkDescriptorSetAllocateInfo descriptorSetAllocateInfo(
+				VkDescriptorPool descriptorPool,
+				const VkDescriptorSetLayout* pSetLayouts,
+				uint32_t descriptorSetCount)
+			{
+				VkDescriptorSetAllocateInfo descriptorSetAllocateInfo {};
+				descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+				descriptorSetAllocateInfo.descriptorPool = descriptorPool;
+				descriptorSetAllocateInfo.pSetLayouts = pSetLayouts;
+				descriptorSetAllocateInfo.descriptorSetCount = descriptorSetCount;
+				return descriptorSetAllocateInfo;
 			}
 
 			inline VkGraphicsPipelineCreateInfo pipelineCreateInfo(
@@ -367,7 +443,7 @@ namespace oGFX
 				VkRenderPass renderPass,
 				VkPipelineCreateFlags flags = 0)
 			{
-				VkGraphicsPipelineCreateInfo pipelineCreateInfo {};
+				VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
 				pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 				pipelineCreateInfo.layout = layout;         //pipeline layout pipeline should use
 				pipelineCreateInfo.renderPass = renderPass;	//render pass description the pipeline is compatible with
@@ -383,14 +459,14 @@ namespace oGFX
 
 			inline VkCommandBufferBeginInfo commandBufferBeginInfo()
 			{
-				VkCommandBufferBeginInfo cmdBufferBeginInfo {};
+				VkCommandBufferBeginInfo cmdBufferBeginInfo{};
 				cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 				return cmdBufferBeginInfo;
 			}
 
 			inline VkRenderPassBeginInfo renderPassBeginInfo()
 			{
-				VkRenderPassBeginInfo renderPassBeginInfo {};
+				VkRenderPassBeginInfo renderPassBeginInfo{};
 				renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 				return renderPassBeginInfo;
 			}

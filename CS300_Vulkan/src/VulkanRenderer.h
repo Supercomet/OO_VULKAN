@@ -12,6 +12,7 @@
 #include "VulkanInstance.h"
 #include "VulkanDevice.h"
 #include "VulkanSwapchain.h"
+#include "VulkanTexture.h"
 #include "gpuCommon.h"
 
 #include "Camera.h"
@@ -75,6 +76,8 @@ static constexpr int MAX_OBJECTS = 1024;
 	std::vector<VkImage> textureImages;
 	std::vector<VkDeviceMemory> textureImageMemory;
 	std::vector<VkImageView> textureImageViews;
+
+	std::vector<vk::Texture2D> newTextures;
 
 	// - Synchronisation
 	std::vector<VkSemaphore> imageAvailable;
@@ -145,5 +148,6 @@ static constexpr int MAX_OBJECTS = 1024;
 		uint32_t CreateTextureImage(const std::string& fileName);
 		uint32_t CreateTextureImage(uint32_t width, uint32_t height, const unsigned char* imgData);
 		uint32_t CreateTextureDescriptor(VkImageView textureImage);
+		uint32_t CreateTextureDescriptor(vk::Texture2D texture);
 };
 

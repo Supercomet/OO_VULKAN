@@ -42,6 +42,10 @@ VulkanRenderer::~VulkanRenderer()
 		vkDestroyImage(m_device.logicalDevice, textureImages[i], nullptr);
 		vkFreeMemory(m_device.logicalDevice, textureImageMemory[i], nullptr);
 	}
+	for (size_t i = 0; i < newTextures.size(); i++)
+	{
+		newTextures[i].destroy();
+	}
 
 	vkDestroyDescriptorPool(m_device.logicalDevice, samplerDescriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(m_device.logicalDevice, samplerSetLayout, nullptr);
@@ -961,14 +965,14 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 		void *data = nullptr;												//1. create a pointer to a point in normal memory
 		vkMapMemory(m_device.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);	//2. map the vertex buffer to that point
 		memcpy(data, indexBuffer.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
-		vkUnmapMemory(m_device.logicalDevice, stagingBufferMemory);							//4. unmap the vertex buffer memory
+		vkUnmapMemory(m_device.logicalDevice, stagingBufferMemory);				//4. unmap the vertex buffer memory
 
-																							//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
-																							// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
+		//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
+		// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
 		CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model.indices.buffer, &model.indices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
 
-																								  //copy staging buffer to vertex buffer on GPU
+		//copy staging buffer to vertex buffer on GPU
 		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model.indices.buffer, bufferSize);
 
 		//clean up staging buffer parts
@@ -979,17 +983,16 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	return static_cast<uint32_t>(index);
 }
 
-
 uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, const unsigned char* imgData)
 {
 	using namespace oGFX;
 	auto ind = CreateTextureImage(width, height, imgData);
 
-	VkImageView imageView = CreateImageView(m_device,textureImages[ind], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
-	textureImageViews.push_back(imageView);
+	//VkImageView imageView = CreateImageView(m_device,textureImages[ind], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+	//textureImageViews.push_back(imageView);
 
 	//create texture descriptor
-	int descriptorLoc = CreateTextureDescriptor(imageView);
+	 int descriptorLoc = CreateTextureDescriptor(newTextures[ind]);
 
 	//return location of set with texture
 	return descriptorLoc;
@@ -1002,11 +1005,11 @@ uint32_t VulkanRenderer::CreateTexture(const std::string& file)
 	uint32_t textureImageLoc = CreateTextureImage(file);
 
 	// Create image view and add to list
-	VkImageView imageView = oGFX::CreateImageView(m_device,textureImages[textureImageLoc], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
-	textureImageViews.push_back(imageView);
+	//VkImageView imageView = oGFX::CreateImageView(m_device,textureImages[textureImageLoc], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+	//textureImageViews.push_back(imageView);
 
 	//create texture descriptor
-	int descriptorLoc = CreateTextureDescriptor(imageView);
+	int descriptorLoc = CreateTextureDescriptor(newTextures[textureImageLoc]);
 
 	//return location of set with texture
 	return descriptorLoc;
@@ -1104,7 +1107,7 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 
 	for (size_t j = 0; j < modelList.size(); ++j)
 	{
-		if (j == 0) continue;
+		//if (j == 0) continue;
 
 		MeshContainer thisModel = modelList[j];
 		
@@ -1141,19 +1144,19 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 		}
 	}
 
-	auto& model = models[0];
-	VkDeviceSize offsets[] = { 0 };	
-
-	vkCmdPushConstants(commandBuffers[currentImage],
-		pipelineLayout,
-		VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
-		0,							// offset of push constants to update
-		sizeof(Transform),				// size of data being pushed
-		&modelList[0].getModel());		// actualy data being pushed (could be an array)
-
-	vkCmdBindVertexBuffers(commandBuffers[currentImage], 0, 1, &model.vertices.buffer, offsets);	
-	vkCmdBindIndexBuffer(commandBuffers[currentImage], model.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexed(commandBuffers[currentImage], model.indices.count, 1, 0, 0, 0);
+	//auto& model = models[0];
+	//VkDeviceSize offsets[] = { 0 };	
+	//
+	//vkCmdPushConstants(commandBuffers[currentImage],
+	//	pipelineLayout,
+	//	VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+	//	0,							// offset of push constants to update
+	//	sizeof(Transform),				// size of data being pushed
+	//	&modelList[0].getModel());		// actualy data being pushed (could be an array)
+	//
+	//vkCmdBindVertexBuffers(commandBuffers[currentImage], 0, 1, &model.vertices.buffer, offsets);	
+	//vkCmdBindIndexBuffer(commandBuffers[currentImage], model.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+	//vkCmdDrawIndexed(commandBuffers[currentImage], model.indices.count, 1, 0, 0, 0);
 	
 	/// vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeline);
 	/// vkCmdBindVertexBuffers(drawCmdBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &models.plants.vertices.buffer, offsets);
@@ -1222,54 +1225,60 @@ uint32_t VulkanRenderer::CreateTextureImage(const std::string& fileName)
 	return CreateTextureImage(width, height, imageData);
 }
 
-
 uint32_t VulkanRenderer::CreateTextureImage(uint32_t width, uint32_t height, const unsigned char* imgData)
 {
-	using namespace oGFX;
-	//Load image file
 	VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * 4;
-
-	// Create staging buffer to hold loaded data, ready to copy to device
-	VkBuffer imageStagingBuffer;
-	VkDeviceMemory imageStagingBufferMemory;
-	CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		&imageStagingBuffer, &imageStagingBufferMemory);
-
-	// copy image data to staging buffer
-	void *data;
-	vkMapMemory(m_device.logicalDevice, imageStagingBufferMemory, 0, imageSize, 0, &data);
-	memcpy(data, imgData, static_cast<size_t>(imageSize));
-	vkUnmapMemory(m_device.logicalDevice, imageStagingBufferMemory);
-
-	// Create image to hold final texture
-	VkImage texImage;
-	VkDeviceMemory texImageMemory;
-	texImage = CreateImage(m_device,width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &texImageMemory);
-
-	// Copy data to image
+	//{
+	//using namespace oGFX;
+	////Load image file
+	//
+	//// Create staging buffer to hold loaded data, ready to copy to device
+	//VkBuffer imageStagingBuffer;
+	//VkDeviceMemory imageStagingBufferMemory;
+	//CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	//	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+	//	&imageStagingBuffer, &imageStagingBufferMemory);
+	//
+	//// copy image data to staging buffer
+	//void *data;
+	//vkMapMemory(m_device.logicalDevice, imageStagingBufferMemory, 0, imageSize, 0, &data);
+	//memcpy(data, imgData, static_cast<size_t>(imageSize));
+	//vkUnmapMemory(m_device.logicalDevice, imageStagingBufferMemory);
+	//
+	//// Create image to hold final texture
+	//VkImage texImage;
+	//VkDeviceMemory texImageMemory;
+	//texImage = CreateImage(m_device,width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+	//	VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+	//	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &texImageMemory);
+	//
+	//// Copy data to image
 	//transition image to be DST for copy operation
-	TransitionImageLayout(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool,
-		texImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	// Copy image data
-	CopyImageBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, imageStagingBuffer, texImage, width, height);
+	//TransitionImageLayout(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool,
+	//	texImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	//// Copy image data
+	//CopyImageBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, imageStagingBuffer, texImage, width, height);
+	//
+	////transition image to be Shader readable for shader usage
+	//TransitionImageLayout(m_device.logicalDevice,m_device. graphicsQueue, m_device.commandPool,
+	//	texImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	//
+	////Add texture data to vector for refrence.
+	//textureImages.push_back(texImage);
+	//textureImageMemory.push_back(texImageMemory);
+	//
+	//
+	//// Destroy staginb uffers
+	//vkDestroyBuffer(m_device.logicalDevice, imageStagingBuffer, nullptr);
+	//vkFreeMemory(m_device.logicalDevice, imageStagingBufferMemory, nullptr);
+	//}
 
-	//transition image to be Shader readable for shader usage
-	TransitionImageLayout(m_device.logicalDevice,m_device. graphicsQueue, m_device.commandPool,
-		texImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	//Add texture data to vector for refrence.
-	textureImages.push_back(texImage);
-	textureImageMemory.push_back(texImageMemory);
-
-	// Destroy staginb uffers
-	vkDestroyBuffer(m_device.logicalDevice, imageStagingBuffer, nullptr);
-	vkFreeMemory(m_device.logicalDevice, imageStagingBufferMemory, nullptr);
+	auto indx = newTextures.size();
+	newTextures.push_back(vk::Texture2D());
+	newTextures[indx].fromBuffer((void*)imgData, imageSize, VK_FORMAT_R8G8B8A8_UNORM, width, height, &m_device, m_device.graphicsQueue);
 
 	// Return index of new texture image
-	return static_cast<uint32_t>(textureImages.size() - 1);
+	return indx;
 }
 
 uint32_t VulkanRenderer:: CreateTextureDescriptor(VkImageView textureImage)
@@ -1277,11 +1286,7 @@ uint32_t VulkanRenderer:: CreateTextureDescriptor(VkImageView textureImage)
 	VkDescriptorSet descriptorSet;
 
 	// Descriptor set allocation info
-	VkDescriptorSetAllocateInfo setAllocInfo{};
-	setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	setAllocInfo.descriptorPool = samplerDescriptorPool;
-	setAllocInfo.descriptorSetCount = 1;
-	setAllocInfo.pSetLayouts = &samplerSetLayout;
+	VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vk::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&samplerSetLayout,1);
 
 	// Allocate our descriptor sets
 	VkResult result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, &descriptorSet);
@@ -1298,14 +1303,7 @@ uint32_t VulkanRenderer:: CreateTextureDescriptor(VkImageView textureImage)
 
 
 	//Descriptor write info
-	VkWriteDescriptorSet descriptorWrite{};
-	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrite.dstSet = descriptorSet;
-	descriptorWrite.dstBinding = 0;
-	descriptorWrite.dstArrayElement = 0;
-	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descriptorWrite.descriptorCount = 1;
-	descriptorWrite.pImageInfo = &imageInfo;
+	VkWriteDescriptorSet descriptorWrite = oGFX::vk::inits::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &imageInfo);
 
 	// Update the new descriptor set
 	vkUpdateDescriptorSets(m_device.logicalDevice, 1, &descriptorWrite, 0, nullptr);
@@ -1314,4 +1312,30 @@ uint32_t VulkanRenderer:: CreateTextureDescriptor(VkImageView textureImage)
 	samplerDescriptorSets.push_back(descriptorSet);
 
 	return static_cast<uint32_t>(samplerDescriptorSets.size() - 1);
+}
+
+uint32_t VulkanRenderer:: CreateTextureDescriptor(vk::Texture2D texture)
+{
+	VkDescriptorSet descriptorSet;
+
+	// Descriptor set allocation info
+	VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vk::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&samplerSetLayout,1);
+
+	// Allocate our descriptor sets
+	VkResult result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, &descriptorSet);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("FAiled to allocate texture descriptor sets!");
+	}
+
+
+	std::vector<VkWriteDescriptorSet> writeSets{
+		oGFX::vk::inits::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &texture.descriptor),
+	};
+	samplerDescriptorSets.push_back(descriptorSet);
+
+	vkUpdateDescriptorSets(m_device.logicalDevice, writeSets.size(), writeSets.data(), 0, nullptr);
+
+	return static_cast<uint32_t>(samplerDescriptorSets.size() - 1);
+
 }

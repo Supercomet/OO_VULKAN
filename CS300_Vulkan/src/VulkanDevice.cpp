@@ -58,6 +58,9 @@ void VulkanDevice::InitPhysicalDevice(VulkanInstance& instance)
 
 void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
 {
+
+    vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+
     //get the queue family indices for the chosen Physical Device
     oGFX::QueueFamilyIndices indices = oGFX::GetQueueFamilies(physicalDevice, instance.surface);
 
@@ -114,6 +117,7 @@ void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
 
     deviceCreateInfo.pNext = &descriptor_indexing_features;
 
+    this->enabledFeatures = deviceFeatures;
 
     // TODO: memory management
     // Create logical device for the given physical device

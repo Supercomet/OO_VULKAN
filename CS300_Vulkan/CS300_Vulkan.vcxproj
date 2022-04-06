@@ -29,6 +29,7 @@
     <ClCompile Include="src\VulkanInstance.cpp" />
     <ClCompile Include="src\VulkanRenderer.cpp" />
     <ClCompile Include="src\VulkanDevice.cpp" />
+    <ClCompile Include="src\VulkanTexture.cpp" />
     <ClCompile Include="src\Window.cpp" />
     <ClCompile Include="src\VulkanUtils.cpp" />
     <ClCompile Include="src\VulkanSwapchain.cpp" />
@@ -46,6 +47,7 @@
     <ClInclude Include="src\VulkanInstance.h" />
     <ClInclude Include="src\VulkanRenderer.h" />
     <ClInclude Include="src\VulkanDevice.h" />
+    <ClInclude Include="src\VulkanTexture.h" />
     <ClInclude Include="src\Window.h" />
     <ClInclude Include="src\VulkanUtils.h" />
     <ClInclude Include="src\VulkanSwapchain.h" />

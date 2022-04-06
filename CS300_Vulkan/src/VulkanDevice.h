@@ -21,6 +21,9 @@ struct VulkanDevice
 	VkQueue graphicsQueue;
 	VkQueue presentationQueue;
 
+	VkPhysicalDeviceFeatures enabledFeatures;
+	VkPhysicalDeviceProperties properties;
+
 	VkCommandPool commandPool = VK_NULL_HANDLE;
 
 	bool CheckDeviceSuitable(VkPhysicalDevice device);

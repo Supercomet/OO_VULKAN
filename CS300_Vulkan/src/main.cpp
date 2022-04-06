@@ -61,7 +61,7 @@ int main(int argc, char argv[])
         std::cout << "Cannot create vulkan instance!"<< std::endl;
     }
 
-    uint32_t colour = 0xffffffff;
+    uint32_t colour = 0xFFFFFFFF; // ABGR
     renderer.CreateTexture(1, 1, reinterpret_cast<const unsigned char*>(&colour));
 
     std::vector<oGFX::Vertex>verts{
@@ -195,7 +195,7 @@ int main(int argc, char argv[])
         renderer.UpdateModel(Object, testMat);
 
 
-        xform = { 1.0f };
+        xform = glm::mat4( 1.0f );
         xform = glm::translate(xform, glm::vec3(3.0f, 0.0f, 3.0f));
         xform = glm::rotate(xform,angle, glm::vec3(0.0f, 1.0f, 0.0f));
         xform = glm::scale(xform, glm::vec3{ 3.0f,3.0f,3.0f });
