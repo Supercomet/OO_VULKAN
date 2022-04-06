@@ -32,6 +32,7 @@
     <ClCompile Include="src\Window.cpp" />
     <ClCompile Include="src\VulkanUtils.cpp" />
     <ClCompile Include="src\VulkanSwapchain.cpp" />
+    <ClCompile Include="src\VulkanBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Node.h" />
@@ -48,6 +49,7 @@
     <ClInclude Include="src\Window.h" />
     <ClInclude Include="src\VulkanUtils.h" />
     <ClInclude Include="src\VulkanSwapchain.h" />
+    <ClInclude Include="src\VulkanBuffer.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

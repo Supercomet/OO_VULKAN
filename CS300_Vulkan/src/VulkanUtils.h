@@ -103,6 +103,34 @@ namespace oGFX
 				return memAllocInfo;
 			}
 
+			inline VkCommandBufferAllocateInfo commandBufferAllocateInfo(
+				VkCommandPool commandPool, 
+				VkCommandBufferLevel level, 
+				uint32_t bufferCount)
+			{
+				VkCommandBufferAllocateInfo commandBufferAllocateInfo {};
+				commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+				commandBufferAllocateInfo.commandPool = commandPool;
+				commandBufferAllocateInfo.level = level;
+				commandBufferAllocateInfo.commandBufferCount = bufferCount;
+				return commandBufferAllocateInfo;
+			}
+
+			inline VkSubmitInfo submitInfo()
+			{
+				VkSubmitInfo submitInfo {};
+				submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+				return submitInfo;
+			}
+
+			inline VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags flags = 0)
+			{
+				VkFenceCreateInfo fenceCreateInfo {};
+				fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+				fenceCreateInfo.flags = flags;
+				return fenceCreateInfo;
+			}
+
 			inline VkBufferCreateInfo bufferCreateInfo(
 				VkBufferUsageFlags usage,
 				VkDeviceSize size)
@@ -129,6 +157,28 @@ namespace oGFX
 
 				setLayoutBinding.pImmutableSamplers = nullptr;							// For texture : can make sampler immutable by specifiying in layout
 				return setLayoutBinding;
+			}
+
+			inline VkDescriptorPoolCreateInfo descriptorPoolCreateInfo(
+				const std::vector<VkDescriptorPoolSize>& poolSizes,
+				uint32_t maxSets)
+			{
+				VkDescriptorPoolCreateInfo descriptorPoolInfo{};
+				descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+				descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+				descriptorPoolInfo.pPoolSizes = poolSizes.data();
+				descriptorPoolInfo.maxSets = maxSets;
+				return descriptorPoolInfo;
+			}
+
+			inline VkDescriptorPoolSize descriptorPoolSize(
+				VkDescriptorType type,
+				uint32_t descriptorCount)
+			{
+				VkDescriptorPoolSize descriptorPoolSize {};
+				descriptorPoolSize.type = type;
+				descriptorPoolSize.descriptorCount = descriptorCount;
+				return descriptorPoolSize;
 			}
 
 			inline VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo(

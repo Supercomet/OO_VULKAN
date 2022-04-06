@@ -208,6 +208,7 @@ oGFX::Mesh* Model::processMesh(aiMesh* aimesh, const aiScene* scene, std::vector
 	oGFX::Mesh* mesh = new oGFX::Mesh;
 	mesh->vertexOffset  = static_cast<uint32_t>(vertices.size());
 	mesh->indicesOffset = static_cast<uint32_t>(indices.size());
+	mesh->vertexCount += aimesh->mNumVertices;
 
 	for (size_t i = 0; i < aimesh->mNumVertices; i++)
 	{
@@ -236,12 +237,17 @@ oGFX::Mesh* Model::processMesh(aiMesh* aimesh, const aiScene* scene, std::vector
 		vertices.push_back(vertex);
 	}
 
+	uint32_t indicesCnt{  };
 	for(uint32_t i = 0; i < aimesh->mNumFaces; i++)
 	{
 		const aiFace& face = aimesh->mFaces[i];
-		for(uint32_t j = 0; j < face.mNumIndices; j++)
+		indicesCnt += face.mNumIndices;
+		for (uint32_t j = 0; j < face.mNumIndices; j++)
+		{
 			indices.push_back(face.mIndices[j]);
+		}
 	} 
+	mesh->indicesCount = indicesCnt;
 
 	if (aimesh->mMaterialIndex >= 0)
 	{

@@ -41,7 +41,6 @@ static constexpr int MAX_OBJECTS = 1024;
 	void CreateGraphicsPipeline();
 	void CreateDepthBufferImage();
 	void CreateFramebuffers(); 
-	void CreateCommandPool();
 	void CreateCommandBuffers();
 	void CreateTextureSampler();
 
@@ -49,6 +48,8 @@ static constexpr int MAX_OBJECTS = 1024;
 	void CreateUniformBuffers();
 	void CreateDescriptorPool();
 	void CreateDescriptorSets();
+
+	void UpdateIndirectCommands();
 
 	void Draw();
 	void RecordCommands(uint32_t currentImage);
@@ -90,8 +91,11 @@ static constexpr int MAX_OBJECTS = 1024;
 	VkPipelineLayout pipelineLayout{};
 	VkRenderPass renderPass{};
 
-	// - Pools
-	VkCommandPool graphicsCommandPool{};
+	vk::Buffer indirectCommandsBuffer{};
+	VkPipeline indirectPipeline{};
+	VkPipelineLayout indirectPipeLayout{};
+	uint32_t indirectDrawCount{};
+
 
 	// - Descriptors
 	VkDescriptorSetLayout descriptorSetLayout{};
@@ -114,6 +118,9 @@ static constexpr int MAX_OBJECTS = 1024;
 	VkSampler textureSampler{};
 
 	std::vector<VkCommandBuffer> commandBuffers;
+
+	// Store the indirect draw commands containing index offsets and instance count per object
+	std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
 
 	std::vector<Model> models;
 

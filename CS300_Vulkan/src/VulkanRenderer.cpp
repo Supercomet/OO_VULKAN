@@ -72,7 +72,6 @@ VulkanRenderer::~VulkanRenderer()
 		vkDestroySemaphore(m_device.logicalDevice, imageAvailable[i], nullptr);
 	}
 
-	vkDestroyCommandPool(m_device.logicalDevice, graphicsCommandPool, nullptr);
 	vkDestroyPipeline(m_device.logicalDevice, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(m_device.logicalDevice, pipelineLayout, nullptr);
 
@@ -100,7 +99,6 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateGraphicsPipeline();
 		CreateDepthBufferImage();
 		CreateFramebuffers();
-		CreateCommandPool();
 		CreateCommandBuffers();
 		CreateTextureSampler();
 		CreateUniformBuffers();
@@ -503,25 +501,6 @@ void VulkanRenderer::CreateFramebuffers()
 	}
 }
 
-void VulkanRenderer::CreateCommandPool()
-{
-	using namespace oGFX;
-	// Get indicies of queue families from device
-	QueueFamilyIndices queueFamilyIndices = GetQueueFamilies(m_device.physicalDevice,m_instance.surface);
-
-	VkCommandPoolCreateInfo poolInfo = {};
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily; //Queue family type that buffers from this command pool will use
-
-																   //create a graphics queue family command pool
-	VkResult result = vkCreateCommandPool(m_device.logicalDevice, &poolInfo, nullptr, &graphicsCommandPool);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to createa a command pool!");
-	}
-}
-
 void VulkanRenderer::CreateCommandBuffers()
 {
 	// resize command buffers count to have one for each frame buffer
@@ -529,7 +508,7 @@ void VulkanRenderer::CreateCommandBuffers()
 
 	VkCommandBufferAllocateInfo cbAllocInfo = {};
 	cbAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	cbAllocInfo.commandPool = graphicsCommandPool;
+	cbAllocInfo.commandPool = m_device.commandPool;
 	cbAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;	// VK_COMMAND_BUFFER_LEVEL_PRIMARY : buffer you submit directly to queue, cant be called  by other buffers
 															//VK_COMMAND_BUFFER_LEVEL_SECONDARY :  buffer cant be called directly, can be called from other buffers via "vkCmdExecuteCommands" when recording commands in primary buffer
 	cbAllocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
@@ -623,9 +602,7 @@ void VulkanRenderer::CreateDescriptorPool()
 	//descriptor is an individual piece of data // it is NOT a descriptor SET
 	// Type of descriptors + how many DESCRIPTORS, not DESCRIPTOR_SETS (combined makes the pool size)
 	// ViewProjection pool
-	VkDescriptorPoolSize vpPoolsize{};
-	vpPoolsize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	vpPoolsize.descriptorCount = static_cast<uint32_t>(vpUniformBuffer.size());
+	VkDescriptorPoolSize vpPoolsize = oGFX::vk::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, vpUniformBuffer.size());
 
 	//// Transform pool (DYNAMIC)
 	//VkDescriptorPoolSize modelPoolSize{};
@@ -639,8 +616,8 @@ void VulkanRenderer::CreateDescriptorPool()
 	VkDescriptorPoolCreateInfo poolCreateInfo{};
 	poolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolCreateInfo.maxSets = static_cast<uint32_t>(m_swapchain.swapChainImages.size()); // Maximum number of descriptor sets that can be created from pool
-	poolCreateInfo.poolSizeCount = static_cast<uint32_t>(descriptorPoolSizes.size());										// Amount of pool sizes being passed
-	poolCreateInfo.pPoolSizes = descriptorPoolSizes.data();									// Pool sizes to create pool with
+	poolCreateInfo.poolSizeCount = static_cast<uint32_t>(descriptorPoolSizes.size());	// Amount of pool sizes being passed
+	poolCreateInfo.pPoolSizes = descriptorPoolSizes.data();								// Pool sizes to create pool with
 
 																							//create descriptor pool
 	VkResult result = vkCreateDescriptorPool(m_device.logicalDevice, &poolCreateInfo, nullptr, &descriptorPool);
@@ -651,9 +628,7 @@ void VulkanRenderer::CreateDescriptorPool()
 
 	// Create Sampler Descriptor pool
 	// Texture sampler pool
-	VkDescriptorPoolSize samplerPoolSize{};
-	samplerPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	samplerPoolSize.descriptorCount = MAX_OBJECTS;
+	VkDescriptorPoolSize samplerPoolSize = oGFX::vk::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_OBJECTS);
 
 	VkDescriptorPoolCreateInfo samplerPoolCreateInfo{};
 	samplerPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -709,21 +684,21 @@ void VulkanRenderer::CreateDescriptorSets()
 		vpSetWrite.descriptorCount = 1;								// amount to update
 		vpSetWrite.pBufferInfo = &vpBufferInfo;						// information about the buffer data to bind
 
-																	//// MODEL DESCRIPTOR
-																	//// model buffer binding info
-																	//VkDescriptorBufferInfo modelBufferInfo{};
-																	//modelBufferInfo.buffer = modelDUniformBuffer[i];
-																	//modelBufferInfo.offset = 0;
-																	//modelBufferInfo.range = modelUniformAlignment;
-
-																	//VkWriteDescriptorSet modelSetWrite{};
-																	//modelSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-																	//modelSetWrite.dstSet = descriptorSets[i];
-																	//modelSetWrite.dstBinding = 1;
-																	//modelSetWrite.dstArrayElement = 0;
-																	//modelSetWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-																	//modelSetWrite.descriptorCount = 1;
-																	//modelSetWrite.pBufferInfo = &modelBufferInfo;
+		//// MODEL DESCRIPTOR
+		//// model buffer binding info
+		//VkDescriptorBufferInfo modelBufferInfo{};
+		//modelBufferInfo.buffer = modelDUniformBuffer[i];
+		//modelBufferInfo.offset = 0;
+		//modelBufferInfo.range = modelUniformAlignment;
+		
+		//VkWriteDescriptorSet modelSetWrite{};
+		//modelSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		//modelSetWrite.dstSet = descriptorSets[i];
+		//modelSetWrite.dstBinding = 1;
+		//modelSetWrite.dstArrayElement = 0;
+		//modelSetWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		//modelSetWrite.descriptorCount = 1;
+		//modelSetWrite.pBufferInfo = &modelBufferInfo;
 
 																	// List of Descriptor set writes
 		std::vector<VkWriteDescriptorSet> setWrites = { vpSetWrite  /*, modelSetWrite*/ };
@@ -732,6 +707,60 @@ void VulkanRenderer::CreateDescriptorSets()
 		vkUpdateDescriptorSets(m_device.logicalDevice, static_cast<uint32_t>(setWrites.size()), setWrites.data(),
 			0, nullptr);
 	}
+}
+
+void VulkanRenderer::UpdateIndirectCommands()
+{
+	indirectCommands.clear();
+#define OBJECT_INSTANCE_COUNT 10
+	// Create on indirect command for node in the scene with a mesh attached to it
+	uint32_t m = 0;
+	for (auto &node : models[0].nodes)
+	{
+		if (node->meshes.size())
+		{
+			VkDrawIndexedIndirectCommand indirectCmd{};
+			indirectCmd.instanceCount = OBJECT_INSTANCE_COUNT;
+			indirectCmd.firstInstance = m * OBJECT_INSTANCE_COUNT;
+			// @todo: Multiple primitives
+			// A glTF node may consist of multiple primitives, so we may have to do multiple commands per mesh
+			indirectCmd.firstIndex = node->meshes[0]->indicesOffset;
+			indirectCmd.indexCount = node->meshes[0]->indicesCount;
+
+			// for counting
+			//vertexCount += node->meshes[0]->vertexCount;
+			indirectCommands.push_back(indirectCmd);
+
+			m++;
+		}
+	}
+	indirectDrawCount = static_cast<uint32_t>(indirectCommands.size());
+
+	//objectCount = 0;
+	//for (auto indirectCmd : indirectCommands)
+	//{
+	//	objectCount += indirectCmd.instanceCount;
+	//}
+	//vertexCount *= objectCount /3;
+
+	vk::Buffer stagingBuffer;	
+	m_device.CreateBuffer(
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		&stagingBuffer,
+		indirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
+		indirectCommands.data());
+
+	m_device.CreateBuffer(
+		VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		&indirectCommandsBuffer,
+		stagingBuffer.size);
+
+	m_device.CopyBuffer(&stagingBuffer, &indirectCommandsBuffer, m_device.graphicsQueue);
+
+	stagingBuffer.destroy();
+
 }
 
 void VulkanRenderer::Draw()
@@ -843,7 +872,7 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	// new model loader
 	
 	Assimp::Importer importer;
-	const aiScene *scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+	const aiScene *scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices | aiProcess_PreTransformVertices);
 
 	if (!scene)
 	{
@@ -908,7 +937,7 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model.vertices.buffer, &model.vertices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
 
 																					  //copy staging buffer to vertex buffer on GPU
-		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, graphicsCommandPool, stagingBuffer, model.vertices.buffer, bufferSize);
+		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model.vertices.buffer, bufferSize);
 
 		//clean up staging buffer parts
 		vkDestroyBuffer(m_device.logicalDevice, stagingBuffer, nullptr);
@@ -940,7 +969,7 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model.indices.buffer, &model.indices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
 
 																								  //copy staging buffer to vertex buffer on GPU
-		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, graphicsCommandPool, stagingBuffer, model.indices.buffer, bufferSize);
+		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model.indices.buffer, bufferSize);
 
 		//clean up staging buffer parts
 		vkDestroyBuffer(m_device.logicalDevice, stagingBuffer, nullptr);
@@ -986,7 +1015,7 @@ uint32_t VulkanRenderer::CreateTexture(const std::string& file)
 
 uint32_t VulkanRenderer::CreateMeshModel(std::vector<oGFX::Vertex>& vertices,std::vector<uint32_t>& indices)
 {
-	Mesh mesh(m_device.physicalDevice, m_device.logicalDevice, m_device.graphicsQueue, graphicsCommandPool, &vertices, &indices,0);
+	Mesh mesh(m_device.physicalDevice, m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, &vertices, &indices,0);
 	MeshContainer model({ mesh });
 	modelList.push_back(model);
 	return static_cast<uint32_t>(modelList.size() - 1);
@@ -996,7 +1025,7 @@ uint32_t VulkanRenderer::CreateMeshModel(std::vector<oGFX::Vertex>& vertices,std
 uint32_t VulkanRenderer::CreateMeshModel(const std::string& file)
 {
 	Assimp::Importer importer;
-	const aiScene *scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+	const aiScene *scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices | aiProcess_PreTransformVertices);
 
 	if (!scene)
 	{
@@ -1026,7 +1055,7 @@ uint32_t VulkanRenderer::CreateMeshModel(const std::string& file)
 
 	// load in all our meshes
 	std::vector<Mesh> modelMeshes = MeshContainer::LoadNode(m_device.physicalDevice, m_device.logicalDevice, 
-		 m_device.graphicsQueue, graphicsCommandPool, scene->mRootNode, scene, matToTex);
+		 m_device.graphicsQueue, m_device.commandPool, scene->mRootNode, scene, matToTex);
 
 	MeshContainer meshModel = MeshContainer(modelMeshes);
 	modelList.push_back(meshModel);
@@ -1075,6 +1104,8 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 
 	for (size_t j = 0; j < modelList.size(); ++j)
 	{
+		if (j == 0) continue;
+
 		MeshContainer thisModel = modelList[j];
 		
 		// Push constants tot shader stage directly, (no buffer)
@@ -1082,13 +1113,13 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 			pipelineLayout,
 			VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
 			0,							// offset of push constants to update
-			sizeof(Transform),				// size of data being pushed
+			sizeof(Transform),			// size of data being pushed
 			&thisModel.getModel());		// actualy data being pushed (could be an array)
 		
 		for (size_t k = 0; k < thisModel.getMeshCount(); k++)
 		{
 			VkBuffer vertexBuffers[] = { thisModel.getMesh(k)->getVertexBuffer() };					// buffers to bind
-			VkDeviceSize offsets[] = { 0 };												//offsets into buffers being bound
+			VkDeviceSize offsets[] = { 0 };															//offsets into buffers being bound
 			vkCmdBindVertexBuffers(commandBuffers[currentImage], 0, 1, vertexBuffers, offsets);		//command to bind vertex buffer before drawing with them
 		
 																									//bind mesh index buffer with 0 offset and using the uint32 type
@@ -1096,7 +1127,6 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 		
 			// Dyanimc offset amount 
 			//uint32_t dynamicOffset = static_cast<uint32_t>(modelUniformAlignment) * j;
-		
 		
 		
 			std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[currentImage],
@@ -1113,9 +1143,27 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 
 	auto& model = models[0];
 	VkDeviceSize offsets[] = { 0 };	
+
+	vkCmdPushConstants(commandBuffers[currentImage],
+		pipelineLayout,
+		VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+		0,							// offset of push constants to update
+		sizeof(Transform),				// size of data being pushed
+		&modelList[0].getModel());		// actualy data being pushed (could be an array)
+
 	vkCmdBindVertexBuffers(commandBuffers[currentImage], 0, 1, &model.vertices.buffer, offsets);	
 	vkCmdBindIndexBuffer(commandBuffers[currentImage], model.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(commandBuffers[currentImage], model.indices.count, 1, 0, 0, 0);
+	
+	/// vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeline);
+	/// vkCmdBindVertexBuffers(drawCmdBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &models.plants.vertices.buffer, offsets);
+	/// // Binding point 1 : Instance data buffer
+	/// vkCmdBindVertexBuffers(drawCmdBuffers[i], INSTANCE_BUFFER_BIND_ID, 1, &instanceBuffer.buffer, offsets);
+	/// vkCmdBindIndexBuffer(drawCmdBuffers[i], models.plants.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+	/// for (size_t i = 0; i < indirectCommands.size(); i++)
+	/// {		
+	/// 	vkCmdDrawIndexedIndirect(commandBuffers[currentImage], indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+	/// }
 
 	// End Render  Pass
 	vkCmdEndRenderPass(commandBuffers[currentImage]);
@@ -1203,13 +1251,13 @@ uint32_t VulkanRenderer::CreateTextureImage(uint32_t width, uint32_t height, con
 
 	// Copy data to image
 	//transition image to be DST for copy operation
-	TransitionImageLayout(m_device.logicalDevice, m_device.graphicsQueue, graphicsCommandPool,
+	TransitionImageLayout(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool,
 		texImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	// Copy image data
-	CopyImageBuffer(m_device.logicalDevice, m_device.graphicsQueue, graphicsCommandPool, imageStagingBuffer, texImage, width, height);
+	CopyImageBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, imageStagingBuffer, texImage, width, height);
 
 	//transition image to be Shader readable for shader usage
-	TransitionImageLayout(m_device.logicalDevice,m_device. graphicsQueue, graphicsCommandPool,
+	TransitionImageLayout(m_device.logicalDevice,m_device. graphicsQueue, m_device.commandPool,
 		texImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	//Add texture data to vector for refrence.
@@ -1249,7 +1297,7 @@ uint32_t VulkanRenderer:: CreateTextureDescriptor(VkImageView textureImage)
 	imageInfo.sampler = textureSampler; // sampler to use for set
 
 
-										//Descriptor write info
+	//Descriptor write info
 	VkWriteDescriptorSet descriptorWrite{};
 	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrite.dstSet = descriptorSet;

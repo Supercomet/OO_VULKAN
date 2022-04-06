@@ -15,6 +15,10 @@
 
 VulkanDevice::~VulkanDevice()
 {
+    if (commandPool)
+    {
+        vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+    }
     // no need destory phys device
 	if (logicalDevice)
 	{
@@ -124,6 +128,20 @@ void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
     // From given logical device of given queue family of given index, place reference in VKqueue
     vkGetDeviceQueue(logicalDevice, indices.graphicsFamily, 0, &graphicsQueue);
     vkGetDeviceQueue(logicalDevice, indices.presentationFamily, 0, &presentationQueue);
+
+
+    VkCommandPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    poolInfo.queueFamilyIndex = indices.graphicsFamily; //Queue family type that buffers from this command pool will use
+
+                                                                   //create a graphics queue family command pool
+    result = vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool);
+    if (result != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to createa a command pool!");
+    }
+
 }
 
 
@@ -189,6 +207,124 @@ bool VulkanDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device)
     }
 
     return true;
+}
+
+VkResult VulkanDevice::CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, vk::Buffer* buffer, VkDeviceSize size, void* data)
+{
+    buffer->device = logicalDevice;
+
+    // Create the buffer handle
+    VkBufferCreateInfo bufferCreateInfo = oGFX::vk::inits::bufferCreateInfo(usageFlags, size);
+    vkCreateBuffer(logicalDevice, &bufferCreateInfo, nullptr, &buffer->buffer);
+
+    // Create the memory backing up the buffer handle
+    VkMemoryRequirements memReqs;
+    VkMemoryAllocateInfo memAlloc = oGFX::vk::inits::memoryAllocateInfo();
+    vkGetBufferMemoryRequirements(logicalDevice, buffer->buffer, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    // Find a memory type index that fits the properties of the buffer
+    memAlloc.memoryTypeIndex = oGFX::FindMemoryTypeIndex(physicalDevice,memReqs.memoryTypeBits, memoryPropertyFlags);
+    // If the buffer has VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT set we also need to enable the appropriate flag during allocation
+    VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
+    if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
+        allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
+        allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
+        memAlloc.pNext = &allocFlagsInfo;
+    }
+    vkAllocateMemory(logicalDevice, &memAlloc, nullptr, &buffer->memory);
+
+    buffer->alignment = memReqs.alignment;
+    buffer->size = size;
+    buffer->usageFlags = usageFlags;
+    buffer->memoryPropertyFlags = memoryPropertyFlags;
+
+    // If a pointer to the buffer data has been passed, map the buffer and copy over the data
+    if (data != nullptr)
+    {
+        (buffer->map());
+        memcpy(buffer->mapped, data, size);
+        if ((memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
+            buffer->flush();
+
+        buffer->unmap();
+    }
+
+    // Initialize a default descriptor that covers the whole buffer size
+    buffer->setupDescriptor();
+
+    // Attach the memory to the buffer object
+    return buffer->bind();
+}
+
+VkCommandBuffer VulkanDevice::CreateCommandBuffer(VkCommandBufferLevel level, VkCommandPool pool, bool begin)
+{
+    VkCommandBufferAllocateInfo cmdBufAllocateInfo = oGFX::vk::inits::commandBufferAllocateInfo(pool, level, 1);
+    VkCommandBuffer cmdBuffer;
+    vkAllocateCommandBuffers(logicalDevice, &cmdBufAllocateInfo, &cmdBuffer);
+    // If requested, also start recording for the new command buffer
+    if (begin)
+    {
+        VkCommandBufferBeginInfo cmdBufInfo = oGFX::vk::inits::commandBufferBeginInfo();
+        vkBeginCommandBuffer(cmdBuffer, &cmdBufInfo);
+    }
+    return cmdBuffer;
+}
+
+VkCommandBuffer VulkanDevice::CreateCommandBuffer(VkCommandBufferLevel level, bool begin)
+{
+    return CreateCommandBuffer(level, commandPool, begin);
+}
+
+void VulkanDevice::FlushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool pool, bool free)
+{
+    if (commandBuffer == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo = oGFX::vk::inits::submitInfo();
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    // Create fence to ensure that the command buffer has finished executing
+    VkFenceCreateInfo fenceInfo = oGFX::vk::inits::fenceCreateInfo(0);
+    VkFence fence;
+    vkCreateFence(logicalDevice, &fenceInfo, nullptr, &fence);
+    // Submit to the queue
+    vkQueueSubmit(queue, 1, &submitInfo, fence);
+    // Wait for the fence to signal that command buffer has finished executing
+    vkWaitForFences(logicalDevice, 1, &fence, VK_TRUE, 100000000000);
+    vkDestroyFence(logicalDevice, fence, nullptr);
+    if (free)
+    {
+        vkFreeCommandBuffers(logicalDevice, pool, 1, &commandBuffer);
+    }
+}
+
+void VulkanDevice::FlushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, bool free)
+{
+    return FlushCommandBuffer(commandBuffer, queue, commandPool, free);
+}
+
+void VulkanDevice::CopyBuffer(vk::Buffer* src, vk::Buffer* dst, VkQueue queue, VkBufferCopy* copyRegion)
+{
+    assert(dst->size <= src->size);
+    assert(src->buffer);
+    VkCommandBuffer copyCmd = CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+    VkBufferCopy bufferCopy{};
+    if (copyRegion == nullptr)
+    {
+        bufferCopy.size = src->size;
+    }
+    else
+    {
+        bufferCopy = *copyRegion;
+    }
+
+    vkCmdCopyBuffer(copyCmd, src->buffer, dst->buffer, 1, &bufferCopy);
+
+    FlushCommandBuffer(copyCmd, queue);
 }
 
 
