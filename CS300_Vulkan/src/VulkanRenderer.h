@@ -26,6 +26,9 @@ public:
 static constexpr int MAX_FRAME_DRAWS = 2;
 static constexpr int MAX_OBJECTS = 1024;
 
+static constexpr uint32_t VERTEX_BUFFER_ID = 0;
+static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
+
 	~VulkanRenderer();
 
 	void Init(const oGFX::SetupInfo& setupSpecs, Window& window);
@@ -149,5 +152,7 @@ static constexpr int MAX_OBJECTS = 1024;
 		uint32_t CreateTextureImage(uint32_t width, uint32_t height, const unsigned char* imgData);
 		uint32_t CreateTextureDescriptor(VkImageView textureImage);
 		uint32_t CreateTextureDescriptor(vk::Texture2D texture);
+
+		VkPipelineShaderStageCreateInfo LoadShader(const std::string& fileName, VkShaderStageFlagBits stage);
 };
 

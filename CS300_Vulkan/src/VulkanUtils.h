@@ -52,6 +52,14 @@ namespace oGFX
 		glm::vec2 tex; // Texture Coords(u,v)
 	};
 
+	// Per-instance data block
+	struct InstanceData {
+		glm::vec3 pos;
+		glm::vec3 rot;
+		float scale;
+		uint32_t texIndex;
+	};
+
 	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance, VkPhysicalDevice device);
 	oGFX::QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 
@@ -211,9 +219,9 @@ namespace oGFX
 			{
 				VkDescriptorPoolCreateInfo descriptorPoolInfo{};
 				descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-				descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-				descriptorPoolInfo.pPoolSizes = poolSizes.data();
-				descriptorPoolInfo.maxSets = maxSets;
+				descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());// Amount of pool sizes being passed
+				descriptorPoolInfo.pPoolSizes = poolSizes.data();// Pool sizes to create pool with
+				descriptorPoolInfo.maxSets = maxSets; // Maximum number of descriptor sets that can be created from pool
 				return descriptorPoolInfo;
 			}
 

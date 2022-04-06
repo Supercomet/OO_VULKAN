@@ -79,6 +79,9 @@ VulkanRenderer::~VulkanRenderer()
 	vkDestroyPipeline(m_device.logicalDevice, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(m_device.logicalDevice, pipelineLayout, nullptr);
 
+	vkDestroyPipeline(m_device.logicalDevice, indirectPipeline, nullptr);
+	vkDestroyPipelineLayout(m_device.logicalDevice, indirectPipeLayout, nullptr);
+
 	//vkDestroyDescriptorPool(mainDevice.logicalDevice, descriptorPool, nullptr);
 	
 	if (renderPass)
@@ -294,52 +297,26 @@ void VulkanRenderer::CreatePushConstantRange()
 void VulkanRenderer::CreateGraphicsPipeline()
 {
 	using namespace oGFX;
-	//read in SPIR-V code of shaders
-	auto vertexShaderCode = readFile("Shaders/shader.vert.spv");
-	auto fragmentShaderCode = readFile("Shaders/shader.frag.spv");
-
-	//build shader modules to link to graphics pipeline
-	VkShaderModule vertexShaderModule = CreateShaderModule(m_device,vertexShaderCode);
-	VkShaderModule fragmentShaderModule = CreateShaderModule(m_device,fragmentShaderCode);
-
-	// SHADER STAGE CREATION INFORMATION
-
-	// VERTEX STAGE CREATION INFORMATION
-	VkPipelineShaderStageCreateInfo vertexShaderCreateInfo = {};
-	vertexShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	//shader stage name
-	vertexShaderCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-	//shader module to be used by stage
-	vertexShaderCreateInfo.module = vertexShaderModule;
-	//pointer to the shader starting function
-	vertexShaderCreateInfo.pName = "main";
-
-	// FRAGMENT STAGE CREATION INFORMATION
-	VkPipelineShaderStageCreateInfo fragmentShaderCreateInfo = {};
-	fragmentShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	//shader stage name
-	fragmentShaderCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	//shader module to be used by stage
-	fragmentShaderCreateInfo.module = fragmentShaderModule;
-	//pointer to the shader starting function
-	fragmentShaderCreateInfo.pName = "main";
-
-	//put shader stage creation into array
-	//graphics pipeline creation requires array of shader stages create
-	VkPipelineShaderStageCreateInfo shaderStages[] = { vertexShaderCreateInfo, fragmentShaderCreateInfo };
-
 	//create pipeline
 
 	//how the data for a single vertex (including infos such as pos, colour, texture, coords, normals etc) is as a whole
 	std::vector<VkVertexInputBindingDescription> bindingDescription {	
-		oGFX::vk::inits::vertexInputBindingDescription(0,sizeof(Vertex),VK_VERTEX_INPUT_RATE_VERTEX)
+		oGFX::vk::inits::vertexInputBindingDescription(VERTEX_BUFFER_ID,sizeof(Vertex),VK_VERTEX_INPUT_RATE_VERTEX),
+
+		oGFX::vk::inits::vertexInputBindingDescription(INSTANCE_BUFFER_ID,sizeof(oGFX::InstanceData),VK_VERTEX_INPUT_RATE_INSTANCE),
 	};
 
 	//how the data for an attirbute is define in the vertex
 	std::vector<VkVertexInputAttributeDescription>attributeDescriptions{
-		oGFX::vk::inits::vertexInputAttributeDescription(0,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, pos)),//Position attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(0,1,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, col)), //colour attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(0,2,VK_FORMAT_R32G32_SFLOAT,offsetof(Vertex, tex)),////Texture attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, pos)),//Position attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,1,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, col)), //colour attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,2,VK_FORMAT_R32G32_SFLOAT,offsetof(Vertex, tex)),////Texture attribute
+	
+		// instance data attributes
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,4,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::InstanceData, pos)),//Position attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,5,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::InstanceData, rot)), //colour attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,6,VK_FORMAT_R32_SFLOAT,offsetof(oGFX::InstanceData, scale)),////Texture attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,7,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, texIndex)),////Texture attribute
 	};
 
 
@@ -349,26 +326,8 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	// __ INPUT ASSEMBLY __
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = oGFX::vk::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0 ,VK_FALSE);
 
-	//// -- VIEWPORT & SCISSOR --
-	//// Createa  viewport info struct
-	//VkViewport viewport = {};
-	//viewport.x = 0.0f;											//x start coord
-	//viewport.y = 0.0f;											//y start coord
-	//viewport.width = (float)m_swapchain.swapChainExtent.width;	// viewport width
-	//viewport.height = (float)m_swapchain.swapChainExtent.height;	// viewport height
-	//viewport.minDepth = 0.0f;										//min frame buffer depth
-	//viewport.maxDepth = 1.0f;										//max frame buffer depth
-	//
-	//																// create a sciossor info struct
-	//VkRect2D scissor = {};
-	//scissor.offset = { 0,0 };										//offset to use region from
-	//scissor.extent = m_swapchain.swapChainExtent;					//extent to describe region to use, starting at offset
 
 	VkPipelineViewportStateCreateInfo viewportStateCreateInfo = oGFX::vk::inits::pipelineViewportStateCreateInfo(1,1,0);
-	//viewportStateCreateInfo.viewportCount = 1;
-	//viewportStateCreateInfo.pViewports = &viewport;
-	//viewportStateCreateInfo.scissorCount = 1;
-	//viewportStateCreateInfo.pScissors = &scissor;
 
 	//Dynami states to enable	
 	std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
@@ -382,11 +341,9 @@ void VulkanRenderer::CreateGraphicsPipeline()
 
 	//-- BLENDING --
 	//Blending decies how to blend a new color being written to a a fragment with the old value
-
 	//blend attachment state (how blending is handled
-	VkPipelineColorBlendAttachmentState colourState = 
-		oGFX::vk::inits::pipelineColorBlendAttachmentState(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
-		| VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT, VK_TRUE);
+	
+	VkPipelineColorBlendAttachmentState colourState = oGFX::vk::inits::pipelineColorBlendAttachmentState(0x0000000F,VK_TRUE);
 
 	//blending uses equation : (srcColourBlendFactor * new colour ) colourBlendOp ( dstColourBlendFActor*old colour)
 	colourState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -412,20 +369,29 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
 	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 
-	// Create Pipeline Layout
-	VkResult result = vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
+	// indirect pipeline
+	VkResult result = vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &indirectPipeLayout);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create Pipeline Layout!");
 	}
+	// go back to normal pipelines
 
+	// Create Pipeline Layout
+	result = vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create Pipeline Layout!");
+	}
+	std::array<VkPipelineShaderStageCreateInfo,2>shaderStages = {};
+	
 	// -- DEPTH STENCIL TESTING --	
 	VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo = oGFX::vk::inits::pipelineDepthStencilStateCreateInfo(VK_TRUE,VK_TRUE, VK_COMPARE_OP_LESS);
 
 																	// -- GRAPHICS PIPELINE CREATION --
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo = oGFX::vk::inits::pipelineCreateInfo(pipelineLayout,renderPass);
 	pipelineCreateInfo.stageCount = 2;								//number of shader stages
-	pipelineCreateInfo.pStages = shaderStages;						//list of sader stages
+	pipelineCreateInfo.pStages = shaderStages.data();				//list of sader stages
 	pipelineCreateInfo.pVertexInputState = &vertexInputCreateInfo;	//all the fixed funciton pipeline states
 	pipelineCreateInfo.pInputAssemblyState = &inputAssembly;
 	pipelineCreateInfo.pViewportState = &viewportStateCreateInfo;
@@ -435,7 +401,32 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	pipelineCreateInfo.pColorBlendState = &colourBlendingCreateInfo;
 	pipelineCreateInfo.pDepthStencilState = &depthStencilCreateInfo;
 
-											   //create graphics pipeline
+
+	//graphics pipeline creation requires array of shader stages create
+
+	//create graphics pipeline
+	shaderStages[0]  = LoadShader("Shaders/indirect.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = LoadShader("Shaders/indirect.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+
+	
+	// Indirect pipeline
+	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &indirectPipeline);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create a Graphics Pipeline!");
+	}
+	//destroy indirect shader modules 
+	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
+	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
+
+
+	// we use less for normal pipeline
+	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
+	vertexInputCreateInfo.vertexAttributeDescriptionCount = 3;
+
+	shaderStages[0] = LoadShader("Shaders/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = LoadShader("Shaders/shader.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+
 	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPipeline);
 	if (result != VK_SUCCESS)
 	{
@@ -443,8 +434,9 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	}
 
 	//destroy shader modules after pipeline is created
-	vkDestroyShaderModule(m_device.logicalDevice, fragmentShaderModule, nullptr);
-	vkDestroyShaderModule(m_device.logicalDevice, vertexShaderModule, nullptr);
+	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
+	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
+
 }
 
 void VulkanRenderer::CreateDepthBufferImage()
@@ -617,13 +609,8 @@ void VulkanRenderer::CreateDescriptorPool()
 	std::vector<VkDescriptorPoolSize> descriptorPoolSizes = { vpPoolsize /*, modelPoolSize*/ };
 
 	//data to create the descriptor pool
-	VkDescriptorPoolCreateInfo poolCreateInfo{};
-	poolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolCreateInfo.maxSets = static_cast<uint32_t>(m_swapchain.swapChainImages.size()); // Maximum number of descriptor sets that can be created from pool
-	poolCreateInfo.poolSizeCount = static_cast<uint32_t>(descriptorPoolSizes.size());	// Amount of pool sizes being passed
-	poolCreateInfo.pPoolSizes = descriptorPoolSizes.data();								// Pool sizes to create pool with
-
-																							//create descriptor pool
+	VkDescriptorPoolCreateInfo poolCreateInfo = oGFX::vk::inits::descriptorPoolCreateInfo(descriptorPoolSizes,static_cast<uint32_t>(m_swapchain.swapChainImages.size()));
+	//create descriptor pool
 	VkResult result = vkCreateDescriptorPool(m_device.logicalDevice, &poolCreateInfo, nullptr, &descriptorPool);
 	if (result != VK_SUCCESS)
 	{
@@ -633,13 +620,9 @@ void VulkanRenderer::CreateDescriptorPool()
 	// Create Sampler Descriptor pool
 	// Texture sampler pool
 	VkDescriptorPoolSize samplerPoolSize = oGFX::vk::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_OBJECTS);
+	std::vector<VkDescriptorPoolSize> samplerpoolSizes = { samplerPoolSize };
 
-	VkDescriptorPoolCreateInfo samplerPoolCreateInfo{};
-	samplerPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	samplerPoolCreateInfo.maxSets = MAX_OBJECTS;
-	samplerPoolCreateInfo.poolSizeCount = 1;
-	samplerPoolCreateInfo.pPoolSizes = &samplerPoolSize;
-
+	VkDescriptorPoolCreateInfo samplerPoolCreateInfo = oGFX::vk::inits::descriptorPoolCreateInfo(samplerpoolSizes,MAX_OBJECTS);
 	result = vkCreateDescriptorPool(m_device.logicalDevice, &samplerPoolCreateInfo, nullptr, &samplerDescriptorPool);
 	if (result != VK_SUCCESS)
 	{
@@ -1312,6 +1295,29 @@ uint32_t VulkanRenderer:: CreateTextureDescriptor(VkImageView textureImage)
 	samplerDescriptorSets.push_back(descriptorSet);
 
 	return static_cast<uint32_t>(samplerDescriptorSets.size() - 1);
+}
+
+VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(const std::string& fileName, VkShaderStageFlagBits stage)
+{
+	// SHADER STAGE CREATION INFORMATION
+	VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {};
+	shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	//shader stage name
+	shaderStageCreateInfo.stage = stage;
+
+	//build shader modules to link to pipeline
+	//read in SPIR-V code of shaders
+	auto shaderCode = oGFX::readFile(fileName);
+	VkShaderModule shaderModule = oGFX::CreateShaderModule(m_device,shaderCode);
+
+	//shader module to be used by stage
+	shaderStageCreateInfo.module = shaderModule;
+	//pointer to the shader starting function
+	shaderStageCreateInfo.pName = "main";
+
+
+	assert(shaderStageCreateInfo.module != VK_NULL_HANDLE);
+	return shaderStageCreateInfo;
 }
 
 uint32_t VulkanRenderer:: CreateTextureDescriptor(vk::Texture2D texture)
