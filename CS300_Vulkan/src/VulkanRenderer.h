@@ -26,6 +26,8 @@ public:
 static constexpr int MAX_FRAME_DRAWS = 2;
 static constexpr int MAX_OBJECTS = 1024;
 
+#define OBJECT_INSTANCE_COUNT 1024
+
 static constexpr uint32_t VERTEX_BUFFER_ID = 0;
 static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 
@@ -54,6 +56,10 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	void CreateDescriptorSets();
 
 	void UpdateIndirectCommands();
+	void UpdateInstanceData();
+	uint32_t objectCount{};
+	// Contains the instanced data
+	vk::Buffer instanceBuffer;
 
 	void Draw();
 	void RecordCommands(uint32_t currentImage);

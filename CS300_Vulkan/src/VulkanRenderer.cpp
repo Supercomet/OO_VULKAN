@@ -22,6 +22,9 @@
 #include "VulkanUtils.h"
 #include "Window.h"
 
+#include <chrono>
+#include <random>
+
 
 VulkanRenderer::~VulkanRenderer()
 { 
@@ -46,6 +49,9 @@ VulkanRenderer::~VulkanRenderer()
 	{
 		newTextures[i].destroy();
 	}
+
+	instanceBuffer.destroy();
+	indirectCommandsBuffer.destroy();
 
 	vkDestroyDescriptorPool(m_device.logicalDevice, samplerDescriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(m_device.logicalDevice, samplerSetLayout, nullptr);
@@ -699,7 +705,6 @@ void VulkanRenderer::CreateDescriptorSets()
 void VulkanRenderer::UpdateIndirectCommands()
 {
 	indirectCommands.clear();
-#define OBJECT_INSTANCE_COUNT 10
 	// Create on indirect command for node in the scene with a mesh attached to it
 	uint32_t m = 0;
 	for (auto &node : models[0].nodes)
@@ -714,6 +719,8 @@ void VulkanRenderer::UpdateIndirectCommands()
 			indirectCmd.firstIndex = node->meshes[0]->indicesOffset;
 			indirectCmd.indexCount = node->meshes[0]->indicesCount;
 
+			indirectCmd.vertexOffset = node->meshes[0]->vertexOffset;
+
 			// for counting
 			//vertexCount += node->meshes[0]->vertexCount;
 			indirectCommands.push_back(indirectCmd);
@@ -723,11 +730,11 @@ void VulkanRenderer::UpdateIndirectCommands()
 	}
 	indirectDrawCount = static_cast<uint32_t>(indirectCommands.size());
 
-	//objectCount = 0;
-	//for (auto indirectCmd : indirectCommands)
-	//{
-	//	objectCount += indirectCmd.instanceCount;
-	//}
+	objectCount = 0;
+	for (auto indirectCmd : indirectCommands)
+	{
+		objectCount += indirectCmd.instanceCount;
+	}
 	//vertexCount *= objectCount /3;
 
 	vk::Buffer stagingBuffer;	
@@ -738,16 +745,61 @@ void VulkanRenderer::UpdateIndirectCommands()
 		indirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
 		indirectCommands.data());
 
+	if (indirectCommandsBuffer.size == 0)
+	{
 	m_device.CreateBuffer(
 		VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		&indirectCommandsBuffer,
 		stagingBuffer.size);
-
+	}
 	m_device.CopyBuffer(&stagingBuffer, &indirectCommandsBuffer, m_device.graphicsQueue);
 
 	stagingBuffer.destroy();
 
+}
+
+void VulkanRenderer::UpdateInstanceData()
+{
+	if (instanceBuffer.size != 0) return;
+	
+	using namespace std::chrono;
+	uint64_t curr = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
+	std::default_random_engine rndEngine(curr);
+	std::uniform_real_distribution<float> uniformDist(0.0f, 1.0f);
+	std::vector<oGFX::InstanceData> instanceData;
+	instanceData.resize(objectCount);
+
+	constexpr float radius = 100.0f;
+	for (uint32_t i = 0; i < objectCount; i++) {
+		float theta = 2 * float(glm::pi<float>()) * uniformDist(rndEngine);
+		float phi = acos(1 - 2 * uniformDist(rndEngine));
+		instanceData[i].rot = glm::vec3(0.0f, float(glm::pi<float>()) * uniformDist(rndEngine), 0.0f);
+		instanceData[i].pos = glm::vec3(sin(phi) * cos(theta), 0.0f, cos(phi)) * radius;
+		instanceData[i].scale = 0.1f + uniformDist(rndEngine) * 0.5f;
+		instanceData[i].texIndex = i / OBJECT_INSTANCE_COUNT;
+	}
+
+	vk::Buffer stagingBuffer;
+	m_device.CreateBuffer(
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		&stagingBuffer,
+		instanceData.size() * sizeof(oGFX::InstanceData),
+		instanceData.data());
+
+	if (instanceBuffer.size == 0)
+	{
+		m_device.CreateBuffer(
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			&instanceBuffer,
+			stagingBuffer.size);
+	}
+
+	m_device.CopyBuffer(&stagingBuffer, &instanceBuffer, m_device.graphicsQueue);
+
+	stagingBuffer.destroy();
 }
 
 void VulkanRenderer::Draw()
@@ -757,6 +809,9 @@ void VulkanRenderer::Draw()
 		if (ResizeSwapchain() == false) return;
 		resizeSwapchain = false;
 	}
+
+	UpdateIndirectCommands();
+	UpdateInstanceData();
 
 	//wait for given fence to signal from last draw before continueing
 	vkWaitForFences(m_device.logicalDevice, 1, &drawFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
@@ -1127,8 +1182,11 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 		}
 	}
 
+
+	std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[currentImage],
+		samplerDescriptorSets[1] };
 	//auto& model = models[0];
-	//VkDeviceSize offsets[] = { 0 };	
+	VkDeviceSize offsets[] = { 0 };	
 	//
 	//vkCmdPushConstants(commandBuffers[currentImage],
 	//	pipelineLayout,
@@ -1141,15 +1199,15 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 	//vkCmdBindIndexBuffer(commandBuffers[currentImage], model.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
 	//vkCmdDrawIndexed(commandBuffers[currentImage], model.indices.count, 1, 0, 0, 0);
 	
-	/// vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeline);
-	/// vkCmdBindVertexBuffers(drawCmdBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &models.plants.vertices.buffer, offsets);
-	/// // Binding point 1 : Instance data buffer
-	/// vkCmdBindVertexBuffers(drawCmdBuffers[i], INSTANCE_BUFFER_BIND_ID, 1, &instanceBuffer.buffer, offsets);
-	/// vkCmdBindIndexBuffer(drawCmdBuffers[i], models.plants.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-	/// for (size_t i = 0; i < indirectCommands.size(); i++)
-	/// {		
-	/// 	vkCmdDrawIndexedIndirect(commandBuffers[currentImage], indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
-	/// }
+	 vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeline);
+	 vkCmdBindVertexBuffers(commandBuffers[currentImage], VERTEX_BUFFER_ID, 1, &models[0].vertices.buffer, offsets);
+	 // Binding point 1 : Instance data buffer
+	 vkCmdBindVertexBuffers(commandBuffers[currentImage], INSTANCE_BUFFER_ID, 1, &instanceBuffer.buffer, offsets);
+	 vkCmdBindIndexBuffer(commandBuffers[currentImage], models[0].indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+	 for (size_t i = 0; i < indirectCommands.size(); i++)
+	 {		
+	 	vkCmdDrawIndexedIndirect(commandBuffers[currentImage], indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+	 }
 
 	// End Render  Pass
 	vkCmdEndRenderPass(commandBuffers[currentImage]);
