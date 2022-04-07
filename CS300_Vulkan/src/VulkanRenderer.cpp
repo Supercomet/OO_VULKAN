@@ -1204,9 +1204,16 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 	 // Binding point 1 : Instance data buffer
 	 vkCmdBindVertexBuffers(commandBuffers[currentImage], INSTANCE_BUFFER_ID, 1, &instanceBuffer.buffer, offsets);
 	 vkCmdBindIndexBuffer(commandBuffers[currentImage], models[0].indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-	 for (size_t i = 0; i < indirectCommands.size(); i++)
-	 {		
-	 	vkCmdDrawIndexedIndirect(commandBuffers[currentImage], indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+	 if (m_device.enabledFeatures.multiDrawIndirect)
+	 {
+		 vkCmdDrawIndexedIndirect(commandBuffers[currentImage], indirectCommandsBuffer.buffer, 0, indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
+	 }
+	 else
+	 {
+		for (size_t i = 0; i < indirectCommands.size(); i++)
+		{		
+			vkCmdDrawIndexedIndirect(commandBuffers[currentImage], indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+		}
 	 }
 
 	// End Render  Pass
