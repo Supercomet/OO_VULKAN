@@ -279,11 +279,25 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 	// CREATE TEXTURE SAMPLER DESCRIPTOR SET LAYOUT
 	// Texture binding info
 	VkDescriptorSetLayoutBinding samplerLayoutBinding = 
-		oGFX::vk::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT,0);
-
+		oGFX::vk::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT,0,MAX_OBJECTS);
+	
 	// create a descriptor set layout with given bindings for texture
 	VkDescriptorSetLayoutCreateInfo textureLayoutCreateInfo = 
 		oGFX::vk::inits::descriptorSetLayoutCreateInfo(&samplerLayoutBinding,1);
+
+
+	VkDescriptorBindingFlags flags[3];
+	//flags[0] = 0;
+	//flags[1] = 0;
+	flags[0] = 	VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+
+	VkDescriptorSetLayoutBindingFlagsCreateInfo flaginfo{};
+	flaginfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+	flaginfo.pBindingFlags = flags;
+	flaginfo.bindingCount = 1;
+
+	textureLayoutCreateInfo.pNext = &flaginfo;
+
 
 	result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &textureLayoutCreateInfo, nullptr, &samplerSetLayout);
 	if (result != VK_SUCCESS)
@@ -414,7 +428,7 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	shaderStages[0]  = LoadShader("Shaders/indirect.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = LoadShader("Shaders/indirect.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
 
-	
+	pipelineCreateInfo.layout = indirectPipeLayout;
 	// Indirect pipeline
 	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &indirectPipeline);
 	if (result != VK_SUCCESS)
@@ -426,6 +440,7 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
 
 
+	pipelineCreateInfo.layout = pipelineLayout;
 	// we use less for normal pipeline
 	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
 	vertexInputCreateInfo.vertexAttributeDescriptionCount = 3;
@@ -634,6 +649,26 @@ void VulkanRenderer::CreateDescriptorPool()
 	{
 		throw std::runtime_error("Failed to create a descriptor pool!");
 	}
+
+	// Variable descriptor
+	VkDescriptorSetVariableDescriptorCountAllocateInfoEXT variableDescriptorCountAllocInfo = {};
+
+	uint32_t variableDescCounts[] = { MAX_OBJECTS };
+	variableDescriptorCountAllocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
+	variableDescriptorCountAllocInfo.descriptorSetCount = 1;
+	variableDescriptorCountAllocInfo.pDescriptorCounts  = variableDescCounts;
+
+	//Descriptor set allocation info
+	VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vk::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&samplerSetLayout,1);
+	setAllocInfo.pNext = &variableDescriptorCountAllocInfo;
+
+	//Allocate our descriptor sets
+	result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, &globalSamplers);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("FAiled to allocate texture descriptor sets!");
+	}
+
 }
 
 void VulkanRenderer::CreateDescriptorSets()
@@ -777,7 +812,19 @@ void VulkanRenderer::UpdateInstanceData()
 		instanceData[i].rot = glm::vec3(0.0f, float(glm::pi<float>()) * uniformDist(rndEngine), 0.0f);
 		instanceData[i].pos = glm::vec3(sin(phi) * cos(theta), 0.0f, cos(phi)) * radius;
 		instanceData[i].scale = 0.1f + uniformDist(rndEngine) * 0.5f;
-		instanceData[i].texIndex = i / OBJECT_INSTANCE_COUNT;
+		auto val = (i) / OBJECT_INSTANCE_COUNT;
+		if (val == 1)
+		{
+		instanceData[i].texIndex =  0;
+		}
+		if (val == 2)
+		{
+			instanceData[i].texIndex =  2;
+		}
+		if (val == 0)
+		{
+			instanceData[i].texIndex =  1;
+		}
 	}
 
 	vk::Buffer stagingBuffer;
@@ -1136,55 +1183,55 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 	vkCmdBeginRenderPass(commandBuffers[currentImage], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	//Bind pipeline to be used in render pass
-	vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+	//vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
 	VkViewport viewport = { 0, float(windowPtr->m_height), float(windowPtr->m_width), -float(windowPtr->m_height), 0, 1 };
 	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
 	vkCmdSetViewport(commandBuffers[currentImage], 0, 1, &viewport);
 	vkCmdSetScissor(commandBuffers[currentImage], 0, 1, &scissor);
 
-	for (size_t j = 0; j < modelList.size(); ++j)
-	{
-		//if (j == 0) continue;
-
-		MeshContainer thisModel = modelList[j];
-		
-		// Push constants tot shader stage directly, (no buffer)
-		vkCmdPushConstants(commandBuffers[currentImage],
-			pipelineLayout,
-			VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
-			0,							// offset of push constants to update
-			sizeof(Transform),			// size of data being pushed
-			&thisModel.getModel());		// actualy data being pushed (could be an array)
-		
-		for (size_t k = 0; k < thisModel.getMeshCount(); k++)
-		{
-			VkBuffer vertexBuffers[] = { thisModel.getMesh(k)->getVertexBuffer() };					// buffers to bind
-			VkDeviceSize offsets[] = { 0 };															//offsets into buffers being bound
-			vkCmdBindVertexBuffers(commandBuffers[currentImage], 0, 1, vertexBuffers, offsets);		//command to bind vertex buffer before drawing with them
-		
-																									//bind mesh index buffer with 0 offset and using the uint32 type
-			vkCmdBindIndexBuffer(commandBuffers[currentImage], thisModel.getMesh(k)->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-		
-			// Dyanimc offset amount 
-			//uint32_t dynamicOffset = static_cast<uint32_t>(modelUniformAlignment) * j;
-		
-		
-			std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[currentImage],
-				samplerDescriptorSets[thisModel.getMesh(k)->getTexId()] };
-		
-			// bind descriptor sets
-			vkCmdBindDescriptorSets(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
-				0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0 /*1*/, nullptr /*&dynamicOffset*/);
-		
-			//Execute pipeline
-			vkCmdDrawIndexed(commandBuffers[currentImage], thisModel.getMesh(k)->getIndexCount(), 1, 0, 0, 0);
-		}
-	}
+	//for (size_t j = 0; j < modelList.size(); ++j)
+	//{
+	//	//if (j == 0) continue;
+	//
+	//	MeshContainer thisModel = modelList[j];
+	//	
+	//	// Push constants tot shader stage directly, (no buffer)
+	//	vkCmdPushConstants(commandBuffers[currentImage],
+	//		pipelineLayout,
+	//		VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+	//		0,							// offset of push constants to update
+	//		sizeof(Transform),			// size of data being pushed
+	//		&thisModel.getModel());		// actualy data being pushed (could be an array)
+	//	
+	//	for (size_t k = 0; k < thisModel.getMeshCount(); k++)
+	//	{
+	//		VkBuffer vertexBuffers[] = { thisModel.getMesh(k)->getVertexBuffer() };					// buffers to bind
+	//		VkDeviceSize offsets[] = { 0 };															//offsets into buffers being bound
+	//		vkCmdBindVertexBuffers(commandBuffers[currentImage], 0, 1, vertexBuffers, offsets);		//command to bind vertex buffer before drawing with them
+	//	
+	//																								//bind mesh index buffer with 0 offset and using the uint32 type
+	//		vkCmdBindIndexBuffer(commandBuffers[currentImage], thisModel.getMesh(k)->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+	//	
+	//		// Dyanimc offset amount 
+	//		//uint32_t dynamicOffset = static_cast<uint32_t>(modelUniformAlignment) * j;
+	//	
+	//	
+	//		std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[currentImage],
+	//			samplerDescriptorSets[thisModel.getMesh(k)->getTexId()] };
+	//	
+	//		// bind descriptor sets
+	//		vkCmdBindDescriptorSets(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+	//			0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0 /*1*/, nullptr /*&dynamicOffset*/);
+	//	
+	//		//Execute pipeline
+	//		vkCmdDrawIndexed(commandBuffers[currentImage], thisModel.getMesh(k)->getIndexCount(), 1, 0, 0, 0);
+	//	}
+	//}
 
 
 	std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[currentImage],
-		samplerDescriptorSets[1] };
+		globalSamplers };
 	//auto& model = models[0];
 	VkDeviceSize offsets[] = { 0 };	
 	//
@@ -1199,6 +1246,8 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 	//vkCmdBindIndexBuffer(commandBuffers[currentImage], model.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
 	//vkCmdDrawIndexed(commandBuffers[currentImage], model.indices.count, 1, 0, 0, 0);
 	
+	vkCmdBindDescriptorSets(commandBuffers[currentImage],VK_PIPELINE_BIND_POINT_GRAPHICS,indirectPipeLayout,
+		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0 /*1*/, nullptr /*&dynamicOffset*/);
 	 vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeline);
 	 vkCmdBindVertexBuffers(commandBuffers[currentImage], VERTEX_BUFFER_ID, 1, &models[0].vertices.buffer, offsets);
 	 // Binding point 1 : Instance data buffer
@@ -1331,34 +1380,36 @@ uint32_t VulkanRenderer::CreateTextureImage(uint32_t width, uint32_t height, con
 
 uint32_t VulkanRenderer:: CreateTextureDescriptor(VkImageView textureImage)
 {
-	VkDescriptorSet descriptorSet;
+	//VkDescriptorSet descriptorSet;
 
 	// Descriptor set allocation info
-	VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vk::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&samplerSetLayout,1);
+	//VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vk::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&samplerSetLayout,1);
 
 	// Allocate our descriptor sets
-	VkResult result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, &descriptorSet);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("FAiled to allocate texture descriptor sets!");
-	}
+	//VkResult result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, &descriptorSet);
+	//if (result != VK_SUCCESS)
+	//{
+	//	throw std::runtime_error("FAiled to allocate texture descriptor sets!");
+	//}
+	
+	// WE ONLY WRITE TO HUGE DESCRIPTOR SET
 
 	// Texture image info
-	VkDescriptorImageInfo imageInfo{};
-	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image outout when in use
-	imageInfo.imageView = textureImage;// image to bind to set
-	imageInfo.sampler = textureSampler; // sampler to use for set
-
-
-	//Descriptor write info
-	VkWriteDescriptorSet descriptorWrite = oGFX::vk::inits::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &imageInfo);
-
-	// Update the new descriptor set
-	vkUpdateDescriptorSets(m_device.logicalDevice, 1, &descriptorWrite, 0, nullptr);
-
-	// Add descriptor set to list
-	samplerDescriptorSets.push_back(descriptorSet);
-
+	//VkDescriptorImageInfo imageInfo{};
+	//imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image outout when in use
+	//imageInfo.imageView = textureImage;// image to bind to set
+	//imageInfo.sampler = textureSampler; // sampler to use for set
+	//
+	//
+	////Descriptor write info
+	//VkWriteDescriptorSet descriptorWrite = oGFX::vk::inits::writeDescriptorSet(globalSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &imageInfo);
+	//
+	//// Update the new descriptor set
+	//vkUpdateDescriptorSets(m_device.logicalDevice, 1, &descriptorWrite, 0, nullptr);
+	//
+	//// Add descriptor set to list
+	////samplerDescriptorSets.push_back(descriptorSet);
+	//
 	return static_cast<uint32_t>(samplerDescriptorSets.size() - 1);
 }
 
@@ -1387,26 +1438,28 @@ VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(const std::string& fi
 
 uint32_t VulkanRenderer:: CreateTextureDescriptor(vk::Texture2D texture)
 {
-	VkDescriptorSet descriptorSet;
+	//VkDescriptorSet descriptorSet;
 
 	// Descriptor set allocation info
-	VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vk::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&samplerSetLayout,1);
+	//VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vk::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&samplerSetLayout,1);
 
 	// Allocate our descriptor sets
-	VkResult result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, &descriptorSet);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("FAiled to allocate texture descriptor sets!");
-	}
-
+	//VkResult result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, &descriptorSet);
+	//if (result != VK_SUCCESS)
+	//{
+	//	throw std::runtime_error("FAiled to allocate texture descriptor sets!");
+	//}
 
 	std::vector<VkWriteDescriptorSet> writeSets{
-		oGFX::vk::inits::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &texture.descriptor),
+		oGFX::vk::inits::writeDescriptorSet(globalSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &texture.descriptor),
 	};
-	samplerDescriptorSets.push_back(descriptorSet);
+
+	auto index = static_cast<uint32_t>(samplerDescriptorSets.size());
+	samplerDescriptorSets.push_back(globalSamplers);
+	writeSets[0].dstArrayElement = index;
 
 	vkUpdateDescriptorSets(m_device.logicalDevice, writeSets.size(), writeSets.data(), 0, nullptr);
 
-	return static_cast<uint32_t>(samplerDescriptorSets.size() - 1);
+	return index;
 
 }

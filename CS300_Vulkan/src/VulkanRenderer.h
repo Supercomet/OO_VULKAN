@@ -26,7 +26,7 @@ public:
 static constexpr int MAX_FRAME_DRAWS = 2;
 static constexpr int MAX_OBJECTS = 1024;
 
-#define OBJECT_INSTANCE_COUNT 1024
+#define OBJECT_INSTANCE_COUNT 10240
 
 static constexpr uint32_t VERTEX_BUFFER_ID = 0;
 static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
@@ -118,6 +118,8 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	VkDescriptorPool samplerDescriptorPool{};
 	std::vector<VkDescriptorSet> descriptorSets;
 	std::vector<VkDescriptorSet> samplerDescriptorSets;
+
+	VkDescriptorSet globalSamplers; // big discriptor set of textures
 
 	std::vector<VkBuffer> vpUniformBuffer;
 	std::vector<VkDeviceMemory> vpUniformBufferMemory;
