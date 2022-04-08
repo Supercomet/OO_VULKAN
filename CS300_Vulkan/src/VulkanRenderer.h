@@ -26,7 +26,7 @@ public:
 static constexpr int MAX_FRAME_DRAWS = 2;
 static constexpr int MAX_OBJECTS = 1024;
 
-#define OBJECT_INSTANCE_COUNT 10240
+#define OBJECT_INSTANCE_COUNT 128
 
 static constexpr uint32_t VERTEX_BUFFER_ID = 0;
 static constexpr uint32_t INSTANCE_BUFFER_ID = 1;

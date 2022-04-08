@@ -742,25 +742,56 @@ void VulkanRenderer::UpdateIndirectCommands()
 	indirectCommands.clear();
 	// Create on indirect command for node in the scene with a mesh attached to it
 	uint32_t m = 0;
+	for (auto& model :models)
+	{
+		for (auto& node: model.nodes)
+		{
+			for(auto& child : node->children)
+			{
+				if (child->meshes.size())
+				{
+					VkDrawIndexedIndirectCommand indirectCmd{};
+					indirectCmd.instanceCount = OBJECT_INSTANCE_COUNT;
+					indirectCmd.firstInstance = m * OBJECT_INSTANCE_COUNT;
+					// @todo: Multiple primitives
+					// A glTF node may consist of multiple primitives, so we may have to do multiple commands per mesh
+					indirectCmd.firstIndex = child->meshes[0]->indicesOffset;
+					indirectCmd.indexCount = child->meshes[0]->indicesCount;
+
+					indirectCmd.vertexOffset = child->meshes[0]->vertexOffset;
+
+					// for counting
+					//vertexCount += node->meshes[0]->vertexCount;
+					indirectCommands.push_back(indirectCmd);
+
+					m++;
+				}
+			}
+			if (node->meshes.size())
+			{
+				VkDrawIndexedIndirectCommand indirectCmd{};
+				indirectCmd.instanceCount = OBJECT_INSTANCE_COUNT;
+				indirectCmd.firstInstance = m * OBJECT_INSTANCE_COUNT;
+				// @todo: Multiple primitives
+				// A glTF node may consist of multiple primitives, so we may have to do multiple commands per mesh
+				indirectCmd.firstIndex = node->meshes[0]->indicesOffset;
+				indirectCmd.indexCount = node->meshes[0]->indicesCount;
+
+				indirectCmd.vertexOffset = node->meshes[0]->vertexOffset;
+
+				// for counting
+				//vertexCount += node->meshes[0]->vertexCount;
+				indirectCommands.push_back(indirectCmd);
+
+				m++;
+			}
+		}
+	}
 	for (auto &node : models[0].nodes)
 	{
 		if (node->meshes.size())
 		{
-			VkDrawIndexedIndirectCommand indirectCmd{};
-			indirectCmd.instanceCount = OBJECT_INSTANCE_COUNT;
-			indirectCmd.firstInstance = m * OBJECT_INSTANCE_COUNT;
-			// @todo: Multiple primitives
-			// A glTF node may consist of multiple primitives, so we may have to do multiple commands per mesh
-			indirectCmd.firstIndex = node->meshes[0]->indicesOffset;
-			indirectCmd.indexCount = node->meshes[0]->indicesCount;
-
-			indirectCmd.vertexOffset = node->meshes[0]->vertexOffset;
-
-			// for counting
-			//vertexCount += node->meshes[0]->vertexCount;
-			indirectCommands.push_back(indirectCmd);
-
-			m++;
+			
 		}
 	}
 	indirectDrawCount = static_cast<uint32_t>(indirectCommands.size());
@@ -811,8 +842,9 @@ void VulkanRenderer::UpdateInstanceData()
 		float phi = acos(1 - 2 * uniformDist(rndEngine));
 		instanceData[i].rot = glm::vec3(0.0f, float(glm::pi<float>()) * uniformDist(rndEngine), 0.0f);
 		instanceData[i].pos = glm::vec3(sin(phi) * cos(theta), 0.0f, cos(phi)) * radius;
-		instanceData[i].scale = 0.1f + uniformDist(rndEngine) * 0.5f;
-		auto val = (i) / OBJECT_INSTANCE_COUNT;
+		instanceData[i].scale = 0.01f + uniformDist(rndEngine) * 0.05f;
+		auto val = (1) / OBJECT_INSTANCE_COUNT;
+		val = 1;
 		if (val == 1)
 		{
 		instanceData[i].texIndex =  0;
@@ -961,7 +993,11 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	// new model loader
 	
 	Assimp::Importer importer;
-	const aiScene *scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices | aiProcess_PreTransformVertices);
+	const aiScene *scene = importer.ReadFile(file,
+		aiProcess_Triangulate 
+		| aiProcess_FlipUVs 
+		| aiProcess_JoinIdenticalVertices 
+		| aiProcess_PreTransformVertices);
 
 	if (!scene)
 	{
@@ -993,10 +1029,7 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	std::vector<oGFX::Vertex> verticeBuffer;
 	std::vector<uint32_t> indexBuffer;
 
-	for (size_t i = 0; i < scene->mRootNode->mNumChildren; i++)
-	{
-		model.loadNode(nullptr, scene, *scene->mRootNode->mChildren[i],static_cast<uint32_t>(i),verticeBuffer, indexBuffer);
-	}
+	model.loadNode(nullptr, scene, *scene->mRootNode,0,verticeBuffer, indexBuffer);
 
 	model.indices.count = static_cast<uint32_t>(indexBuffer.size());
 	model.vertices.count = static_cast<uint32_t>(verticeBuffer.size());
