@@ -1,8 +1,9 @@
 #version 450 // use GLSL 4.5
 
 layout(location = 0) in vec3 inPos;
-layout(location = 1) in vec3 col;
-layout(location = 2) in vec2 tex;
+layout(location = 1) in vec3 inNormal;
+layout(location = 2) in vec2 inUV;
+layout(location = 3) in vec3 inCol;
 
 // Instanced attributes
 layout (location = 4) in vec3 instancePos;
@@ -22,9 +23,13 @@ layout(set = 0,binding = 0) uniform UboViewProjection{
 //}uboModel;
 
 
-layout(location = 0) out vec3 fragCol;
-layout(location = 1) out vec2 fragTex;
+layout(location = 0) out vec3 outCol;
+layout(location = 1) out vec2 outUV;
 layout(location = 2) flat out int outTexIndex;
+
+layout(location = 3)out vec3 outNormal;
+layout(location = 4)out vec3 outLightVec;
+layout(location = 5)out vec3 outViewVec;
 
 void main(){
 
@@ -58,11 +63,17 @@ void main(){
 	mz[3] = vec4(0.0, 0.0, 0.0, 1.0);	
 	
 	mat4 rotMat = mz * my * mx;
-
+	
 	vec4 pos = rotMat * vec4((inPos.xyz * instanceScale) + instancePos, 1.0);
+	outNormal = inNormal * mat3(rotMat);
+
+	vec4 lPos = vec4(0.0, -1000.0, 0.0, 1.0);
+	outLightVec = lPos.xyz - pos.xyz;
+	outViewVec = -pos.xyz;	
+
 
 	gl_Position = uboViewProjection.projection * uboViewProjection.view * pos;
 	outTexIndex = instanceTexIndex;
-	fragCol = col;
-	fragTex = tex;
+	outCol = inCol;
+	outUV = inUV;
 }

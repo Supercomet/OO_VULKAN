@@ -65,24 +65,24 @@ int main(int argc, char argv[])
     renderer.CreateTexture(1, 1, reinterpret_cast<const unsigned char*>(&colour));
 
     std::vector<oGFX::Vertex>verts{
-            oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f } ,{ 0.0f,0.0f } },
-            oGFX::Vertex{ { 0.5,-0.5,0.0} ,{ 0.0f,1.0f,0.0f }, { 0.0f,0.0f } },
-            oGFX::Vertex{ { 0.0, 0.5,0.0}, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f } }
+            oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+            oGFX::Vertex{ { 0.5,-0.5,0.0}, { 0.0f,1.0f,0.0f }, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f } },
+            oGFX::Vertex{ { 0.0, 0.5,0.0}, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f } }
     };
     std::vector<uint32_t> indices{
         0,1,2
     };
 
     std::vector<oGFX::Vertex>boxverts{
-        oGFX::Vertex{ {-0.5,-0.5,-0.5}, { 0.3f,0.3f,0.3f } ,{ 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5,-0.5,-0.5}, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ {-0.5, 0.5,-0.5}, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5, 0.5,-0.5}, { 0.0f,1.0f,1.0f }, { 0.0f,0.0f } },
-                                          
-        oGFX::Vertex{ {-0.5,-0.5, 0.5}, { 1.0f,0.0f,0.0f } ,{ 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5,-0.5, 0.5}, { 1.0f,0.0f,1.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ {-0.5, 0.5, 0.5}, { 1.0f,1.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5, 0.5, 0.5}, { 1.0f,1.0f,1.0f }, { 0.0f,0.0f } }
+        oGFX::Vertex{ {-0.5,-0.5,-0.5}, { 0.3f,0.3f,0.3f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5,-0.5,-0.5}, { 0.0f,0.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ {-0.5, 0.5,-0.5}, { 0.0f,1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5, 0.5,-0.5}, { 0.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+                                                           
+        oGFX::Vertex{ {-0.5,-0.5, 0.5}, { 1.0f,0.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5,-0.5, 0.5}, { 1.0f,0.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ {-0.5, 0.5, 0.5}, { 1.0f,1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5, 0.5, 0.5}, { 1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } }
     };
     std::vector<uint32_t> boxindices{
          1,0,2
@@ -101,7 +101,8 @@ int main(int argc, char argv[])
 
     uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");
 
-    uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
+    //uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
+    uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
 
    uint32_t obj = renderer.CreateMeshModel(verts, indices);
    glm::mat4 xform{ 1.0f };
@@ -136,7 +137,7 @@ int main(int argc, char argv[])
 
         if (mainWindow.m_width != 0 && mainWindow.m_height != 0)
         {
-            renderer.camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 256.0f);
+            renderer.camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
         }
 
         auto mousedel = Input::GetMouseDelta();

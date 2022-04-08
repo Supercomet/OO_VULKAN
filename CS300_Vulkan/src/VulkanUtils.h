@@ -49,6 +49,7 @@ namespace oGFX
 		//float tex[2] ; // Texture Coords(u,v)
 		glm::vec3 pos; // Vertex position (x, y, z)
 		glm::vec3 col; // Vertex colour (r, g, b)
+		glm::vec3 norm; // Vertex normal (x, y, z)
 		glm::vec2 tex; // Texture Coords(u,v)
 	};
 

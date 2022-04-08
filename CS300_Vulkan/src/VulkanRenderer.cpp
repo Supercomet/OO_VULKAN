@@ -328,9 +328,10 @@ void VulkanRenderer::CreateGraphicsPipeline()
 
 	//how the data for an attirbute is define in the vertex
 	std::vector<VkVertexInputAttributeDescription>attributeDescriptions{
-		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, pos)),//Position attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,1,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, col)), //colour attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,2,VK_FORMAT_R32G32_SFLOAT,offsetof(Vertex, tex)),////Texture attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, pos)), //Position attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,1,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, norm)),//normals attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,2,VK_FORMAT_R32G32_SFLOAT,offsetof(Vertex, tex)),    //Texture attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,3,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, col)), //colour attribute
 	
 		// instance data attributes
 		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,4,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::InstanceData, pos)),//Position attribute
@@ -443,7 +444,7 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	pipelineCreateInfo.layout = pipelineLayout;
 	// we use less for normal pipeline
 	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
-	vertexInputCreateInfo.vertexAttributeDescriptionCount = 3;
+	vertexInputCreateInfo.vertexAttributeDescriptionCount = 4;
 
 	shaderStages[0] = LoadShader("Shaders/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = LoadShader("Shaders/shader.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -787,13 +788,8 @@ void VulkanRenderer::UpdateIndirectCommands()
 			}
 		}
 	}
-	for (auto &node : models[0].nodes)
-	{
-		if (node->meshes.size())
-		{
-			
-		}
-	}
+
+	std::cout << "Triangles rendered : " << models[0].indices.count * OBJECT_INSTANCE_COUNT /3 << std::endl;
 	indirectDrawCount = static_cast<uint32_t>(indirectCommands.size());
 
 	objectCount = 0;
@@ -836,7 +832,7 @@ void VulkanRenderer::UpdateInstanceData()
 	std::vector<oGFX::InstanceData> instanceData;
 	instanceData.resize(objectCount);
 
-	constexpr float radius = 100.0f;
+	constexpr float radius = 128.0f;
 	for (uint32_t i = 0; i < objectCount; i++) {
 		float theta = 2 * float(glm::pi<float>()) * uniformDist(rndEngine);
 		float phi = acos(1 - 2 * uniformDist(rndEngine));
@@ -857,6 +853,7 @@ void VulkanRenderer::UpdateInstanceData()
 		{
 			instanceData[i].texIndex =  1;
 		}
+		instanceData[i].texIndex = models[0].nodes[0]->meshes[0]->textureIndex;
 	}
 
 	vk::Buffer stagingBuffer;
@@ -1023,6 +1020,14 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 		{
 			// otherwise create texture and set value to index of new texture
 			matToTex[i] =  CreateTexture(textureNames[i]);
+		}
+	}
+
+	for (auto& node : model.nodes)
+	{
+		for (auto& mesh : node->meshes)
+		{
+			mesh->textureIndex = matToTex[mesh->textureIndex];
 		}
 	}
 

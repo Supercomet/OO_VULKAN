@@ -230,6 +230,12 @@ oGFX::Mesh* Model::processMesh(aiMesh* aimesh, const aiScene* scene, std::vector
 				//aimesh->mColors[i]->a,
 			};
 		}
+		if (aimesh->mNormals)
+		{
+			vertex.norm = glm::vec3{ aimesh->mNormals[i].x,
+				aimesh->mNormals[i].y,
+				aimesh->mNormals[i].z };
+		}
 		
 
 		//TODO : Normals

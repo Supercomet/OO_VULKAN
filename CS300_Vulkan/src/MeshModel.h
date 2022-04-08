@@ -52,6 +52,11 @@ struct Model
 		VkDeviceMemory memory;
 	} indices;
 
+	struct Textures
+	{
+		uint32_t albedo;
+	}textures;
+
 	void loadNode(Node* parent,const aiScene* scene, const aiNode& node, uint32_t nodeIndex
 		,std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);
 
