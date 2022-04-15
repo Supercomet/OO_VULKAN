@@ -9,10 +9,12 @@
 
 struct Input
 {
+static constexpr uint32_t NUM_KEYS = 1024;
 
-static bool keysTriggered[1024];
-static bool keysHeld[1024];
-static bool keysRelease[1024];
+
+static bool keysTriggered[NUM_KEYS];
+static bool keysHeld[NUM_KEYS];
+static bool keysRelease[NUM_KEYS];
 static glm::vec2 mousePos;
 static glm::vec2 mouseChange;
 

@@ -67,7 +67,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 
 	uint32_t CreateMeshModel(std::vector<oGFX::Vertex>& vertices,std::vector<uint32_t>& indices);
 	uint32_t CreateMeshModel(const std::string& file);
-	uint32_t CreateTexture(uint32_t width, uint32_t height,const unsigned char* imgData);
+	uint32_t CreateTexture(uint32_t width, uint32_t height,unsigned char* imgData);
 	uint32_t CreateTexture(const std::string& fileName);
 
 	uint32_t LoadMeshFromFile(const std::string& file);
@@ -140,9 +140,9 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 
 	uint32_t currentFrame = 0;
 
-	struct Transform
+	struct LightData
 	{
-		glm::mat4 mdl{ 1.0f };
+		glm::vec3 position{};
 	};
 
 	struct UboViewProjection
@@ -153,13 +153,15 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 
 	bool resizeSwapchain = false;
 
+	LightData light;
 	Camera camera;
 
 	private:
 		uint32_t CreateTextureImage(const std::string& fileName);
-		uint32_t CreateTextureImage(uint32_t width, uint32_t height, const unsigned char* imgData);
+		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);
 		uint32_t CreateTextureDescriptor(VkImageView textureImage);
 		uint32_t CreateTextureDescriptor(vk::Texture2D texture);
+
 
 		VkPipelineShaderStageCreateInfo LoadShader(const std::string& fileName, VkShaderStageFlagBits stage);
 };

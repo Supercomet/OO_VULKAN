@@ -76,6 +76,51 @@ std::vector<std::string> MeshContainer::LoadMaterials(const aiScene *scene)
 				textureList[i] = filename;
 			}
 		}
+		//if (material->GetTextureCount(aiTextureType_NORMALS))
+		//{
+		//	//get path of the texture file
+		//	aiString path;
+		//	if (material->GetTexture(aiTextureType_NORMALS, 0, &path)== AI_SUCCESS)
+		//	{
+		//		// C:\users\jtk\documents\thing.obj
+		//		// Cut off any directory information already present
+		//		std::string str = std::string(path.data);
+		//		size_t idx = str.rfind("\\");
+		//		std::string filename = str.substr(idx + 1);
+		//
+		//		textureList[i] = filename;
+		//	}
+		//}
+		//if (material->GetTextureCount(aiTextureType_SPECULAR))
+		//{
+		//	//get path of the texture file
+		//	aiString path;
+		//	if (material->GetTexture(aiTextureType_SPECULAR, 0, &path)== AI_SUCCESS)
+		//	{
+		//		// C:\users\jtk\documents\thing.obj
+		//		// Cut off any directory information already present
+		//		std::string str = std::string(path.data);
+		//		size_t idx = str.rfind("\\");
+		//		std::string filename = str.substr(idx + 1);
+		//
+		//		textureList[i] = filename;
+		//	}
+		//}
+		//if (material->GetTextureCount(aiTextureType_UNKNOWN))
+		//{
+		//	//get path of the texture file
+		//	aiString path;
+		//	if (material->GetTexture(aiTextureType_UNKNOWN, 0, &path)== AI_SUCCESS)
+		//	{
+		//		// C:\users\jtk\documents\thing.obj
+		//		// Cut off any directory information already present
+		//		std::string str = std::string(path.data);
+		//		size_t idx = str.rfind("\\");
+		//		std::string filename = str.substr(idx + 1);
+		//
+		//		textureList[i] = filename;
+		//	}
+		//}
 	}
 	return textureList;
 }

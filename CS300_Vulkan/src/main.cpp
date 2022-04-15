@@ -16,6 +16,10 @@
 #include "window.h"
 #include "input.h"
 
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
 
 bool BoolQueryUser(const char * str)
 {
@@ -37,6 +41,9 @@ int main(int argc, char argv[])
 {
     (void)argc;
     (void)argv;
+
+    _CrtDumpMemoryLeaks();
+    _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
 
     Window mainWindow;
     mainWindow.Init();
@@ -62,7 +69,7 @@ int main(int argc, char argv[])
     }
 
     uint32_t colour = 0xFFFFFFFF; // ABGR
-    renderer.CreateTexture(1, 1, reinterpret_cast<const unsigned char*>(&colour));
+    renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&colour));
 
     std::vector<oGFX::Vertex>verts{
             oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
@@ -105,6 +112,16 @@ int main(int argc, char argv[])
     uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
 
    uint32_t obj = renderer.CreateMeshModel(verts, indices);
+   //renderer.CreateTexture("Textures/TD_Checker_Base_Color.png");
+   //renderer.CreateTexture("TD_Checker_Mixed_AO.png");
+   //renderer.CreateTexture("TD_Checker_Normal_OpenGL.png");
+   //renderer.CreateTexture("TD_Checker_Roughness.png");
+
+   renderer.CreateTexture("Textures/TD_Checker_Base_Color.dds");
+   //renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
+   renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
+   //renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
+
    glm::mat4 xform{ 1.0f };
    xform = glm::translate(xform, glm::vec3(-3.0f, 0.0f, -3.0f));
    xform = glm::scale(xform, glm::vec3{ 4.0f,4.0f,4.0f });
@@ -125,6 +142,7 @@ int main(int argc, char argv[])
     // This will handle inputs and pass it to our input callback
     while( mainWindow.windowShouldClose == false )  // infinite loop
     {
+        //reset keys
         Input::Begin();
         while(Window::PollEvents());
 
@@ -184,6 +202,11 @@ int main(int argc, char argv[])
         {
             renderer.camera.Translate(glm::vec3{ 0.0f,-1.0f,0.0f } * speed);
             renderer.camera.keys.right = true;
+        }
+
+        if (Input::GetKeyTriggered(KEY_SPACE))
+        {
+            renderer.light.position = renderer.camera.viewPos;
         }
 
         angle += 5.0f * deltaTime;

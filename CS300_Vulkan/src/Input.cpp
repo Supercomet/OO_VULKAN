@@ -1,8 +1,9 @@
 #include "Input.h"
 
-bool Input::keysTriggered[1024];
-bool Input::keysHeld[1024];
-bool Input::keysRelease[1024];
+
+bool Input::keysTriggered[NUM_KEYS]{};
+bool Input::keysHeld[NUM_KEYS]{};
+bool Input::keysRelease[NUM_KEYS]{};
 glm::vec2 Input::mousePos{};
 glm::vec2 Input::mouseChange{};
 
@@ -16,10 +17,14 @@ void Input::Begin()
 {
 	mouseChange={};
 	wheelDelta = {};
-	for (size_t i = 0; i < 1024; ++i)
-	{
-		keysTriggered[i] = false;
-	}
+
+	memset(keysTriggered, false, NUM_KEYS);
+	//memset(keysHeld, false, NUM_KEYS);
+	memset(keysRelease, false, NUM_KEYS);
+
+	memset(mouseButtonTriggered, false, 3);
+	memset(mouseButtonRelease, false, 3);
+
 }
 
  bool Input::GetKeyTriggered(int32_t key)

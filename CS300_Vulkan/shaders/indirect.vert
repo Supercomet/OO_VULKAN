@@ -5,11 +5,12 @@ layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inUV;
 layout(location = 3) in vec3 inCol;
 
-// Instanced attributes
+// Instanced attributes		
 layout (location = 4) in vec3 instancePos;
 layout (location = 5) in vec3 instanceRot;
 layout (location = 6) in float instanceScale;
 layout (location = 7) in int instanceTexIndex;
+layout (location = 8) in int instanceNormalTexIndex;
 
 // vulkan passes a whole Uniform Buffer Object.
 layout(set = 0,binding = 0) uniform UboViewProjection{
@@ -17,15 +18,14 @@ layout(set = 0,binding = 0) uniform UboViewProjection{
 	mat4 view;
 }uboViewProjection;
 
-//
-//layout(set = 0,binding = 1) uniform UboModel{
-//	mat4 model;
-//}uboModel;
-
+layout(push_constant)uniform PushLight{
+		vec3 pos;
+}pushLight;
 
 layout(location = 0) out vec3 outCol;
 layout(location = 1) out vec2 outUV;
 layout(location = 2) flat out int outTexIndex;
+layout(location = 6) flat out int outNormalIndex;
 
 layout(location = 3)out vec3 outNormal;
 layout(location = 4)out vec3 outLightVec;
@@ -65,15 +65,16 @@ void main(){
 	mat4 rotMat = mz * my * mx;
 	
 	vec4 pos = rotMat * vec4((inPos.xyz * instanceScale) + instancePos, 1.0);
-	outNormal = inNormal * mat3(rotMat);
+	outNormal = mat3(rotMat)* inNormal ;
 
-	vec4 lPos = vec4(0.0, -1000.0, 0.0, 1.0);
+	vec4 lPos =  vec4(pushLight.pos, 1.0);
 	outLightVec = lPos.xyz - pos.xyz;
-	outViewVec = -pos.xyz;	
+	outViewVec = -vec3(uboViewProjection.view[3]);	
 
 
 	gl_Position = uboViewProjection.projection * uboViewProjection.view * pos;
 	outTexIndex = instanceTexIndex;
+	outNormalIndex = instanceNormalTexIndex;
 	outCol = inCol;
 	outUV = inUV;
 }

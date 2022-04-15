@@ -11,6 +11,9 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	switch (uMsg)
 	{
+    case WM_SYSCHAR:
+    return true;
+    break;
     case WM_PAINT:
     ValidateRect(hWnd, NULL);
     break;
@@ -69,6 +72,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		Input::keysHeld[wParam] = true;
 
 		//std::cout << "Key Pressed" << wParam<<std::endl;
+        return true;
 	}
 	break;
     case WM_KEYUP:
@@ -77,6 +81,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         Input::keysHeld[wParam] = false;
 
        // std::cout << "Key Release\n";
+        return true;
     }
     break;
     case WM_MOUSEMOVE:
@@ -284,6 +289,8 @@ HWND Window::GetRawHandle()const
 bool Window::PollEvents()
 {
     MSG msg;
+
+
     // 1. Check if theres a message in the WinOS message queue and remove it using PM_REMOVE
     if(PeekMessage( &msg, NULL, 0, 0, PM_REMOVE )) // process every single message in the queue
     {

@@ -10,6 +10,9 @@
 #include <vector>
 #include "glm/glm.hpp"
 #include "stb_image.h"
+#include "DDSLoader.h"
+#include <filesystem>
+
 
 #include "VulkanUtils.h"
 #include "VulkanInstance.h"
@@ -571,17 +574,75 @@ namespace oGFX
 		// Load pixeldata for image
 		std::string fileLoc = "Textures/" + fileName;
 		unsigned char *image = stbi_load(fileLoc.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+		imageSize = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * 4;
 		if (!image)
 		{
-			throw std::runtime_error("Failed to load a texture file! (" + fileName + ")");
+			//try DDS
+			image = LoadDDS(fileLoc, &width, &height, &channels,&imageSize);
+			if (!image)
+			{
+				throw std::runtime_error("Failed to load a texture file! (" + fileName + ")");
+			}
 		}
 
 		// Calculate image size using given and known data
-		imageSize = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * 4;
+	
 
 		return image;
 	}
 
+	void FreeTextureFile(uint8_t* data)
+	{
+		stbi_image_free(data);
+	}
+
+	
+
+	bool IsFileDDS(const std::string& fileName)
+	{
+		auto path = std::filesystem::path(fileName);
+		std::string a = path.extension().string();
+		std::string b(".dds");
+		
+		return std::equal(a.begin(), a.end(),
+			b.begin(), b.end(),
+			[](char a, char b) {
+				return tolower(a) == b;
+			});
+	}
+
+	bool FileImageData::Create(const std::string& fileName)
+	{
+		if (oGFX::IsFileDDS(fileName) == true)
+		{
+			decodeType = ExtensionType::DDS;
+			//imgData = LoadDDS(fileName, &this->w, &this->h, &this->channels, &this->dataSize);
+			LoadDDS(fileName, *this);
+			return imgData ? true : false;
+		}
+		else
+		{
+			decodeType = ExtensionType::STB;
+			imgData = stbi_load(fileName.c_str(), &this->w, &this->h, &this->channels, STBI_rgb_alpha);
+			dataSize = this->w * this->h * STBI_rgb_alpha;
+			this->format = VK_FORMAT_B8G8R8A8_SRGB;
+			return imgData ? true : false;
+		}
+
+		return false;
+	}
+
+	void FileImageData::Free()
+	{
+		if (decodeType == ExtensionType::DDS)
+		{
+			delete[] imgData;
+		}
+		if (decodeType == ExtensionType::STB)
+		{
+			stbi_image_free(imgData);
+		}
+	}
 
 }
 

@@ -183,8 +183,8 @@ void VulkanRenderer::CreateRenderpass()
 	VkAttachmentDescription depthAttachment{};
 	depthAttachment.format = oGFX::ChooseSupportedFormat(m_device,
 		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -311,7 +311,7 @@ void VulkanRenderer::CreatePushConstantRange()
 {
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; //shader stage push constant will go to
 	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(Transform);
+	pushConstantRange.size = sizeof(LightData);
 }
 
 void VulkanRenderer::CreateGraphicsPipeline()
@@ -336,8 +336,9 @@ void VulkanRenderer::CreateGraphicsPipeline()
 		// instance data attributes
 		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,4,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::InstanceData, pos)),//Position attribute
 		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,5,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::InstanceData, rot)), //colour attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,6,VK_FORMAT_R32_SFLOAT,offsetof(oGFX::InstanceData, scale)),////Texture attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,7,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, texIndex)),////Texture attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,6,VK_FORMAT_R32_SFLOAT,offsetof(oGFX::InstanceData, scale)),////scale attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,7,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, albedo)),//// albedo attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,8,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, normal)),//// normal attribute
 	};
 
 
@@ -595,7 +596,7 @@ void VulkanRenderer::CreateUniformBuffers()
 	// ViewProjection buffer size
 	VkDeviceSize vpBufferSize = sizeof(UboViewProjection);
 
-	//// Transform bufffer size
+	//// LightData bufffer size
 	//VkDeviceSize modelBufferSize = modelUniformAlignment * MAX_OBJECTS;
 
 	// One uniform buffer for each image (and by extension, command buffer)
@@ -622,7 +623,7 @@ void VulkanRenderer::CreateDescriptorPool()
 	// ViewProjection pool
 	VkDescriptorPoolSize vpPoolsize = oGFX::vk::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, vpUniformBuffer.size());
 
-	//// Transform pool (DYNAMIC)
+	//// LightData pool (DYNAMIC)
 	//VkDescriptorPoolSize modelPoolSize{};
 	//modelPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	//modelPoolSize.descriptorCount = static_cast<uint32_t>(modelDUniformBuffer.size());
@@ -832,28 +833,30 @@ void VulkanRenderer::UpdateInstanceData()
 	std::vector<oGFX::InstanceData> instanceData;
 	instanceData.resize(objectCount);
 
-	constexpr float radius = 128.0f;
+	constexpr float radius = 10.0f;
 	for (uint32_t i = 0; i < objectCount; i++) {
 		float theta = 2 * float(glm::pi<float>()) * uniformDist(rndEngine);
 		float phi = acos(1 - 2 * uniformDist(rndEngine));
 		instanceData[i].rot = glm::vec3(0.0f, float(glm::pi<float>()) * uniformDist(rndEngine), 0.0f);
 		instanceData[i].pos = glm::vec3(sin(phi) * cos(theta), 0.0f, cos(phi)) * radius;
-		instanceData[i].scale = 0.01f + uniformDist(rndEngine) * 0.05f;
+		instanceData[i].scale = 0.001f + uniformDist(rndEngine) * 0.005f;
 		auto val = (1) / OBJECT_INSTANCE_COUNT;
 		val = 1;
 		if (val == 1)
 		{
-		instanceData[i].texIndex =  0;
+			instanceData[i].albedo =  3;
 		}
 		if (val == 2)
 		{
-			instanceData[i].texIndex =  2;
+			instanceData[i].albedo =  2;
 		}
 		if (val == 0)
 		{
-			instanceData[i].texIndex =  1;
+			instanceData[i].albedo =  1;
 		}
-		instanceData[i].texIndex = models[0].nodes[0]->meshes[0]->textureIndex;
+		instanceData[i].normal = 4;
+		instanceData[i].albedo = uniformDist(rndEngine) * 4;
+		//instanceData[i].albedo = models[0].nodes[0]->meshes[0]->textureIndex;
 	}
 
 	vk::Buffer stagingBuffer;
@@ -991,10 +994,18 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	
 	Assimp::Importer importer;
 	const aiScene *scene = importer.ReadFile(file,
-		aiProcess_Triangulate 
-		| aiProcess_FlipUVs 
-		| aiProcess_JoinIdenticalVertices 
-		| aiProcess_PreTransformVertices);
+		  aiProcess_Triangulate                // Make sure we get triangles rather than nvert polygons
+		| aiProcess_LimitBoneWeights           // 4 weights for skin model max
+		| aiProcess_GenUVCoords                // Convert any type of mapping to uv mapping
+		| aiProcess_TransformUVCoords          // preprocess UV transformations (scaling, translation ...)
+		| aiProcess_FindInstances              // search for instanced meshes and remove them by references to one master
+		| aiProcess_CalcTangentSpace           // calculate tangents and bitangents if possible
+		| aiProcess_JoinIdenticalVertices      // join identical vertices/ optimize indexing
+		| aiProcess_RemoveRedundantMaterials   // remove redundant materials
+		| aiProcess_FindInvalidData            // detect invalid model data, such as invalid normal vectors
+		| aiProcess_PreTransformVertices       // TODO: remove for skinning?
+		| aiProcess_FlipUVs						// TODO: some mesh need
+	);
 
 	if (!scene)
 	{
@@ -1106,10 +1117,17 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	return static_cast<uint32_t>(index);
 }
 
-uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, const unsigned char* imgData)
+uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData)
 {
 	using namespace oGFX;
-	auto ind = CreateTextureImage(width, height, imgData);
+	FileImageData fileData;
+	fileData.w = width;
+	fileData.h = height;
+	fileData.channels = 4;
+	fileData.dataSize = fileData.w * fileData.h * fileData.channels;
+	fileData.imgData = imgData;
+
+	auto ind = CreateTextureImage(fileData);
 
 	//VkImageView imageView = CreateImageView(m_device,textureImages[ind], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
 	//textureImageViews.push_back(imageView);
@@ -1175,7 +1193,7 @@ uint32_t VulkanRenderer::CreateMeshModel(const std::string& file)
 		else
 		{
 			// otherwise create texture and set value to index of new texture
-			matToTex[i] =  CreateTexture(textureNames[i]);
+			matToTex[i] =  CreateTexture("Textures/" + textureNames[i]);
 		}
 	}
 
@@ -1239,7 +1257,7 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 	//		pipelineLayout,
 	//		VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
 	//		0,							// offset of push constants to update
-	//		sizeof(Transform),			// size of data being pushed
+	//		sizeof(LightData),			// size of data being pushed
 	//		&thisModel.getModel());		// actualy data being pushed (could be an array)
 	//	
 	//	for (size_t k = 0; k < thisModel.getMeshCount(); k++)
@@ -1277,19 +1295,30 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 	//	pipelineLayout,
 	//	VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
 	//	0,							// offset of push constants to update
-	//	sizeof(Transform),				// size of data being pushed
+	//	sizeof(LightData),				// size of data being pushed
 	//	&modelList[0].getModel());		// actualy data being pushed (could be an array)
 	//
 	//vkCmdBindVertexBuffers(commandBuffers[currentImage], 0, 1, &model.vertices.buffer, offsets);	
 	//vkCmdBindIndexBuffer(commandBuffers[currentImage], model.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
 	//vkCmdDrawIndexed(commandBuffers[currentImage], model.indices.count, 1, 0, 0, 0);
+
+	
+	 vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeline);
+
+	 vkCmdPushConstants(commandBuffers[currentImage],
+		 indirectPipeLayout,
+		 VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+		 0,							// offset of push constants to update
+		 sizeof(LightData),			// size of data being pushed
+		 &light.position);		// actualy data being pushed (could be an array));
 	
 	vkCmdBindDescriptorSets(commandBuffers[currentImage],VK_PIPELINE_BIND_POINT_GRAPHICS,indirectPipeLayout,
 		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0 /*1*/, nullptr /*&dynamicOffset*/);
-	 vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeline);
 	 vkCmdBindVertexBuffers(commandBuffers[currentImage], VERTEX_BUFFER_ID, 1, &models[0].vertices.buffer, offsets);
+
 	 // Binding point 1 : Instance data buffer
 	 vkCmdBindVertexBuffers(commandBuffers[currentImage], INSTANCE_BUFFER_ID, 1, &instanceBuffer.buffer, offsets);
+
 	 vkCmdBindIndexBuffer(commandBuffers[currentImage], models[0].indices.buffer, 0, VK_INDEX_TYPE_UINT32);
 	 if (m_device.enabledFeatures.multiDrawIndirect)
 	 {
@@ -1338,10 +1367,10 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 	memcpy(data, &uboViewProjection, sizeof(UboViewProjection));
 	vkUnmapMemory(m_device.logicalDevice, vpUniformBufferMemory[imageIndex]);
 
-	////copy Transform data
+	////copy LightData data
 	//for (size_t i = 0; i < meshList.size(); ++i)
 	//{
-	//	Transform *thisModel = (Transform *)((uint64_t)modelTransferSpace + (i * modelUniformAlignment));
+	//	LightData *thisModel = (LightData *)((uint64_t)modelTransferSpace + (i * modelUniformAlignment));
 	//	*thisModel = meshList[i].getModel();
 	//}
 	//vkMapMemory(mainDevice.logicalDevice, modelDUniformBufferMemory[imageIndex], 0, modelUniformAlignment*meshList.size(), 0, &data);
@@ -1353,64 +1382,26 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 uint32_t VulkanRenderer::CreateTextureImage(const std::string& fileName)
 {
 	//Load image file
-	int width{}, height{};
-	VkDeviceSize imageSize;
-	unsigned char *imageData = oGFX::LoadTextureFromFile(fileName, width, height, imageSize);
+	oGFX::FileImageData imageData;
+	imageData.Create(fileName);
+	
+	//int width{}, height{};
+	//VkDeviceSize imageSize;
+	//unsigned char *imageData = oGFX::LoadTextureFromFile(fileName, width, height, imageSize);
 
-	return CreateTextureImage(width, height, imageData);
+	auto value = CreateTextureImage(imageData);
+
+	imageData.Free();
+	return value;
 }
 
-uint32_t VulkanRenderer::CreateTextureImage(uint32_t width, uint32_t height, const unsigned char* imgData)
+uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo)
 {
-	VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * 4;
-	//{
-	//using namespace oGFX;
-	////Load image file
-	//
-	//// Create staging buffer to hold loaded data, ready to copy to device
-	//VkBuffer imageStagingBuffer;
-	//VkDeviceMemory imageStagingBufferMemory;
-	//CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-	//	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-	//	&imageStagingBuffer, &imageStagingBufferMemory);
-	//
-	//// copy image data to staging buffer
-	//void *data;
-	//vkMapMemory(m_device.logicalDevice, imageStagingBufferMemory, 0, imageSize, 0, &data);
-	//memcpy(data, imgData, static_cast<size_t>(imageSize));
-	//vkUnmapMemory(m_device.logicalDevice, imageStagingBufferMemory);
-	//
-	//// Create image to hold final texture
-	//VkImage texImage;
-	//VkDeviceMemory texImageMemory;
-	//texImage = CreateImage(m_device,width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
-	//	VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-	//	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &texImageMemory);
-	//
-	//// Copy data to image
-	//transition image to be DST for copy operation
-	//TransitionImageLayout(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool,
-	//	texImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	//// Copy image data
-	//CopyImageBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, imageStagingBuffer, texImage, width, height);
-	//
-	////transition image to be Shader readable for shader usage
-	//TransitionImageLayout(m_device.logicalDevice,m_device. graphicsQueue, m_device.commandPool,
-	//	texImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	//
-	////Add texture data to vector for refrence.
-	//textureImages.push_back(texImage);
-	//textureImageMemory.push_back(texImageMemory);
-	//
-	//
-	//// Destroy staginb uffers
-	//vkDestroyBuffer(m_device.logicalDevice, imageStagingBuffer, nullptr);
-	//vkFreeMemory(m_device.logicalDevice, imageStagingBufferMemory, nullptr);
-	//}
+	VkDeviceSize imageSize = imageInfo.dataSize;
 
 	auto indx = newTextures.size();
 	newTextures.push_back(vk::Texture2D());
-	newTextures[indx].fromBuffer((void*)imgData, imageSize, VK_FORMAT_R8G8B8A8_UNORM, width, height, &m_device, m_device.graphicsQueue);
+	newTextures[indx].fromBuffer((void*)imageInfo.imgData, imageSize, imageInfo.format, imageInfo.w, imageInfo.h, &m_device, m_device.graphicsQueue);
 
 	// Return index of new texture image
 	return indx;
@@ -1451,6 +1442,7 @@ uint32_t VulkanRenderer:: CreateTextureDescriptor(VkImageView textureImage)
 	return static_cast<uint32_t>(samplerDescriptorSets.size() - 1);
 }
 
+
 VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(const std::string& fileName, VkShaderStageFlagBits stage)
 {
 	// SHADER STAGE CREATION INFORMATION
@@ -1476,18 +1468,7 @@ VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(const std::string& fi
 
 uint32_t VulkanRenderer:: CreateTextureDescriptor(vk::Texture2D texture)
 {
-	//VkDescriptorSet descriptorSet;
-
-	// Descriptor set allocation info
-	//VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vk::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&samplerSetLayout,1);
-
-	// Allocate our descriptor sets
-	//VkResult result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, &descriptorSet);
-	//if (result != VK_SUCCESS)
-	//{
-	//	throw std::runtime_error("FAiled to allocate texture descriptor sets!");
-	//}
-
+	
 	std::vector<VkWriteDescriptorSet> writeSets{
 		oGFX::vk::inits::writeDescriptorSet(globalSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &texture.descriptor),
 	};

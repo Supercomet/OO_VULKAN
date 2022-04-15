@@ -58,7 +58,8 @@ namespace oGFX
 		glm::vec3 pos;
 		glm::vec3 rot;
 		float scale;
-		uint32_t texIndex;
+		uint32_t albedo;
+		uint32_t normal;
 	};
 
 	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance, VkPhysicalDevice device);
@@ -98,7 +99,34 @@ namespace oGFX
 		VkBuffer srcBuffer, VkImage image, uint32_t width, uint32_t height);
 
 	unsigned char* LoadTextureFromFile(const std::string& fileName, int& width, int& height, uint64_t& imageSize);
+	void FreeTextureFile(uint8_t* data);
 
+	struct FileImageData
+	{
+		int32_t w{};
+		int32_t h{};
+		int32_t channels{};
+		uint64_t dataSize{};
+		uint8_t* imgData{};
+		enum class ExtensionType : uint8_t
+		{
+			DDS,
+			STB
+		}decodeType{};
+
+		enum class ImageType : uint8_t
+		{
+			SRGB,
+			LINEAR
+		}imgType{ImageType::LINEAR};
+
+		VkFormat format{ VK_FORMAT_R8G8B8A8_UNORM };
+
+		bool Create(const std::string& fileName);
+		void Free();
+	};
+
+	bool IsFileDDS(const std::string& fileName);
 
 	namespace vk
 	{

@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\DDSLoader.cpp" />
     <ClCompile Include="src\Node.cpp" />
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\Input.cpp" />
@@ -34,8 +35,10 @@
     <ClCompile Include="src\VulkanUtils.cpp" />
     <ClCompile Include="src\VulkanSwapchain.cpp" />
     <ClCompile Include="src\VulkanBuffer.cpp" />
+    <ClCompile Include="src\tinyddsloader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\DDSLoader.h" />
     <ClInclude Include="src\Node.h" />
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\Input.h" />
@@ -52,6 +55,7 @@
     <ClInclude Include="src\VulkanUtils.h" />
     <ClInclude Include="src\VulkanSwapchain.h" />
     <ClInclude Include="src\VulkanBuffer.h" />
+    <ClInclude Include="src\tinyddsloader.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
