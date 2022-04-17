@@ -618,15 +618,30 @@ namespace oGFX
 			decodeType = ExtensionType::DDS;
 			//imgData = LoadDDS(fileName, &this->w, &this->h, &this->channels, &this->dataSize);
 			LoadDDS(fileName, *this);
-			return imgData ? true : false;
+			return imgData.size() ? true : false;
 		}
 		else
 		{
 			decodeType = ExtensionType::STB;
-			imgData = stbi_load(fileName.c_str(), &this->w, &this->h, &this->channels, STBI_rgb_alpha);
+			auto ptr = stbi_load(fileName.c_str(), &this->w, &this->h, &this->channels, STBI_rgb_alpha);
 			dataSize = this->w * this->h * STBI_rgb_alpha;
+			imgData.resize(dataSize);
+			memcpy(imgData.data(), ptr, dataSize);
+			stbi_image_free(ptr);
+
+			VkBufferImageCopy bufferCopyRegion = {};
+			bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			bufferCopyRegion.imageSubresource.mipLevel = 0;
+			bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+			bufferCopyRegion.imageSubresource.layerCount = 1;
+			bufferCopyRegion.imageExtent.width = this->w;
+			bufferCopyRegion.imageExtent.height = this->h;
+			bufferCopyRegion.imageExtent.depth = 1;
+			bufferCopyRegion.bufferOffset = 0;
+			mipInformation.push_back(bufferCopyRegion);
+
 			this->format = VK_FORMAT_B8G8R8A8_SRGB;
-			return imgData ? true : false;
+			return imgData.size() ? true : false;
 		}
 
 		return false;
@@ -634,14 +649,14 @@ namespace oGFX
 
 	void FileImageData::Free()
 	{
-		if (decodeType == ExtensionType::DDS)
-		{
-			delete[] imgData;
-		}
-		if (decodeType == ExtensionType::STB)
-		{
-			stbi_image_free(imgData);
-		}
+		//if (decodeType == ExtensionType::DDS)
+		//{
+		//	delete[] imgData;
+		//}
+		//if (decodeType == ExtensionType::STB)
+		//{
+		//	stbi_image_free(imgData);
+		//}
 	}
 
 }

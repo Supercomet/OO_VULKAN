@@ -275,56 +275,6 @@ namespace oGFX
 
         auto test = dds.GetFormat();
 
-        //SHDDSToVulkanFormat::SHDDSToVulkanFormat(DDSFile::DXGIFormat dxgi, FileImageData data.imgType) noexcept
-        //    : dxgiFormat { dxgi }
-        //    , return{ VK_FORMAT_B8G8R8A8_SRGB }
-        //    , isSigned { false }
-        //{
-        //    switch (dxgiFormat)
-        //    {
-        //    case DDSFile::DXGIFormat::R8G8B8A8_UNorm:
-        //    case DDSFile::DXGIFormat::R8G8B8A8_UNorm_SRGB:
-        //    return = (data.imgType == FileImageData::LINEAR) ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
-        //    break;
-        //
-        //
-        //    case DDSFile::DXGIFormat::B8G8R8A8_UNorm:
-        //    case DDSFile::DXGIFormat::B8G8R8A8_UNorm_SRGB:
-        //    return = (data.imgType == FileImageData::LINEAR) ? VK_FORMAT_B8G8R8A8_UNORM : VK_FORMAT_B8G8R8A8_SRGB;
-        //    break;
-        //
-        //
-        //    case DDSFile::DXGIFormat::B8G8R8X8_UNorm:
-        //    case DDSFile::DXGIFormat::B8G8R8X8_UNorm_SRGB:
-        //    break;
-        //
-        //
-        //    case DDSFile::DXGIFormat::BC1_UNorm:
-        //    case DDSFile::DXGIFormat::BC1_UNorm_SRGB:
-        //    return = (data.imgType == FileImageData::LINEAR) ? VK_FORMAT_BC1_RGBA_UNORM_BLOCK : VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
-        //    break;
-        //
-        //    case DDSFile::DXGIFormat::BC2_UNorm:
-        //    case DDSFile::DXGIFormat::BC2_UNorm_SRGB:
-        //    return = (data.imgType == FileImageData::LINEAR) ? VK_FORMAT_BC2_UNORM_BLOCK : VK_FORMAT_BC2_SRGB_BLOCK;
-        //    break;
-        //
-        //    case DDSFile::DXGIFormat::BC3_UNorm:
-        //    case DDSFile::DXGIFormat::BC3_UNorm_SRGB:
-        //    return = (data.imgType == FileImageData::LINEAR) ? VK_FORMAT_BC3_UNORM_BLOCK : VK_FORMAT_BC3_SRGB_BLOCK;
-        //    break;
-        //
-        //    case DDSFile::DXGIFormat::BC5_UNorm:
-        //    return = (data.imgType == FileImageData::LINEAR) ? VK_FORMAT_BC5_UNORM_BLOCK : VK_FORMAT_UNDEFINED;
-        //
-        //    break;
-        //
-        //    default:
-        //    return = VK_FORMAT_B8G8R8A8_SRGB;
-        //    break;
-        //    }
-        //}
-
         const auto imageInformation = dds.GetImageData(0, 0);
 
         const uint64_t dataSize = imageInformation->m_memSlicePitch;
@@ -406,17 +356,39 @@ namespace oGFX
             default:
             return VK_FORMAT_B8G8R8A8_SRGB;
             break;
-            }            
+            }
         };
 
         data.format = getFormat();
 
+        uint64_t dataSize{};
+        for (size_t i = 0; i < dds.GetMipCount(); i++)
+        {
+            const auto imageInformation = dds.GetImageData(i, 0);
+
+            VkBufferImageCopy copyRegion{};
+            copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            copyRegion.imageSubresource.mipLevel = i;
+            copyRegion.imageSubresource.baseArrayLayer = 0;
+            copyRegion.imageSubresource.layerCount = 1;
+            copyRegion.bufferOffset = dataSize;
+            copyRegion.imageExtent.width = imageInformation->m_width;
+            copyRegion.imageExtent.height = imageInformation->m_height;
+            copyRegion.imageExtent.depth = 1;
+
+            data.mipInformation.push_back(copyRegion);
+            dataSize += imageInformation->m_memSlicePitch;
+        }
+
+        data.imgData.resize(dataSize);
+        for (size_t i = 0; i <  dds.GetMipCount(); i++)
+        {
+            const auto imageInformation = dds.GetImageData(i, 0);
+            memcpy(data.imgData.data() +data.mipInformation[i].bufferOffset  ,imageInformation->m_mem , imageInformation->m_memSlicePitch);
+        }
+        
+
         const auto imageInformation = dds.GetImageData(0, 0);
-
-        const uint64_t dataSize = imageInformation->m_memSlicePitch;
-        data.imgData = new uint8_t[dataSize];
-        memcpy(data.imgData,imageInformation->m_mem , dataSize);
-
         data.w = imageInformation->m_width;
         data.h =  imageInformation->m_height;
         data.dataSize = dataSize;        

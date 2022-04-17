@@ -1125,7 +1125,21 @@ uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned
 	fileData.h = height;
 	fileData.channels = 4;
 	fileData.dataSize = fileData.w * fileData.h * fileData.channels;
-	fileData.imgData = imgData;
+	fileData.imgData.resize(fileData.dataSize);
+
+	VkBufferImageCopy copyRegion{};
+	copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	copyRegion.imageSubresource.mipLevel = 0;
+	copyRegion.imageSubresource.baseArrayLayer = 0;
+	copyRegion.imageSubresource.layerCount = 1;
+	copyRegion.bufferOffset = 0;
+	copyRegion.imageExtent.width = fileData.w;
+	copyRegion.imageExtent.height = fileData.h;
+	copyRegion.imageExtent.depth = 1;
+	fileData.mipInformation.push_back(copyRegion);
+
+	memcpy(fileData.imgData.data(), imgData, fileData.dataSize);
+	//fileData.imgData = imgData;
 
 	auto ind = CreateTextureImage(fileData);
 
@@ -1401,47 +1415,12 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 
 	auto indx = newTextures.size();
 	newTextures.push_back(vk::Texture2D());
-	newTextures[indx].fromBuffer((void*)imageInfo.imgData, imageSize, imageInfo.format, imageInfo.w, imageInfo.h, &m_device, m_device.graphicsQueue);
+
+	newTextures[indx].fromBuffer((void*)imageInfo.imgData.data(), imageSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 
 	// Return index of new texture image
 	return indx;
 }
-
-uint32_t VulkanRenderer:: CreateTextureDescriptor(VkImageView textureImage)
-{
-	//VkDescriptorSet descriptorSet;
-
-	// Descriptor set allocation info
-	//VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vk::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&samplerSetLayout,1);
-
-	// Allocate our descriptor sets
-	//VkResult result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, &descriptorSet);
-	//if (result != VK_SUCCESS)
-	//{
-	//	throw std::runtime_error("FAiled to allocate texture descriptor sets!");
-	//}
-	
-	// WE ONLY WRITE TO HUGE DESCRIPTOR SET
-
-	// Texture image info
-	//VkDescriptorImageInfo imageInfo{};
-	//imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image outout when in use
-	//imageInfo.imageView = textureImage;// image to bind to set
-	//imageInfo.sampler = textureSampler; // sampler to use for set
-	//
-	//
-	////Descriptor write info
-	//VkWriteDescriptorSet descriptorWrite = oGFX::vk::inits::writeDescriptorSet(globalSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &imageInfo);
-	//
-	//// Update the new descriptor set
-	//vkUpdateDescriptorSets(m_device.logicalDevice, 1, &descriptorWrite, 0, nullptr);
-	//
-	//// Add descriptor set to list
-	////samplerDescriptorSets.push_back(descriptorSet);
-	//
-	return static_cast<uint32_t>(samplerDescriptorSets.size() - 1);
-}
-
 
 VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(const std::string& fileName, VkShaderStageFlagBits stage)
 {

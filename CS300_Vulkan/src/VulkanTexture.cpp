@@ -315,14 +315,14 @@ namespace vk
 	* @param (Optional) imageLayout Usage layout for the texture (defaults VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 	*/
 	void Texture2D::fromBuffer(void* buffer, VkDeviceSize bufferSize, VkFormat format,
-		uint32_t texWidth, uint32_t texHeight, VulkanDevice* device, VkQueue copyQueue, VkFilter filter, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout)
+		uint32_t texWidth, uint32_t texHeight, std::vector<VkBufferImageCopy> mipInfo,VulkanDevice* device, VkQueue copyQueue, VkFilter filter, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout)
 	{
 		assert(buffer);
 
 		this->device = device;
 		width = texWidth;
 		height = texHeight;
-		mipLevels = 1;
+		mipLevels = mipInfo.size();
 
 		VkMemoryAllocateInfo memAllocInfo = oGFX::vk::inits::memoryAllocateInfo();
 		VkMemoryRequirements memReqs;
@@ -356,15 +356,17 @@ namespace vk
 		memcpy(data, buffer, bufferSize);
 		vkUnmapMemory(device->logicalDevice, stagingMemory);
 
-		VkBufferImageCopy bufferCopyRegion = {};
-		bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		bufferCopyRegion.imageSubresource.mipLevel = 0;
-		bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
-		bufferCopyRegion.imageSubresource.layerCount = 1;
-		bufferCopyRegion.imageExtent.width = width;
-		bufferCopyRegion.imageExtent.height = height;
-		bufferCopyRegion.imageExtent.depth = 1;
-		bufferCopyRegion.bufferOffset = 0;
+
+		std::vector<VkBufferImageCopy>bufferCopyRegion = mipInfo;
+		//VkBufferImageCopy bufferCopyRegion = {};
+		//bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		//bufferCopyRegion.imageSubresource.mipLevel = mipLevels;
+		//bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+		//bufferCopyRegion.imageSubresource.layerCount = 1;
+		//bufferCopyRegion.imageExtent.width = width;
+		//bufferCopyRegion.imageExtent.height = height;
+		//bufferCopyRegion.imageExtent.depth = 1;
+		//bufferCopyRegion.bufferOffset = 0;
 
 		// Create optimal tiled target image
 		VkImageCreateInfo imageCreateInfo = oGFX::vk::inits::imageCreateInfo();
@@ -414,8 +416,8 @@ namespace vk
 			stagingBuffer,
 			image,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			1,
-			&bufferCopyRegion
+			mipLevels,
+			bufferCopyRegion.data()
 		);
 
 		// Change texture image layout to shader read after all mip levels have been copied
