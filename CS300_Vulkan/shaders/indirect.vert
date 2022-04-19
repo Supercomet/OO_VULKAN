@@ -2,79 +2,68 @@
 
 layout(location = 0) in vec3 inPos;
 layout(location = 1) in vec3 inNormal;
-layout(location = 2) in vec2 inUV;
-layout(location = 3) in vec3 inCol;
+layout(location = 2) in vec3 inTangent;
+layout(location = 3) in vec2 inUV;
 
 // Instanced attributes		
-layout (location = 4) in vec3 instancePos;
-layout (location = 5) in vec3 instanceRot;
-layout (location = 6) in float instanceScale;
-layout (location = 7) in int instanceTexIndex;
-layout (location = 8) in int instanceNormalTexIndex;
+//layout (location = 4) in vec4 instancePos;
+//layout (location = 5) in vec4 instanceRot;
+//layout (location = 6) in vec4 instanceScale;
+layout (location = 4) in mat4 instanceMatrix; // eats location 4-7
+
+layout (location = 8) in int instanceTexIndex;
+layout (location = 9) in int instanceNormalTexIndex;
 
 // vulkan passes a whole Uniform Buffer Object.
 layout(set = 0,binding = 0) uniform UboViewProjection{
 	mat4 projection;
 	mat4 view;
+	vec4 camPos;
 }uboViewProjection;
 
 layout(push_constant)uniform PushLight{
 		vec3 pos;
 }pushLight;
 
-layout(location = 0) out vec3 outCol;
-layout(location = 1) out vec2 outUV;
-layout(location = 2) flat out int outTexIndex;
-layout(location = 6) flat out int outNormalIndex;
+
+layout(location = 0) out vec2 outUV;
+layout(location = 1) flat out int outTexIndex;
+layout(location = 2) flat out int outNormalIndex;
 
 layout(location = 3)out vec3 outNormal;
-layout(location = 4)out vec3 outLightVec;
-layout(location = 5)out vec3 outViewVec;
+
+layout(location = 4)out vec3 outViewVec;
+
+layout(location = 5) out struct 
+{
+mat3 btn;
+vec3 vertCol;
+vec3 modelVert;
+vec3 localLightPos;
+vec3 localEyePos;
+}outLightData;
+
 
 void main(){
 
-	mat4 mx, my, mz;
+	// inefficient
+	mat4 inverseMat = inverse(instanceMatrix);
 	
-	// rotate around x
-	float s = sin(instanceRot.x);
-	float c = cos(instanceRot.x);
+	outLightData.localEyePos = vec3(inverseMat* uboViewProjection.camPos);
+	
+	outLightData.localLightPos = vec3(inverseMat * vec4(pushLight.pos, 1.0));
 
-	mx[0] = vec4(c, s, 0.0, 0.0);
-	mx[1] = vec4(-s, c, 0.0, 0.0);
-	mx[2] = vec4(0.0, 0.0, 1.0, 0.0);
-	mx[3] = vec4(0.0, 0.0, 0.0, 1.0);	
-	
-	// rotate around y
-	s = sin(instanceRot.y);
-	c = cos(instanceRot.y);
-
-	my[0] = vec4(c, 0.0, s, 0.0);
-	my[1] = vec4(0.0, 1.0, 0.0, 0.0);
-	my[2] = vec4(-s, 0.0, c, 0.0);
-	my[3] = vec4(0.0, 0.0, 0.0, 1.0);	
-	
-	// rot around z
-	s = sin(instanceRot.z);
-	c = cos(instanceRot.z);	
-	
-	mz[0] = vec4(1.0, 0.0, 0.0, 0.0);
-	mz[1] = vec4(0.0, c, s, 0.0);
-	mz[2] = vec4(0.0, -s, c, 0.0);
-	mz[3] = vec4(0.0, 0.0, 0.0, 1.0);	
-	
-	mat4 rotMat = mz * my * mx;
-	
-	vec4 pos = rotMat * vec4((inPos.xyz * instanceScale) + instancePos, 1.0);
-	outNormal = mat3(rotMat)* inNormal ;
-
-	vec4 lPos =  vec4(pushLight.pos, 1.0);
-	outLightVec = lPos.xyz - pos.xyz;
-	outViewVec = -vec3(uboViewProjection.view[3]);	
+	vec3 binormal = normalize(cross(inTangent, inNormal));
+	outLightData.btn = mat3(inTangent, binormal, inNormal);
 
 
+	//outViewVec = -vec3(uboViewProjection.view[3]);	
+	outLightData.modelVert = inPos;
+
+	vec4 pos = instanceMatrix * vec4(inPos,1.0);
 	gl_Position = uboViewProjection.projection * uboViewProjection.view * pos;
+
 	outTexIndex = instanceTexIndex;
 	outNormalIndex = instanceNormalTexIndex;
-	outCol = inCol;
 	outUV = inUV;
 }

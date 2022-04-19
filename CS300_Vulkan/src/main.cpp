@@ -133,6 +133,7 @@ int main(int argc, char argv[])
     float angle = 0.0f;
     auto lastTime = std::chrono::high_resolution_clock::now();
 
+    renderer.camera.type = Camera::CameraType::lookat;
     renderer.camera.SetRotation(glm::vec3(-4.35f, 16.25f, 0.0f));
     renderer.camera.SetRotationSpeed(0.5f);
     renderer.camera.SetPosition(glm::vec3(0.1f, -2.0f, -10.5f));
@@ -206,7 +207,7 @@ int main(int argc, char argv[])
 
         if (Input::GetKeyTriggered(KEY_SPACE))
         {
-            renderer.light.position = renderer.camera.viewPos;
+            renderer.light.position = renderer.camera.position;
         }
 
         angle += 5.0f * deltaTime;

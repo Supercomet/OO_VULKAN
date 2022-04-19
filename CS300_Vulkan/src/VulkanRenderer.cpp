@@ -330,15 +330,16 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	std::vector<VkVertexInputAttributeDescription>attributeDescriptions{
 		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, pos)), //Position attribute
 		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,1,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, norm)),//normals attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,2,VK_FORMAT_R32G32_SFLOAT,offsetof(Vertex, tex)),    //Texture attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,3,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, col)), //colour attribute
-	
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,2,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, tangent)),//tangent attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,3,VK_FORMAT_R32G32_SFLOAT	  ,offsetof(Vertex, tex)),    //Texture attribute
+		
 		// instance data attributes
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,4,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::InstanceData, pos)),//Position attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,5,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::InstanceData, rot)), //colour attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,6,VK_FORMAT_R32_SFLOAT,offsetof(oGFX::InstanceData, scale)),////scale attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,7,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, albedo)),//// albedo attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,8,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, normal)),//// normal attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,4,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *0),//Position attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,5,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *4), //colour attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,6,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *8),////scale attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,7,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *12),////scale attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,8,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, albedo)), // albedo attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,9,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, normal)), // normal attribute
 	};
 
 
@@ -833,13 +834,21 @@ void VulkanRenderer::UpdateInstanceData()
 	std::vector<oGFX::InstanceData> instanceData;
 	instanceData.resize(objectCount);
 
-	constexpr float radius = 10.0f;
+	constexpr float radius = 1000.0f;
 	for (uint32_t i = 0; i < objectCount; i++) {
 		float theta = 2 * float(glm::pi<float>()) * uniformDist(rndEngine);
 		float phi = acos(1 - 2 * uniformDist(rndEngine));
-		instanceData[i].rot = glm::vec3(0.0f, float(glm::pi<float>()) * uniformDist(rndEngine), 0.0f);
-		instanceData[i].pos = glm::vec3(sin(phi) * cos(theta), 0.0f, cos(phi)) * radius;
-		instanceData[i].scale = 0.001f + uniformDist(rndEngine) * 0.005f;
+		float scale = 0.001f + uniformDist(rndEngine) * 0.005f;
+		
+		glm::vec3 pos = glm::vec3(sin(phi) * cos(theta), 0.0f, cos(phi)) * radius;
+
+		glm::mat4 matrix = glm::mat4(1.0f); 
+		matrix = glm::scale(matrix, glm::vec3(scale));
+		matrix = glm::translate(matrix, pos);
+		matrix = glm::rotate(matrix, phi, glm::vec3(0.0f,1.0f,0.0f));
+
+		instanceData[i].matrix = matrix; 
+
 		auto val = (1) / OBJECT_INSTANCE_COUNT;
 		val = 1;
 		if (val == 1)
@@ -855,7 +864,7 @@ void VulkanRenderer::UpdateInstanceData()
 			instanceData[i].albedo =  1;
 		}
 		instanceData[i].normal = 4;
-		instanceData[i].albedo = uniformDist(rndEngine) * 4;
+		//instanceData[i].albedo = uniformDist(rndEngine) * 4;
 		//instanceData[i].albedo = models[0].nodes[0]->meshes[0]->textureIndex;
 	}
 
@@ -1371,6 +1380,8 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 
 	uboViewProjection.projection = camera.matrices.perspective;
 	uboViewProjection.view = camera.matrices.view;
+	uboViewProjection.cameraPos = glm::vec4(camera.position,1.0);
+	
 
 	//uboViewProjection.projection = oGFX::customOrtho(1.0,10.0f,-1.0f,10.0f);
 	//uboViewProjection.projection[1][1] *= -1.0f;

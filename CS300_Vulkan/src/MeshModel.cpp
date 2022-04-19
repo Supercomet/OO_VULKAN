@@ -172,7 +172,7 @@ Mesh MeshContainer::LoadMesh(VkPhysicalDevice newPhysicalDevice, VkDevice newDev
 		}
 
 		// Set colour to white for now
-		vertices[i].col = { 1.0f,1.0f,1.0f };
+		//vertices[i].col = { 1.0f,1.0f,1.0f };
 	}
 
 	// Iterate over indices through ffaces and copy accross
@@ -267,19 +267,25 @@ oGFX::Mesh* Model::processMesh(aiMesh* aimesh, const aiScene* scene, std::vector
 			vertex.tex = { aimesh->mTextureCoords[0][i].x,
 							aimesh->mTextureCoords[0][i].y };
 		}
-		if (aimesh->mColors[0])
-		{
-			vertex.col = {aimesh->mColors[0][i].r,
-				aimesh->mColors[0][i].g,
-				aimesh->mColors[0][i].b,
-				//aimesh->mColors[i]->a,
-			};
-		}
+		//if (aimesh->mColors[0])
+		//{
+		//	vertex.col = {aimesh->mColors[0][i].r,
+		//		aimesh->mColors[0][i].g,
+		//		aimesh->mColors[0][i].b,
+		//		//aimesh->mColors[i]->a,
+		//	};
+		//}
 		if (aimesh->mNormals)
 		{
 			vertex.norm = glm::vec3{ aimesh->mNormals[i].x,
 				aimesh->mNormals[i].y,
 				aimesh->mNormals[i].z };
+		}
+		if (aimesh->mTangents)
+		{
+			vertex.tangent =glm::vec3{ aimesh->mTangents[i].x,
+				aimesh->mTangents[i].y,
+				aimesh->mTangents[i].z };
 		}
 		
 

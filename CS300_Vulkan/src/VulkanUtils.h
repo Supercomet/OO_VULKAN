@@ -48,16 +48,17 @@ namespace oGFX
 		//float col[3] ; // Vertex colour (r, g, b)
 		//float tex[2] ; // Texture Coords(u,v)
 		glm::vec3 pos; // Vertex position (x, y, z)
-		glm::vec3 col; // Vertex colour (r, g, b)
+		//glm::vec3 col; // Vertex colour (r, g, b)
 		glm::vec3 norm; // Vertex normal (x, y, z)
+		glm::vec3 tangent; // Vertex normal (x, y, z)
 		glm::vec2 tex; // Texture Coords(u,v)
 	};
 
 	// Per-instance data block
 	struct InstanceData {
-		glm::vec3 pos;
-		glm::vec3 rot;
-		float scale;
+		glm::mat4 matrix;
+		//glm::vec4 rot;
+		//glm::vec4 scale;
 		uint32_t albedo;
 		uint32_t normal;
 	};

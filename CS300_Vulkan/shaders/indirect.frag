@@ -5,20 +5,28 @@
 layout (set = 1, binding = 0) uniform sampler2D textureDesArr[];
 //layout(set = 1, binding= 0) uniform sampler2D textureSampler;
 
-layout(location = 0) in vec3 inColor;
-layout(location = 1) in vec2 inUV;
-layout (location = 2) flat in int inTextureIndex;
-layout (location = 6) flat in int inNormalIndex;
+layout(location = 0) in vec2 inUV;
+layout (location = 1) flat in int inTextureIndex;
+layout (location = 2) flat in int inNormalIndex;
 
 layout(location = 3)in vec3 inNormal;
-layout(location = 4)in vec3 inLightVec;
-layout(location = 5)in vec3 inViewVec;
+
+layout(location = 4)in vec3 inViewVec;
+
+layout(location = 5) in struct {
+mat3 btn;
+vec3 vertCol;
+vec3 modelVert;
+vec3 localLightPos;
+vec3 localEyePos;
+}inLightData;
+
 
 layout(location = 0) out vec4 outColour; //final output colour (Must also have location!)
 
 void main(){
 vec4 color = texture( textureDesArr[nonuniformEXT(inTextureIndex)], inUV.xy);
-vec4 normal = texture( textureDesArr[nonuniformEXT(inNormalIndex)], inUV.xy);
+vec3 normal = texture( textureDesArr[nonuniformEXT(inNormalIndex)], inUV.xy).rgb;
 
 // Decode to -1 to 1 for each read element
 normal.xy =  normal.rg * 2.0 - 1.0;
@@ -27,16 +35,32 @@ normal.xy =  normal.rg * 2.0 - 1.0;
 // This also forces the Normal map to be normalize
 normal.z =  sqrt(1.0 - dot(normal.xy, normal.xy));
 
-if (color.a < 0.5)
-	{
-		discard;
-	}
 
-vec3 N = normalize(inNormal);
-vec3 L = normalize(inLightVec);
-vec3 ambient = vec3(0.65);
-vec3 diffuse =  max(dot(N, L), 0.0) * inColor;
-outColour = vec4((ambient +diffuse) * color.rgb, 1.0);
-//outColour = vec4(N.xyz,1.0);
-//outColour =  color;
+//if (color.a < 0.5)
+//	{
+//		discard;
+//	}
+//
+	// Note that the real light direction is the negative of this, but the negative is removed to speed up the equations
+	vec3 LightDirection = normalize( inLightData.localLightPos.xyz - inLightData.modelVert);
+
+	// Compute the diffuse intensity
+	float DiffuseI  = max( 0, dot( normal, LightDirection ));
+
+	// Note This is the true Eye to Texel direction 
+	vec3 EyeDirection = normalize( inLightData.modelVert - inLightData.localEyePos.xyz );
+
+	vec3 ambientLightCol = vec3(1.0,1.0,1.0);
+	outColour.rgb  = ambientLightCol * color.rgb;
+
+	// Add the contribution of this light
+	outColour.rgb += ambientLightCol * (DiffuseI.rrr * color.rgb );
+
+	// Convert to gamma
+	const float Gamma = 2.20;
+	outColour.a   = color.a;
+	outColour.rgb = pow( outColour.rgb, vec3(1.0f/Gamma) );
+
+//outColour = vec4(color.rgb, 1.0);
+
 }

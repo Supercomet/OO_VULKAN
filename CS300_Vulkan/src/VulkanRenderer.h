@@ -149,6 +149,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	{
 		glm::mat4 projection{ 1.0f };
 		glm::mat4 view{ 1.0f };
+		glm::vec4 cameraPos{ 1.0f };
 	} uboViewProjection;
 
 	bool resizeSwapchain = false;
