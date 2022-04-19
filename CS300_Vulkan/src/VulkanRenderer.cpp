@@ -791,7 +791,7 @@ void VulkanRenderer::UpdateIndirectCommands()
 		}
 	}
 
-	std::cout << "Triangles rendered : " << models[0].indices.count * OBJECT_INSTANCE_COUNT /3 << std::endl;
+	//std::cout << "Triangles rendered : " << models[0].indices.count * OBJECT_INSTANCE_COUNT /3 << std::endl;
 	indirectDrawCount = static_cast<uint32_t>(indirectCommands.size());
 
 	objectCount = 0;
@@ -835,7 +835,19 @@ void VulkanRenderer::UpdateInstanceData()
 	instanceData.resize(objectCount);
 
 	constexpr float radius = 1000.0f;
-	for (uint32_t i = 0; i < objectCount; i++) {
+
+	{
+
+	glm::mat4 matrix = glm::mat4(1.0f); 
+	float scale = 0.01;
+	matrix = glm::scale(matrix, glm::vec3(scale));
+	matrix = glm::translate(matrix, glm::vec3(0.0f));
+	instanceData[0].matrix = matrix; 
+	instanceData[0].albedo =  3;
+	instanceData[0].normal = 4;
+	}
+
+	for (uint32_t i = 1; i < 0; i++) {
 		float theta = 2 * float(glm::pi<float>()) * uniformDist(rndEngine);
 		float phi = acos(1 - 2 * uniformDist(rndEngine));
 		float scale = 0.001f + uniformDist(rndEngine) * 0.005f;
@@ -916,7 +928,8 @@ void VulkanRenderer::Draw()
 		resizeSwapchain = true;
 	}
 	RecordCommands(imageIndex);
-
+	
+	camera.updated = true;
 	if(camera.updated)
 		UpdateUniformBuffers(imageIndex);
 
@@ -1328,12 +1341,16 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 	
 	 vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeline);
 
+	 light.position = camera.viewPos;
+	 //std::cout << "Light pos [" << light.position.x << ", " << light.position.y << ", " << light.position.z<<"] ";
+	 //std::cout << "\tCamera pos [" << camera.position.x << ", " << camera.position.y << ", " << camera.position.z<<"]\n";
+	 
 	 vkCmdPushConstants(commandBuffers[currentImage],
 		 indirectPipeLayout,
 		 VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
 		 0,							// offset of push constants to update
 		 sizeof(LightData),			// size of data being pushed
-		 &light.position);		// actualy data being pushed (could be an array));
+		 &light);		// actualy data being pushed (could be an array));
 	
 	vkCmdBindDescriptorSets(commandBuffers[currentImage],VK_PIPELINE_BIND_POINT_GRAPHICS,indirectPipeLayout,
 		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0 /*1*/, nullptr /*&dynamicOffset*/);

@@ -207,8 +207,8 @@ int main(int argc, char argv[])
 
         if (Input::GetKeyTriggered(KEY_SPACE))
         {
-            renderer.light.position = renderer.camera.position;
         }
+        renderer.light.position = renderer.camera.position;
 
         angle += 5.0f * deltaTime;
         if (angle > 360.0f) { angle -= 360.0f; }

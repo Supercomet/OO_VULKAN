@@ -38,7 +38,7 @@ layout(location = 5) out struct
 {
 mat3 btn;
 vec3 vertCol;
-vec3 modelVert;
+vec3 localVertexPos;
 vec3 localLightPos;
 vec3 localEyePos;
 }outLightData;
@@ -49,7 +49,7 @@ void main(){
 	// inefficient
 	mat4 inverseMat = inverse(instanceMatrix);
 	
-	outLightData.localEyePos = vec3(inverseMat* uboViewProjection.camPos);
+	outLightData.localEyePos = vec3(inverseMat* vec4(vec3(uboViewProjection.camPos),1.0));
 	
 	outLightData.localLightPos = vec3(inverseMat * vec4(pushLight.pos, 1.0));
 
@@ -58,7 +58,7 @@ void main(){
 
 
 	//outViewVec = -vec3(uboViewProjection.view[3]);	
-	outLightData.modelVert = inPos;
+	outLightData.localVertexPos = inPos;
 
 	vec4 pos = instanceMatrix * vec4(inPos,1.0);
 	gl_Position = uboViewProjection.projection * uboViewProjection.view * pos;

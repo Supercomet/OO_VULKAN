@@ -16,7 +16,7 @@ layout(location = 4)in vec3 inViewVec;
 layout(location = 5) in struct {
 mat3 btn;
 vec3 vertCol;
-vec3 modelVert;
+vec3 localVertexPos;
 vec3 localLightPos;
 vec3 localEyePos;
 }inLightData;
@@ -28,38 +28,41 @@ void main(){
 vec4 color = texture( textureDesArr[nonuniformEXT(inTextureIndex)], inUV.xy);
 vec3 normal = texture( textureDesArr[nonuniformEXT(inNormalIndex)], inUV.xy).rgb;
 
+color.rgb = pow(color.rgb,vec3(2.2));
+
 // Decode to -1 to 1 for each read element
-normal.xy =  normal.rg * 2.0 - 1.0;
+normal.xy =  normal.gr * 2.0 - 1.0;
 
 // Derive the final element since we only have (x,y)
 // This also forces the Normal map to be normalize
 normal.z =  sqrt(1.0 - dot(normal.xy, normal.xy));
-
+normal = inLightData.btn * normal;
 
 //if (color.a < 0.5)
 //	{
 //		discard;
 //	}
 //
-	// Note that the real light direction is the negative of this, but the negative is removed to speed up the equations
-	vec3 LightDirection = normalize( inLightData.localLightPos.xyz - inLightData.modelVert);
+// Note that the real light direction is the negative of this, but the negative is removed to speed up the equations
+vec3 LightDirection = normalize( inLightData.localLightPos.xyz - inLightData.localVertexPos);
 
-	// Compute the diffuse intensity
-	float DiffuseI  = max( 0, dot( normal, LightDirection ));
+// Compute the diffuse intensity
+float DiffuseI  = max( 0, dot( normal, LightDirection ));
 
-	// Note This is the true Eye to Texel direction 
-	vec3 EyeDirection = normalize( inLightData.modelVert - inLightData.localEyePos.xyz );
+// Note This is the true Eye to Texel direction 
+vec3 EyeDirection = normalize( inLightData.localVertexPos - inLightData.localEyePos.xyz );
 
-	vec3 ambientLightCol = vec3(1.0,1.0,1.0);
-	outColour.rgb  = ambientLightCol * color.rgb;
+vec3 ambientLightCol = vec3(0.3,0.3,0.3);
+outColour.rgb  = ambientLightCol * color.rgb;
 
-	// Add the contribution of this light
-	outColour.rgb += ambientLightCol * (DiffuseI.rrr * color.rgb );
+// Add the contribution of this light
+vec3 lightCol = vec3(1.0,0.3,0.3);
+outColour.rgb += lightCol * (DiffuseI.rrr * color.rgb );
 
-	// Convert to gamma
-	const float Gamma = 2.20;
-	outColour.a   = color.a;
-	outColour.rgb = pow( outColour.rgb, vec3(1.0f/Gamma) );
+// Convert to gamma
+const float Gamma = 2.20;
+outColour.a   = color.a;
+outColour.rgb = pow( outColour.rgb, vec3(1.0f/Gamma) );
 
 //outColour = vec4(color.rgb, 1.0);
 

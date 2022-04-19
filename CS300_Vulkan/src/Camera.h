@@ -20,6 +20,7 @@ public:
 	glm::vec3 rotation = glm::vec3{};
 	glm::vec3 position = glm::vec3{};
 	glm::vec4 viewPos = glm::vec4{};
+	float distance = 10.0f;
 
 	float rotationSpeed = 1.0f;
 	float movementSpeed = 1.0f;
