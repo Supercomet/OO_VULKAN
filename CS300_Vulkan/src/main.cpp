@@ -106,12 +106,13 @@ int main(int argc, char argv[])
         ,5,0,1
     };
 
-    uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");
 
     //uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
     uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
 
-   uint32_t obj = renderer.CreateMeshModel(verts, indices);
+
+    //uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");
+    //uint32_t obj = renderer.CreateMeshModel(verts, indices);
    //renderer.CreateTexture("Textures/TD_Checker_Base_Color.png");
    //renderer.CreateTexture("TD_Checker_Mixed_AO.png");
    //renderer.CreateTexture("TD_Checker_Normal_OpenGL.png");
@@ -125,10 +126,6 @@ int main(int argc, char argv[])
    glm::mat4 xform{ 1.0f };
    xform = glm::translate(xform, glm::vec3(-3.0f, 0.0f, -3.0f));
    xform = glm::scale(xform, glm::vec3{ 4.0f,4.0f,4.0f });
-   renderer.UpdateModel(obj,xform );
-
-   uint32_t obj2 = renderer.CreateMeshModel(boxverts, boxindices);
-   renderer.UpdateModel(obj2, xform);
 
     float angle = 0.0f;
     auto lastTime = std::chrono::high_resolution_clock::now();
@@ -160,11 +157,6 @@ int main(int argc, char argv[])
         }
 
         auto mousedel = Input::GetMouseDelta();
-
-        //pos.y += mousedel.y* 0.001f;
-        //pos.x += mousedel.x * 0.001f;
-        //renderer.camera.SetPosition(pos);
-        
         float wheelDelta = Input::GetMouseWheel();
 
         renderer.camera.Translate(glm::vec3(0.0f, 0.0f, wheelDelta * 0.005f));
@@ -207,24 +199,11 @@ int main(int argc, char argv[])
 
         if (Input::GetKeyTriggered(KEY_SPACE))
         {
+            auto tempMat = glm::inverse(renderer.camera.matrices.view);
+            renderer.light.position = tempMat[3];
+            //renderer.light.position = renderer.camera.position;
         }
-        renderer.light.position = renderer.camera.position;
 
-        angle += 5.0f * deltaTime;
-        if (angle > 360.0f) { angle -= 360.0f; }
-
-        glm::mat4 testMat = glm::mat4(1.0f);
-        //testMat = glm::translate(testMat, {0.0f,0.0f,0.0f});
-        //testMat = glm::rotate(testMat, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
-        testMat = glm::scale(testMat, glm::vec3{ 0.5f,0.5f,0.5f });
-        renderer.UpdateModel(Object, testMat);
-
-
-        xform = glm::mat4( 1.0f );
-        xform = glm::translate(xform, glm::vec3(3.0f, 0.0f, 3.0f));
-        xform = glm::rotate(xform,angle, glm::vec3(0.0f, 1.0f, 0.0f));
-        xform = glm::scale(xform, glm::vec3{ 3.0f,3.0f,3.0f });
-        renderer.UpdateModel(obj2, xform);
 
         renderer.Draw();
     }   

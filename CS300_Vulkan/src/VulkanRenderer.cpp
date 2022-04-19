@@ -31,10 +31,6 @@ VulkanRenderer::~VulkanRenderer()
 	//wait until no actions being run on device before destorying
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
-	for (size_t i = 0; i < modelList.size(); i++)
-	{
-		modelList[i].destroyMeshModel();
-	}	
 	for (size_t i = 0; i < models.size(); i++)
 	{
 		models.clear();
@@ -334,14 +330,14 @@ void VulkanRenderer::CreateGraphicsPipeline()
 		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,3,VK_FORMAT_R32G32_SFLOAT	  ,offsetof(Vertex, tex)),    //Texture attribute
 		
 		// instance data attributes
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,4,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *0),//Position attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,5,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *4), //colour attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,6,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *8),////scale attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,7,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *12),////scale attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,8,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, albedo)), // albedo attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,9,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, normal)), // normal attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,10,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, occlusion)), // normal attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,11,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, roughness)), // normal attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,4,VK_FORMAT_R32G32B32A32_SFLOAT	,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *0),//Position attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,5,VK_FORMAT_R32G32B32A32_SFLOAT	,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *4), //colour attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,6,VK_FORMAT_R32G32B32A32_SFLOAT	,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *8),////scale attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,7,VK_FORMAT_R32G32B32A32_SFLOAT	,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *12),////scale attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,8,VK_FORMAT_R32_SINT			,offsetof(oGFX::InstanceData, albedo)), // albedo attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,9,VK_FORMAT_R32_SINT			,offsetof(oGFX::InstanceData, normal)), // normal attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,10,VK_FORMAT_R32_SINT			,offsetof(oGFX::InstanceData, occlusion)), // normal attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,11,VK_FORMAT_R32_SINT			,offsetof(oGFX::InstanceData, roughness)), // normal attribute
 	};
 
 
@@ -845,10 +841,10 @@ void VulkanRenderer::UpdateInstanceData()
 	matrix = glm::scale(matrix, glm::vec3(scale));
 	matrix = glm::translate(matrix, glm::vec3(0.0f));
 	instanceData[0].matrix = matrix; 
-	instanceData[0].albedo =  3;
-	instanceData[0].normal = 4;
-	instanceData[0].occlusion = 5;
-	instanceData[0].roughness = 6;
+	instanceData[0].albedo =  1;
+	instanceData[0].normal = 2;
+	instanceData[0].occlusion = 3;
+	instanceData[0].roughness = 4;
 	}
 
 	for (uint32_t i = 1; i < 0; i++) {
@@ -869,7 +865,7 @@ void VulkanRenderer::UpdateInstanceData()
 		val = 1;
 		if (val == 1)
 		{
-			instanceData[i].albedo =  3;
+			instanceData[i].albedo =  1;
 		}
 		if (val == 2)
 		{
@@ -879,9 +875,9 @@ void VulkanRenderer::UpdateInstanceData()
 		{
 			instanceData[i].albedo =  1;
 		}
-		instanceData[i].normal = 4;
-		instanceData[i].occlusion = 5;
-		instanceData[i].roughness = 6;
+		instanceData[i].normal = 2;
+		instanceData[i].occlusion = 3;
+		instanceData[i].roughness = 4;
 		//instanceData[i].albedo = uniformDist(rndEngine) * 4;
 		//instanceData[i].albedo = models[0].nodes[0]->meshes[0]->textureIndex;
 	}
@@ -995,11 +991,6 @@ void VulkanRenderer::Draw()
 	currentFrame = (currentFrame + 1) % MAX_FRAME_DRAWS;
 }
 
-void VulkanRenderer::UpdateModel(int modelId, glm::mat4 newModel)
-{
-	if(modelId>= modelList.size())return; //error selection!!
-	modelList[modelId].setModel(newModel);
-}
 
 bool VulkanRenderer::ResizeSwapchain()
 {
@@ -1199,55 +1190,6 @@ uint32_t VulkanRenderer::CreateTexture(const std::string& file)
 
 }
 
-uint32_t VulkanRenderer::CreateMeshModel(std::vector<oGFX::Vertex>& vertices,std::vector<uint32_t>& indices)
-{
-	Mesh mesh(m_device.physicalDevice, m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, &vertices, &indices,0);
-	MeshContainer model({ mesh });
-	modelList.push_back(model);
-	return static_cast<uint32_t>(modelList.size() - 1);
-}
-
-
-uint32_t VulkanRenderer::CreateMeshModel(const std::string& file)
-{
-	Assimp::Importer importer;
-	const aiScene *scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices | aiProcess_PreTransformVertices);
-
-	if (!scene)
-	{
-		throw std::runtime_error("Failed to load model! (" + file + ")");
-	}
-
-	//get vector of all materials with 1:1 ID placement
-	std::vector<std::string> textureNames = MeshContainer::LoadMaterials(scene);
-
-	// Conversion from the materials list IDs  to our Descriptor Array IDs
-	std::vector<int> matToTex(textureNames.size());
-
-	// Loop over textureNames and create textures for them
-	for (size_t i = 0; i < textureNames.size(); i++)
-	{
-		// if material had no texture, set '0' to indicate no texture, texxture 0 will be reserved fora  default texture
-		if (textureNames[i].empty())
-		{
-			matToTex[i] = 0;
-		}
-		else
-		{
-			// otherwise create texture and set value to index of new texture
-			matToTex[i] =  CreateTexture("Textures/" + textureNames[i]);
-		}
-	}
-
-	// load in all our meshes
-	std::vector<Mesh> modelMeshes = MeshContainer::LoadNode(m_device.physicalDevice, m_device.logicalDevice, 
-		 m_device.graphicsQueue, m_device.commandPool, scene->mRootNode, scene, matToTex);
-
-	MeshContainer meshModel = MeshContainer(modelMeshes);
-	modelList.push_back(meshModel);
-	return static_cast<uint32_t>(modelList.size() - 1);
-
-}
 
 void VulkanRenderer::RecordCommands(uint32_t currentImage)
 {

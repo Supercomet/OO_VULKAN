@@ -566,30 +566,6 @@ namespace oGFX
 		endAndSubmitCommandBuffer(device, transferCommandPool, transferQueue, transferCommandBuffer);
 	}
 
-	unsigned char* LoadTextureFromFile(const std::string& fileName, int& width, int& height, uint64_t& imageSize)
-	{
-		// Number of channels image uses
-		int channels;
-
-		// Load pixeldata for image
-		std::string fileLoc = "Textures/" + fileName;
-		unsigned char *image = stbi_load(fileLoc.c_str(), &width, &height, &channels, STBI_rgb_alpha);
-		imageSize = static_cast<VkDeviceSize>(width) * static_cast<VkDeviceSize>(height) * 4;
-		if (!image)
-		{
-			//try DDS
-			image = LoadDDS(fileLoc, &width, &height, &channels,&imageSize);
-			if (!image)
-			{
-				throw std::runtime_error("Failed to load a texture file! (" + fileName + ")");
-			}
-		}
-
-		// Calculate image size using given and known data
-	
-
-		return image;
-	}
 
 	void FreeTextureFile(uint8_t* data)
 	{

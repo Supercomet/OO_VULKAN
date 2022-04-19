@@ -65,8 +65,6 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	void RecordCommands(uint32_t currentImage);
 	void UpdateUniformBuffers(uint32_t imageIndex);
 
-	uint32_t CreateMeshModel(std::vector<oGFX::Vertex>& vertices,std::vector<uint32_t>& indices);
-	uint32_t CreateMeshModel(const std::string& file);
 	uint32_t CreateTexture(uint32_t width, uint32_t height,unsigned char* imgData);
 	uint32_t CreateTexture(const std::string& fileName);
 
@@ -78,8 +76,6 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 
 	Window* windowPtr{nullptr};
 
-	//Scene objects
-	std::vector<MeshContainer> modelList;
 
 	//textures
 	std::vector<VkImage> textureImages;
@@ -136,6 +132,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	// Store the indirect draw commands containing index offsets and instance count per object
 	std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
 
+	//Scene objects
 	std::vector<Model> models;
 
 	uint32_t currentFrame = 0;

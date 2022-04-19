@@ -15,7 +15,6 @@ layout(location = 1) in flat struct{
  //int roughness;
 }inTexIndex;
 
-layout(location = 3)in vec3 inNormal;
 
 layout(location = 4)in vec3 inViewVec;
 
@@ -31,6 +30,7 @@ vec3 localEyePos;
 layout(location = 0) out vec4 outColour; //final output colour (Must also have location!)
 
 void main(){
+
 vec4 color = texture( textureDesArr[nonuniformEXT(inTexIndex.maps.x)], inUV.xy);
 vec3 normal = texture( textureDesArr[nonuniformEXT(inTexIndex.maps.y)], inUV.xy).rgb;
 
@@ -67,8 +67,8 @@ vec3 ambientLightCol = vec3(0.3,0.3,0.3);
 outColour.rgb  = ambientLightCol * color.rgb * texture(textureDesArr[nonuniformEXT(inTexIndex.maps.z)], inUV).rgb;
 
 // Add the contribution of this light
-vec3 lightCol = vec3(1.0,0.3,0.3);
-outColour.rgb += lightCol * (SpecularI2* 1.0 *DiffuseI.rrr * color.rgb );
+vec3 lightCol = vec3(10.0,0.3,0.3);
+outColour.rgb += lightCol * (SpecularI2.rrr * 1.0 *DiffuseI.rrr * color.rgb );
 
 // Convert to gamma
 const float Gamma = 2.20;

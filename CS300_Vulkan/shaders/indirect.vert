@@ -38,9 +38,6 @@ layout(location = 1) out flat  struct{
  //int roughness;
 }outTexIndex;
 
-
-layout(location = 3)out vec3 outNormal;
-
 layout(location = 4)out vec3 outViewVec;
 
 layout(location = 7) out struct 
