@@ -340,6 +340,8 @@ void VulkanRenderer::CreateGraphicsPipeline()
 		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,7,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(oGFX::InstanceData, matrix)+sizeof(float) *12),////scale attribute
 		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,8,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, albedo)), // albedo attribute
 		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,9,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, normal)), // normal attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,10,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, occlusion)), // normal attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,11,VK_FORMAT_R32_SINT,offsetof(oGFX::InstanceData, roughness)), // normal attribute
 	};
 
 
@@ -845,6 +847,8 @@ void VulkanRenderer::UpdateInstanceData()
 	instanceData[0].matrix = matrix; 
 	instanceData[0].albedo =  3;
 	instanceData[0].normal = 4;
+	instanceData[0].occlusion = 5;
+	instanceData[0].roughness = 6;
 	}
 
 	for (uint32_t i = 1; i < 0; i++) {
@@ -876,6 +880,8 @@ void VulkanRenderer::UpdateInstanceData()
 			instanceData[i].albedo =  1;
 		}
 		instanceData[i].normal = 4;
+		instanceData[i].occlusion = 5;
+		instanceData[i].roughness = 6;
 		//instanceData[i].albedo = uniformDist(rndEngine) * 4;
 		//instanceData[i].albedo = models[0].nodes[0]->meshes[0]->textureIndex;
 	}

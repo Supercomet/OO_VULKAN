@@ -61,6 +61,8 @@ namespace oGFX
 		//glm::vec4 scale;
 		uint32_t albedo;
 		uint32_t normal;
+		uint32_t occlusion;
+		uint32_t roughness;
 	};
 
 	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance, VkPhysicalDevice device);

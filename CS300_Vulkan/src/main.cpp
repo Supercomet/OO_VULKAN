@@ -118,9 +118,9 @@ int main(int argc, char argv[])
    //renderer.CreateTexture("TD_Checker_Roughness.png");
 
    renderer.CreateTexture("Textures/TD_Checker_Base_Color.dds");
-   //renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
    renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
-   //renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
+   renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
+   renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
 
    glm::mat4 xform{ 1.0f };
    xform = glm::translate(xform, glm::vec3(-3.0f, 0.0f, -3.0f));

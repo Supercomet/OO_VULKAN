@@ -13,6 +13,8 @@ layout (location = 4) in mat4 instanceMatrix; // eats location 4-7
 
 layout (location = 8) in int instanceTexIndex;
 layout (location = 9) in int instanceNormalTexIndex;
+layout (location = 10) in int instanceOcclusionTexIndex;
+layout (location = 11) in int instanceRoughnessTexIndex;
 
 // vulkan passes a whole Uniform Buffer Object.
 layout(set = 0,binding = 0) uniform UboViewProjection{
@@ -27,14 +29,21 @@ layout(push_constant)uniform PushLight{
 
 
 layout(location = 0) out vec2 outUV;
-layout(location = 1) flat out int outTexIndex;
-layout(location = 2) flat out int outNormalIndex;
+
+layout(location = 1) out flat  struct{
+  ivec4 maps;
+  //int albedo;	
+ //int normal;	
+ //int occlusion;
+ //int roughness;
+}outTexIndex;
+
 
 layout(location = 3)out vec3 outNormal;
 
 layout(location = 4)out vec3 outViewVec;
 
-layout(location = 5) out struct 
+layout(location = 7) out struct 
 {
 mat3 btn;
 vec3 vertCol;
@@ -63,7 +72,9 @@ void main(){
 	vec4 pos = instanceMatrix * vec4(inPos,1.0);
 	gl_Position = uboViewProjection.projection * uboViewProjection.view * pos;
 
-	outTexIndex = instanceTexIndex;
-	outNormalIndex = instanceNormalTexIndex;
+	outTexIndex.maps.x = instanceTexIndex;
+	outTexIndex.maps.y = instanceNormalTexIndex;
+	outTexIndex.maps.z = instanceOcclusionTexIndex;
+	outTexIndex.maps.w = instanceRoughnessTexIndex;
 	outUV = inUV;
 }
