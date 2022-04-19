@@ -1,9 +1,9 @@
 #include "Input.h"
 
 
-bool Input::keysTriggered[NUM_KEYS]{};
-bool Input::keysHeld[NUM_KEYS]{};
-bool Input::keysRelease[NUM_KEYS]{};
+bool Input::keysTriggered[NUM_KEYS]{false};
+bool Input::keysHeld[NUM_KEYS]{false};
+bool Input::keysRelease[NUM_KEYS]{false};
 glm::vec2 Input::mousePos{};
 glm::vec2 Input::mouseChange{};
 

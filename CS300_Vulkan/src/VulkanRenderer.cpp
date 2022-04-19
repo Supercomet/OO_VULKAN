@@ -833,6 +833,7 @@ void VulkanRenderer::UpdateInstanceData()
 	instanceData.resize(objectCount);
 
 	constexpr float radius = 1000.0f;
+	constexpr float offset = 2000.0f;
 
 	{
 
@@ -847,17 +848,18 @@ void VulkanRenderer::UpdateInstanceData()
 	instanceData[0].roughness = 4;
 	}
 
-	for (uint32_t i = 1; i < 0; i++) {
+	for (uint32_t i = 1; i < objectCount; i++) {
 		float theta = 2 * float(glm::pi<float>()) * uniformDist(rndEngine);
 		float phi = acos(1 - 2 * uniformDist(rndEngine));
 		float scale = 0.001f + uniformDist(rndEngine) * 0.005f;
 		
 		glm::vec3 pos = glm::vec3(sin(phi) * cos(theta), 0.0f, cos(phi)) * radius;
+		pos += glm::normalize(pos-glm::vec3(0.0f)) * offset;
 
 		glm::mat4 matrix = glm::mat4(1.0f); 
 		matrix = glm::scale(matrix, glm::vec3(scale));
+		matrix = glm::rotate(matrix, theta, glm::vec3(0.0f,1.0f,0.0f));
 		matrix = glm::translate(matrix, pos);
-		matrix = glm::rotate(matrix, phi, glm::vec3(0.0f,1.0f,0.0f));
 
 		instanceData[i].matrix = matrix; 
 
@@ -875,6 +877,7 @@ void VulkanRenderer::UpdateInstanceData()
 		{
 			instanceData[i].albedo =  1;
 		}
+		instanceData[i].albedo = 4 + uniformDist(rndEngine) * 100;
 		instanceData[i].normal = 2;
 		instanceData[i].occlusion = 3;
 		instanceData[i].roughness = 4;
@@ -1288,8 +1291,6 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 
 	
 	 vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeline);
-
-	 light.position = camera.viewPos;
 	 //std::cout << "Light pos [" << light.position.x << ", " << light.position.y << ", " << light.position.z<<"] ";
 	 //std::cout << "\tCamera pos [" << camera.position.x << ", " << camera.position.y << ", " << camera.position.z<<"]\n";
 	 

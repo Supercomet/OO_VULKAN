@@ -12,6 +12,10 @@ private:
 	float fov;
 	float znear, zfar;
 
+	glm::vec3 forward;
+	glm::vec3 up;
+	glm::vec3 right;
+
 	void updateViewMatrix();
 public:
 	enum class CameraType { lookat, firstperson };
@@ -20,6 +24,8 @@ public:
 	glm::vec3 rotation = glm::vec3{};
 	glm::vec3 position = glm::vec3{};
 	glm::vec4 viewPos = glm::vec4{};
+
+	glm::vec3 target = glm::vec3{};
 	float distance = 10.0f;
 
 	float rotationSpeed = 1.0f;
@@ -66,7 +72,13 @@ public:
 
 	void SetMovementSpeed(float movementSpeed);
 
+	void ChangeDistance(float delta);
+
 	void Update(float deltaTime);
+
+	glm::vec3 GetFront();
+	glm::vec3 GetRight();
+	glm::vec3 GetUp();
 
 	// Update camera passing separate axis data (gamepad)
 	// Returns true if view or position has been changed

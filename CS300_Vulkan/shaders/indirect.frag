@@ -31,10 +31,10 @@ layout(location = 0) out vec4 outColour; //final output colour (Must also have l
 
 void main(){
 
-vec4 color = texture( textureDesArr[nonuniformEXT(inTexIndex.maps.x)], inUV.xy);
+vec4 diffuseColour = texture( textureDesArr[nonuniformEXT(inTexIndex.maps.x)], inUV.xy);
 vec3 normal = texture( textureDesArr[nonuniformEXT(inTexIndex.maps.y)], inUV.xy).rgb;
 
-color.rgb = pow(color.rgb,vec3(2.2));
+diffuseColour.rgb = pow(diffuseColour.rgb,vec3(2.2));
 
 // Decode to -1 to 1 for each read element
 normal.xy =  normal.gr * 2.0 - 1.0;
@@ -44,7 +44,7 @@ normal.xy =  normal.gr * 2.0 - 1.0;
 normal.z =  sqrt(1.0 - dot(normal.xy, normal.xy));
 normal = inLightData.btn * normal;
 
-//if (color.a < 0.5)
+//if (diffuseColour.a < 0.5)
 //	{
 //		discard;
 //	}
@@ -64,17 +64,17 @@ const float Shininess = mix( 1, 100, 1 - texture( textureDesArr[nonuniformEXT(in
 float SpecularI2  = pow( max( 0, dot(normal, normalize( LightDirection - EyeDirection ))), Shininess );
 
 vec3 ambientLightCol = vec3(0.3,0.3,0.3);
-outColour.rgb  = ambientLightCol * color.rgb * texture(textureDesArr[nonuniformEXT(inTexIndex.maps.z)], inUV).rgb;
+outColour.rgb  = ambientLightCol * diffuseColour.rgb * texture(textureDesArr[nonuniformEXT(inTexIndex.maps.z)], inUV).rgb;
 
 // Add the contribution of this light
-vec3 lightCol = vec3(10.0,0.3,0.3);
-outColour.rgb += lightCol * (SpecularI2.rrr * 1.0 *DiffuseI.rrr * color.rgb );
+vec3 lightCol = vec3(10.0,10.0,10.0);
+outColour.rgb += lightCol * (SpecularI2.rrr * 1.0 *DiffuseI.rrr * diffuseColour.rgb );
 
 // Convert to gamma
 const float Gamma = 2.20;
-outColour.a   = color.a;
+outColour.a   = diffuseColour.a;
 outColour.rgb = pow( outColour.rgb, vec3(1.0f/Gamma) );
 
-//outColour = vec4(color.rgb, 1.0);
+//outColour = vec4(diffuseColour.rgb, 1.0);
 
 }

@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cctype>
 #include <thread>
+#include <random>
 
 #include "window.h"
 #include "input.h"
@@ -123,6 +124,23 @@ int main(int argc, char argv[])
    renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
    renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
 
+   //create a hundred random textures because why not
+   std::default_random_engine rndEngine(123456);
+   std::uniform_int_distribution<uint32_t> uniformDist( 0xFF000000, 0xFFFFFFFF );
+   std::vector<oGFX::InstanceData> instanceData;
+   constexpr size_t numTex = 100;
+   constexpr size_t dims = 2;
+   std::vector<uint32_t> bitmap(dims*dims);
+   for (size_t i = 0; i < numTex; i++)
+   {
+       for (size_t x = 0; x < bitmap.size(); x++)
+       {
+       uint32_t colour = uniformDist(rndEngine); // ABGR
+        bitmap[x] = colour;
+       }
+       renderer.CreateTexture(dims, dims, reinterpret_cast<unsigned char*>(bitmap.data()));
+   }
+
    glm::mat4 xform{ 1.0f };
    xform = glm::translate(xform, glm::vec3(-3.0f, 0.0f, -3.0f));
    xform = glm::scale(xform, glm::vec3{ 4.0f,4.0f,4.0f });
@@ -131,9 +149,12 @@ int main(int argc, char argv[])
     auto lastTime = std::chrono::high_resolution_clock::now();
 
     renderer.camera.type = Camera::CameraType::lookat;
-    renderer.camera.SetRotation(glm::vec3(-4.35f, 16.25f, 0.0f));
+    renderer.camera.target = glm::vec3(0.0f, 0.0f, 0.0f);
+    renderer.camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
     renderer.camera.SetRotationSpeed(0.5f);
     renderer.camera.SetPosition(glm::vec3(0.1f, -2.0f, -10.5f));
+
+    bool freezeLight = false;
 
     glm::vec3 pos{0.1f, 1.1f, -3.5f};
     //handling winOS messages
@@ -159,51 +180,55 @@ int main(int argc, char argv[])
         auto mousedel = Input::GetMouseDelta();
         float wheelDelta = Input::GetMouseWheel();
 
-        renderer.camera.Translate(glm::vec3(0.0f, 0.0f, wheelDelta * 0.005f));
+        renderer.camera.ChangeDistance(wheelDelta * -0.001f);
+        auto frontVec = renderer.camera.GetFront();
+        auto rightVec = renderer.camera.GetRight();
+        auto upVec = renderer.camera.GetUp();
 
         if (Input::GetMouseHeld(MOUSE_LEFT)) {
-            renderer.camera.Rotate(glm::vec3(-mousedel.y * renderer.camera.rotationSpeed, -mousedel.x * renderer.camera.rotationSpeed, 0.0f));
-        }
-
-        if (Input::GetKeyHeld(KEY_W))
-        {
-            renderer.camera.Translate(glm::vec3{ 0.0f,0.0f,1.0f }* speed);
+            renderer.camera.Rotate(glm::vec3(-mousedel.y * renderer.camera.rotationSpeed, mousedel.x * renderer.camera.rotationSpeed, 0.0f));
             renderer.camera.keys.up = true;
         }
-        if (Input::GetKeyHeld(KEY_S))
-        {
-            renderer.camera.Translate(glm::vec3{ 0.0f,0.0f,-1.0f }* speed);
-            renderer.camera.keys.down = true;
-        }
-        if (Input::GetKeyHeld(KEY_A))
-        {
-            renderer.camera.Translate(glm::vec3{ 1.0f,0.0f,0.0f }* speed);
-            renderer.camera.keys.left = true;
-        }
-        if (Input::GetKeyHeld(KEY_D))
-        {
-            renderer.camera.Translate(glm::vec3{ -1.0f,0.0f,0.0f }* speed);
-            renderer.camera.keys.right = true;
-        }
-        if (Input::GetKeyHeld(KEY_Q))
-        {
-            renderer.camera.Translate(glm::vec3{ 0.0f,1.0f,0.0f }* speed);
-            renderer.camera.keys.right = true;
-        }
-
-        if (Input::GetKeyHeld(KEY_E))
-        {
-            renderer.camera.Translate(glm::vec3{ 0.0f,-1.0f,0.0f } * speed);
-            renderer.camera.keys.right = true;
-        }
+        //if (Input::GetKeyHeld(KEY_W))
+        //{
+        //    renderer.camera.Translate(-frontVec* speed);
+        //    renderer.camera.keys.up = true;
+        //}
+        //if (Input::GetKeyHeld(KEY_S))
+        //{
+        //    renderer.camera.Translate( frontVec * speed);
+        //    renderer.camera.keys.down = true;
+        //}
+        //if (Input::GetKeyHeld(KEY_A))
+        //{
+        //    renderer.camera.Translate(-rightVec* speed);
+        //    renderer.camera.keys.left = true;
+        //}
+        //if (Input::GetKeyHeld(KEY_D))
+        //{
+        //    renderer.camera.Translate(rightVec* speed);
+        //    renderer.camera.keys.right = true;
+        //}
+        //if (Input::GetKeyHeld(KEY_Q))
+        //{
+        //    renderer.camera.Translate(upVec* speed);
+        //    renderer.camera.keys.right = true;
+        //}
+        //
+        //if (Input::GetKeyHeld(KEY_E))
+        //{
+        //    renderer.camera.Translate(-upVec * speed);
+        //    renderer.camera.keys.right = true;
+        //}
 
         if (Input::GetKeyTriggered(KEY_SPACE))
         {
-            auto tempMat = glm::inverse(renderer.camera.matrices.view);
-            renderer.light.position = tempMat[3];
-            //renderer.light.position = renderer.camera.position;
+            freezeLight = !freezeLight;
         }
-
+        if (freezeLight == false)
+        {
+            renderer.light.position = renderer.camera.position;
+        }
 
         renderer.Draw();
     }   
