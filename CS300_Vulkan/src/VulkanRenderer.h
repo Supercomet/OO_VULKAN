@@ -69,6 +69,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	uint32_t CreateTexture(const std::string& fileName);
 
 	uint32_t LoadMeshFromFile(const std::string& file);
+	void SetMeshTextures(uint32_t modelID,uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough);
 
 	void UpdateModel(int modelId, glm::mat4 newModel);
 

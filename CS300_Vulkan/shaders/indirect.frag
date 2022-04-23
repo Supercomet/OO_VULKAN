@@ -63,11 +63,11 @@ const float Shininess = mix( 1, 100, 1 - texture( textureDesArr[nonuniformEXT(in
 
 float SpecularI2  = pow( max( 0, dot(normal, normalize( LightDirection - EyeDirection ))), Shininess );
 
-vec3 ambientLightCol = vec3(0.3,0.3,0.3);
+vec3 ambientLightCol = vec3(0.2,0.2,0.2);
 outColour.rgb  = ambientLightCol * diffuseColour.rgb * texture(textureDesArr[nonuniformEXT(inTexIndex.maps.z)], inUV).rgb;
 
 // Add the contribution of this light
-vec3 lightCol = vec3(10.0,10.0,10.0);
+vec3 lightCol = vec3(1.0,1.0,1.0);
 outColour.rgb += lightCol * (SpecularI2.rrr * 1.0 *DiffuseI.rrr * diffuseColour.rgb );
 
 // Convert to gamma

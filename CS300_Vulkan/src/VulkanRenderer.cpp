@@ -842,10 +842,10 @@ void VulkanRenderer::UpdateInstanceData()
 	matrix = glm::scale(matrix, glm::vec3(scale));
 	matrix = glm::translate(matrix, glm::vec3(0.0f));
 	instanceData[0].matrix = matrix; 
-	instanceData[0].albedo =  1;
-	instanceData[0].normal = 2;
-	instanceData[0].occlusion = 3;
-	instanceData[0].roughness = 4;
+	instanceData[0].albedo = models[0].textures.albedo;
+	instanceData[0].normal = models[0].textures.normal;
+	instanceData[0].occlusion = models[0].textures.occlusion;
+	instanceData[0].roughness = models[0].textures.roughness;
 	}
 
 	for (uint32_t i = 1; i < objectCount; i++) {
@@ -877,10 +877,11 @@ void VulkanRenderer::UpdateInstanceData()
 		{
 			instanceData[i].albedo =  1;
 		}
-		instanceData[i].albedo = 4 + uniformDist(rndEngine) * 100;
-		instanceData[i].normal = 2;
-		instanceData[i].occlusion = 3;
-		instanceData[i].roughness = 4;
+		
+		instanceData[i].albedo = models[0].textures.albedo + uniformDist(rndEngine) * 100;
+		instanceData[i].normal = models[0].textures.normal;
+		instanceData[i].occlusion = models[0].textures.occlusion;
+		instanceData[i].roughness = models[0].textures.roughness;
 		//instanceData[i].albedo = uniformDist(rndEngine) * 4;
 		//instanceData[i].albedo = models[0].nodes[0]->meshes[0]->textureIndex;
 	}
@@ -1137,6 +1138,11 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	}
 
 	return static_cast<uint32_t>(index);
+}
+
+void VulkanRenderer::SetMeshTextures(uint32_t modelID, uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough)
+{
+	models[modelID].textures = { alb,norm,occlu,rough };
 }
 
 uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData)

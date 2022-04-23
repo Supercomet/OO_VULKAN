@@ -55,7 +55,11 @@ struct Model
 	struct Textures
 	{
 		uint32_t albedo;
+		uint32_t normal;
+		uint32_t occlusion;
+		uint32_t roughness;
 	}textures;
+
 
 	void loadNode(Node* parent,const aiScene* scene, const aiNode& node, uint32_t nodeIndex
 		,std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);

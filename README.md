@@ -15,7 +15,8 @@ it will gather and build the dependencies:
 
 ### Controls
 The demo will show a model in the centre of the scene.
+The surrounding skeleton models are rendered using indirect draw commands.
+These commands are using bindless textures to render more than 100 textures using a single draw call.
 
-WASD------------- to move horizontally
-QE--------------- to move vertically
+Spacebar -- toggles light follow camera
 Click and drag -- to rotate around the focused object

@@ -119,10 +119,13 @@ int main(int argc, char argv[])
    //renderer.CreateTexture("TD_Checker_Normal_OpenGL.png");
    //renderer.CreateTexture("TD_Checker_Roughness.png");
 
-   renderer.CreateTexture("Textures/TD_Checker_Base_Color.dds");
-   renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
-   renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
-   renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
+   auto alb = renderer.CreateTexture("Textures/TD_Checker_Base_Color.dds");
+   auto norm =renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
+   auto occlu =renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
+   auto rough =renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
+   renderer.SetMeshTextures(yes, alb, norm, occlu, rough);
+
+   renderer.SubmitMesh(yes, position);
 
    //create a hundred random textures because why not
    std::default_random_engine rndEngine(123456);
