@@ -9,12 +9,12 @@
 class Camera
 {
 private:
-	float fov;
-	float znear, zfar;
+	float fov{ 60.0f };
+	float znear{ 0.1f }, zfar{ 1000.0f };
 
-	glm::vec3 forward;
-	glm::vec3 up;
-	glm::vec3 right;
+	glm::vec3 forward{};
+	glm::vec3 up{0.0f,1.0f,0.0f};
+	glm::vec3 right{};
 
 	void updateViewMatrix();
 public:

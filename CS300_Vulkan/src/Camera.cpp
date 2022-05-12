@@ -1,11 +1,11 @@
 #include "Camera.h"
 #include <iostream>
+#include <algorithm> // std min
 #include "glm/gtx/euler_angles.hpp"
 
 void Camera::updateViewMatrix()
 {
-	glm::mat4 transM;
-	
+
 	rotation.x = std::max(rotation.x, -89.0f);
 	rotation.x = std::min(rotation.x,  89.0f);
 

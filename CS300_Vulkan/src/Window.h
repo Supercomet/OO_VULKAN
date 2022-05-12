@@ -1,6 +1,9 @@
 #pragma once
 
-#include <Windows.h>
+#if defined(_WIN32)
+#define NOMINMAX
+#include <windows.h>
+#endif
 //----------------------------------------------------------------------------------
 // Process Window Message Callbacks
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

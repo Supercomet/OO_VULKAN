@@ -8,15 +8,15 @@ namespace vk
 {	
 	struct Buffer
 	{
-		VkDevice device;
+		VkDevice device{};
 		VkBuffer buffer = VK_NULL_HANDLE;
 		VkDeviceMemory memory = VK_NULL_HANDLE;
-		VkDescriptorBufferInfo descriptor;
+		VkDescriptorBufferInfo descriptor{};
 		VkDeviceSize size = 0;
 		VkDeviceSize alignment = 0;
 		void* mapped = nullptr;
 		
-		VkBufferUsageFlags usageFlags;
+		VkBufferUsageFlags usageFlags{};
 
 		VkMemoryPropertyFlags memoryPropertyFlags;
 		VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);

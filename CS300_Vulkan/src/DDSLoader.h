@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-namespace oGFX { class FileImageData; };
+namespace oGFX { struct FileImageData; };
 
 namespace oGFX{
 

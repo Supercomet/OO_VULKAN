@@ -627,7 +627,7 @@ void VulkanRenderer::CreateDescriptorPool()
 	//descriptor is an individual piece of data // it is NOT a descriptor SET
 	// Type of descriptors + how many DESCRIPTORS, not DESCRIPTOR_SETS (combined makes the pool size)
 	// ViewProjection pool
-	VkDescriptorPoolSize vpPoolsize = oGFX::vk::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, vpUniformBuffer.size());
+	VkDescriptorPoolSize vpPoolsize = oGFX::vk::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, static_cast<uint32_t>(vpUniformBuffer.size()));
 
 	//// LightData pool (DYNAMIC)
 	//VkDescriptorPoolSize modelPoolSize{};
@@ -929,7 +929,7 @@ void VulkanRenderer::UpdateInstanceData()
 	
 	using namespace std::chrono;
 	uint64_t curr = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
-	std::default_random_engine rndEngine(curr);
+	std::default_random_engine rndEngine(static_cast<uint32_t>(curr));
 	std::uniform_real_distribution<float> uniformDist(0.0f, 1.0f);
 	std::vector<oGFX::InstanceData> instanceData;
 	instanceData.resize(objectCount);
@@ -940,7 +940,7 @@ void VulkanRenderer::UpdateInstanceData()
 	{
 
 	glm::mat4 matrix = glm::mat4(1.0f); 
-	float scale = 0.01;
+	float scale = 0.01f;
 	matrix = glm::scale(matrix, glm::vec3(scale));
 	matrix = glm::translate(matrix, glm::vec3(0.0f));
 	instanceData[0].matrix = matrix; 
@@ -980,7 +980,7 @@ void VulkanRenderer::UpdateInstanceData()
 			instanceData[i].albedo =  1;
 		}
 		
-		instanceData[i].albedo = models[0].textures.albedo + uniformDist(rndEngine) * 100;
+		instanceData[i].albedo = static_cast<uint32_t>(models[0].textures.albedo + uniformDist(rndEngine) * 100);
 		instanceData[i].normal = models[0].textures.normal;
 		instanceData[i].occlusion = models[0].textures.occlusion;
 		instanceData[i].roughness = models[0].textures.roughness;
@@ -1504,7 +1504,7 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 	newTextures[indx].fromBuffer((void*)imageInfo.imgData.data(), imageSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 
 	// Return index of new texture image
-	return indx;
+	return static_cast<uint32_t>(indx);
 }
 
 VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(const std::string& fileName, VkShaderStageFlagBits stage)
@@ -1541,7 +1541,7 @@ uint32_t VulkanRenderer:: CreateTextureDescriptor(vk::Texture2D texture)
 	samplerDescriptorSets.push_back(globalSamplers);
 	writeSets[0].dstArrayElement = index;
 
-	vkUpdateDescriptorSets(m_device.logicalDevice, writeSets.size(), writeSets.data(), 0, nullptr);
+	vkUpdateDescriptorSets(m_device.logicalDevice, static_cast<uint32_t>(writeSets.size()), writeSets.data(), 0, nullptr);
 
 	return index;
 

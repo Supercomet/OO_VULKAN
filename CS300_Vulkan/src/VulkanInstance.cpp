@@ -5,9 +5,9 @@
 #include <stdexcept>
 #include <vector>
 #include <array>
-#include <span>
 
-VkResult FilterValidationLayers(std::vector<const char*>& Layers, std::span<const char* const> FilterView)
+
+VkResult FilterValidationLayers(std::vector<const char*>& Layers, const std::vector<const char* >& FilterView)
 {
 	std::uint32_t    ValidationLayerCount = -1;
 	if( auto Err = vkEnumerateInstanceLayerProperties( &ValidationLayerCount, nullptr ); Err ) 
@@ -15,8 +15,8 @@ VkResult FilterValidationLayers(std::vector<const char*>& Layers, std::span<cons
 		return Err;
 	}
 
-	auto LayerProperties = std::make_unique<VkLayerProperties[]>(ValidationLayerCount);
-	if( auto Err = vkEnumerateInstanceLayerProperties( &ValidationLayerCount, LayerProperties.get() ); Err )
+    std::vector<VkLayerProperties>LayerProperties(ValidationLayerCount);
+	if( auto Err = vkEnumerateInstanceLayerProperties( &ValidationLayerCount, LayerProperties.data() ); Err )
 	{
 		return Err;
 	}
@@ -25,7 +25,7 @@ VkResult FilterValidationLayers(std::vector<const char*>& Layers, std::span<cons
 	// Find all possible filters from our FilterView
 	//    
 	Layers.clear();
-	for ( const auto& LayerEntry : std::span<VkLayerProperties>{ LayerProperties.get(), ValidationLayerCount } )
+	for ( const auto& LayerEntry :LayerProperties)
 		for( const auto& pFilterEntry : FilterView )
 			if( strcmp( pFilterEntry, LayerEntry.layerName ) == 0 )
 			{
@@ -38,12 +38,12 @@ VkResult FilterValidationLayers(std::vector<const char*>& Layers, std::span<cons
 
 std::vector<const char*> getSupportedValidationLayers(VulkanInstance& vkinstance)
 {
-	constexpr static auto s_ValidationLayerNames_Alt1 = std::array
+	static auto s_ValidationLayerNames_Alt1 = std::vector<const char*>
 	{
 		"VK_LAYER_KHRONOS_validation"
 	};
 
-	constexpr static auto s_ValidationLayerNames_Alt2 = std::array
+	static auto s_ValidationLayerNames_Alt2 = std::vector<const char*>
 	{
 		"VK_LAYER_GOOGLE_threading",     "VK_LAYER_LUNARG_parameter_validation",
 		"VK_LAYER_LUNARG_device_limits", "VK_LAYER_LUNARG_object_tracker",
@@ -230,14 +230,14 @@ void VulkanInstance::CreateSurface(Window& window)
 		throw std::runtime_error("Vulkan Driver missing the VK_KHR_win32_surface extension");
 	}
 
-	VkWin32SurfaceCreateInfoKHR SurfaceCreateInfo
+	VkWin32SurfaceCreateInfoKHR SurfaceCreateInfo;
 	{
-		.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR
-		,   .pNext = nullptr
-		,   .flags = 0
-		,   .hinstance = GetModuleHandle(NULL)
-		,   .hwnd = reinterpret_cast<HWND>(window.GetRawHandle())
-	};
+		SurfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+		SurfaceCreateInfo.pNext = nullptr;
+		SurfaceCreateInfo.flags = 0;
+		SurfaceCreateInfo.hinstance = GetModuleHandle(NULL);
+		SurfaceCreateInfo.hwnd = reinterpret_cast<HWND>(window.GetRawHandle());
+	}
 
 	if (auto VKErr = VKCreateWin32Surface(instance, &SurfaceCreateInfo, nullptr, &surface); VKErr)
 	{

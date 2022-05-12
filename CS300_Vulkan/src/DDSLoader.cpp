@@ -59,6 +59,7 @@ namespace oGFX
             return VK_FORMAT_B8G8R8A8_SRGB;
             break;
             }
+            return VK_FORMAT_B8G8R8A8_SRGB;
         };
 
         data.format = getFormat();
@@ -66,11 +67,11 @@ namespace oGFX
         uint64_t dataSize{};
         for (size_t i = 0; i < dds.GetMipCount(); i++)
         {
-            const auto imageInformation = dds.GetImageData(i, 0);
+            const auto imageInformation = dds.GetImageData( static_cast<uint32_t>(i), 0);
 
             VkBufferImageCopy copyRegion{};
             copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            copyRegion.imageSubresource.mipLevel = i;
+            copyRegion.imageSubresource.mipLevel = static_cast<uint32_t>(i);
             copyRegion.imageSubresource.baseArrayLayer = 0;
             copyRegion.imageSubresource.layerCount = 1;
             copyRegion.bufferOffset = dataSize;
@@ -85,7 +86,7 @@ namespace oGFX
         data.imgData.resize(dataSize);
         for (size_t i = 0; i <  dds.GetMipCount(); i++)
         {
-            const auto imageInformation = dds.GetImageData(i, 0);
+            const auto imageInformation = dds.GetImageData( static_cast<uint32_t>(i) , 0);
             memcpy(data.imgData.data() +data.mipInformation[i].bufferOffset  ,imageInformation->m_mem , imageInformation->m_memSlicePitch);
         }
         

@@ -322,7 +322,7 @@ namespace vk
 		this->device = device;
 		width = texWidth;
 		height = texHeight;
-		mipLevels = mipInfo.size();
+		mipLevels =static_cast<uint32_t>(mipInfo.size());
 
 		VkMemoryAllocateInfo memAllocInfo = oGFX::vk::inits::memoryAllocateInfo();
 		VkMemoryRequirements memReqs;
