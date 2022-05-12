@@ -4,6 +4,22 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
+
+
+//#define VK_CHK(x)													  \
+//do																	  \
+//{																	  \
+//VkResult err = x;													  \
+//if(err)																  \
+//{																	  \
+//	std::cout << "Detected Vulkan error: " << err << std::endl;		  \
+//	throw; 														      \
+//}																	  \
+//}																	  \
+//while (0)															  \
+//// anon namespace
+
 struct VulkanInstance;
 struct VulkanDevice;
 namespace oGFX

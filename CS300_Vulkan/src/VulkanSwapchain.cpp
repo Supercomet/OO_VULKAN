@@ -38,6 +38,7 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 
 	// get swap chain details so we can pick best settings
 	SwapChainDetails swapChainDetails = oGFX::GetSwapchainDetails(instance,device.physicalDevice);
+	minImageCount = swapChainDetails.surfaceCapabilities.minImageCount;
 
 	//find optimal surface values for our swapchain
 	//1 choose best surface format

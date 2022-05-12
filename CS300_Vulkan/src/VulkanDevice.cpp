@@ -62,7 +62,8 @@ void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
     vkGetPhysicalDeviceProperties(physicalDevice, &properties);
 
     //get the queue family indices for the chosen Physical Device
-    oGFX::QueueFamilyIndices indices = oGFX::GetQueueFamilies(physicalDevice, instance.surface);
+    queueIndices = oGFX::GetQueueFamilies(physicalDevice, instance.surface);
+    oGFX::QueueFamilyIndices& indices = queueIndices;
 
     //vector for queue creation information and set for family indices
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;

@@ -10,6 +10,7 @@ struct VulkanSwapchain
 
 	VkSwapchainKHR swapchain;
 	std::vector<oGFX::SwapChainImage> swapChainImages;
+	uint32_t minImageCount;
 
 	//utility
 	VkFormat swapChainImageFormat;

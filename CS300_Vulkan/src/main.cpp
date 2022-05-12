@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include <crtdbg.h>
 
+#include <imgui.h>
+#include <backends/imgui_impl_vulkan.h>
 
 bool BoolQueryUser(const char * str)
 {
@@ -125,7 +127,7 @@ int main(int argc, char argv[])
    auto rough =renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
    renderer.SetMeshTextures(yes, alb, norm, occlu, rough);
 
-   renderer.SubmitMesh(yes, position);
+   //renderer.SubmitMesh(yes, position);
 
    //create a hundred random textures because why not
    std::default_random_engine rndEngine(123456);
@@ -232,6 +234,12 @@ int main(int argc, char argv[])
         {
             renderer.light.position = renderer.camera.position;
         }
+
+        //ImGui_ImplVulkan_NewFrame();
+        //ImGui_ImplGlfw_NewFrame();
+        //ImGui::NewFrame();
+        //ImGui::ShowDemoWindow();
+        //ImGui::Render();
 
         renderer.Draw();
     }   

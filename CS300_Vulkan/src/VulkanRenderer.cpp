@@ -25,11 +25,16 @@
 #include <chrono>
 #include <random>
 
+#include <imgui.h>
+#include <backends/imgui_impl_vulkan.h>
+
 
 VulkanRenderer::~VulkanRenderer()
 { 
 	//wait until no actions being run on device before destorying
 	vkDeviceWaitIdle(m_device.logicalDevice);
+
+	DestroyImGUI();
 
 	for (size_t i = 0; i < models.size(); i++)
 	{
@@ -114,6 +119,8 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateDescriptorPool();
 		CreateDescriptorSets();
 		CreateSynchronisation();
+
+		//InitImGUI();
 	}
 	catch (...)
 	{
@@ -736,6 +743,101 @@ void VulkanRenderer::CreateDescriptorSets()
 		vkUpdateDescriptorSets(m_device.logicalDevice, static_cast<uint32_t>(setWrites.size()), setWrites.data(),
 			0, nullptr);
 	}
+}
+
+void VulkanRenderer::InitImGUI()
+{
+	VkAttachmentDescription attachment = {};
+	attachment.format = m_swapchain.swapChainImageFormat;
+	attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; // Draw GUI on what exitst
+	attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	// TODO: make sure we set the previous renderpass to VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL 
+	// since this will be the final pass (before presentation) instead
+	attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // final layout for presentation.
+
+	VkAttachmentReference color_attachment = {};
+	color_attachment.attachment = 0;
+	color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &color_attachment;
+
+	VkSubpassDependency dependency = {};
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL; // create dependancy outside current renderpass
+	dependency.dstSubpass = 0;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // make sure pixels have been fully rendered before performing this pass
+	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // same thing
+	dependency.srcAccessMask = 0;  // or VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	VkRenderPassCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	info.attachmentCount = 1;
+	info.pAttachments = &attachment;
+	info.subpassCount = 1;
+	info.pSubpasses = &subpass;
+	info.dependencyCount = 1;
+	info.pDependencies = &dependency;
+	if (vkCreateRenderPass(m_device.logicalDevice, &info, nullptr, &m_imguiConfig.renderPass) != VK_SUCCESS) {
+		throw std::runtime_error("Could not create Dear ImGui's render pass");
+	}
+
+	std::vector<VkDescriptorPoolSize> pool_sizes
+	{
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+	};
+
+	VkDescriptorPoolCreateInfo dpci = oGFX::vk::inits::descriptorPoolCreateInfo(pool_sizes,1);
+	vkCreateDescriptorPool(m_device.logicalDevice, &dpci, nullptr, &m_imguiConfig.descriptorPools);
+
+	// Setup Dear ImGui context
+	//IMGUI_CHECKVERSION();
+	//ImGui::CreateContext();
+	//ImGuiIO& io = ImGui::GetIO();
+	////io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+	//
+	//// Setup Dear ImGui style
+	//ImGui::StyleColorsDark();
+	//
+	////ImGui_ImplGlfw_InitForVulkan(window, true);
+	//ImGui_ImplVulkan_InitInfo init_info = {};
+	//init_info.Instance = m_instance.instance;
+	//init_info.PhysicalDevice = m_device.physicalDevice;
+	//init_info.Device = m_device.logicalDevice;
+	//init_info.QueueFamily = m_device.queueIndices.graphicsFamily;
+	//init_info.Queue = m_device.graphicsQueue;
+	//init_info.PipelineCache = VK_NULL_HANDLE;
+	//init_info.DescriptorPool = m_imguiConfig.descriptorPools;
+	//init_info.Allocator = nullptr;
+	//init_info.MinImageCount = m_swapchain.minImageCount;
+	//init_info.ImageCount = m_swapchain.swapChainImages.size();
+	//init_info.CheckVkResultFn = VK_NULL_HANDLE; // can be used to handle the error checking
+	//ImGui_ImplVulkan_Init(&init_info, m_imguiConfig.renderPass);
+
+
+}
+
+void VulkanRenderer::DestroyImGUI()
+{
+	vkDestroyRenderPass(m_device.logicalDevice, m_imguiConfig.renderPass, nullptr);
+	vkDestroyDescriptorPool(m_device.logicalDevice, m_imguiConfig.descriptorPools, nullptr);
 }
 
 void VulkanRenderer::UpdateIndirectCommands()

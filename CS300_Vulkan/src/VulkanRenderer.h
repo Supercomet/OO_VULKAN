@@ -55,6 +55,15 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	void CreateDescriptorPool();
 	void CreateDescriptorSets();
 
+	struct ImGUIStructures
+	{
+		VkDescriptorPool descriptorPools;
+		VkRenderPass renderPass;
+	};
+	ImGUIStructures m_imguiConfig;
+	void InitImGUI();
+	void DestroyImGUI();
+
 	void UpdateIndirectCommands();
 	void UpdateInstanceData();
 	uint32_t objectCount{};

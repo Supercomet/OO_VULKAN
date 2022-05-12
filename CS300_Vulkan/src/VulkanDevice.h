@@ -19,6 +19,7 @@ struct VulkanDevice
 	VulkanInstance* m_instancePtr;
 
 	VkQueue graphicsQueue;
+	oGFX::QueueFamilyIndices queueIndices;
 	VkQueue presentationQueue;
 
 	VkPhysicalDeviceFeatures enabledFeatures;
