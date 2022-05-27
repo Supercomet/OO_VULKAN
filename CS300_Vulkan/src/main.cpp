@@ -50,7 +50,7 @@ int main(int argc, char argv[])
 
     _CrtDumpMemoryLeaks();
     _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
-    //_CrtSetBreakAlloc(2835);
+    //_CrtSetBreakAlloc(2383);
 
     Window mainWindow;
     mainWindow.Init();
@@ -211,10 +211,15 @@ int main(int argc, char argv[])
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
+
         if (renderer.PrepareFrame() == true)
         {
             renderer.Draw();
             ImGui::ShowDemoWindow();
+            ImGui::Begin("Test");
+            ImGui::End();
+            renderer.DrawGUI();
+
             renderer.Present();
         }
 

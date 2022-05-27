@@ -8,10 +8,21 @@
 #include "Input.h"
 #include "Window.h"
 
+#include "imgui.h"
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+
 uint64_t Window::SurfaceFormat{};
 
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+
+
+    auto result = ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam);
+    if (result == true)
+        return true;
+
 	switch (uMsg)
 	{
     case WM_SYSCHAR:

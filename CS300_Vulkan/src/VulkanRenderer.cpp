@@ -181,7 +181,8 @@ void VulkanRenderer::CreateRenderpass()
 																		//frame buffer data will be stored as image, but images can be given different data layouts
 																		//to give optimal use for certain operations
 	colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; //image data layout before render pass starts
-	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
+	//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
+	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL; //image data layout aftet render pass ( to change to)
 
 																	// Depth attachment of render pass
 	VkAttachmentDescription depthAttachment{};
@@ -821,9 +822,9 @@ void VulkanRenderer::InitImGUI()
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
 	
-	ImGui_ImplWin32_Init(windowPtr);
+	ImGui_ImplWin32_Init(windowPtr->GetRawHandle());
 	ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
-	pio.Platform_CreateVkSurface = Win32SurfaceCreator;
+	//pio.Platform_CreateVkSurface = Win32SurfaceCreator;
 
 	ImGui_ImplVulkan_InitInfo init_info = {};
 	init_info.Instance = m_instance.instance;
@@ -867,6 +868,19 @@ void VulkanRenderer::InitImGUI()
 		(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i])); 
 	}
 
+}
+
+void VulkanRenderer::DrawGUI()
+{
+	VkRenderPassBeginInfo GUIpassInfo = {};
+	GUIpassInfo.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	GUIpassInfo.renderPass  = m_imguiConfig.renderPass;
+	GUIpassInfo.framebuffer = m_imguiConfig.buffers[swapchainImageIndex];
+	GUIpassInfo.renderArea = { {0, 0}, {m_swapchain.swapChainExtent}};
+	vkCmdBeginRenderPass(commandBuffers[swapchainImageIndex], &GUIpassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	ImGui::Render();  // Rendering UI
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[swapchainImageIndex]);
+	vkCmdEndRenderPass(commandBuffers[swapchainImageIndex]);
 }
 
 void VulkanRenderer::DestroyImGUI()
@@ -1092,6 +1106,14 @@ void VulkanRenderer::Draw()
 
 void VulkanRenderer::Present()
 {
+	//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[swapchainImageIndex]);
+	//stop recording to command buffer
+	VkResult result = vkEndCommandBuffer(commandBuffers[swapchainImageIndex]);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to stop recording a Command Buffer!");
+	}
+
 	//2. Submit command buffer to queue for execution, make sure it waits for image to be signalled as available before drawing
 	//		and signals when it has finished rendering
 	// --SUBMIT COMMAND BUFFER TO RENDER
@@ -1110,7 +1132,7 @@ void VulkanRenderer::Present()
 	submitInfo.pSignalSemaphores = &renderFinished[currentFrame];				// semphores to signal when command buffer finished
 
 																				//submit command buffer to queue
-	VkResult result = vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, drawFences[currentFrame]);
+	result = vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, drawFences[currentFrame]);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to submit command buffer to queue!");
@@ -1513,13 +1535,6 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 
 	// End Render  Pass
 	vkCmdEndRenderPass(commandBuffers[currentImage]);
-
-	//stop recording to command buffer
-	result = vkEndCommandBuffer(commandBuffers[currentImage]);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to stop recording a Command Buffer!");
-	}
 
 }
 
