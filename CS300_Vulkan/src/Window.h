@@ -10,7 +10,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 struct Window
 {
-    Window(uint32_t width =800u, uint32_t height =800u);
+    Window(uint32_t width =1024u, uint32_t height =720u);
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
     ~Window();
@@ -25,6 +25,8 @@ struct Window
     HWND rawHandle;
 
     bool windowShouldClose;
+
+    static uint64_t SurfaceFormat;
     
 };
 

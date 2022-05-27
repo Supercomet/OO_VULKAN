@@ -27,6 +27,7 @@
 
 #include <imgui.h>
 #include <backends/imgui_impl_vulkan.h>
+#include <backends/imgui_impl_win32.h>
 
 
 VulkanRenderer::~VulkanRenderer()
@@ -120,7 +121,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateDescriptorSets();
 		CreateSynchronisation();
 
-		//InitImGUI();
+		InitImGUI();
 	}
 	catch (...)
 	{
@@ -648,10 +649,10 @@ void VulkanRenderer::CreateDescriptorPool()
 
 	// Create Sampler Descriptor pool
 	// Texture sampler pool
-	VkDescriptorPoolSize samplerPoolSize = oGFX::vk::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_OBJECTS);
+	VkDescriptorPoolSize samplerPoolSize = oGFX::vk::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);// or MAX_OBJECTS?
 	std::vector<VkDescriptorPoolSize> samplerpoolSizes = { samplerPoolSize };
 
-	VkDescriptorPoolCreateInfo samplerPoolCreateInfo = oGFX::vk::inits::descriptorPoolCreateInfo(samplerpoolSizes,MAX_OBJECTS);
+	VkDescriptorPoolCreateInfo samplerPoolCreateInfo = oGFX::vk::inits::descriptorPoolCreateInfo(samplerpoolSizes,1); // or MAX_OBJECTS?
 	result = vkCreateDescriptorPool(m_device.logicalDevice, &samplerPoolCreateInfo, nullptr, &samplerDescriptorPool);
 	if (result != VK_SUCCESS)
 	{
@@ -784,6 +785,7 @@ void VulkanRenderer::InitImGUI()
 	info.pSubpasses = &subpass;
 	info.dependencyCount = 1;
 	info.pDependencies = &dependency;
+
 	if (vkCreateRenderPass(m_device.logicalDevice, &info, nullptr, &m_imguiConfig.renderPass) != VK_SUCCESS) {
 		throw std::runtime_error("Could not create Dear ImGui's render pass");
 	}
@@ -807,37 +809,77 @@ void VulkanRenderer::InitImGUI()
 	vkCreateDescriptorPool(m_device.logicalDevice, &dpci, nullptr, &m_imguiConfig.descriptorPools);
 
 	// Setup Dear ImGui context
-	//IMGUI_CHECKVERSION();
-	//ImGui::CreateContext();
-	//ImGuiIO& io = ImGui::GetIO();
-	////io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-	//
-	//// Setup Dear ImGui style
-	//ImGui::StyleColorsDark();
-	//
-	////ImGui_ImplGlfw_InitForVulkan(window, true);
-	//ImGui_ImplVulkan_InitInfo init_info = {};
-	//init_info.Instance = m_instance.instance;
-	//init_info.PhysicalDevice = m_device.physicalDevice;
-	//init_info.Device = m_device.logicalDevice;
-	//init_info.QueueFamily = m_device.queueIndices.graphicsFamily;
-	//init_info.Queue = m_device.graphicsQueue;
-	//init_info.PipelineCache = VK_NULL_HANDLE;
-	//init_info.DescriptorPool = m_imguiConfig.descriptorPools;
-	//init_info.Allocator = nullptr;
-	//init_info.MinImageCount = m_swapchain.minImageCount;
-	//init_info.ImageCount = m_swapchain.swapChainImages.size();
-	//init_info.CheckVkResultFn = VK_NULL_HANDLE; // can be used to handle the error checking
-	//ImGui_ImplVulkan_Init(&init_info, m_imguiConfig.renderPass);
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+	//io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
+
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+	
+	ImGui_ImplWin32_Init(windowPtr);
+	ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
+	pio.Platform_CreateVkSurface = Win32SurfaceCreator;
+
+	ImGui_ImplVulkan_InitInfo init_info = {};
+	init_info.Instance = m_instance.instance;
+	init_info.PhysicalDevice = m_device.physicalDevice;
+	init_info.Device = m_device.logicalDevice;
+	init_info.QueueFamily = m_device.queueIndices.graphicsFamily;
+	init_info.Queue = m_device.graphicsQueue;
+	init_info.PipelineCache = VK_NULL_HANDLE;
+	init_info.DescriptorPool = m_imguiConfig.descriptorPools;
+	init_info.Allocator = nullptr;
+	init_info.MinImageCount = m_swapchain.minImageCount;
+	init_info.ImageCount = m_swapchain.swapChainImages.size();
+	init_info.CheckVkResultFn = VK_NULL_HANDLE; // can be used to handle the error checking
+
+	
+	ImGui_ImplVulkan_Init(&init_info, m_imguiConfig.renderPass);
+
+	// This uploads the ImGUI font package to the GPU
+	VkCommandBuffer command_buffer = beginSingleTimeCommands();
+	ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+	endSingleTimeCommands(command_buffer); 
+
+	// Create frame buffers for every swap chain image
+	// We need to do this because ImGUI only cares about the colour attachment.
+	std::array<VkImageView, 2> fbattachments{};
+	VkFramebufferCreateInfo _ci{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+	_ci.renderPass      = m_imguiConfig.renderPass;
+	_ci.width           = m_swapchain.swapChainExtent.width;
+	_ci.height          =  m_swapchain.swapChainExtent.height;
+	_ci.layers          = 1;
+	_ci.attachmentCount = 1;
+	_ci.pAttachments    = fbattachments.data();
+
+	// Each of the three swapchain images gets an associated frame
+	// buffer, all sharing one depth buffer.
+	m_imguiConfig.buffers.resize(m_swapchain.swapChainImages.size());
+	for(uint32_t i = 0; i < m_swapchain.swapChainImages.size(); i++) 
+	{
+		fbattachments[0] = m_swapchain.swapChainImages[i].imageView;         // A color attachment from the swap chain
+													//fbattachments[1] = m_depthImage.imageView;  // A depth attachment
+		(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i])); 
+	}
 
 }
 
 void VulkanRenderer::DestroyImGUI()
 {
+	for (size_t i = 0; i < m_imguiConfig.buffers.size(); i++)
+	{
+		vkDestroyFramebuffer(m_device.logicalDevice, m_imguiConfig.buffers[i], nullptr);
+	}
 	vkDestroyRenderPass(m_device.logicalDevice, m_imguiConfig.renderPass, nullptr);
 	vkDestroyDescriptorPool(m_device.logicalDevice, m_imguiConfig.descriptorPools, nullptr);
+	ImGui_ImplVulkan_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext(ImGui::GetCurrentContext());
 }
 
 void VulkanRenderer::UpdateIndirectCommands()
@@ -1010,37 +1052,46 @@ void VulkanRenderer::UpdateInstanceData()
 	stagingBuffer.destroy();
 }
 
-void VulkanRenderer::Draw()
+bool VulkanRenderer::PrepareFrame()
 {
 	if (resizeSwapchain || windowPtr->m_width == 0 ||windowPtr->m_height ==0)
 	{
-		if (ResizeSwapchain() == false) return;
+		if (ResizeSwapchain() == false) return false;
 		resizeSwapchain = false;
 	}
 
-	UpdateIndirectCommands();
-	UpdateInstanceData();
+	return true;
+}
 
+void VulkanRenderer::Draw()
+{
 	//wait for given fence to signal from last draw before continueing
 	vkWaitForFences(m_device.logicalDevice, 1, &drawFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
 	//mainually reset fences
 	vkResetFences(m_device.logicalDevice, 1, &drawFences[currentFrame]);
+	
+	camera.updated = true;
+	if(camera.updated)
+		UpdateUniformBuffers(swapchainImageIndex);
+
+	UpdateIndirectCommands();
+	UpdateInstanceData();	
 
 	//1. get the next available image to draw to and set somethingg to signal when we're finished with the image ( a semaphere )
 	// -- GET NEXT IMAGE
 	//get  index of next image to be drawn to , and signal semaphere when ready to be drawn to
-	uint32_t imageIndex{};
-	VkResult res = vkAcquireNextImageKHR(m_device.logicalDevice, m_swapchain.swapchain, std::numeric_limits<uint64_t>::max(), imageAvailable[currentFrame], VK_NULL_HANDLE, &imageIndex);
+	VkResult res = vkAcquireNextImageKHR(m_device.logicalDevice, m_swapchain.swapchain, std::numeric_limits<uint64_t>::max(),
+		imageAvailable[currentFrame], VK_NULL_HANDLE, &swapchainImageIndex);
 	if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR /*|| WINDOW_RESIZED*/)
 	{
 		resizeSwapchain = true;
 	}
-	RecordCommands(imageIndex);
+	RecordCommands(swapchainImageIndex);
 	
-	camera.updated = true;
-	if(camera.updated)
-		UpdateUniformBuffers(imageIndex);
+}
 
+void VulkanRenderer::Present()
+{
 	//2. Submit command buffer to queue for execution, make sure it waits for image to be signalled as available before drawing
 	//		and signals when it has finished rendering
 	// --SUBMIT COMMAND BUFFER TO RENDER
@@ -1054,7 +1105,7 @@ void VulkanRenderer::Draw()
 	};
 	submitInfo.pWaitDstStageMask = waitStages; //stages to check semapheres at
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffers[imageIndex];	// command buffer to submit
+	submitInfo.pCommandBuffers = &commandBuffers[swapchainImageIndex];	// command buffer to submit
 	submitInfo.signalSemaphoreCount = 1;						// number of semaphores to signal
 	submitInfo.pSignalSemaphores = &renderFinished[currentFrame];				// semphores to signal when command buffer finished
 
@@ -1073,9 +1124,9 @@ void VulkanRenderer::Draw()
 	presentInfo.pWaitSemaphores = &renderFinished[currentFrame];	//semaphores to wait on
 	presentInfo.swapchainCount = 1;					//number of swapchains to present to
 	presentInfo.pSwapchains = &m_swapchain.swapchain;			//swapchains to present images to
-	presentInfo.pImageIndices = &imageIndex;		//index of images in swapchains to present
+	presentInfo.pImageIndices = &swapchainImageIndex;		//index of images in swapchains to present
 
-													//present image
+															//present image
 	try
 	{
 		result = vkQueuePresentKHR(m_device.presentationQueue, &presentInfo);
@@ -1245,6 +1296,37 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 void VulkanRenderer::SetMeshTextures(uint32_t modelID, uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough)
 {
 	models[modelID].textures = { alb,norm,occlu,rough };
+}
+
+VkCommandBuffer VulkanRenderer::beginSingleTimeCommands(){
+
+	VkCommandBufferAllocateInfo allocInfo= oGFX::vk::inits::commandBufferAllocateInfo(m_device.commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY,1);
+
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(m_device.logicalDevice, &allocInfo, &commandBuffer);
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+	return commandBuffer;
+}
+
+void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer)
+{
+	vkEndCommandBuffer(commandBuffer);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(m_device.graphicsQueue);
+
+	vkFreeCommandBuffers(m_device.logicalDevice, m_device.commandPool, 1, &commandBuffer);
 }
 
 uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData)
@@ -1507,6 +1589,7 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 	return static_cast<uint32_t>(indx);
 }
 
+
 VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(const std::string& fileName, VkShaderStageFlagBits stage)
 {
 	// SHADER STAGE CREATION INFORMATION
@@ -1545,4 +1628,18 @@ uint32_t VulkanRenderer:: CreateTextureDescriptor(vk::Texture2D texture)
 
 	return index;
 
+}
+
+int Win32SurfaceCreator(ImGuiViewport* vp, ImU64 device, const void* allocator, ImU64* outSurface)
+{
+	Window newWindow;
+	newWindow.Init();
+	
+	vp->Size = ImVec2{ (float)newWindow.m_width,(float)newWindow.m_height };
+	vp->PlatformHandle = (void*)newWindow.GetRawHandle();
+	vp->PlatformHandleRaw = (void*)newWindow.GetRawHandle();
+	
+	*outSurface = Window::SurfaceFormat;
+	//*outSurface = 
+	return 1;
 }

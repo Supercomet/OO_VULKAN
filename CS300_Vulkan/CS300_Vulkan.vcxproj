@@ -19,7 +19,16 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\vendor\imgui\backends\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="..\vendor\imgui\backends\imgui_impl_win32.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui_tables.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="src\Collision.cpp" />
     <ClCompile Include="src\DDSLoader.cpp" />
+    <ClCompile Include="src\Geometry.cpp" />
     <ClCompile Include="src\Node.cpp" />
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\Input.cpp" />
@@ -27,6 +36,7 @@
     <ClCompile Include="src\MeshModel.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\stbi_impl.cpp" />
+    <ClCompile Include="src\Tests_Assignment1.cpp" />
     <ClCompile Include="src\VulkanInstance.cpp" />
     <ClCompile Include="src\VulkanRenderer.cpp" />
     <ClCompile Include="src\VulkanDevice.cpp" />
@@ -39,6 +49,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\DDSLoader.h" />
+    <ClInclude Include="src\Geometry.h" />
+    <ClInclude Include="src\Collision.h" />
     <ClInclude Include="src\Node.h" />
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\Input.h" />
@@ -47,6 +59,7 @@
     <ClInclude Include="src\MeshModel.h" />
     <ClInclude Include="src\gpuCommon.h" />
     <ClInclude Include="src\stb_image.h" />
+    <ClInclude Include="src\Tests_Assignment1.h" />
     <ClInclude Include="src\VulkanInstance.h" />
     <ClInclude Include="src\VulkanRenderer.h" />
     <ClInclude Include="src\VulkanDevice.h" />

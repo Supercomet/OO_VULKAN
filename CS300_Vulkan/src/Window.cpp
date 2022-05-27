@@ -8,7 +8,7 @@
 #include "Input.h"
 #include "Window.h"
 
-
+uint64_t Window::SurfaceFormat{};
 
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {

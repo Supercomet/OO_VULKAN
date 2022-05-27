@@ -266,7 +266,22 @@ bool RaySphere(const Ray& r, const Sphere& s)
 
 bool RaySphere(const Ray& r, const Sphere& s, float& t)
 {
-	return false;
+	glm::vec3 m = r.start.pos - s.centre.pos;
+	float b = glm::dot(m, r.direction);
+	float c = glm::dot (m, m) - s.radius * s.radius;
+	// Exit if r’s origin outside s (c > 0) and r pointing away from s (b > 0)
+	if (c > 0.0f && b > 0.0f) return 0;
+	float discr = b*b - c;
+	// A negative discriminant corresponds to ray missing sphere
+	if (discr < 0.0f) return 0;
+	// Ray now found to intersect sphere, compute smallest t value of intersection
+	t = -b - std::sqrtf(discr);
+	// If t is negative, ray started inside sphere so clamp t to zero
+	if (t < 0.0f) t = 0.0f;
+	
+	//q = p + t * d;
+	
+	return 1;
 }
 
 bool RayTriangle(const Ray& r, const Triangle& tri)

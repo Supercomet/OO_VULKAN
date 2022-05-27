@@ -17,7 +17,12 @@
 
 #include "Camera.h"
 
+#include "imgui.h"
+
 struct Window;
+
+int Win32SurfaceCreator(ImGuiViewport* vp, ImU64 device, const void* allocator, ImU64* outSurface);
+
 
 class VulkanRenderer
 {
@@ -59,6 +64,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	{
 		VkDescriptorPool descriptorPools;
 		VkRenderPass renderPass;
+		std::vector<VkFramebuffer> buffers;
 	};
 	ImGUIStructures m_imguiConfig;
 	void InitImGUI();
@@ -70,9 +76,17 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	// Contains the instanced data
 	vk::Buffer instanceBuffer;
 
+	bool PrepareFrame();
 	void Draw();
+	void Present();
+
 	void RecordCommands(uint32_t currentImage);
 	void UpdateUniformBuffers(uint32_t imageIndex);
+
+	// Immediate command sending helper
+	VkCommandBuffer beginSingleTimeCommands();
+	// Immediate command sending helper
+	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
 	uint32_t CreateTexture(uint32_t width, uint32_t height,unsigned char* imgData);
 	uint32_t CreateTexture(const std::string& fileName);
@@ -103,6 +117,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	VulkanDevice m_device{};
 	VulkanSwapchain m_swapchain{};
 	std::vector<VkFramebuffer> swapChainFramebuffers;
+	uint32_t swapchainImageIndex{};
 
 	// - Pipeline
 	VkPipeline graphicsPipeline{};
@@ -168,8 +183,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 		uint32_t CreateTextureImage(const std::string& fileName);
 		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);
 		uint32_t CreateTextureDescriptor(VkImageView textureImage);
-		uint32_t CreateTextureDescriptor(vk::Texture2D texture);
-
+		uint32_t CreateTextureDescriptor(vk::Texture2D texture);		
 
 		VkPipelineShaderStageCreateInfo LoadShader(const std::string& fileName, VkShaderStageFlagBits stage);
 };

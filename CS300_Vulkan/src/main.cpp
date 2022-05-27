@@ -17,12 +17,15 @@
 #include "window.h"
 #include "input.h"
 
+#include "Tests_Assignment1.h"
+
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
 #include <crtdbg.h>
 
 #include <imgui.h>
 #include <backends/imgui_impl_vulkan.h>
+#include <backends/imgui_impl_win32.h>
 
 bool BoolQueryUser(const char * str)
 {
@@ -47,6 +50,7 @@ int main(int argc, char argv[])
 
     _CrtDumpMemoryLeaks();
     _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
+    //_CrtSetBreakAlloc(2835);
 
     Window mainWindow;
     mainWindow.Init();
@@ -191,40 +195,9 @@ int main(int argc, char argv[])
         auto upVec = renderer.camera.GetUp();
 
         if (Input::GetMouseHeld(MOUSE_LEFT)) {
-            renderer.camera.Rotate(glm::vec3(-mousedel.y * renderer.camera.rotationSpeed, mousedel.x * renderer.camera.rotationSpeed, 0.0f));
+            renderer.camera.Rotate(glm::vec3(mousedel.y * renderer.camera.rotationSpeed, mousedel.x * renderer.camera.rotationSpeed, 0.0f));
             renderer.camera.keys.up = true;
         }
-        //if (Input::GetKeyHeld(KEY_W))
-        //{
-        //    renderer.camera.Translate(-frontVec* speed);
-        //    renderer.camera.keys.up = true;
-        //}
-        //if (Input::GetKeyHeld(KEY_S))
-        //{
-        //    renderer.camera.Translate( frontVec * speed);
-        //    renderer.camera.keys.down = true;
-        //}
-        //if (Input::GetKeyHeld(KEY_A))
-        //{
-        //    renderer.camera.Translate(-rightVec* speed);
-        //    renderer.camera.keys.left = true;
-        //}
-        //if (Input::GetKeyHeld(KEY_D))
-        //{
-        //    renderer.camera.Translate(rightVec* speed);
-        //    renderer.camera.keys.right = true;
-        //}
-        //if (Input::GetKeyHeld(KEY_Q))
-        //{
-        //    renderer.camera.Translate(upVec* speed);
-        //    renderer.camera.keys.right = true;
-        //}
-        //
-        //if (Input::GetKeyHeld(KEY_E))
-        //{
-        //    renderer.camera.Translate(-upVec * speed);
-        //    renderer.camera.keys.right = true;
-        //}
 
         if (Input::GetKeyTriggered(KEY_SPACE))
         {
@@ -235,13 +208,24 @@ int main(int argc, char argv[])
             renderer.light.position = renderer.camera.position;
         }
 
-        //ImGui_ImplVulkan_NewFrame();
-        //ImGui_ImplGlfw_NewFrame();
-        //ImGui::NewFrame();
-        //ImGui::ShowDemoWindow();
-        //ImGui::Render();
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+        if (renderer.PrepareFrame() == true)
+        {
+            renderer.Draw();
+            ImGui::ShowDemoWindow();
+            renderer.Present();
+        }
 
-        renderer.Draw();
+        //finish for all windows
+        ImGui::EndFrame();
+        if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {            
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+        }
+
     }   
 
     std::cout << "Exiting application..."<< std::endl;

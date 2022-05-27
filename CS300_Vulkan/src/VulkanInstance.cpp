@@ -244,6 +244,9 @@ void VulkanInstance::CreateSurface(Window& window)
 		throw std::runtime_error("Vulkan Fail to create window surface");
 	}
 
+	// set surface for imgui
+	Window::SurfaceFormat = (uint64_t)surface;
+
 }
 
 VkInstance VulkanInstance::GetInstancePtr()
