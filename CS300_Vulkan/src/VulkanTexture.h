@@ -42,6 +42,7 @@ namespace vk
 			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 			VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			bool forceLinear = false);
+
 		void fromBuffer(
 			void* buffer,
 			VkDeviceSize bufferSize,
@@ -49,6 +50,16 @@ namespace vk
 			uint32_t texWidth,
 			uint32_t texHeight, 
 			std::vector<VkBufferImageCopy> mips,
+			VulkanDevice* device,
+			VkQueue copyQueue,
+			VkFilter filter = VK_FILTER_LINEAR,
+			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
+			VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		void forFrameBuffer(VkFormat format,
+			uint32_t texWidth, uint32_t texHeight,
+			VkMemoryPropertyFlags properties, 
+			uint32_t mipLevels,
 			VulkanDevice* device,
 			VkQueue copyQueue,
 			VkFilter filter = VK_FILTER_LINEAR,

@@ -37,6 +37,11 @@ VulkanRenderer::~VulkanRenderer()
 
 	DestroyImGUI();
 
+	vkDestroyFramebuffer(m_device.logicalDevice, offscreenFramebuffer, nullptr);
+	offscreenFB.destroy(m_device.logicalDevice);
+	offscreenDepth.destroy(m_device.logicalDevice);
+	vkDestroyRenderPass(m_device.logicalDevice, offscreenPass, nullptr);
+
 	for (size_t i = 0; i < models.size(); i++)
 	{
 		models.clear();
@@ -112,8 +117,15 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateDescriptorSetLayout();
 		CreatePushConstantRange();
 		CreateGraphicsPipeline();
+
+		InitImGUI();
+
 		CreateDepthBufferImage();
 		CreateFramebuffers();
+
+		CreateOffscreenPass();
+		CreateOffscreenFB();
+
 		CreateCommandBuffers();
 		CreateTextureSampler();
 		CreateUniformBuffers();
@@ -121,7 +133,8 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateDescriptorSets();
 		CreateSynchronisation();
 
-		InitImGUI();
+
+	
 	}
 	catch (...)
 	{
@@ -574,6 +587,148 @@ void VulkanRenderer::CreateTextureSampler()
 	}
 }
 
+void VulkanRenderer::CreateOffscreenPass()
+{
+	if (offscreenPass)
+	{
+		vkDestroyRenderPass(m_device.logicalDevice, offscreenPass, nullptr);
+	}
+
+	// ATTACHMENTS
+	// Colour attachment of render pass
+	VkAttachmentDescription colourAttachment = {};
+	colourAttachment.format = m_swapchain.swapChainImageFormat;  //format to use for attachment
+	colourAttachment.samples = VK_SAMPLE_COUNT_1_BIT;//number of samples to use for multisampling
+	colourAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;//descripts what to do with attachment before rendering
+	colourAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;//describes what to do with attachment after rendering
+	colourAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; //describes what do with with stencil before rendering
+	colourAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; //describes what do with with stencil before rendering
+
+																		//frame buffer data will be stored as image, but images can be given different data layouts
+																		//to give optimal use for certain operations
+	colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; //image data layout before render pass starts
+																//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
+	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_GENERAL; //image data layout aftet render pass ( to change to)
+
+																	   // Depth attachment of render pass
+	VkAttachmentDescription depthAttachment{};
+	depthAttachment.format = oGFX::ChooseSupportedFormat(m_device,
+		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	// REFERENCES 
+	//Attachment reference uses an atttachment index that refers to index i nthe attachment list passed to renderPassCreataeInfo
+	VkAttachmentReference  colourAttachmentReference = {};
+	colourAttachmentReference.attachment = 0;
+	colourAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	// Depth attachment reference
+	VkAttachmentReference depthAttachmentReference{};
+	depthAttachmentReference.attachment = 1;
+	depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	//information about a particular subpass the render pass is using
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; //pipeline type subpass is to be bound to
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &colourAttachmentReference;
+	subpass.pDepthStencilAttachment = &depthAttachmentReference;
+
+	// Need to determine when layout transitions occur using subpass dependancies
+	std::array<VkSubpassDependency, 2> subpassDependancies;
+
+	//conversion from VK_IMAGE_LAYOUT_UNDEFINED to VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	// Transiotion msut happen after...
+	subpassDependancies[0].srcSubpass = VK_SUBPASS_EXTERNAL; //subpass index (VK_SUBPASS_EXTERNAL = special vallue meaning outside of renderpass)
+	subpassDependancies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT; // Pipeline stage
+	subpassDependancies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT; //Stage acces mas (memory access)
+																	  // but must happen before...
+	subpassDependancies[0].dstSubpass = 0;
+	subpassDependancies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependancies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	subpassDependancies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+
+	//conversion from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+	// Transiotion msut happen after...
+	subpassDependancies[1].srcSubpass = 0;
+	subpassDependancies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependancies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	// but must happen before...
+	subpassDependancies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+	subpassDependancies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	subpassDependancies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	subpassDependancies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	std::array<VkAttachmentDescription, 2> renderpassAttachments = { colourAttachment,depthAttachment };
+
+	//create info for render pass
+	VkRenderPassCreateInfo renderPassCreateInfo = {};
+	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(renderpassAttachments.size());
+	renderPassCreateInfo.pAttachments = renderpassAttachments.data();
+	renderPassCreateInfo.subpassCount = 1;
+	renderPassCreateInfo.pSubpasses = &subpass;
+	renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(subpassDependancies.size());
+	renderPassCreateInfo.pDependencies = subpassDependancies.data();
+
+	VkResult result = vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &offscreenPass);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create Render Pass");
+	}
+}
+
+void VulkanRenderer::CreateOffscreenFB()
+{
+	
+	for (size_t i = 0; i < swapChainFramebuffers.size(); i++)
+	{
+		vkDestroyFramebuffer(m_device.logicalDevice, offscreenFramebuffer, nullptr);
+	}
+
+
+	offscreenFB.createAttachment(m_device, m_swapchain.swapChainExtent.width, m_swapchain.swapChainExtent.height,
+		m_swapchain.swapChainImageFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);	
+	
+	
+	VkFormat attDepthFormat = oGFX::ChooseSupportedFormat(m_device,
+		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+
+	offscreenDepth.createAttachment(m_device, m_swapchain.swapChainExtent.width, m_swapchain.swapChainExtent.height,
+		attDepthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+
+	std::vector<VkImageView> attachments{offscreenFB.view, offscreenDepth.view}; // color attachment
+
+	VkFramebufferCreateInfo framebufferCreateInfo = {};
+	framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	framebufferCreateInfo.renderPass = renderPass;										//render pass layout the frame buffer will be used with
+	framebufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+	framebufferCreateInfo.pAttachments = attachments.data();							//list of attachments (1:1 with render pass)
+	framebufferCreateInfo.width = m_swapchain.swapChainExtent.width;
+	framebufferCreateInfo.height = m_swapchain.swapChainExtent.height;
+	framebufferCreateInfo.layers = 1;
+
+
+	VkResult result = vkCreateFramebuffer(m_device.logicalDevice, &framebufferCreateInfo, nullptr, &offscreenFramebuffer);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create a Framebuffer!");
+	}
+	myImg = ImGui_ImplVulkan_AddTexture(textureSampler, offscreenFB.view, VK_IMAGE_LAYOUT_GENERAL);
+	
+}
+
 void VulkanRenderer::CreateSynchronisation()
 {
 	imageAvailable.resize(MAX_FRAME_DRAWS);
@@ -806,7 +961,7 @@ void VulkanRenderer::InitImGUI()
 		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
 	};
 
-	VkDescriptorPoolCreateInfo dpci = oGFX::vk::inits::descriptorPoolCreateInfo(pool_sizes,1);
+	VkDescriptorPoolCreateInfo dpci = oGFX::vk::inits::descriptorPoolCreateInfo(pool_sizes,1000);
 	vkCreateDescriptorPool(m_device.logicalDevice, &dpci, nullptr, &m_imguiConfig.descriptorPools);
 
 	// Setup Dear ImGui context
@@ -815,7 +970,7 @@ void VulkanRenderer::InitImGUI()
 	ImGuiIO& io = ImGui::GetIO();
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-	//io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
 	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
 
@@ -863,6 +1018,7 @@ void VulkanRenderer::InitImGUI()
 	m_imguiConfig.buffers.resize(m_swapchain.swapChainImages.size());
 	for(uint32_t i = 0; i < m_swapchain.swapChainImages.size(); i++) 
 	{
+		// TODO make sure all images resize for imgui
 		fbattachments[0] = m_swapchain.swapChainImages[i].imageView;         // A color attachment from the swap chain
 													//fbattachments[1] = m_depthImage.imageView;  // A depth attachment
 		(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i])); 
@@ -872,6 +1028,11 @@ void VulkanRenderer::InitImGUI()
 
 void VulkanRenderer::DrawGUI()
 {
+	ImGui::Begin("img");
+	auto sz = ImGui::GetContentRegionAvail();
+	ImGui::Image(myImg, { sz.x,sz.y });
+	ImGui::End();
+
 	VkRenderPassBeginInfo GUIpassInfo = {};
 	GUIpassInfo.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	GUIpassInfo.renderPass  = m_imguiConfig.renderPass;
@@ -1099,9 +1260,16 @@ void VulkanRenderer::Draw()
 	if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR /*|| WINDOW_RESIZED*/)
 	{
 		resizeSwapchain = true;
+	}	
+
+	//Information about how to begin each command buffer
+	VkCommandBufferBeginInfo bufferBeginInfo = oGFX::vk::inits::commandBufferBeginInfo();
+	//start recording commanders to command buffer!
+	VkResult result = vkBeginCommandBuffer(commandBuffers[swapchainImageIndex], &bufferBeginInfo);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to start recording a Command Buffer!");
 	}
-	RecordCommands(swapchainImageIndex);
-	
 }
 
 void VulkanRenderer::Present()
@@ -1406,11 +1574,106 @@ uint32_t VulkanRenderer::CreateTexture(const std::string& file)
 }
 
 
+void VulkanRenderer::PrePass()
+{
+	std::array<VkClearValue, 2> clearValues{};
+	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
+	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
+	clearValues[1].depthStencil.depth = {1.0f };
+
+	//Information about how to begin a render pass (only needed for graphical applications)
+	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
+	renderPassBeginInfo.renderPass = offscreenPass;									//render pass to begin
+	renderPassBeginInfo.renderArea.offset = { 0,0 };								//start point of render pass in pixels
+	renderPassBeginInfo.renderArea.extent = m_swapchain.swapChainExtent;			//size of region to run render pass on (Starting from offset)
+	renderPassBeginInfo.pClearValues = clearValues.data();							//list of clear values
+	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+
+	renderPassBeginInfo.framebuffer = offscreenFramebuffer;
+
+	//Begin Render Pass
+	vkCmdBeginRenderPass(commandBuffers[swapchainImageIndex], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	//Bind pipeline to be used in render pass
+	//vkCmdBindPipeline(commandBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+	VkViewport viewport = { 0, float(windowPtr->m_height), float(windowPtr->m_width), -float(windowPtr->m_height), 0, 1 };
+	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
+	vkCmdSetViewport(commandBuffers[swapchainImageIndex], 0, 1, &viewport);
+	vkCmdSetScissor(commandBuffers[swapchainImageIndex], 0, 1, &scissor);
+
+	std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[swapchainImageIndex],
+		globalSamplers };
+	//auto& model = models[0];
+	VkDeviceSize offsets[] = { 0 };	
+
+	vkCmdBindPipeline(commandBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeline);
+	//std::cout << "Light pos [" << light.position.x << ", " << light.position.y << ", " << light.position.z<<"] ";
+	//std::cout << "\tCamera pos [" << camera.position.x << ", " << camera.position.y << ", " << camera.position.z<<"]\n";
+
+	//setup top camera
+	{
+		float height = static_cast<float>(windowPtr->m_height);
+		float width = static_cast<float>(windowPtr->m_width);
+		float ar = width / height;
+
+		glm::vec3 pos = { 0.0f,10.0f,0.0f };
+		glm::vec3 target = { 0.0f,0.0f,0.0f };
+		auto mat4 = glm::lookAt(pos, target, { 0.0f,1.0f,0.0f });
+		Camera cam;
+		cam.SetPosition(pos);
+		
+
+		uboViewProjection.projection = mat4;
+		uboViewProjection.view = cam.matrices.view;
+		uboViewProjection.cameraPos = glm::vec4(cam.position,1.0);
+
+		//copy VP data
+		void *data;
+		vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainImageIndex], 0, sizeof(UboViewProjection), 0, &data);
+		memcpy(data, &uboViewProjection, sizeof(UboViewProjection));
+		vkUnmapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainImageIndex]);
+	}	
+
+	vkCmdPushConstants(commandBuffers[swapchainImageIndex],
+		indirectPipeLayout,
+		VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+		0,							// offset of push constants to update
+		sizeof(LightData),			// size of data being pushed
+		&light);		// actualy data being pushed (could be an array));
+
+	vkCmdBindDescriptorSets(commandBuffers[swapchainImageIndex],VK_PIPELINE_BIND_POINT_GRAPHICS,indirectPipeLayout,
+		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0 /*1*/, nullptr /*&dynamicOffset*/);
+
+	vkCmdBindVertexBuffers(commandBuffers[swapchainImageIndex], VERTEX_BUFFER_ID, 1, &models[0].vertices.buffer, offsets);
+
+	// Binding point 1 : Instance data buffer
+	vkCmdBindVertexBuffers(commandBuffers[swapchainImageIndex], INSTANCE_BUFFER_ID, 1, &instanceBuffer.buffer, offsets);
+
+	vkCmdBindIndexBuffer(commandBuffers[swapchainImageIndex], models[0].indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+	if (m_device.enabledFeatures.multiDrawIndirect)
+	{
+		vkCmdDrawIndexedIndirect(commandBuffers[swapchainImageIndex], indirectCommandsBuffer.buffer, 0, indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
+	}
+	else
+	{
+		for (size_t i = 0; i < indirectCommands.size(); i++)
+		{		
+			vkCmdDrawIndexedIndirect(commandBuffers[swapchainImageIndex], indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+		}
+	}
+
+	// End Render  Pass
+	vkCmdEndRenderPass(commandBuffers[swapchainImageIndex]);
+
+	UpdateUniformBuffers(swapchainImageIndex);
+
+}
+
 void VulkanRenderer::RecordCommands(uint32_t currentImage)
 {
-	//Information about how to begin each command buffer
-	VkCommandBufferBeginInfo bufferBeginInfo = oGFX::vk::inits::commandBufferBeginInfo();
 	
+
 	std::array<VkClearValue, 2> clearValues{};
 	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
 	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
@@ -1425,14 +1688,7 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 
 
-	renderPassBeginInfo.framebuffer = swapChainFramebuffers[currentImage];
-
-	//start recording commanders to command buffer!
-	VkResult result = vkBeginCommandBuffer(commandBuffers[currentImage], &bufferBeginInfo);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to start recording a Command Buffer!");
-	}
+	renderPassBeginInfo.framebuffer = swapChainFramebuffers[swapchainImageIndex];
 
 	//Begin Render Pass
 	vkCmdBeginRenderPass(commandBuffers[currentImage], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);

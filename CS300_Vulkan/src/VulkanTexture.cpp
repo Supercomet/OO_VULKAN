@@ -467,6 +467,53 @@ namespace vk
 		updateDescriptor();
 	}
 
+	//void Texture2D::forFrameBuffer(VkFormat format, uint32_t texWidth, uint32_t texHeight, VkMemoryPropertyFlags properties, uint32_t mipLevels, VulkanDevice* device, VkQueue copyQueue, VkFilter filter, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout)
+	//{
+	//	//uint mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
+	//	mipLevels = mipLevels;
+	//
+	//
+	//	ImageWrap myImage = createImageWrap(size.width, size.height, VK_FORMAT_R32G32B32A32_SFLOAT,
+	//		VK_IMAGE_USAGE_TRANSFER_DST_BIT
+	//		| VK_IMAGE_USAGE_SAMPLED_BIT
+	//		| VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+	//		| VK_IMAGE_USAGE_STORAGE_BIT
+	//		| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+	//		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+	//		mipLevels);
+	//
+	//	// Create image view
+	//	VkImageViewCreateInfo viewCreateInfo = {};
+	//	viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	//	viewCreateInfo.pNext = NULL;
+	//	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	//	viewCreateInfo.format = format;
+	//	viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+	//	viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+	//	viewCreateInfo.subresourceRange.levelCount = 1;
+	//	viewCreateInfo.image = image;
+	//	vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view);
+	//
+	//	// Create sampler
+	//	VkSamplerCreateInfo samplerCreateInfo = {};
+	//	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	//	samplerCreateInfo.magFilter = filter;
+	//	samplerCreateInfo.minFilter = filter;
+	//	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	//	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	//	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	//	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	//	samplerCreateInfo.mipLodBias = 0.0f;
+	//	samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
+	//	samplerCreateInfo.minLod = 0.0f;
+	//	samplerCreateInfo.maxLod = 0.0f;
+	//	samplerCreateInfo.maxAnisotropy = 1.0f;
+	//	vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler);
+	//
+	//	myImage.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	//	return myImage;
+	//}
+
 
 
 }

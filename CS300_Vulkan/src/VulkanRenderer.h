@@ -13,6 +13,7 @@
 #include "VulkanDevice.h"
 #include "VulkanSwapchain.h"
 #include "VulkanTexture.h"
+#include "VulkanFramebuffer.h"
 #include "gpuCommon.h"
 
 #include "Camera.h"
@@ -55,6 +56,14 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	void CreateCommandBuffers();
 	void CreateTextureSampler();
 
+	ImTextureID myImg;
+	VulkanFramebuffer offscreenFB;
+	VulkanFramebuffer offscreenDepth;
+	VkFramebuffer offscreenFramebuffer;
+	VkRenderPass offscreenPass;
+	void CreateOffscreenPass();
+	void CreateOffscreenFB();
+
 	void CreateSynchronisation();
 	void CreateUniformBuffers();
 	void CreateDescriptorPool();
@@ -81,6 +90,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	void Draw();
 	void Present();
 
+	void PrePass();
 	void RecordCommands(uint32_t currentImage);
 	void UpdateUniformBuffers(uint32_t imageIndex);
 

@@ -52,7 +52,7 @@ int main(int argc, char argv[])
     _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
     //_CrtSetBreakAlloc(2383);
 
-    Window mainWindow;
+    Window mainWindow(1440,900);
     mainWindow.Init();
 
     
@@ -215,7 +215,17 @@ int main(int argc, char argv[])
         if (renderer.PrepareFrame() == true)
         {
             renderer.Draw();
-            ImGui::ShowDemoWindow();
+            renderer.PrePass();
+            renderer.RecordCommands(renderer.swapchainImageIndex);
+
+            // Create a dockspace over the mainviewport so that we can dock stuff
+            ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), 
+                ImGuiDockNodeFlags_PassthruCentralNode // make the dockspace transparent
+                | ImGuiDockNodeFlags_NoDockingInCentralNode // dont allow docking in the central area
+            );
+            
+            //ImGui::ShowDemoWindow();
+            
             ImGui::Begin("Test");
             ImGui::End();
             renderer.DrawGUI();

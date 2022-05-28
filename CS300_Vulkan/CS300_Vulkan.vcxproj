@@ -37,6 +37,7 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\stbi_impl.cpp" />
     <ClCompile Include="src\Tests_Assignment1.cpp" />
+    <ClCompile Include="src\VulkanFramebuffer.cpp" />
     <ClCompile Include="src\VulkanInstance.cpp" />
     <ClCompile Include="src\VulkanRenderer.cpp" />
     <ClCompile Include="src\VulkanDevice.cpp" />
@@ -51,6 +52,7 @@
     <ClInclude Include="src\DDSLoader.h" />
     <ClInclude Include="src\Geometry.h" />
     <ClInclude Include="src\Collision.h" />
+    <ClInclude Include="src\VulkanFramebuffer.h" />
     <ClInclude Include="src\Node.h" />
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\Input.h" />

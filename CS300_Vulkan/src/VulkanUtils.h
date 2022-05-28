@@ -6,19 +6,21 @@
 #include <vector>
 #include <iostream>
 
+namespace oGFX::vk::tools
+{
+	std::string VkResultString(VkResult value);
+};
 
-//#define VK_CHK(x)													  \
-//do																	  \
-//{																	  \
-//VkResult err = x;													  \
-//if(err)																  \
-//{																	  \
-//	std::cout << "Detected Vulkan error: " << err << std::endl;		  \
-//	throw; 														      \
-//}																	  \
-//}																	  \
-//while (0)															  \
-//// anon namespace
+#ifndef VK_CHK(x)
+#define VK_CHK(x) do{\
+VkResult result = x;\
+if(result != VK_SUCCESS){\
+std::cout<< oGFX::vk::tools::VkResultString(result)<< std::endl;\
+assert(result == VK_SUCCESS);\
+throw std::runtime_error("Failed Vulkan Check");\
+}\
+}while(0)
+#endif // !VK_CHK
 
 struct VulkanInstance;
 struct VulkanDevice;
@@ -180,6 +182,13 @@ namespace oGFX
 				VkMemoryAllocateInfo memAllocInfo{};
 				memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 				return memAllocInfo;
+			}
+
+			inline VkImageViewCreateInfo imageViewCreateInfo()
+			{
+				VkImageViewCreateInfo viewInfo{};
+				viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+				return viewInfo;
 			}
 
 			inline VkCommandBufferAllocateInfo commandBufferAllocateInfo(
