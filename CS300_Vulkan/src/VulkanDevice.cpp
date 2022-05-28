@@ -106,6 +106,9 @@ void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
     //physical device features that logical device will use
     deviceFeatures.samplerAnisotropy = VK_TRUE; // Enabling anisotropy
     deviceFeatures.multiDrawIndirect = VK_TRUE;
+
+    deviceFeatures.fillModeNonSolid = VK_TRUE;  //wireframe drawing
+    
     deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 
     // Bindless design requirement Descriptor indexing for descriptors

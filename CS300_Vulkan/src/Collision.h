@@ -3,7 +3,8 @@
 
 namespace coll
 {
-	constexpr static float EPSILON = { 0.0000001f };
+	constexpr static float EPSILON = { 0.001f };
+	constexpr static float BARY_EPSILON = { 0.01f };
 
 bool PointSphere(const Point3D& p, const Sphere& s);
 bool PointSphere(const Sphere& s, const Point3D& p);
@@ -20,7 +21,9 @@ float DistPointPlane(const Point3D& q, const Plane& p);
 
 float ScalarTriple(const Point3D& u, const Point3D& v, const Point3D& w);
 
-bool BaryCentricTriangle(const Point3D& p1, const Point3D& p2, const Point3D& p3, float u, float v, float w);
+bool BaryCheckUVW(float u, float v, float w);
+bool BaryCheckUVW(const Point3D& p1, const Point3D& p2, const Point3D& p3, float u, float v, float w);
+bool BaryCentricTriangle(const Point3D& p, const Point3D& p1, const Point3D& p2, const Point3D& p3, float u, float v, float w);
 bool BaryCentricTriangle(const Point3D& p, const Triangle& tri,float& u, float& v, float& w);
 
 bool SphereSphere(const Sphere& a, const Sphere& b);
@@ -51,7 +54,9 @@ bool PointInTriangle(const Point3D& p, const Triangle& t);
 bool PointInTriangle(const Triangle& t, const Point3D& p);
 
 bool PlaneSphere(const Plane& p, const Sphere& s);
+bool PlaneSphere(const Plane& p, const Sphere& s, float& t);
 
 bool PlaneAabb(const Plane& p, const AABB& a);
+bool PlaneAabb(const Plane& p, const AABB& a, float& t);
 
 }// end namespace coll

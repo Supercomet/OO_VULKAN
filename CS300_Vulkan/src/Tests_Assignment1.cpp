@@ -13,7 +13,7 @@ bool(*TestPointSphere)(const Point&, const Sphere&) = coll::PointSphere;
 //auto TestPointAabb = TestPointAabb;
 bool(*TestPointAabb)(const Point&, const Aabb&) = coll::PointAabb;
 //auto TestBarycentricTriangle = TestBarycentricTriangle;
-bool(*TestBarycentricTriangle)(const Point&,const Point&,const Point&, float,float,float) = coll::BaryCentricTriangle;
+bool(*TestBarycentricTriangle)( const Point&,const Point&,const Point&, float,float,float) = coll::BaryCheckUVW;
 //auto TestRayPlane = TestRayPlane;
 bool(*TestRayPlane)(const Ray&, const Plane&, float& t) = coll::RayPlane;
 //auto TestRayTriangle = TestRayTriangle;
@@ -23,9 +23,9 @@ bool(*TestRaySphere)(const Ray&, const Sphere&, float& t) = coll::RaySphere;
 //auto TestRayAabb = TestRayAabb;
 bool(*TestRayAabb)(const Ray&, const Aabb&, float&) = coll::RayAabb;
 //auto TestPlaneSphere = TestPlaneSphere;
-bool(*TestPlaneSphere)(const Plane&, const Sphere&) = coll::PlaneSphere;
+bool(*TestPlaneSphere)(const Plane&, const Sphere&, float& t) = coll::PlaneSphere;
 //auto TestPlaneAabb = TestPlaneAabb;
-bool(*TestPlaneAabb)(const Plane&, const Aabb&) = coll::PlaneAabb;
+bool(*TestPlaneAabb)(const Plane&, const Aabb&, float& t) = coll::PlaneAabb;
 
 void PrintResult(bool s)
 {
@@ -53,6 +53,22 @@ void PrintResultPlane(const float& t, float episilon)
 	if (std::abs(t) < episilon)
 	{
 		std::cout << "Coplanar" << std::endl;
+		return;
+	}
+	if (t > 0.0f)
+	{
+		std::cout << "Inside" << std::endl;		
+		return;
+	}	
+	std::cout << "Outside" << std::endl;		
+}
+
+void PrintResultPlane(bool s, const float& t)
+{
+	std::cout << "  Result:";
+	if (s)
+	{
+		std::cout << "Overlaps" << std::endl;
 		return;
 	}
 	if (t > 0.0f)
@@ -7724,8 +7740,9 @@ void PrintTestHeader(const std::string& testName)
 
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(2, 0, 0), 1);
-
-		PrintResult(TestPlaneSphere(plane, sphere));
+		
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere just touching plane (on the front)
@@ -7736,7 +7753,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(1, 0, 0), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere centered at plane
@@ -7747,7 +7765,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0, 0, 0), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere just touching plane (on the back)
@@ -7758,7 +7777,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(-1, 0, 0), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere behind plane
@@ -7769,7 +7789,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(-2, 0, 0), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere in front of plane
@@ -7780,7 +7801,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0, 2, 0), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere just touching plane (on the front)
@@ -7791,7 +7813,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0, 1, 0), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere centered at plane
@@ -7802,7 +7825,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0, 0, 0), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere just touching plane (on the back)
@@ -7813,7 +7837,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0, -1, 0), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere behind plane
@@ -7824,7 +7849,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0, -2, 0), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere in front of plane
@@ -7835,7 +7861,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0, 0, 2), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere just touching plane (on the front)
@@ -7846,7 +7873,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0, 0, 1), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere centered at plane
@@ -7857,7 +7885,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0, 0, 0), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere just touching plane (on the back)
@@ -7868,7 +7897,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0, 0, -1), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere behind plane
@@ -7879,7 +7909,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0, 0, -2), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere in front of plane
@@ -7890,7 +7921,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.57735f, 0.57735f, 0.57735f), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(1.1547f, 1.1547f, 1.1547f), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere just touching plane (on the front)
@@ -7901,7 +7933,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.57735f, 0.57735f, 0.57735f), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0.57735f, 0.57735f, 0.57735f), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere centered at plane
@@ -7912,7 +7945,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.57735f, 0.57735f, 0.57735f), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(0, 0, 0), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere just touching plane (on the back)
@@ -7923,7 +7957,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.57735f, 0.57735f, 0.57735f), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(-0.57735f, -0.57735f, -0.57735f), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 	// Sphere behind plane
@@ -7934,7 +7969,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.57735f, 0.57735f, 0.57735f), Vector3(0, 0, 0));
 		Sphere sphere(Vector3(-1.1547f, -1.1547f, -1.1547f), 1);
 
-		PrintResult(TestPlaneSphere(plane, sphere));
+		float t{0.0f};
+		PrintResultPlane(TestPlaneSphere(plane, sphere, t) ,t);
 	}
 
 #pragma endregion
@@ -7950,7 +7986,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(0.5f, -0.5f, -0.5f), Vector3(1.5f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f };
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely in front of plane
@@ -7961,7 +7998,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(0.05f, -0.5f, -0.5f), Vector3(1.05f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely touching plane (aabb on front)
@@ -7972,7 +8010,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.05f, -0.5f, -0.5f), Vector3(0.95f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb slightly touching plane (aabb on front)
@@ -7983,7 +8022,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.125f, -0.5f, -0.5f), Vector3(0.875f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb centered on plane
@@ -7994,7 +8034,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, -0.5f), Vector3(0.5f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb signtly touching plane (aabb in back)
@@ -8005,7 +8046,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.875f, -0.5f, -0.5f), Vector3(0.125f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely touching plane (aabb in back)
@@ -8016,7 +8058,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.95f, -0.5f, -0.5f), Vector3(0.05f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely behind plane
@@ -8027,7 +8070,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-1.05f, -0.5f, -0.5f), Vector3(-0.05f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb behind plane
@@ -8038,7 +8082,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(1, 0, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-1.5f, -0.5f, -0.5f), Vector3(-0.5f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb in front of plane
@@ -8049,7 +8094,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, 0.5f, -0.5f), Vector3(0.5f, 1.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely in front of plane
@@ -8060,7 +8106,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, 0.05f, -0.5f), Vector3(0.5f, 1.05f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely touching plane (aabb on front)
@@ -8071,7 +8118,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.05f, -0.5f), Vector3(0.5f, 0.95f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb slightly touching plane (aabb on front)
@@ -8082,7 +8130,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.125f, -0.5f), Vector3(0.5f, 0.875f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb centered on plane
@@ -8093,7 +8142,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, -0.5f), Vector3(0.5f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb signtly touching plane (aabb in back)
@@ -8104,7 +8154,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.875f, -0.5f), Vector3(0.5f, 0.125f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely touching plane (aabb in back)
@@ -8115,7 +8166,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.95f, -0.5f), Vector3(0.5f, 0.05f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely behind plane
@@ -8126,7 +8178,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -1.05f, -0.5f), Vector3(0.5f, -0.05f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb behind plane
@@ -8137,7 +8190,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 1, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -1.5f, -0.5f), Vector3(0.5f, -0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb in front of plane
@@ -8148,7 +8202,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, 0.5f), Vector3(0.5f, 0.5f, 1.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely in front of plane
@@ -8159,7 +8214,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, 0.05f), Vector3(0.5f, 0.5f, 1.05f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely touching plane (aabb on front)
@@ -8170,7 +8226,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, -0.05f), Vector3(0.5f, 0.5f, 0.95f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb slightly touching plane (aabb on front)
@@ -8181,7 +8238,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, -0.125f), Vector3(0.5f, 0.5f, 0.875f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb centered on plane
@@ -8192,7 +8250,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, -0.5f), Vector3(0.5f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb signtly touching plane (aabb in back)
@@ -8203,7 +8262,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, -0.875f), Vector3(0.5f, 0.5f, 0.125f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely touching plane (aabb in back)
@@ -8214,7 +8274,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, -0.95f), Vector3(0.5f, 0.5f, 0.05f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely behind plane
@@ -8225,7 +8286,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, -1.05f), Vector3(0.5f, 0.5f, -0.05f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb behind plane
@@ -8236,7 +8298,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0, 1), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, -1.5f), Vector3(0.5f, 0.5f, -0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb in front of plane
@@ -8247,7 +8310,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0.707107f, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(0.5f, 0.5f, -0.5f), Vector3(1.5f, 1.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely in front of plane
@@ -8258,7 +8322,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0.707107f, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(0.05f, 0.05f, -0.5f), Vector3(1.05f, 1.05f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely touching plane (aabb on front)
@@ -8269,7 +8334,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0.707107f, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.05f, -0.05f, -0.5f), Vector3(0.95f, 0.95f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb slightly touching plane (aabb on front)
@@ -8280,7 +8346,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0.707107f, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.125f, -0.125f, -0.5f), Vector3(0.875f, 0.875f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb centered on plane
@@ -8291,7 +8358,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0.707107f, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, -0.5f), Vector3(0.5f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb signtly touching plane (aabb in back)
@@ -8302,7 +8370,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0.707107f, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.875f, -0.875f, -0.5f), Vector3(0.125f, 0.125f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely touching plane (aabb in back)
@@ -8313,7 +8382,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0.707107f, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.95f, -0.95f, -0.5f), Vector3(0.05f, 0.05f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely behind plane
@@ -8324,7 +8394,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0.707107f, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-1.05f, -1.05f, -0.5f), Vector3(-0.05f, -0.05f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb behind plane
@@ -8335,7 +8406,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0.707107f, 0), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-1.5f, -1.5f, -0.5f), Vector3(-0.5f, -0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb in front of plane
@@ -8346,7 +8418,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(0.5f, -0.5f, 0.5f), Vector3(1.5f, 0.5f, 1.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely in front of plane
@@ -8357,7 +8430,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(0.05f, -0.5f, 0.05f), Vector3(1.05f, 0.5f, 1.05f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely touching plane (aabb on front)
@@ -8368,7 +8442,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.05f, -0.5f, -0.05f), Vector3(0.95f, 0.5f, 0.95f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb slightly touching plane (aabb on front)
@@ -8379,7 +8454,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.125f, -0.5f, -0.125f), Vector3(0.875f, 0.5f, 0.875f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb centered on plane
@@ -8390,7 +8466,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, -0.5f), Vector3(0.5f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb signtly touching plane (aabb in back)
@@ -8401,7 +8478,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.875f, -0.5f, -0.875f), Vector3(0.125f, 0.5f, 0.125f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely touching plane (aabb in back)
@@ -8412,7 +8490,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.95f, -0.5f, -0.95f), Vector3(0.05f, 0.5f, 0.05f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely behind plane
@@ -8423,7 +8502,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-1.05f, -0.5f, -1.05f), Vector3(-0.05f, 0.5f, -0.05f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb behind plane
@@ -8434,7 +8514,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0.707107f, 0, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-1.5f, -0.5f, -1.5f), Vector3(-0.5f, 0.5f, -0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb in front of plane
@@ -8445,7 +8526,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0.707107f, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, 0.5f, 0.5f), Vector3(0.5f, 1.5f, 1.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely in front of plane
@@ -8456,7 +8538,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0.707107f, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, 0.05f, 0.05f), Vector3(0.5f, 1.05f, 1.05f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb just barely touching plane (aabb on front)
@@ -8467,7 +8550,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0.707107f, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.05f, -0.05f), Vector3(0.5f, 0.95f, 0.95f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb slightly touching plane (aabb on front)
@@ -8478,7 +8562,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0.707107f, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.125f, -0.125f), Vector3(0.5f, 0.875f, 0.875f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 	// Aabb centered on plane
@@ -8489,7 +8574,8 @@ void PrintTestHeader(const std::string& testName)
 		Plane plane(Vector3(0, 0.707107f, 0.707107f), Vector3(0, 0, 0));
 		Aabb aabb(Vector3(-0.5f, -0.5f, -0.5f), Vector3(0.5f, 0.5f, 0.5f));
 
-		PrintResult(TestPlaneAabb(plane, aabb));
+		float t{ 0.0f }; 
+		PrintResultPlane(TestPlaneAabb(plane, aabb, t), t);
 	}
 
 #pragma endregion

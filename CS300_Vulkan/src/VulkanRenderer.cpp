@@ -7,6 +7,7 @@
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
 
 #include <iostream>
 
@@ -44,7 +45,7 @@ VulkanRenderer::~VulkanRenderer()
 
 	for (size_t i = 0; i < models.size(); i++)
 	{
-		models.clear();
+		models[i].destroy(m_device.logicalDevice);
 	}	
 	for (size_t i = 0; i < textureImages.size(); i++)
 	{
@@ -90,6 +91,7 @@ VulkanRenderer::~VulkanRenderer()
 	}
 
 	vkDestroyPipeline(m_device.logicalDevice, graphicsPipeline, nullptr);
+	vkDestroyPipeline(m_device.logicalDevice, wirePipeline, nullptr);
 	vkDestroyPipelineLayout(m_device.logicalDevice, pipelineLayout, nullptr);
 
 	vkDestroyPipeline(m_device.logicalDevice, indirectPipeline, nullptr);
@@ -329,7 +331,7 @@ void VulkanRenderer::CreatePushConstantRange()
 {
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; //shader stage push constant will go to
 	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(LightData);
+	pushConstantRange.size = sizeof(glm::mat4);
 }
 
 void VulkanRenderer::CreateGraphicsPipeline()
@@ -472,6 +474,13 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	shaderStages[1] = LoadShader("Shaders/shader.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPipeline);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create a Graphics Pipeline!");
+	}
+	rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
+	pipelineCreateInfo.renderPass = renderPass;
+	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &wirePipeline);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a Graphics Pipeline!");
@@ -757,6 +766,15 @@ void VulkanRenderer::CreateSynchronisation()
 void VulkanRenderer::CreateUniformBuffers()
 {	
 	// ViewProjection buffer size
+
+	VkPhysicalDeviceProperties props;
+	vkGetPhysicalDeviceProperties(m_device.physicalDevice,&props);
+	size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
+	auto dynamicAlignment = sizeof(glm::mat4);
+	if (minUboAlignment > 0) {
+		dynamicAlignment = (dynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
+	}
+
 	VkDeviceSize vpBufferSize = sizeof(UboViewProjection);
 
 	//// LightData bufffer size
@@ -1059,6 +1077,7 @@ void VulkanRenderer::DestroyImGUI()
 
 void VulkanRenderer::UpdateIndirectCommands()
 {
+	return;
 	indirectCommands.clear();
 	// Create on indirect command for node in the scene with a mesh attached to it
 	uint32_t m = 0;
@@ -1142,6 +1161,7 @@ void VulkanRenderer::UpdateIndirectCommands()
 
 void VulkanRenderer::UpdateInstanceData()
 {
+	return;
 	if (instanceBuffer.size != 0) return;
 	
 	using namespace std::chrono;
@@ -1377,11 +1397,7 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	{
 		throw std::runtime_error("Failed to load model! (" + file + ")");
 	}	
-	auto index = models.size();
-	models.emplace_back(std::move(Model()));
 	
-	auto& model = models[index];
-	model.device = &m_device;
 
 	std::vector<std::string> textureNames = MeshContainer::LoadMaterials(scene);
 	std::vector<int> matToTex(textureNames.size());
@@ -1400,6 +1416,10 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 		}
 	}
 
+	auto index = models.size();
+	models.emplace_back(std::move(Model()));	
+
+	auto& model = models[index];
 	for (auto& node : model.nodes)
 	{
 		for (auto& mesh : node->meshes)
@@ -1413,35 +1433,52 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 
 	model.loadNode(nullptr, scene, *scene->mRootNode,0,verticeBuffer, indexBuffer);
 
-	model.indices.count = static_cast<uint32_t>(indexBuffer.size());
-	model.vertices.count = static_cast<uint32_t>(verticeBuffer.size());
 	
+	LoadMeshFromBuffers(verticeBuffer, indexBuffer, &model);
+
+
+	return static_cast<uint32_t>(index);
+}
+
+uint32_t VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, Model* model)
+{
+	uint32_t index = 0;
+	if (model == nullptr)
+	{
+		index = models.size();
+		models.emplace_back(std::move(Model()));
+		model = &models[index];
+	}
+
+	model->indices.count = static_cast<uint32_t>(indices.size());
+	model->vertices.count = static_cast<uint32_t>(vertex.size());
 
 	{
 		using namespace oGFX;
 		//get size of buffer needed for vertices
-		VkDeviceSize bufferSize = sizeof(Vertex) * verticeBuffer.size();
+		VkDeviceSize bufferSize = sizeof(Vertex) * vertex.size();
 
 		//temporary buffer to stage vertex data before transferring to GPU
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory; 
 		//create buffer and allocate memory to it
+
 		CreateBuffer(m_device.physicalDevice,m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
 
 		//MAP MEMORY TO VERTEX BUFFER
 		void *data = nullptr;												//1. create a pointer to a point in normal memory
 		vkMapMemory(m_device.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);	//2. map the vertex buffer to that point
-		memcpy(data, verticeBuffer.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
+		memcpy(data, vertex.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
 		vkUnmapMemory(m_device.logicalDevice, stagingBufferMemory);							//4. unmap the vertex buffer memory
 
-																			//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
-																			// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
+																							//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
+																							// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
 		CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model.vertices.buffer, &model.vertices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model->vertices.buffer, &model->vertices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
 
-																					  //copy staging buffer to vertex buffer on GPU
-		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model.vertices.buffer, bufferSize);
+																								  //copy staging buffer to vertex buffer on GPU
+		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model->vertices.buffer, bufferSize);
 
 		//clean up staging buffer parts
 		vkDestroyBuffer(m_device.logicalDevice, stagingBuffer, nullptr);
@@ -1452,7 +1489,7 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	{
 		using namespace oGFX;
 		//get size of buffer needed for vertices
-		VkDeviceSize bufferSize = sizeof(decltype(indexBuffer)::value_type) * indexBuffer.size();
+		VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
 
 		//temporary buffer to stage vertex data before transferring to GPU
 		VkBuffer stagingBuffer;
@@ -1464,23 +1501,22 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 		//MAP MEMORY TO VERTEX BUFFER
 		void *data = nullptr;												//1. create a pointer to a point in normal memory
 		vkMapMemory(m_device.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);	//2. map the vertex buffer to that point
-		memcpy(data, indexBuffer.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
+		memcpy(data, indices.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
 		vkUnmapMemory(m_device.logicalDevice, stagingBufferMemory);				//4. unmap the vertex buffer memory
 
-		//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
-		// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
+																				//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
+																				// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
 		CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model.indices.buffer, &model.indices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model->indices.buffer, &model->indices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
 
-		//copy staging buffer to vertex buffer on GPU
-		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model.indices.buffer, bufferSize);
+																								//copy staging buffer to vertex buffer on GPU
+		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model->indices.buffer, bufferSize);
 
 		//clean up staging buffer parts
 		vkDestroyBuffer(m_device.logicalDevice, stagingBuffer, nullptr);
 		vkFreeMemory(m_device.logicalDevice, stagingBufferMemory, nullptr);
 	}
-
-	return static_cast<uint32_t>(index);
+	return index;
 }
 
 void VulkanRenderer::SetMeshTextures(uint32_t modelID, uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough)
@@ -1591,82 +1627,125 @@ void VulkanRenderer::PrePass()
 
 	renderPassBeginInfo.framebuffer = offscreenFramebuffer;
 
-	//Begin Render Pass
 	vkCmdBeginRenderPass(commandBuffers[swapchainImageIndex], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	//Bind pipeline to be used in render pass
-	//vkCmdBindPipeline(commandBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
 	VkViewport viewport = { 0, float(windowPtr->m_height), float(windowPtr->m_width), -float(windowPtr->m_height), 0, 1 };
 	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
 	vkCmdSetViewport(commandBuffers[swapchainImageIndex], 0, 1, &viewport);
 	vkCmdSetScissor(commandBuffers[swapchainImageIndex], 0, 1, &scissor);
 
-	std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[swapchainImageIndex],
-		globalSamplers };
-	//auto& model = models[0];
 	VkDeviceSize offsets[] = { 0 };	
 
-	vkCmdBindPipeline(commandBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeline);
-	//std::cout << "Light pos [" << light.position.x << ", " << light.position.y << ", " << light.position.z<<"] ";
-	//std::cout << "\tCamera pos [" << camera.position.x << ", " << camera.position.y << ", " << camera.position.z<<"]\n";
+	vkCmdBindPipeline(commandBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+	std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[swapchainImageIndex],
+		globalSamplers };
 
-	//setup top camera
+	vkCmdBindDescriptorSets(commandBuffers[swapchainImageIndex],VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0 /*1*/, nullptr /*&dynamicOffset*/);
+
 	{
-		float height = static_cast<float>(windowPtr->m_height);
-		float width = static_cast<float>(windowPtr->m_width);
-		float ar = width / height;
-
-		glm::vec3 pos = { 0.0f,10.0f,0.0f };
-		glm::vec3 target = { 0.0f,0.0f,0.0f };
-		auto mat4 = glm::lookAt(pos, target, { 0.0f,1.0f,0.0f });
-		Camera cam;
-		cam.SetPosition(pos);
-		
-
-		uboViewProjection.projection = mat4;
-		uboViewProjection.view = cam.matrices.view;
-		uboViewProjection.cameraPos = glm::vec4(cam.position,1.0);
-
-		//copy VP data
+		uboViewProjection.projection = glm::mat4(1.0f);
+		uboViewProjection.view = glm::mat4(1.0f);
+		uboViewProjection.cameraPos = glm::vec4(camera.position,1.0);
 		void *data;
 		vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainImageIndex], 0, sizeof(UboViewProjection), 0, &data);
 		memcpy(data, &uboViewProjection, sizeof(UboViewProjection));
 		vkUnmapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainImageIndex]);
-	}	
-
-	vkCmdPushConstants(commandBuffers[swapchainImageIndex],
-		indirectPipeLayout,
-		VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
-		0,							// offset of push constants to update
-		sizeof(LightData),			// size of data being pushed
-		&light);		// actualy data being pushed (could be an array));
-
-	vkCmdBindDescriptorSets(commandBuffers[swapchainImageIndex],VK_PIPELINE_BIND_POINT_GRAPHICS,indirectPipeLayout,
-		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0 /*1*/, nullptr /*&dynamicOffset*/);
-
-	vkCmdBindVertexBuffers(commandBuffers[swapchainImageIndex], VERTEX_BUFFER_ID, 1, &models[0].vertices.buffer, offsets);
-
-	// Binding point 1 : Instance data buffer
-	vkCmdBindVertexBuffers(commandBuffers[swapchainImageIndex], INSTANCE_BUFFER_ID, 1, &instanceBuffer.buffer, offsets);
-
-	vkCmdBindIndexBuffer(commandBuffers[swapchainImageIndex], models[0].indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-	if (m_device.enabledFeatures.multiDrawIndirect)
-	{
-		vkCmdDrawIndexedIndirect(commandBuffers[swapchainImageIndex], indirectCommandsBuffer.buffer, 0, indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
 	}
-	else
+
+	for (auto& entity : entities)
 	{
-		for (size_t i = 0; i < indirectCommands.size(); i++)
-		{		
-			vkCmdDrawIndexedIndirect(commandBuffers[swapchainImageIndex], indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
-		}
+		auto& model = models[entity.modelID];
+
+		glm::mat4 xform(1.0f);
+		xform = glm::translate(xform, entity.pos);
+		xform = glm::rotate(xform,glm::radians(entity.rot), entity.rotVec);
+		xform = glm::scale(xform, entity.scale);
+
+		vkCmdPushConstants(commandBuffers[swapchainImageIndex],
+			pipelineLayout,
+			VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+			0,							// offset of push constants to update
+			sizeof(glm::mat4),			// size of data being pushed
+			glm::value_ptr(xform));		// actualy data being pushed (could be an array));
+
+		vkCmdBindIndexBuffer(commandBuffers[swapchainImageIndex], model.indices.buffer, VkDeviceSize{ 0 }, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(commandBuffers[swapchainImageIndex], VERTEX_BUFFER_ID, 1, &model.vertices.buffer, offsets);
+		vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, 0, 0, 0);
 	}
 
 	// End Render  Pass
 	vkCmdEndRenderPass(commandBuffers[swapchainImageIndex]);
 
+
+}
+
+void VulkanRenderer::SimplePass()
+{
+	std::array<VkClearValue, 2> clearValues{};
+	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
+	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
+	clearValues[1].depthStencil.depth = {1.0f};
+
+	//Information about how to begin a render pass (only needed for graphical applications)
+	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
+	renderPassBeginInfo.renderPass = renderPass;									//render pass to begin
+	renderPassBeginInfo.renderArea.offset = { 0,0 };								//start point of render pass in pixels
+	renderPassBeginInfo.renderArea.extent = m_swapchain.swapChainExtent;			//size of region to run render pass on (Starting from offset)
+	renderPassBeginInfo.pClearValues = clearValues.data();							//list of clear values
+	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+
+	renderPassBeginInfo.framebuffer = swapChainFramebuffers[swapchainImageIndex];
+
+	vkCmdBeginRenderPass(commandBuffers[swapchainImageIndex], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	
+	VkViewport viewport = { 0, float(windowPtr->m_height), float(windowPtr->m_width), -float(windowPtr->m_height), 0, 1 };
+	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
+	vkCmdSetViewport(commandBuffers[swapchainImageIndex], 0, 1, &viewport);
+	vkCmdSetScissor(commandBuffers[swapchainImageIndex], 0, 1, &scissor);
+
+
+	VkDeviceSize offsets[] = { 0 };	
+
+
+	vkCmdBindPipeline(commandBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, wirePipeline);
+	std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[swapchainImageIndex],
+		globalSamplers };
+	//auto& model = models[0];
+	
+	glm::mat4 iden = glm::mat4(1.0f);
+
+	
 	UpdateUniformBuffers(swapchainImageIndex);
+
+	vkCmdBindDescriptorSets(commandBuffers[swapchainImageIndex],VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0 /*1*/, nullptr /*&dynamicOffset*/);
+
+	for (auto& entity : entities)
+	{
+		auto& model = models[entity.modelID];
+
+		glm::mat4 xform(1.0f);
+		xform = glm::translate(xform, entity.pos);
+		xform = glm::rotate(xform,glm::radians(entity.rot), entity.rotVec);
+		xform = glm::scale(xform, entity.scale);
+
+		vkCmdPushConstants(commandBuffers[swapchainImageIndex],
+			pipelineLayout,
+			VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+			0,							// offset of push constants to update
+			sizeof(glm::mat4),			// size of data being pushed
+			glm::value_ptr(xform));		// actualy data being pushed (could be an array));
+
+		vkCmdBindIndexBuffer(commandBuffers[swapchainImageIndex], model.indices.buffer, VkDeviceSize{ 0 }, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(commandBuffers[swapchainImageIndex], VERTEX_BUFFER_ID, 1, &model.vertices.buffer, offsets);
+		vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, 0, 0, 0);
+	}
+
+	// End Render  Pass
+	vkCmdEndRenderPass(commandBuffers[swapchainImageIndex]);
 
 }
 

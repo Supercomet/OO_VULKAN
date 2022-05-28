@@ -42,15 +42,15 @@ struct Model
 	~Model();
 
 	struct Vertices {
-		int count;
-		VkBuffer buffer;
-		VkDeviceMemory memory;
-	} vertices;
+		int count{};
+		VkBuffer buffer{};
+		VkDeviceMemory memory{};
+	} vertices{};
 	struct Indices {
-		int count;
-		VkBuffer buffer;
-		VkDeviceMemory memory;
-	} indices;
+		int count{};
+		VkBuffer buffer{};
+		VkDeviceMemory memory{};
+	} indices{};
 
 	struct Textures
 	{
@@ -60,11 +60,12 @@ struct Model
 		uint32_t roughness;
 	}textures;
 
+	void destroy(VkDevice device);
+
 
 	void loadNode(Node* parent,const aiScene* scene, const aiNode& node, uint32_t nodeIndex
 		,std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);
 
-	VulkanDevice* device;
 	std::vector<Node*> nodes;
 private:
 	oGFX::Mesh* processMesh(aiMesh* mesh, const aiScene* scene, std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);

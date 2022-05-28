@@ -7,6 +7,7 @@
 #include "gpuCommon.h"
 #include "VulkanRenderer.h"
 #include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
 
 #include <iostream>
 #include <chrono>
@@ -52,6 +53,8 @@ int main(int argc, char argv[])
     _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
     //_CrtSetBreakAlloc(2383);
 
+    //RunAllTests();
+
     Window mainWindow(1440,900);
     mainWindow.Init();
 
@@ -78,12 +81,12 @@ int main(int argc, char argv[])
     uint32_t colour = 0xFFFFFFFF; // ABGR
     renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&colour));
 
-    std::vector<oGFX::Vertex>verts{
+    std::vector<oGFX::Vertex>quadVerts{
             oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
             oGFX::Vertex{ { 0.5,-0.5,0.0}, { 0.0f,1.0f,0.0f }, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f } },
             oGFX::Vertex{ { 0.0, 0.5,0.0}, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f } }
     };
-    std::vector<uint32_t> indices{
+    std::vector<uint32_t>quadIndices{
         0,1,2
     };
 
@@ -115,9 +118,26 @@ int main(int argc, char argv[])
 
 
     //uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
-    uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
+    //uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
 
+    uint32_t ball = renderer.LoadMeshFromFile("Models/icosphere.obj");
+    uint32_t box = renderer.LoadMeshFromBuffers(boxverts, boxindices, nullptr);
+    uint32_t triangle = renderer.LoadMeshFromBuffers(quadVerts, quadIndices, nullptr);
 
+    glm::mat4 id(1.0f);
+
+    VulkanRenderer::EntityDetails ed;
+    ed.modelID = ball;
+    ed.pos = { 2.0f,0.0f,2.0f };
+    renderer.entities.push_back(ed);
+    ed.modelID = box;
+    ed.pos = { -2.0f,0.0f,-2.0f };
+    renderer.entities.push_back(ed);
+    ed.modelID = triangle;
+    ed.pos = { 0.0f,0.0f,0.0f };
+    renderer.entities.push_back(ed);
+
+    
     //uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");
     //uint32_t obj = renderer.CreateMeshModel(verts, indices);
    //renderer.CreateTexture("Textures/TD_Checker_Base_Color.png");
@@ -125,30 +145,30 @@ int main(int argc, char argv[])
    //renderer.CreateTexture("TD_Checker_Normal_OpenGL.png");
    //renderer.CreateTexture("TD_Checker_Roughness.png");
 
-   auto alb = renderer.CreateTexture("Textures/TD_Checker_Base_Color.dds");
-   auto norm =renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
-   auto occlu =renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
-   auto rough =renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
-   renderer.SetMeshTextures(yes, alb, norm, occlu, rough);
+   //auto alb = renderer.CreateTexture("Textures/TD_Checker_Base_Color.dds");
+   //auto norm =renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
+   //auto occlu =renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
+   //auto rough =renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
+   //renderer.SetMeshTextures(yes, alb, norm, occlu, rough);
 
    //renderer.SubmitMesh(yes, position);
 
    //create a hundred random textures because why not
-   std::default_random_engine rndEngine(123456);
-   std::uniform_int_distribution<uint32_t> uniformDist( 0xFF000000, 0xFFFFFFFF );
-   std::vector<oGFX::InstanceData> instanceData;
-   constexpr size_t numTex = 100;
-   constexpr size_t dims = 2;
-   std::vector<uint32_t> bitmap(dims*dims);
-   for (size_t i = 0; i < numTex; i++)
-   {
-       for (size_t x = 0; x < bitmap.size(); x++)
-       {
-       uint32_t colour = uniformDist(rndEngine); // ABGR
-        bitmap[x] = colour;
-       }
-       renderer.CreateTexture(dims, dims, reinterpret_cast<unsigned char*>(bitmap.data()));
-   }
+   //std::default_random_engine rndEngine(123456);
+   //std::uniform_int_distribution<uint32_t> uniformDist( 0xFF000000, 0xFFFFFFFF );
+   //std::vector<oGFX::InstanceData> instanceData;
+   //constexpr size_t numTex = 100;
+   //constexpr size_t dims = 2;
+   //std::vector<uint32_t> bitmap(dims*dims);
+   //for (size_t i = 0; i < numTex; i++)
+   //{
+   //    for (size_t x = 0; x < bitmap.size(); x++)
+   //    {
+   //    uint32_t colour = uniformDist(rndEngine); // ABGR
+   //     bitmap[x] = colour;
+   //    }
+   //    renderer.CreateTexture(dims, dims, reinterpret_cast<unsigned char*>(bitmap.data()));
+   //}
 
    glm::mat4 xform{ 1.0f };
    xform = glm::translate(xform, glm::vec3(-3.0f, 0.0f, -3.0f));
@@ -194,7 +214,7 @@ int main(int argc, char argv[])
         auto rightVec = renderer.camera.GetRight();
         auto upVec = renderer.camera.GetUp();
 
-        if (Input::GetMouseHeld(MOUSE_LEFT)) {
+        if (Input::GetMouseHeld(MOUSE_RIGHT)) {
             renderer.camera.Rotate(glm::vec3(mousedel.y * renderer.camera.rotationSpeed, mousedel.x * renderer.camera.rotationSpeed, 0.0f));
             renderer.camera.keys.up = true;
         }
@@ -216,7 +236,8 @@ int main(int argc, char argv[])
         {
             renderer.Draw();
             renderer.PrePass();
-            renderer.RecordCommands(renderer.swapchainImageIndex);
+            renderer.SimplePass();
+            //renderer.RecordCommands(renderer.swapchainImageIndex);
 
             // Create a dockspace over the mainviewport so that we can dock stuff
             ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), 
@@ -227,6 +248,28 @@ int main(int argc, char argv[])
             //ImGui::ShowDemoWindow();
             
             ImGui::Begin("Test");
+            for (auto& entity: renderer.entities)
+            {
+                switch (entity.modelID)
+                {
+                case 0:
+                ImGui::Text("Sphere");
+                break;
+                case 1:
+                ImGui::Text("Box");
+                break;
+                case 2:
+                ImGui::Text("Triangle");
+                break;
+                default:
+                break;
+                }
+                auto id = std::to_string(entity.modelID);
+                ImGui::DragFloat3(std::string("Position"+ id).c_str(), glm::value_ptr(entity.pos));
+                ImGui::DragFloat3(("Scale"+id).c_str(),  glm::value_ptr(entity.scale));
+                ImGui::DragFloat(("theta"+id).c_str(),  &entity.rot);
+                ImGui::DragFloat3(("Rotation Vec"+id).c_str(),  glm::value_ptr(entity.rotVec));
+            }
             ImGui::End();
             renderer.DrawGUI();
 

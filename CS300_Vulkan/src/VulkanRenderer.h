@@ -91,6 +91,8 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	void Present();
 
 	void PrePass();
+	void SimplePass();
+
 	void RecordCommands(uint32_t currentImage);
 	void UpdateUniformBuffers(uint32_t imageIndex);
 
@@ -103,6 +105,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	uint32_t CreateTexture(const std::string& fileName);
 
 	uint32_t LoadMeshFromFile(const std::string& file);
+	uint32_t LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, Model* model);
 	void SetMeshTextures(uint32_t modelID,uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough);
 
 	void UpdateModel(int modelId, glm::mat4 newModel);
@@ -132,6 +135,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 
 	// - Pipeline
 	VkPipeline graphicsPipeline{};
+	VkPipeline wirePipeline{};
 	VkPipelineLayout pipelineLayout{};
 	VkRenderPass renderPass{};
 
@@ -189,6 +193,17 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 
 	LightData light;
 	Camera camera;
+
+	public:
+	struct EntityDetails
+	{
+		uint32_t modelID{};
+		glm::vec3 pos{};
+		glm::vec3 scale{1.0f};
+		float rot{};
+		glm::vec3 rotVec{0.0f,1.0f,0.0f};
+	};
+	std::vector<EntityDetails> entities;
 
 	private:
 		uint32_t CreateTextureImage(const std::string& fileName);

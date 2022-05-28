@@ -26,9 +26,9 @@ struct Triangle
 {
 	Triangle();
 	Triangle(glm::vec3 a, glm::vec3 b, glm::vec3 c);
+	Point3D v0;
 	Point3D v1;
 	Point3D v2;
-	Point3D v3;
 };
 
 struct Sphere

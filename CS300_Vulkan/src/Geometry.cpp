@@ -93,15 +93,15 @@ std::pair<glm::vec3, glm::vec3> Plane::ToPointNormal() const
 }
 
 Triangle::Triangle():
-v1{glm::vec3{0.5f,0.5f,0.5f}},
-v2{glm::vec3{0.0f,0.5f,0.5f}},
-v3{glm::vec3{0.5f,0.0f,0.5f}}
+v0{glm::vec3{0.5f,0.5f,0.5f}},
+v1{glm::vec3{0.0f,0.5f,0.5f}},
+v2{glm::vec3{0.5f,0.0f,0.5f}}
 {
 }
 
 Triangle::Triangle(glm::vec3 a, glm::vec3 b, glm::vec3 c)
-	:v1{a},
-	v2{b},
-	v3{c}
+	:v0{a},
+	v1{b},
+	v2{c}
 {
 }

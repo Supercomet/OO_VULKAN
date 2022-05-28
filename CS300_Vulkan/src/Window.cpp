@@ -21,7 +21,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     auto result = ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam);
     if (result == true)
-        return true;
+        return DefWindowProc(hWnd, uMsg, wParam, lParam);;
 
 	switch (uMsg)
 	{

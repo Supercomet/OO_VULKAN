@@ -201,12 +201,16 @@ MeshContainer::~MeshContainer()
 
 Model::~Model()
 {
-	if (device == nullptr) return;
+	
+}
 
-	vkDestroyBuffer(device->logicalDevice, vertices.buffer, nullptr);
-	vkFreeMemory(device->logicalDevice, vertices.memory, nullptr);
-	vkDestroyBuffer(device->logicalDevice, indices.buffer, nullptr);
-	vkFreeMemory(device->logicalDevice, indices.memory, nullptr);
+void Model::destroy(VkDevice device)
+{
+
+	vkDestroyBuffer(device, vertices.buffer, nullptr);
+	vkFreeMemory(device, vertices.memory, nullptr);
+	vkDestroyBuffer(device, indices.buffer, nullptr);
+	vkFreeMemory(device, indices.memory, nullptr);
 	for (auto& node : nodes)
 	{
 		delete node;

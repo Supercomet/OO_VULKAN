@@ -15,16 +15,18 @@ layout(set = 0,binding = 0) uniform UboViewProjection{
 //	mat4 model;
 //}uboModel;
 
-layout(push_constant)uniform PushModel{
-		mat4 model;
-}pushModel;
+layout(push_constant)uniform data{
+		mat4 viewproj;
+		mat4 xform;
+}push;
 
 layout(location = 0) out vec3 fragCol;
 layout(location = 1) out vec2 fragTex;
 
 void main(){
 
-gl_Position = uboViewProjection.projection * uboViewProjection.view *  pushModel.model * vec4(pos, 1.0);
+vec4 trans = push.xform * vec4(pos, 1.0);
+gl_Position = push.viewproj *  trans;
 
 fragCol = col;
 fragTex = tex;

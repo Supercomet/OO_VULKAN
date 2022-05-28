@@ -16,6 +16,39 @@ bool PointSphere(const Sphere& s, const Point3D& p)
 	return PointSphere(p,s);
 }
 
+bool BaryCentricTriangle(const Point3D& p, const Triangle& tri, float& u, float& v, float& w)
+{
+	auto l0 = tri.v1.pos - tri.v0.pos;
+	auto l1 = tri.v2.pos - tri.v1.pos;
+	auto l2 = tri.v0.pos - tri.v2.pos;
+	auto signedMag = glm::length(glm::cross(-l1,l0));
+
+	if (signedMag == 0) return false;
+
+	auto s0 = p.pos - tri.v0.pos;
+	auto s1 = p.pos - tri.v1.pos;
+	auto s2 = p.pos - tri.v2.pos;
+
+	auto al0 = glm::length(glm::cross(l0, s0));
+	auto al1 = glm::length(glm::cross(l1, s1));
+	auto al2 = glm::length(glm::cross(l2, s2));
+
+	auto r0 = al0 / signedMag;
+	auto r1 = al1 / signedMag;
+	auto r2 = al2 / signedMag;
+
+	auto result = BaryCheckUVW(r0, r1, r2);
+
+	if (result)
+	{
+		u = r0;
+		v = r1;
+		w = r2;
+	}
+
+	return true;
+}
+
 bool SphereSphere(const Sphere& a, const Sphere& b)
 {
 	return PointSphere(b.centre,
@@ -118,59 +151,30 @@ float ScalarTriple(const Point3D& u, const Point3D& v, const Point3D& w)
 	return glm::dot(glm::cross(u.pos, v.pos), w.pos);
 }
 
-bool BaryCentricTriangle(const Point3D& p1, const Point3D& p2, const Point3D& p3, float u, float v, float w)
+bool BaryCheckUVW(float u, float v, float w)
 {
-	return false;
+	if (std::abs(u + v + w) - 1.0f > BARY_EPSILON)
+	{
+		return false;
+	}
+
+	if (u > 1.0f + BARY_EPSILON || u < -BARY_EPSILON) return false;
+	if (v > 1.0f + BARY_EPSILON || v < -BARY_EPSILON) return false;
+	if (w > 1.0f + BARY_EPSILON || w < -BARY_EPSILON) return false;
+
+	return true;
 }
 
-//bool BaryCentricTriangle(const Point3D& p, const Triangle& tri, float& u, float& v, float& w)
-//{
-//	// Check if p.pos in vertex region outside tri.v1.pos
-//	glm::vec3 ab = tri.v2.pos - tri.v1.pos;
-//	glm::vec3 ac = tri.v3.pos - tri.v1.pos;
-//	glm::vec3 ap = p.pos - tri.v1.pos;
-//	float d1 = glm::dot(ab, ap);
-//	float d2 = glm::dot(ac, ap);
-//	if (d1 <= 0.0f && d2 <= 0.0f) return tri.v1.pos; // barycentric coordinates (1,0,0)
-//											// Check if p.pos in vertex region outside tri.v2.pos
-//	glm::vec3 bp = p.pos - tri.v2.pos;
-//	float d3 = glm::dot(ab, bp);
-//	float d4 = glm::dot(ac, bp);
-//	if (d3 >= 0.0f && d4 <= d3) return tri.v2.pos; // barycentric coordinates (0,1,0)
-//										  // Check if p.pos in edge region of AB, if so return projection of p.pos onto AB
-//	float vc = d1 * d4 - d3 * d2;
-//	if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f)
-//	{
-//		float v = d1 / (d1 - d3);
-//		return true; // barycentric coordinates (1-v,v,0)
-//	}
-//	// Check if p.pos in vertex region outside C
-//	glm::vec3 cp = p.pos - c;
-//	float d5 = glm::dot(ab, cp);
-//	float d6 = glm::dot(ac, cp);
-//	if (d6 >= 0.0f && d5 <= d6) return true; // barycentric coordinates (0,0,1)
-//
-//		// Check if p.pos in edge region of AC, if so return projection of p.pos onto AC
-//	float vb = d5 * d2 - d1 * d6;
-//	if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f)
-//	{
-//		float w = d2 / (d2 - d6);
-//		return true; // barycentric coordinates (1-w,0,w)
-//	}
-//	// Check if p.pos in edge region of BC, if so return projection of p.pos onto BC
-//	float va = d3 * d6 - d5 * d4;
-//	if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f)
-//	{
-//		float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
-//		return tri.v2.pos + w * (c - tri.v2.pos); // barycentric coordinates (0,1-w,w)
-//	}
-//	// p.pos inside face region. Compute Q through its barycentric coordinates (u,v,w)
-//	float denom = 1.0f / (va + vb + vc);
-//	float v = vb * denom;
-//	float w = vc * denom;
-//	return tri.v1.pos + ab * v + ac * w; // = u*tri.v1.pos + v*tri.v2.pos + w*c, u = va * denom = 1.0f-v-w
-//
-//}
+bool BaryCheckUVW(const Point3D& p1, const Point3D& p2, const Point3D& p3, float u, float v, float w)
+{
+	return BaryCheckUVW(u,v,w);
+}
+
+bool BaryCentricTriangle(const Point3D& p, const Point3D& p1, const Point3D& p2, const Point3D& p3, float u, float v, float w)
+{
+	return BaryCentricTriangle(p,Triangle(p1,p2,p3),u,v,w);
+}
+
 
 bool RayPlane(const Ray& r, const Plane& p, float& t, Point3D& pt)
 {
@@ -180,7 +184,7 @@ bool RayPlane(const Ray& r, const Plane& p, float& t, Point3D& pt)
 	float divs = glm::dot(pNorm, r.direction);
 	if (std::abs(divs) > EPSILON)
 	{
-		t = -(glm::dot(pNorm, r.start.pos) + d) / divs;
+		t = (d-glm::dot(pNorm, r.start.pos)) / divs;
 		if (t >= EPSILON)
 		{
 			return true;
@@ -327,32 +331,55 @@ bool PointInTriangle(const Point3D& p, const Point3D& v1, const Point3D& v2, con
 
 bool PointInTriangle(const Point3D& p, const Triangle& t)
 {
-	return PointInTriangle(p,t.v1,t.v2,t.v3);
+	return PointInTriangle(p,t.v0,t.v1,t.v2);
 }
 
 bool PointInTriangle(const Triangle& t, const Point3D& p)
 {
-	return PointInTriangle(p,t.v1,t.v2,t.v3);
+	return PointInTriangle(p,t.v0,t.v1,t.v2);
 }
 
 bool PlaneSphere(const Plane& p, const Sphere& s)
 {
+	float t;
+	return PlaneSphere(p, s, t);
+}
+
+bool PlaneSphere(const Plane& p, const Sphere& s, float& t)
+{
 	float dist = glm::dot(s.centre.pos, glm::vec3(p.normal))-p.normal.w;
-	return std::abs(dist) <= s.radius;
+	auto result = std::abs(dist) <= s.radius;
+	if (result != true)
+	{
+		t = dist;
+	}
+	return result;
 }
 
 bool PlaneAabb(const Plane& p, const AABB& a)
+{
+	float t;
+	return PlaneAabb(p, a, t);
+}
+
+bool PlaneAabb(const Plane& p, const AABB& a, float& t)
 {
 	Point3D c = a.center;
 	const glm::vec3& e = a.halfExt;
 
 	float r = e[0] * std::abs(p.normal[0]) 
-			+ e[1] * std::abs(p.normal[1]) 
-			+ e[2] * std::abs(p.normal[2]);
+		+ e[1] * std::abs(p.normal[1]) 
+		+ e[2] * std::abs(p.normal[2]);
 
 	float s = glm::dot(glm::vec3{ p.normal }, a.center);
 
-	return std::abs(s) <= r;
+	auto result = std::abs(s) <= r;
+	if (result != true)
+	{
+		glm::vec3 planePt(glm::vec3{p.normal} * p.normal.w);
+		t = -glm::dot(planePt-c.pos, glm::vec3{ p.normal });
+	}
+	return result;
 }
 
 }// end namespace coll
