@@ -427,15 +427,16 @@ namespace oGFX
 		vkBindBufferMemory(device, *buffer, *bufferMemory, 0);
 	}
 
-	void CopyBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize)
+	void CopyBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,
+		VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize,VkDeviceSize dstOffset,VkDeviceSize srcOffset)
 	{
 		//Create buffer
 		VkCommandBuffer transferCommandBuffer = beginCommandBuffer(device,transferCommandPool);
 
 		// region of data to copy from and to
 		VkBufferCopy bufferCopyRegion{};
-		bufferCopyRegion.srcOffset = 0;
-		bufferCopyRegion.dstOffset = 0;
+		bufferCopyRegion.srcOffset = srcOffset;
+		bufferCopyRegion.dstOffset = dstOffset;
 		bufferCopyRegion.size = bufferSize;
 
 		// command to copy src buffer to dst buffer

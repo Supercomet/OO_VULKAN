@@ -36,6 +36,9 @@ VulkanRenderer::~VulkanRenderer()
 	//wait until no actions being run on device before destorying
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
+	g_indexBuffer.destroy();
+	g_vertexBuffer.destroy();
+
 	DestroyImGUI();
 
 	vkDestroyFramebuffer(m_device.logicalDevice, offscreenFramebuffer, nullptr);
@@ -135,7 +138,8 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateDescriptorSets();
 		CreateSynchronisation();
 
-
+		g_indexBuffer.Init(VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+		g_vertexBuffer.Init(VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	
 	}
 	catch (...)
@@ -1456,6 +1460,17 @@ uint32_t VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, 
 	model->indices.count = static_cast<uint32_t>(indices.size());
 	model->vertices.count = static_cast<uint32_t>(vertex.size());
 
+	g_indexBuffer.writeTo( indices.size()*sizeof(uint32_t),indices.data(), g_indexOffset*sizeof(uint32_t) );
+	g_vertexBuffer.writeTo( vertex.size()*sizeof(oGFX::Vertex),vertex.data(), g_vertexOffset*sizeof(oGFX::Vertex));
+
+	model->indices.offset = g_indexOffset;
+	model->vertices.offset = g_vertexOffset;
+
+	g_indexOffset += model->indices.count;
+	g_vertexOffset += model->vertices.count;
+
+	return index;
+
 	{
 		using namespace oGFX;
 		//get size of buffer needed for vertices
@@ -1638,8 +1653,6 @@ void VulkanRenderer::PrePass()
 	vkCmdSetViewport(commandBuffers[swapchainImageIndex], 0, 1, &viewport);
 	vkCmdSetScissor(commandBuffers[swapchainImageIndex], 0, 1, &scissor);
 
-	VkDeviceSize offsets[] = { 0 };	
-
 	vkCmdBindPipeline(commandBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 	std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[swapchainImageIndex],
 		globalSamplers };
@@ -1689,9 +1702,11 @@ void VulkanRenderer::PrePass()
 			sizeof(glm::mat4),			// size of data being pushed
 			glm::value_ptr(xform));		// actualy data being pushed (could be an array));
 
-		vkCmdBindIndexBuffer(commandBuffers[swapchainImageIndex], model.indices.buffer, VkDeviceSize{ 0 }, VK_INDEX_TYPE_UINT32);
-		vkCmdBindVertexBuffers(commandBuffers[swapchainImageIndex], VERTEX_BUFFER_ID, 1, &model.vertices.buffer, offsets);
-		vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, 0, 0, 0);
+
+		VkDeviceSize offsets[] = { 0 };	
+		vkCmdBindIndexBuffer(commandBuffers[swapchainImageIndex], g_indexBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(commandBuffers[swapchainImageIndex], VERTEX_BUFFER_ID, 1,g_vertexBuffer.getBufferPtr(), offsets);
+		vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
 	}
 
 	// End Render  Pass
@@ -1725,10 +1740,6 @@ void VulkanRenderer::SimplePass()
 	vkCmdSetViewport(commandBuffers[swapchainImageIndex], 0, 1, &viewport);
 	vkCmdSetScissor(commandBuffers[swapchainImageIndex], 0, 1, &scissor);
 
-
-	VkDeviceSize offsets[] = { 0 };	
-
-
 	vkCmdBindPipeline(commandBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, wirePipeline);
 	std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[swapchainImageIndex],
 		globalSamplers };
@@ -1758,9 +1769,10 @@ void VulkanRenderer::SimplePass()
 			sizeof(glm::mat4),			// size of data being pushed
 			glm::value_ptr(xform));		// actualy data being pushed (could be an array));
 
-		vkCmdBindIndexBuffer(commandBuffers[swapchainImageIndex], model.indices.buffer, VkDeviceSize{ 0 }, VK_INDEX_TYPE_UINT32);
-		vkCmdBindVertexBuffers(commandBuffers[swapchainImageIndex], VERTEX_BUFFER_ID, 1, &model.vertices.buffer, offsets);
-		vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, 0, 0, 0);
+		VkDeviceSize offsets[] = { 0 };	
+		vkCmdBindIndexBuffer(commandBuffers[swapchainImageIndex], g_indexBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(commandBuffers[swapchainImageIndex], VERTEX_BUFFER_ID, 1,g_vertexBuffer.getBufferPtr(), offsets);
+		vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
 	}
 
 	// End Render  Pass

@@ -107,7 +107,7 @@ namespace oGFX
 		VkBuffer* buffer, VkDeviceMemory* bufferMemory);
 
 	void CopyBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,
-		VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize);
+		VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize, VkDeviceSize dstOffset = 0, VkDeviceSize srcOffset = 0);
 
 	VkCommandBuffer beginCommandBuffer(VkDevice device, VkCommandPool commandPool);
 

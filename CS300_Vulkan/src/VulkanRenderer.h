@@ -14,6 +14,7 @@
 #include "VulkanSwapchain.h"
 #include "VulkanTexture.h"
 #include "VulkanFramebuffer.h"
+#include "GpuBuffer.h"
 #include "gpuCommon.h"
 
 #include "Camera.h"
@@ -104,6 +105,10 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	uint32_t CreateTexture(uint32_t width, uint32_t height,unsigned char* imgData);
 	uint32_t CreateTexture(const std::string& fileName);
 
+	GpuBuffer g_vertexBuffer{&m_device};
+	GpuBuffer g_indexBuffer{ &m_device };
+	size_t g_indexOffset{};
+	size_t g_vertexOffset{};
 	uint32_t LoadMeshFromFile(const std::string& file);
 	uint32_t LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, Model* model);
 	void SetMeshTextures(uint32_t modelID,uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough);

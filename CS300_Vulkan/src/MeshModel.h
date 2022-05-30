@@ -43,11 +43,13 @@ struct Model
 
 	struct Vertices {
 		int count{};
+		uint32_t offset{};
 		VkBuffer buffer{};
 		VkDeviceMemory memory{};
 	} vertices{};
 	struct Indices {
 		int count{};
+		uint32_t offset{};
 		VkBuffer buffer{};
 		VkDeviceMemory memory{};
 	} indices{};
