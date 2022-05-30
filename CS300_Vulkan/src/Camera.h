@@ -9,12 +9,14 @@
 class Camera
 {
 private:
+	static constexpr float EPSILON{ 0.001f };
+
 	float fov{ 60.0f };
 	float znear{ 0.1f }, zfar{ 1000.0f };
 
 	glm::vec3 forward{};
-	glm::vec3 up{0.0f,1.0f,0.0f};
-	glm::vec3 right{};
+	glm::vec3 m_up{0.0f,1.0f,0.0f};
+	glm::vec3 m_right{};
 
 	void updateViewMatrix();
 public:
@@ -55,6 +57,13 @@ public:
 	float GetFarClip();
 
 	void SetPerspective(float fov, float aspect, float znear, float zfar);
+	void SetOrtho(float size, float aspect, float znear, float zfar);
+
+	void LookAt(const glm::vec3& pos, const glm::vec3& target, const glm::vec3& upVec = {0.0f,1.0f,0.0f});
+
+	void LookAtDirection(const glm::vec3& pos, const glm::vec3& direction, const glm::vec3& upVec = {0.0f,1.0f,0.0f});
+
+	void LookFromAngle(float distance, const glm::vec3& target, float vertAngle, float horiAngle);
 
 	void UpdateAspectRatio(float aspect);
 

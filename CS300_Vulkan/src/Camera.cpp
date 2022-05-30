@@ -29,18 +29,18 @@ void Camera::updateViewMatrix()
 	forward = position- target;
 
 
-	right = glm::cross(forward, worldUp);
-	up = glm::cross(forward, right);
+	m_right = glm::cross(forward, worldUp);
+	m_up = glm::cross(forward, m_right);
 
 	forward = glm::normalize(forward);
-	right = glm::normalize(right);
-	up = glm::normalize(up);
+	m_right = glm::normalize(m_right);
+	m_up = glm::normalize(m_up);
 
 	matrices.view = glm::mat4{
-	 right.x,  up.x,  forward.x,  0.0f,
-	 right.y,  up.y,  forward.y,  0.0f,
-	 right.z,  up.z,  forward.z,  0.0f,
-	 -glm::dot(position,right),   -glm::dot(position,up),   -glm::dot(position,forward),  1.0f
+	 m_right.x,  m_up.x,  forward.x,  0.0f,
+	 m_right.y,  m_up.y,  forward.y,  0.0f,
+	 m_right.z,  m_up.z,  forward.z,  0.0f,
+	 -glm::dot(position,m_right),   -glm::dot(position,m_up),   -glm::dot(position,forward),  1.0f
 	};
 
 	updated = true;
@@ -71,6 +71,85 @@ void Camera::SetPerspective(float fov, float aspect, float znear, float zfar)
 		matrices.perspective[1][1] *= -1.0f;
 	}
 }
+
+void Camera::LookAt(const glm::vec3& pos, const glm::vec3& target, const glm::vec3& upVec)
+{
+	LookAtDirection(pos, target - pos, upVec);
+}
+
+void Camera::SetOrtho(float size, float aspect, float znear, float zfar)
+{
+	this->fov = fov;
+	this->znear = znear;
+	this->zfar = zfar;
+	auto h = size / aspect;
+	matrices.perspective = glm::ortho(-size,size,-h,h,znear,zfar);
+	if (flipY) {
+		matrices.perspective[1][1] *= -1.0f;
+	}
+}
+
+void Camera::LookAtDirection(const glm::vec3& pos, const glm::vec3& direction, const glm::vec3& upVec)
+{
+	// Invalid, ignore
+	if (glm::dot(direction,direction) <= EPSILON * EPSILON)
+		return;
+
+	// Save eye position
+	position = pos;
+
+	// Calculate matrix
+	glm::vec3 view = glm::normalize(-direction);
+	glm::vec3 r = glm::normalize(glm::cross(view, upVec));
+	glm::vec3 up = glm::cross(view ,r);
+
+	//matrices.view = glm::identity<glm::mat4>();
+	//matrices.view[0][0] = up.x;
+	//matrices.view[1][0] = up.y;
+	//matrices.view[2][0] = up.z;
+	//matrices.view[0][1] = r.x;
+	//matrices.view[1][1] = r.y;
+	//matrices.view[2][1] = r.z;
+	//matrices.view[0][2] = view.x;
+	//matrices.view[1][2] = view.y;
+	//matrices.view[2][2] = view.z;
+	//matrices.view[3][0] = -glm::dot(up, pos);
+	//matrices.view[3][1] = -glm::dot(r, pos);
+	//matrices.view[3][2] = -glm::dot(view, pos);
+
+	matrices.view = glm::mat4{
+		r.x,  up.x,  view.x,  0.0f,
+		r.y,  up.y,  view.y,  0.0f,
+		r.z,  up.z,  view.z,  0.0f,
+		-glm::dot(position,r),   -glm::dot(position,up),   -glm::dot(position,view),  1.0f
+	};
+
+}
+void Camera::LookFromAngle(float distance, const glm::vec3& target, float vertAngle, float horiAngle)
+{
+	if (distance <= EPSILON)
+		return;
+
+	// Clamp Angles
+	vertAngle = std::clamp(vertAngle, glm::radians(-89.0f), glm::radians(89.0f));
+
+	// Calculate Position
+	float COS_VERT = cos(vertAngle);
+	float SIN_VERT = sin(vertAngle);
+	float COS_HORI = cos(horiAngle);
+	float SIN_HORI = sin(horiAngle);
+
+	position =
+	{
+		target.x + distance * COS_VERT * COS_HORI,
+		target.y + distance * SIN_VERT,
+		target.z + distance * COS_VERT * SIN_HORI
+	};
+
+	// Calculate Up
+	LookAt(position, target);
+}
+
 
 void Camera::UpdateAspectRatio(float aspect)
 {
@@ -174,11 +253,11 @@ glm::vec3 Camera::GetFront()
 }
 glm::vec3 Camera::GetRight()
 {
-	return right;
+	return m_right;
 }
 glm::vec3 Camera::GetUp()
 {
-	return up;
+	return m_up;
 }
 
 

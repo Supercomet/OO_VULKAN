@@ -1649,9 +1649,14 @@ void VulkanRenderer::PrePass()
 	dynamicOffsets[0] = uboDynamicAlignment;	
 
 	{
-		uboViewProjection.projection = glm::mat4(1.0f);
-		uboViewProjection.view = glm::mat4(1.0f);
-		uboViewProjection.cameraPos = glm::vec4(camera.position,1.0);
+		Camera cam;
+		auto ar = (float)windowPtr->m_width / windowPtr->m_height;
+		cam.SetOrtho(10.0f,ar,0.1f,1000.0f);
+		cam.LookFromAngle(5.0f, { 0.0f,0.0f,0.0f }, glm::radians(-90.0f), glm::radians(90.0f));
+
+		uboViewProjection.projection = cam.matrices.perspective;
+		uboViewProjection.view = cam.matrices.view;
+		uboViewProjection.cameraPos = glm::vec4(cam.position,1.0);
 		void *data;
 		vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainImageIndex], uboDynamicAlignment, uboDynamicAlignment, 0, &data);
 		memcpy(data, &uboViewProjection, sizeof(UboViewProjection));

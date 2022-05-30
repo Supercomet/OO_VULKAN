@@ -178,7 +178,7 @@ int main(int argc, char argv[])
     auto lastTime = std::chrono::high_resolution_clock::now();
 
     renderer.camera.type = Camera::CameraType::lookat;
-    renderer.camera.target = glm::vec3(0.0f, 0.0f, 0.0f);
+    renderer.camera.target = glm::vec3(0.01f, 0.0f, 0.0f);
     renderer.camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
     renderer.camera.SetRotationSpeed(0.5f);
     renderer.camera.SetPosition(glm::vec3(0.1f, -2.0f, -10.5f));
