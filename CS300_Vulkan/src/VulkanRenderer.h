@@ -182,6 +182,8 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 		glm::vec3 position{};
 	};
 
+	uint64_t uboDynamicAlignment;
+	uint32_t numCameras;
 	struct UboViewProjection
 	{
 		glm::mat4 projection{ 1.0f };
