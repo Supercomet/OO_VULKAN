@@ -1048,7 +1048,35 @@ void VulkanRenderer::InitImGUI()
 		// TODO make sure all images resize for imgui
 		fbattachments[0] = m_swapchain.swapChainImages[i].imageView;         // A color attachment from the swap chain
 													//fbattachments[1] = m_depthImage.imageView;  // A depth attachment
-		(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i])); 
+		VK_CHK(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i])); 
+	}
+
+}
+
+void VulkanRenderer::ResizeGUIBuffers()
+{
+	for(uint32_t i = 0; i < m_imguiConfig.buffers.size(); i++) 
+	{      
+		vkDestroyFramebuffer(m_device.logicalDevice, m_imguiConfig.buffers[i], nullptr);
+	}
+	// Create frame buffers for every swap chain image
+	// We need to do this because ImGUI only cares about the colour attachment.
+	std::array<VkImageView, 2> fbattachments{};
+	VkFramebufferCreateInfo _ci{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+	_ci.renderPass      = m_imguiConfig.renderPass;
+	_ci.width           = m_swapchain.swapChainExtent.width;
+	_ci.height          =  m_swapchain.swapChainExtent.height;
+	_ci.layers          = 1;
+	_ci.attachmentCount = 1;
+	_ci.pAttachments    = fbattachments.data();
+	m_imguiConfig.buffers.resize(m_swapchain.swapChainImages.size());
+
+	for(uint32_t i = 0; i < m_swapchain.swapChainImages.size(); i++) 
+	{
+		// TODO make sure all images resize for imgui
+		fbattachments[0] = m_swapchain.swapChainImages[i].imageView;         // A color attachment from the swap chain
+																			 //fbattachments[1] = m_depthImage.imageView;  // A depth attachment
+		VK_CHK(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i])); 
 	}
 
 }
@@ -1086,12 +1114,13 @@ void VulkanRenderer::DestroyImGUI()
 
 void VulkanRenderer::UpdateIndirectCommands()
 {
-	return;
+	
 	indirectCommands.clear();
 	// Create on indirect command for node in the scene with a mesh attached to it
 	uint32_t m = 0;
 	for (auto& model :models)
 	{
+		// TODO: check if this works with complex model
 		for (auto& node: model.nodes)
 		{
 			for(auto& child : node->children)
@@ -1117,20 +1146,22 @@ void VulkanRenderer::UpdateIndirectCommands()
 			}
 			if (node->meshes.size())
 			{
-				VkDrawIndexedIndirectCommand indirectCmd{};
-				indirectCmd.instanceCount = OBJECT_INSTANCE_COUNT;
-				indirectCmd.firstInstance = m * OBJECT_INSTANCE_COUNT;
-				// @todo: Multiple primitives
-				// A glTF node may consist of multiple primitives, so we may have to do multiple commands per mesh
-				indirectCmd.firstIndex = node->meshes[0]->indicesOffset;
-				indirectCmd.indexCount = node->meshes[0]->indicesCount;
+				for (size_t i = 0; i < OBJECT_INSTANCE_COUNT; i++)
+				{
+					VkDrawIndexedIndirectCommand indirectCmd{};
+					indirectCmd.instanceCount = 1;
+					indirectCmd.firstInstance = m*OBJECT_INSTANCE_COUNT + i;
 
-				indirectCmd.vertexOffset = node->meshes[0]->vertexOffset;
+					// @todo: Multiple primitives
+					// A glTF node may consist of multiple primitives, so we may have to do multiple commands per mesh
+					indirectCmd.firstIndex = node->meshes[0]->indicesOffset;
+					indirectCmd.indexCount = node->meshes[0]->indicesCount;
+					indirectCmd.vertexOffset = node->meshes[0]->vertexOffset;
 
-				// for counting
-				//vertexCount += node->meshes[0]->vertexCount;
-				indirectCommands.push_back(indirectCmd);
-
+					// for counting
+					//vertexCount += node->meshes[0]->vertexCount;
+					indirectCommands.push_back(indirectCmd);
+				}
 				m++;
 			}
 		}
@@ -1140,7 +1171,7 @@ void VulkanRenderer::UpdateIndirectCommands()
 	indirectDrawCount = static_cast<uint32_t>(indirectCommands.size());
 
 	objectCount = 0;
-	for (auto indirectCmd : indirectCommands)
+	for (auto& indirectCmd : indirectCommands)
 	{
 		objectCount += indirectCmd.instanceCount;
 	}
@@ -1170,7 +1201,6 @@ void VulkanRenderer::UpdateIndirectCommands()
 
 void VulkanRenderer::UpdateInstanceData()
 {
-	return;
 	if (instanceBuffer.size != 0) return;
 	
 	using namespace std::chrono;
@@ -1180,58 +1210,60 @@ void VulkanRenderer::UpdateInstanceData()
 	std::vector<oGFX::InstanceData> instanceData;
 	instanceData.resize(objectCount);
 
-	constexpr float radius = 1000.0f;
-	constexpr float offset = 2000.0f;
+	constexpr float radius = 10.0f;
+	constexpr float offset = 10.0f;
 
 	{
-
-	glm::mat4 matrix = glm::mat4(1.0f); 
-	float scale = 0.01f;
-	matrix = glm::scale(matrix, glm::vec3(scale));
-	matrix = glm::translate(matrix, glm::vec3(0.0f));
-	instanceData[0].matrix = matrix; 
-	instanceData[0].albedo = models[0].textures.albedo;
-	instanceData[0].normal = models[0].textures.normal;
-	instanceData[0].occlusion = models[0].textures.occlusion;
-	instanceData[0].roughness = models[0].textures.roughness;
+		glm::mat4 matrix = glm::mat4(1.0f); 
+		float scale = 0.01f;
+		matrix = glm::scale(matrix, glm::vec3(scale));
+		matrix = glm::translate(matrix, glm::vec3(0.0f));
+		instanceData[0].matrix = matrix; 
+		instanceData[0].albedo = models[0].textures.albedo;
+		instanceData[0].normal = models[0].textures.normal;
+		instanceData[0].occlusion = models[0].textures.occlusion;
+		instanceData[0].roughness = models[0].textures.roughness;
 	}
 
-	for (uint32_t i = 1; i < objectCount; i++) {
-		float theta = 2 * float(glm::pi<float>()) * uniformDist(rndEngine);
-		float phi = acos(1 - 2 * uniformDist(rndEngine));
-		float scale = 0.001f + uniformDist(rndEngine) * 0.005f;
-		
-		glm::vec3 pos = glm::vec3(sin(phi) * cos(theta), 0.0f, cos(phi)) * radius;
-		pos += glm::normalize(pos-glm::vec3(0.0f)) * offset;
+	for (uint32_t m = 1; m < models.size(); m++)
+	{
+		for (uint32_t i = 1; i < objectCount; i++) {
+			float theta = 2 * float(glm::pi<float>()) * uniformDist(rndEngine);
+			float phi = acos(1 - 2 * uniformDist(rndEngine));
+			float scale = 0.5f+uniformDist(rndEngine) * 0.5f;
+			
+			glm::vec3 pos = glm::vec3(sin(phi) * cos(theta), 0.0f, cos(phi)) * radius;
+			pos += glm::normalize(pos-glm::vec3(0.0f)) * offset;
 
-		glm::mat4 matrix = glm::mat4(1.0f); 
-		matrix = glm::scale(matrix, glm::vec3(scale));
-		matrix = glm::rotate(matrix, theta, glm::vec3(0.0f,1.0f,0.0f));
-		matrix = glm::translate(matrix, pos);
+			glm::mat4 matrix = glm::mat4(1.0f); 
+			matrix = glm::scale(matrix, glm::vec3(scale));
+			matrix = glm::rotate(matrix, theta, glm::vec3(0.0f,1.0f,0.0f));
+			matrix = glm::translate(matrix, pos);
 
-		instanceData[i].matrix = matrix; 
+			instanceData[i].matrix = matrix; 
 
-		auto val = (1) / OBJECT_INSTANCE_COUNT;
-		val = 1;
-		if (val == 1)
-		{
-			instanceData[i].albedo =  1;
+			auto val = (1) / OBJECT_INSTANCE_COUNT;
+			val = 1;
+			if (val == 1)
+			{
+				instanceData[i].albedo =  1;
+			}
+			if (val == 2)
+			{
+				instanceData[i].albedo =  2;
+			}
+			if (val == 0)
+			{
+				instanceData[i].albedo =  1;
+			}
+			
+			instanceData[i].albedo = static_cast<uint32_t>(models[0].textures.albedo + uniformDist(rndEngine) * 100);
+			instanceData[i].normal = models[0].textures.normal;
+			instanceData[i].occlusion = models[0].textures.occlusion;
+			instanceData[i].roughness = models[0].textures.roughness;
+			//instanceData[i].albedo = uniformDist(rndEngine) * 4;
+			//instanceData[i].albedo = models[0].nodes[0]->meshes[0]->textureIndex;
 		}
-		if (val == 2)
-		{
-			instanceData[i].albedo =  2;
-		}
-		if (val == 0)
-		{
-			instanceData[i].albedo =  1;
-		}
-		
-		instanceData[i].albedo = static_cast<uint32_t>(models[0].textures.albedo + uniformDist(rndEngine) * 100);
-		instanceData[i].normal = models[0].textures.normal;
-		instanceData[i].occlusion = models[0].textures.occlusion;
-		instanceData[i].roughness = models[0].textures.roughness;
-		//instanceData[i].albedo = uniformDist(rndEngine) * 4;
-		//instanceData[i].albedo = models[0].nodes[0]->meshes[0]->textureIndex;
 	}
 
 	vk::Buffer stagingBuffer;
@@ -1380,6 +1412,8 @@ bool VulkanRenderer::ResizeSwapchain()
 	CreateDepthBufferImage();
 	CreateFramebuffers();
 
+	ResizeGUIBuffers();
+
 	return true;
 }
 
@@ -1455,18 +1489,26 @@ uint32_t VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, 
 		index = models.size();
 		models.emplace_back(std::move(Model()));
 		model = &models[index];
+		Node* n = new Node{};
+		oGFX::Mesh* msh = new oGFX::Mesh{};
+		msh->indicesOffset = g_indexOffset;
+		msh->vertexOffset = g_vertexOffset;
+		msh->indicesCount = static_cast<uint32_t>(indices.size());
+		msh->vertexCount = static_cast<uint32_t>(vertex.size());;
+		n->meshes.push_back(msh);
+		model->nodes.push_back(n);
 	}
 
 	model->indices.count = static_cast<uint32_t>(indices.size());
 	model->vertices.count = static_cast<uint32_t>(vertex.size());
 
-	g_indexBuffer.writeTo( indices.size()*sizeof(uint32_t),indices.data(), g_indexOffset*sizeof(uint32_t) );
-	g_vertexBuffer.writeTo( vertex.size()*sizeof(oGFX::Vertex),vertex.data(), g_vertexOffset*sizeof(oGFX::Vertex));
+	g_indexBuffer.writeTo(indices.size() * sizeof(uint32_t), indices.data(), g_indexOffset* sizeof(uint32_t));
+	g_vertexBuffer.writeTo(vertex.size() * sizeof(oGFX::Vertex), vertex.data(), g_vertexOffset* sizeof(oGFX::Vertex));
 
 	model->indices.offset = g_indexOffset;
 	model->vertices.offset = g_vertexOffset;
 
-	g_indexOffset += model->indices.count;
+	g_indexOffset += model->indices.count ;
 	g_vertexOffset += model->vertices.count;
 
 	return index;
@@ -1869,8 +1911,6 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 
 	
 	 vkCmdBindPipeline(commandBuffers[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeline);
-	 //std::cout << "Light pos [" << light.position.x << ", " << light.position.y << ", " << light.position.z<<"] ";
-	 //std::cout << "\tCamera pos [" << camera.position.x << ", " << camera.position.y << ", " << camera.position.z<<"]\n";
 	 
 	 vkCmdPushConstants(commandBuffers[currentImage],
 		 indirectPipeLayout,
@@ -1878,15 +1918,17 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 		 0,							// offset of push constants to update
 		 sizeof(LightData),			// size of data being pushed
 		 &light);		// actualy data being pushed (could be an array));
+
+	 uint32_t dynamicOffset[] = { 0 };
 	
 	vkCmdBindDescriptorSets(commandBuffers[currentImage],VK_PIPELINE_BIND_POINT_GRAPHICS,indirectPipeLayout,
-		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0 /*1*/, nullptr /*&dynamicOffset*/);
-	 vkCmdBindVertexBuffers(commandBuffers[currentImage], VERTEX_BUFFER_ID, 1, &models[0].vertices.buffer, offsets);
+		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, dynamicOffset);
+	 vkCmdBindVertexBuffers(commandBuffers[currentImage], VERTEX_BUFFER_ID, 1, g_vertexBuffer.getBufferPtr(), offsets);
 
 	 // Binding point 1 : Instance data buffer
 	 vkCmdBindVertexBuffers(commandBuffers[currentImage], INSTANCE_BUFFER_ID, 1, &instanceBuffer.buffer, offsets);
 
-	 vkCmdBindIndexBuffer(commandBuffers[currentImage], models[0].indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+	 vkCmdBindIndexBuffer(commandBuffers[currentImage], g_indexBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	 if (m_device.enabledFeatures.multiDrawIndirect)
 	 {
 		 vkCmdDrawIndexedIndirect(commandBuffers[currentImage], indirectCommandsBuffer.buffer, 0, indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));

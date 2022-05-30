@@ -78,6 +78,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	};
 	ImGUIStructures m_imguiConfig;
 	void InitImGUI();
+	void ResizeGUIBuffers();
 	void DrawGUI();
 	void DestroyImGUI();
 

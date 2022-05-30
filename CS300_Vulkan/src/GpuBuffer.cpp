@@ -12,9 +12,9 @@ GpuBuffer::GpuBuffer(VulkanDevice* device) :
 
 void GpuBuffer::Init(VkBufferUsageFlags usage)
 {
-	oGFX::CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, 1, usage,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_buffer, &m_gpuMemory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
-	m_usage = usage;
+	m_usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+	oGFX::CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, 1, m_usage,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_buffer, &m_gpuMemory);
 }
 
 void GpuBuffer::writeTo(size_t writeSize, void* data, size_t offset)

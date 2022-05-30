@@ -154,21 +154,21 @@ int main(int argc, char argv[])
    //renderer.SubmitMesh(yes, position);
 
    //create a hundred random textures because why not
-   //std::default_random_engine rndEngine(123456);
-   //std::uniform_int_distribution<uint32_t> uniformDist( 0xFF000000, 0xFFFFFFFF );
-   //std::vector<oGFX::InstanceData> instanceData;
-   //constexpr size_t numTex = 100;
-   //constexpr size_t dims = 2;
-   //std::vector<uint32_t> bitmap(dims*dims);
-   //for (size_t i = 0; i < numTex; i++)
-   //{
-   //    for (size_t x = 0; x < bitmap.size(); x++)
-   //    {
-   //    uint32_t colour = uniformDist(rndEngine); // ABGR
-   //     bitmap[x] = colour;
-   //    }
-   //    renderer.CreateTexture(dims, dims, reinterpret_cast<unsigned char*>(bitmap.data()));
-   //}
+   std::default_random_engine rndEngine(123456);
+   std::uniform_int_distribution<uint32_t> uniformDist( 0xFF000000, 0xFFFFFFFF );
+   std::vector<oGFX::InstanceData> instanceData;
+   constexpr size_t numTex = 100;
+   constexpr size_t dims = 2;
+   std::vector<uint32_t> bitmap(dims*dims);
+   for (size_t i = 0; i < numTex; i++)
+   {
+       for (size_t x = 0; x < bitmap.size(); x++)
+       {
+       uint32_t colour = uniformDist(rndEngine); // ABGR
+        bitmap[x] = colour;
+       }
+       renderer.CreateTexture(dims, dims, reinterpret_cast<unsigned char*>(bitmap.data()));
+   }
 
    glm::mat4 xform{ 1.0f };
    xform = glm::translate(xform, glm::vec3(-3.0f, 0.0f, -3.0f));
@@ -236,8 +236,8 @@ int main(int argc, char argv[])
         {
             renderer.Draw();
             renderer.PrePass();
-            renderer.SimplePass();
-            //renderer.RecordCommands(renderer.swapchainImageIndex);
+            //renderer.SimplePass();
+            renderer.RecordCommands(renderer.swapchainImageIndex);
 
             // Create a dockspace over the mainviewport so that we can dock stuff
             ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), 
