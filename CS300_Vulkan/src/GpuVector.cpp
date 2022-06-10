@@ -1,23 +1,23 @@
-#include "GpuBuffer.h"
+#include "GpuVector.h"
 #include "VulkanUtils.h"
 
 
 #include "VulkanDevice.h"
 
-GpuBuffer::GpuBuffer(VulkanDevice* device) :
+GpuVector::GpuVector(VulkanDevice* device) :
 	m_device{ device }
 {
 	
 }
 
-void GpuBuffer::Init(VkBufferUsageFlags usage)
+void GpuVector::Init(VkBufferUsageFlags usage)
 {
 	m_usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	oGFX::CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, 1, m_usage,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_buffer, &m_gpuMemory);
 }
 
-void GpuBuffer::writeTo(size_t writeSize, void* data, size_t offset)
+void GpuVector::writeTo(size_t writeSize, void* data, size_t offset)
 {
 	if ((writeSize + offset) > m_capacity)
 	{
@@ -52,13 +52,13 @@ void GpuBuffer::writeTo(size_t writeSize, void* data, size_t offset)
 
 }
 
-void GpuBuffer::resize(size_t size)
+void GpuVector::resize(size_t size)
 {
 	reserve(size);
 	m_size = size;	
 }
 
-void GpuBuffer::reserve(size_t size)
+void GpuVector::reserve(size_t size)
 {
 
 	if (size < m_capacity) return;
@@ -86,29 +86,29 @@ void GpuBuffer::reserve(size_t size)
 	m_capacity = size;
 }
 
-size_t GpuBuffer::size() const
+size_t GpuVector::size() const
 {
 	return m_size;
 }
 
-VkBuffer GpuBuffer::getBuffer() const
+VkBuffer GpuVector::getBuffer() const
 {
 	return m_buffer;
 }
 
-const VkBuffer* GpuBuffer::getBufferPtr() const
+const VkBuffer* GpuVector::getBufferPtr() const
 {
 	return &m_buffer;
 }
 
-void GpuBuffer::destroy()
+void GpuVector::destroy()
 {
 	//clean up old buffer
 	vkDestroyBuffer(m_device->logicalDevice, m_buffer, nullptr);
 	vkFreeMemory(m_device->logicalDevice, m_gpuMemory, nullptr);
 }
 
-void GpuBuffer::clear()
+void GpuVector::clear()
 {
 	m_size = 0;
 }

@@ -3,9 +3,9 @@
 
 struct VulkanDevice;
 
-class GpuBuffer{
+class GpuVector{
 public:
-	GpuBuffer(VulkanDevice* device);
+	GpuVector(VulkanDevice* device);
 	void Init(VkBufferUsageFlags usage);
 
 	void writeTo(size_t size, void* data, size_t offset = 0);

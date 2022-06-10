@@ -76,10 +76,22 @@ int main(int argc, char argv[])
     catch (...)
     {
         std::cout << "Cannot create vulkan instance!"<< std::endl;
+        return 0;
     }
 
     uint32_t colour = 0xFFFFFFFF; // ABGR
     renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&colour));
+
+    std::vector<oGFX::Vertex>planeVerts{
+        oGFX::Vertex{ {-0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ {-0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+    };
+    std::vector<uint32_t>planeIndices{
+        0,2,1,2,0,3
+    };
+
 
     std::vector<oGFX::Vertex>quadVerts{
             oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
@@ -120,9 +132,10 @@ int main(int argc, char argv[])
     //uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
     //uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
 
-    uint32_t ball = renderer.LoadMeshFromFile("Models/icosphere.obj");
+    uint32_t ball = renderer.LoadMeshFromFile("Models/sphere.obj");
     uint32_t box = renderer.LoadMeshFromBuffers(boxverts, boxindices, nullptr);
     uint32_t triangle = renderer.LoadMeshFromBuffers(quadVerts, quadIndices, nullptr);
+    uint32_t plane = renderer.LoadMeshFromBuffers(planeVerts, planeIndices, nullptr);
 
     glm::mat4 id(1.0f);
 
@@ -136,7 +149,10 @@ int main(int argc, char argv[])
     ed.modelID = triangle;
     ed.pos = { 0.0f,0.0f,0.0f };
     renderer.entities.push_back(ed);
-
+    ed.modelID = plane;
+    ed.pos = { 0.0f,-2.0f,0.0f };
+    ed.scale = { 30.0f,30.0f,30.0f };
+    renderer.entities.push_back(ed);
     
     //uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");
     //uint32_t obj = renderer.CreateMeshModel(verts, indices);
@@ -234,10 +250,14 @@ int main(int argc, char argv[])
 
         if (renderer.PrepareFrame() == true)
         {
+            renderer.timer += deltaTime*0.25f;
+            renderer.UpdateLightBuffer();
             renderer.Draw();
             renderer.PrePass();
+            renderer.Deferred();
             //renderer.SimplePass();
-            renderer.RecordCommands(renderer.swapchainImageIndex);
+            //renderer.RecordCommands(renderer.swapchainImageIndex);
+            renderer.DeferredComposition();
 
             // Create a dockspace over the mainviewport so that we can dock stuff
             ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), 

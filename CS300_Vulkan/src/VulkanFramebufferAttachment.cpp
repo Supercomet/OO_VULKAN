@@ -1,8 +1,8 @@
-#include "VulkanFramebuffer.h"
+#include "VulkanFramebufferAttachment.h"
 #include <assert.h>
 #include "VulkanUtils.h"
 
-void VulkanFramebuffer::createAttachment(VulkanDevice& indevice,uint32_t width, uint32_t height,
+void VulkanFramebufferAttachment::createAttachment(VulkanDevice& indevice,uint32_t width, uint32_t height,
 	VkFormat format, VkImageUsageFlagBits usage)
 {
 	VkImageAspectFlags aspectMask = 0;
@@ -18,7 +18,7 @@ void VulkanFramebuffer::createAttachment(VulkanDevice& indevice,uint32_t width, 
 	}
 	if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
 	{
-		aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;// | VK_IMAGE_ASPECT_STENCIL_BIT;
 		imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	}
 
@@ -63,7 +63,7 @@ void VulkanFramebuffer::createAttachment(VulkanDevice& indevice,uint32_t width, 
 	VK_CHK(vkCreateImageView(device, &imageView, nullptr, &this->view));
 }
 
-void VulkanFramebuffer::destroy(VkDevice device)
+void VulkanFramebufferAttachment::destroy(VkDevice device)
 {
 	vkDestroyImageView(device, view, nullptr);
 	vkDestroyImage(device, image, nullptr);

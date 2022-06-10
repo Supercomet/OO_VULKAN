@@ -4,7 +4,7 @@
 #include "VulkanDevice.h"
 
 //Framebuffer for offscreen rendering
-struct VulkanFramebuffer
+struct VulkanFramebufferAttachment
 {
 	VkImage image;
 	VkDeviceMemory mem;
@@ -21,7 +21,7 @@ struct FrameBuffer
 {
 	int32_t width, height;
 	VkFramebuffer frameBuffer;
-	VulkanFramebuffer position, normal, albedo;
-	VulkanFramebuffer depth;
+	VulkanFramebufferAttachment position, normal, albedo;
+	VulkanFramebufferAttachment depth;
 	VkRenderPass renderPass;
 };

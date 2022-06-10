@@ -13,9 +13,13 @@
 #include "VulkanDevice.h"
 #include "VulkanSwapchain.h"
 #include "VulkanTexture.h"
-#include "VulkanFramebuffer.h"
-#include "GpuBuffer.h"
+#include "VulkanBuffer.h"
+#include "VulkanFramebufferAttachment.h"
+#include "GpuVector.h"
 #include "gpuCommon.h"
+#include "DescriptorBuilder.h"
+#include "DescriptorAllocator.h"
+#include "DescriptorLayoutCache.h"
 
 #include "Camera.h"
 
@@ -58,12 +62,53 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	void CreateTextureSampler();
 
 	ImTextureID myImg;
-	VulkanFramebuffer offscreenFB;
-	VulkanFramebuffer offscreenDepth;
+	VulkanFramebufferAttachment offscreenFB;
+	VulkanFramebufferAttachment offscreenDepth;
 	VkFramebuffer offscreenFramebuffer;
 	VkRenderPass offscreenPass;
 	void CreateOffscreenPass();
 	void CreateOffscreenFB();
+	void ResizeOffscreenFB();
+
+	ImTextureID deferredImg[4]{};
+	VulkanFramebufferAttachment att_albedo;
+	VulkanFramebufferAttachment att_position;
+	VulkanFramebufferAttachment att_normal;
+	VulkanFramebufferAttachment att_depth;
+	VkFramebuffer deferredFB;
+	VkSampler deferredSampler;
+	VkRenderPass deferredPass;
+	//VkPipelineLayout deferredPipeLayout; // stealing from pipeline
+	VkPipeline deferredPipe;
+	void CreateDeferredPass();
+	void CreateDeferredPipeline();
+	void CreateDeferredFB();
+	void ResizeDeferredFB();
+	void Deferred();
+	void CleanupDeferredStuff();
+
+	struct Light {
+		glm::vec4 position;
+		glm::vec3 color;
+		float radius;
+	};
+
+	struct LightUBO{
+		Light lights[6];
+		glm::vec4 viewPos;
+	} lightUBO;
+	float timer{};
+
+	VkRenderPass compositionPass;
+	VkPipelineLayout compositionPipeLayout;
+	VkPipeline compositionPipe;
+	VkDescriptorSet deferredSet;
+	VkDescriptorSetLayout deferredSetLayout;
+	vk::Buffer lightsBuffer;
+	void CreateCompositionBuffers(); 
+	void CreateDeferredDescriptorSet();
+	void DeferredComposition();
+	void UpdateLightBuffer();
 
 	void CreateSynchronisation();
 	void CreateUniformBuffers();
@@ -106,8 +151,8 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	uint32_t CreateTexture(uint32_t width, uint32_t height,unsigned char* imgData);
 	uint32_t CreateTexture(const std::string& fileName);
 
-	GpuBuffer g_vertexBuffer{&m_device};
-	GpuBuffer g_indexBuffer{ &m_device };
+	GpuVector g_vertexBuffer{&m_device};
+	GpuVector g_indexBuffer{ &m_device };
 	size_t g_indexOffset{};
 	size_t g_vertexOffset{};
 	uint32_t LoadMeshFromFile(const std::string& file);
@@ -154,6 +199,11 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	// - Descriptors
 	VkDescriptorSetLayout descriptorSetLayout{};
 	VkDescriptorSetLayout samplerSetLayout{};
+	struct PushConstData
+	{
+		glm::mat4 xform{};
+		glm::vec3 light{};
+	};
 	VkPushConstantRange pushConstantRange{};
 
 	VkDescriptorPool descriptorPool{};
@@ -166,6 +216,8 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	std::vector<VkBuffer> vpUniformBuffer;
 	std::vector<VkDeviceMemory> vpUniformBufferMemory;
 
+	DescriptorAllocator DescAlloc;
+	DescriptorLayoutCache DescLayoutCache;
 
 	VkImage depthBufferImage{};
 	VkDeviceMemory depthBufferImageMemory{};

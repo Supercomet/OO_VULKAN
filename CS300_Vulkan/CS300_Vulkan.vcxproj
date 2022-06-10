@@ -26,10 +26,13 @@
     <ClCompile Include="..\vendor\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="src\DescriptorBuilder.cpp" />
+    <ClCompile Include="src\DescriptorLayoutCache.cpp" />
+    <ClCompile Include="src\DescriptorAllocator.cpp" />
     <ClCompile Include="src\Collision.cpp" />
     <ClCompile Include="src\DDSLoader.cpp" />
     <ClCompile Include="src\Geometry.cpp" />
-    <ClCompile Include="src\GpuBuffer.cpp" />
+    <ClCompile Include="src\GpuVector.cpp" />
     <ClCompile Include="src\Node.cpp" />
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\Input.cpp" />
@@ -38,7 +41,7 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\stbi_impl.cpp" />
     <ClCompile Include="src\Tests_Assignment1.cpp" />
-    <ClCompile Include="src\VulkanFramebuffer.cpp" />
+    <ClCompile Include="src\VulkanFramebufferAttachment.cpp" />
     <ClCompile Include="src\VulkanInstance.cpp" />
     <ClCompile Include="src\VulkanRenderer.cpp" />
     <ClCompile Include="src\VulkanDevice.cpp" />
@@ -50,11 +53,14 @@
     <ClCompile Include="src\tinyddsloader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\DescriptorBuilder.h" />
+    <ClInclude Include="src\DescriptorLayoutCache.h" />
+    <ClInclude Include="src\DescriptorAllocator.h" />
     <ClInclude Include="src\DDSLoader.h" />
     <ClInclude Include="src\Geometry.h" />
     <ClInclude Include="src\Collision.h" />
-    <ClInclude Include="src\GpuBuffer.h" />
-    <ClInclude Include="src\VulkanFramebuffer.h" />
+    <ClInclude Include="src\GpuVector.h" />
+    <ClInclude Include="src\VulkanFramebufferAttachment.h" />
     <ClInclude Include="src\Node.h" />
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\Input.h" />

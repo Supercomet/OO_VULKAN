@@ -41,6 +41,16 @@ VulkanRenderer::~VulkanRenderer()
 
 	DestroyImGUI();
 
+	DescLayoutCache.Cleanup();
+	DescAlloc.Cleanup();
+
+	CleanupDeferredStuff();
+	lightsBuffer.destroy();
+
+	vkDestroyPipelineLayout(m_device.logicalDevice, compositionPipeLayout, nullptr);
+	//vkDestroyPipeline(m_device.logicalDevice, deferredPipe, nullptr);
+	vkDestroyPipeline(m_device.logicalDevice, compositionPipe, nullptr);
+
 	vkDestroyFramebuffer(m_device.logicalDevice, offscreenFramebuffer, nullptr);
 	offscreenFB.destroy(m_device.logicalDevice);
 	offscreenDepth.destroy(m_device.logicalDevice);
@@ -64,6 +74,7 @@ VulkanRenderer::~VulkanRenderer()
 	instanceBuffer.destroy();
 	indirectCommandsBuffer.destroy();
 
+	// global sampler pool
 	vkDestroyDescriptorPool(m_device.logicalDevice, samplerDescriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(m_device.logicalDevice, samplerSetLayout, nullptr);
 
@@ -77,8 +88,8 @@ VulkanRenderer::~VulkanRenderer()
 	}
 
 	vkDestroyDescriptorPool(m_device.logicalDevice, descriptorPool, nullptr);
-	vkDestroyDescriptorSetLayout(m_device.logicalDevice, descriptorSetLayout, nullptr);
-	for (size_t i = 0; i < m_swapchain.swapChainImages.size(); i++)
+	//vkDestroyDescriptorSetLayout(m_device.logicalDevice, descriptorSetLayout, nullptr);
+	for (size_t i = 0; i < vpUniformBuffer.size(); i++)
 	{
 		vkDestroyBuffer(m_device.logicalDevice, vpUniformBuffer[i], nullptr);
 		vkFreeMemory(m_device.logicalDevice, vpUniformBufferMemory[i], nullptr);
@@ -86,7 +97,7 @@ VulkanRenderer::~VulkanRenderer()
 
 	vkDestroySampler(m_device.logicalDevice, textureSampler, nullptr);
 
-	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
+	for (size_t i = 0; i < drawFences.size(); i++)
 	{
 		vkDestroyFence(m_device.logicalDevice, drawFences[i], nullptr);
 		vkDestroySemaphore(m_device.logicalDevice, renderFinished[i], nullptr);
@@ -119,6 +130,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateLogicalDevice();
 		SetupSwapchain();
 		CreateRenderpass();
+		CreateUniformBuffers();
 		CreateDescriptorSetLayout();
 		CreatePushConstantRange();
 		CreateGraphicsPipeline();
@@ -130,13 +142,18 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		CreateOffscreenPass();
 		CreateOffscreenFB();
+		CreateCompositionBuffers();
+		CreateDeferredPass();
+		CreateDeferredFB();
 
 		CreateCommandBuffers();
 		CreateTextureSampler();
-		CreateUniformBuffers();
 		CreateDescriptorPool();
 		CreateDescriptorSets();
 		CreateSynchronisation();
+
+		CreateDeferredDescriptorSet();
+		CreateDeferredPipeline();
 
 		g_indexBuffer.Init(VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 		g_vertexBuffer.Init(VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -278,27 +295,62 @@ void VulkanRenderer::CreateRenderpass()
 	{
 		throw std::runtime_error("Failed to create Render Pass");
 	}
+
+	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	result = vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &compositionPass);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create Render Pass");
+	}
 }
 
 void VulkanRenderer::CreateDescriptorSetLayout()
 {
+
+	DescAlloc.Init(m_device.logicalDevice);
+	DescLayoutCache.Init(m_device.logicalDevice);
+
+	VkPhysicalDeviceProperties props;
+	vkGetPhysicalDeviceProperties(m_device.physicalDevice,&props);
+	size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
+	//auto dynamicAlignment = sizeof(glm::mat4);
+	uboDynamicAlignment = sizeof(UboViewProjection);
+	if (minUboAlignment > 0) {
+		uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
+	}
+
+	numCameras = 2;
+	VkDeviceSize vpBufferSize = uboDynamicAlignment * numCameras;
+
+
+	descriptorSets.resize(m_swapchain.swapChainImages.size());
+	for (size_t i = 0; i < m_swapchain.swapChainImages.size(); i++)
+	{
+		VkDescriptorBufferInfo vpBufferInfo{};
+		vpBufferInfo.buffer = vpUniformBuffer[i];	// buffer to get data from
+		vpBufferInfo.offset = 0;					// position of start of data
+		vpBufferInfo.range = sizeof(UboViewProjection);			// size of data
+		DescriptorBuilder::Begin(&DescLayoutCache, &DescAlloc)
+			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT)
+			.Build(descriptorSets[i],descriptorSetLayout);
+	}
 	//UNIFORM VALUES DESCRIPTOR SET LAYOUT
 	// UboViewProejction binding info
-	VkDescriptorSetLayoutBinding vpLayoutBinding = 
-		oGFX::vk::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT, 0);
-
-	std::vector<VkDescriptorSetLayoutBinding> layoutBindings = { vpLayoutBinding/*, modelLayoutBinding*/ };
-
-	// Create Descriptor Set Layout with given bindings
-	VkDescriptorSetLayoutCreateInfo layoutCreateInfo = 
-		oGFX::vk::inits::descriptorSetLayoutCreateInfo(layoutBindings.data(),static_cast<uint32_t>(layoutBindings.size()));		
-
-																					// Create descriptor set layout
-	VkResult result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &layoutCreateInfo, nullptr, &descriptorSetLayout);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create a descriptor set layout!");
-	}
+	//VkDescriptorSetLayoutBinding vpLayoutBinding = 
+	//	oGFX::vk::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT, 0);
+	//
+	//std::vector<VkDescriptorSetLayoutBinding> layoutBindings = { vpLayoutBinding/*, modelLayoutBinding*/ };
+	//
+	//// Create Descriptor Set Layout with given bindings
+	//VkDescriptorSetLayoutCreateInfo layoutCreateInfo = 
+	//	oGFX::vk::inits::descriptorSetLayoutCreateInfo(layoutBindings.data(),static_cast<uint32_t>(layoutBindings.size()));		
+	//
+	//																				// Create descriptor set layout
+	//VkResult result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &layoutCreateInfo, nullptr, &descriptorSetLayout);
+	//if (result != VK_SUCCESS)
+	//{
+	//	throw std::runtime_error("Failed to create a descriptor set layout!");
+	//}
 
 	// CREATE TEXTURE SAMPLER DESCRIPTOR SET LAYOUT
 	// Texture binding info
@@ -323,7 +375,7 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 	textureLayoutCreateInfo.pNext = &flaginfo;
 
 
-	result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &textureLayoutCreateInfo, nullptr, &samplerSetLayout);
+	VkResult result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &textureLayoutCreateInfo, nullptr, &samplerSetLayout);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a descriptor set layout!");
@@ -335,7 +387,7 @@ void VulkanRenderer::CreatePushConstantRange()
 {
 	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; //shader stage push constant will go to
 	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(glm::mat4);
+	pushConstantRange.size = sizeof(PushConstData);
 }
 
 void VulkanRenderer::CreateGraphicsPipeline()
@@ -346,7 +398,6 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	//how the data for a single vertex (including infos such as pos, colour, texture, coords, normals etc) is as a whole
 	std::vector<VkVertexInputBindingDescription> bindingDescription {	
 		oGFX::vk::inits::vertexInputBindingDescription(VERTEX_BUFFER_ID,sizeof(Vertex),VK_VERTEX_INPUT_RATE_VERTEX),
-
 		oGFX::vk::inits::vertexInputBindingDescription(INSTANCE_BUFFER_ID,sizeof(oGFX::InstanceData),VK_VERTEX_INPUT_RATE_INSTANCE),
 	};
 
@@ -621,7 +672,7 @@ void VulkanRenderer::CreateOffscreenPass()
 																		//to give optimal use for certain operations
 	colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; //image data layout before render pass starts
 																//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
-	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_GENERAL; //image data layout aftet render pass ( to change to)
+	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; //image data layout aftet render pass ( to change to)
 
 																	   // Depth attachment of render pass
 	VkAttachmentDescription depthAttachment{};
@@ -703,12 +754,6 @@ void VulkanRenderer::CreateOffscreenPass()
 void VulkanRenderer::CreateOffscreenFB()
 {
 	
-	for (size_t i = 0; i < swapChainFramebuffers.size(); i++)
-	{
-		vkDestroyFramebuffer(m_device.logicalDevice, offscreenFramebuffer, nullptr);
-	}
-
-
 	offscreenFB.createAttachment(m_device, m_swapchain.swapChainExtent.width, m_swapchain.swapChainExtent.height,
 		m_swapchain.swapChainImageFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);	
 	
@@ -738,8 +783,510 @@ void VulkanRenderer::CreateOffscreenFB()
 	{
 		throw std::runtime_error("Failed to create a Framebuffer!");
 	}
-	myImg = ImGui_ImplVulkan_AddTexture(textureSampler, offscreenFB.view, VK_IMAGE_LAYOUT_GENERAL);
+	myImg = ImGui_ImplVulkan_AddTexture(textureSampler, offscreenFB.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	
+}
+
+void VulkanRenderer::ResizeOffscreenFB()
+{
+	vkDestroyFramebuffer(m_device.logicalDevice, offscreenFramebuffer,nullptr);
+	offscreenFB.destroy(m_device.logicalDevice);
+	offscreenDepth.destroy(m_device.logicalDevice);
+
+	CreateOffscreenFB();
+}
+
+void VulkanRenderer::CreateDeferredPass()
+{
+	att_position.createAttachment(m_device, m_swapchain.swapChainExtent.width,  m_swapchain.swapChainExtent.height,
+		VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+
+	att_normal.createAttachment(m_device,m_swapchain.swapChainExtent.width,  m_swapchain.swapChainExtent.height,
+		VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+
+	att_albedo.createAttachment(m_device, m_swapchain.swapChainExtent.width,  m_swapchain.swapChainExtent.height,
+		VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+
+	VkFormat depF = oGFX::ChooseSupportedFormat(m_device,
+		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	att_depth.createAttachment(m_device, m_swapchain.swapChainExtent.width,  m_swapchain.swapChainExtent.height,
+		depF, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+
+	// Set up separate renderpass with references to the color and depth attachments
+	std::array<VkAttachmentDescription, 4> attachmentDescs = {};
+
+	// Init attachment properties
+	for (uint32_t i = 0; i < 4; ++i)
+	{
+		attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
+		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachmentDescs[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		if (i == 3)
+		{
+			// depth format
+			attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		}
+		else
+		{
+			attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		}
+	}
+
+	// Formats
+	attachmentDescs[0].format = att_position.format;
+	attachmentDescs[1].format = att_normal.format;
+	attachmentDescs[2].format = att_albedo.format;
+	attachmentDescs[3].format = att_depth.format;
+
+	std::vector<VkAttachmentReference> colorReferences;
+	colorReferences.push_back({ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	colorReferences.push_back({ 1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	colorReferences.push_back({ 2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+
+	VkAttachmentReference depthReference = {};
+	depthReference.attachment = 3;
+	depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.pColorAttachments = colorReferences.data();
+	subpass.colorAttachmentCount = static_cast<uint32_t>(colorReferences.size());
+	subpass.pDepthStencilAttachment = &depthReference;
+
+	// Use subpass dependencies for attachment layout transitions
+	std::array<VkSubpassDependency, 2> dependencies;
+
+	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependencies[0].dstSubpass = 0;
+	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	dependencies[1].srcSubpass = 0;
+	dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+	dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	VkRenderPassCreateInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.pAttachments = attachmentDescs.data();
+	renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescs.size());
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpass;
+	renderPassInfo.dependencyCount = 2;
+	renderPassInfo.pDependencies = dependencies.data();
+
+	VK_CHK(vkCreateRenderPass(m_device.logicalDevice, &renderPassInfo, nullptr, &deferredPass));
+
+	// Create sampler to sample from the color attachments
+	VkSamplerCreateInfo sampler = oGFX::vk::inits::samplerCreateInfo();
+	sampler.magFilter = VK_FILTER_NEAREST;
+	sampler.minFilter = VK_FILTER_NEAREST;
+	sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler.addressModeV = sampler.addressModeU;
+	sampler.addressModeW = sampler.addressModeU;
+	sampler.mipLodBias = 0.0f;
+	sampler.maxAnisotropy = 1.0f;
+	sampler.minLod = 0.0f;
+	sampler.maxLod = 1.0f;
+	sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	VK_CHK(vkCreateSampler(m_device.logicalDevice, &sampler, nullptr, &deferredSampler));
+}
+
+void VulkanRenderer::CreateDeferredPipeline()
+{
+
+	std::vector<VkDescriptorSetLayout> setLayouts{ deferredSetLayout,};
+
+	VkPipelineLayoutCreateInfo plci = oGFX::vk::inits::pipelineLayoutCreateInfo(setLayouts.data(),setLayouts.size());	
+	plci.pushConstantRangeCount = 1;
+	plci.pPushConstantRanges = &pushConstantRange;
+
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &compositionPipeLayout));
+
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vk::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
+	VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vk::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
+	VkPipelineColorBlendAttachmentState blendAttachmentState = oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
+	VkPipelineColorBlendStateCreateInfo colorBlendState = oGFX::vk::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
+	VkPipelineDepthStencilStateCreateInfo depthStencilState = oGFX::vk::inits::pipelineDepthStencilStateCreateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
+	VkPipelineViewportStateCreateInfo viewportState = oGFX::vk::inits::pipelineViewportStateCreateInfo(1, 1, 0);
+	VkPipelineMultisampleStateCreateInfo multisampleState = oGFX::vk::inits::pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT, 0);
+	std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+	VkPipelineDynamicStateCreateInfo dynamicState = oGFX::vk::inits::pipelineDynamicStateCreateInfo(dynamicStateEnables);
+	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
+
+	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vk::inits::pipelineCreateInfo(pipelineLayout, renderPass);
+	pipelineCI.pInputAssemblyState = &inputAssemblyState;
+	pipelineCI.pRasterizationState = &rasterizationState;
+	pipelineCI.pColorBlendState = &colorBlendState;
+	pipelineCI.pMultisampleState = &multisampleState;
+	pipelineCI.pViewportState = &viewportState;
+	pipelineCI.pDepthStencilState = &depthStencilState;
+	pipelineCI.pDynamicState = &dynamicState;
+	pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
+	pipelineCI.pStages = shaderStages.data();
+
+
+	// Vertex input state from glTF model for pipeline rendering models
+	//how the data for a single vertex (including infos such as pos, colour, texture, coords, normals etc) is as a whole
+	std::vector<VkVertexInputBindingDescription> bindingDescription {	
+		oGFX::vk::inits::vertexInputBindingDescription(VERTEX_BUFFER_ID,sizeof(oGFX::Vertex),VK_VERTEX_INPUT_RATE_VERTEX),
+	};
+
+	//how the data for an attirbute is define in the vertex
+	std::vector<VkVertexInputAttributeDescription>attributeDescriptions{
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::Vertex, pos)), //Position attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,1,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::Vertex, norm)),//normals attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,2,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::Vertex, tangent)),//tangent attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,3,VK_FORMAT_R32G32_SFLOAT	  ,offsetof(oGFX::Vertex, tex)),    //Texture attribute
+	};
+
+	rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
+	// -- VERTEX INPUT -- 
+	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = oGFX::vk::inits::pipelineVertexInputStateCreateInfo(bindingDescription,attributeDescriptions);
+	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
+	vertexInputCreateInfo.vertexAttributeDescriptionCount = 4;
+	pipelineCI.pVertexInputState = &vertexInputCreateInfo;
+
+	// Offscreen pipeline
+	shaderStages[0]  = LoadShader("Shaders/mrt.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = LoadShader("Shaders/mrt.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+
+	// Separate render pass
+	pipelineCI.renderPass = deferredPass;
+
+	// Blend attachment states required for all color attachments
+	// This is important, as color write mask will otherwise be 0x0 and you
+	// won't see anything rendered to the attachment
+	std::array<VkPipelineColorBlendAttachmentState, 3> blendAttachmentStates = {
+		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
+		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
+		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE)
+	};
+
+	colorBlendState.attachmentCount = static_cast<uint32_t>(blendAttachmentStates.size());
+	colorBlendState.pAttachments = blendAttachmentStates.data();
+
+	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &deferredPipe));
+	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
+	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
+
+	// Empty vertex input state, vertices are generated by the vertex shader
+	// Final fullscreen composition pass pipeline
+	rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
+	shaderStages[0] = LoadShader("Shaders/deferred.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = LoadShader("Shaders/deferred.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+	// Empty vertex input state, vertices are generated by the vertex shader
+	VkPipelineVertexInputStateCreateInfo emptyInputState = oGFX::vk::inits::pipelineVertexInputStateCreateInfo();
+	pipelineCI.pVertexInputState = &emptyInputState;
+	pipelineCI.renderPass = renderPass;
+	pipelineCI.layout = compositionPipeLayout;
+	colorBlendState = oGFX::vk::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
+		blendAttachmentState= oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
+	
+	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &compositionPipe));
+
+
+
+	vkDestroyShaderModule(m_device.logicalDevice,shaderStages[0].module , nullptr);
+	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
+}
+
+void VulkanRenderer::CreateDeferredFB()
+{
+	
+	std::array<VkImageView,4> attachments;
+	attachments[0] = att_position.view;
+	attachments[1] = att_normal.view;
+	attachments[2] = att_albedo.view;
+	attachments[3] = att_depth.view;
+
+	VkFramebufferCreateInfo fbufCreateInfo = {};
+	fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	fbufCreateInfo.pNext = NULL;
+	fbufCreateInfo.renderPass = deferredPass;
+	fbufCreateInfo.pAttachments = attachments.data();
+	fbufCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+	fbufCreateInfo.width = m_swapchain.swapChainExtent.width;
+	fbufCreateInfo.height = m_swapchain.swapChainExtent.height;
+	fbufCreateInfo.layers = 1;
+	VK_CHK(vkCreateFramebuffer(m_device.logicalDevice, &fbufCreateInfo, nullptr, &deferredFB));
+
+	deferredImg[0] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	deferredImg[1] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	deferredImg[2] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	deferredImg[3] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+}
+
+void VulkanRenderer::ResizeDeferredFB()
+{
+	vkDestroyFramebuffer(m_device.logicalDevice, deferredFB, nullptr);
+
+	std::array<VkImageView,4> attachments;
+	attachments[0] = att_position.view;
+	attachments[1] = att_normal.view;
+	attachments[2] = att_albedo.view;
+	attachments[3] = att_depth.view;
+
+	VkFramebufferCreateInfo fbufCreateInfo = {};
+	fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	fbufCreateInfo.pNext = NULL;
+	fbufCreateInfo.renderPass = deferredPass;
+	fbufCreateInfo.pAttachments = attachments.data();
+	fbufCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+	fbufCreateInfo.width = m_swapchain.swapChainExtent.width;
+	fbufCreateInfo.height = m_swapchain.swapChainExtent.height;
+	fbufCreateInfo.layers = 1;
+	VK_CHK(vkCreateFramebuffer(m_device.logicalDevice, &fbufCreateInfo, nullptr, &deferredFB));
+
+	//deferredImg[0] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	//deferredImg[1] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	//deferredImg[2] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	//deferredImg[3] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_depth.view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL);
+
+}
+
+void VulkanRenderer::Deferred()
+{
+	// Clear values for all attachments written in the fragment shader
+	std::array<VkClearValue,4> clearValues;
+	clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[3].depthStencil = { 1.0f, 0 };
+
+	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
+	renderPassBeginInfo.renderPass =  deferredPass;
+	renderPassBeginInfo.framebuffer = deferredFB;
+	renderPassBeginInfo.renderArea.extent.width = m_swapchain.swapChainExtent.width;
+	renderPassBeginInfo.renderArea.extent.height = m_swapchain.swapChainExtent.height;
+	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassBeginInfo.pClearValues = clearValues.data();
+
+	vkCmdBeginRenderPass(commandBuffers[swapchainImageIndex], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	VkViewport viewport = { 0, float(windowPtr->m_height), float(windowPtr->m_width), -float(windowPtr->m_height), 0, 1 };
+	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
+	vkCmdSetViewport(commandBuffers[swapchainImageIndex], 0, 1, &viewport);
+	vkCmdSetScissor(commandBuffers[swapchainImageIndex], 0, 1, &scissor);
+
+	vkCmdBindPipeline(commandBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, deferredPipe);
+	std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[swapchainImageIndex],
+		globalSamplers };
+
+	uint32_t dynamicOffset = 0;
+	vkCmdBindDescriptorSets(commandBuffers[swapchainImageIndex],VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);
+
+	for (auto& entity : entities)
+	{
+		auto& model = models[entity.modelID];
+
+		glm::mat4 xform(1.0f);
+		xform = glm::translate(xform, entity.pos);
+		xform = glm::rotate(xform,glm::radians(entity.rot), entity.rotVec);
+		xform = glm::scale(xform, entity.scale);
+
+		vkCmdPushConstants(commandBuffers[swapchainImageIndex],
+			pipelineLayout,
+			VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+			0,							// offset of push constants to update
+			sizeof(glm::mat4),			// size of data being pushed
+			glm::value_ptr(xform));		// actualy data being pushed (could be an array));
+
+		VkDeviceSize offsets[] = { 0 };	
+		vkCmdBindIndexBuffer(commandBuffers[swapchainImageIndex], g_indexBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(commandBuffers[swapchainImageIndex], VERTEX_BUFFER_ID, 1,g_vertexBuffer.getBufferPtr(), offsets);
+		vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
+	}
+
+	// End Render  Pass
+	vkCmdEndRenderPass(commandBuffers[swapchainImageIndex]);
+
+}
+
+void VulkanRenderer::CleanupDeferredStuff()
+{
+	 att_albedo.destroy(m_device.logicalDevice);
+	 att_position.destroy(m_device.logicalDevice);
+	 att_normal.destroy(m_device.logicalDevice);
+	 att_depth.destroy(m_device.logicalDevice);
+	 vkDestroyFramebuffer(m_device.logicalDevice, deferredFB, nullptr);
+	 vkDestroySampler(m_device.logicalDevice, deferredSampler, nullptr);
+	 vkDestroyRenderPass(m_device.logicalDevice,deferredPass, nullptr);
+	 vkDestroyPipeline(m_device.logicalDevice, deferredPipe, nullptr);
+}
+
+void VulkanRenderer::CreateCompositionBuffers()
+{
+	oGFX::CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, sizeof(LightUBO), 
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		&lightsBuffer.buffer, &lightsBuffer.memory);
+	lightsBuffer.size = sizeof(LightUBO);
+	lightsBuffer.device = m_device.logicalDevice;
+	lightsBuffer.descriptor.buffer = lightsBuffer.buffer;
+	lightsBuffer.descriptor.offset = 0;
+	lightsBuffer.descriptor.range = sizeof(LightUBO);
+
+	VK_CHK(lightsBuffer.map());
+	
+	UpdateLightBuffer();
+}
+
+void VulkanRenderer::CreateDeferredDescriptorSet()
+{
+	VkPhysicalDeviceProperties props;
+	vkGetPhysicalDeviceProperties(m_device.physicalDevice,&props);
+	size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
+	//auto dynamicAlignment = sizeof(glm::mat4);
+	//uboDynamicAlignment = sizeof(LightData);
+	if (minUboAlignment > 0) {
+		uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
+	}
+
+	size_t numLights = 1;
+	VkDeviceSize vpBufferSize = uboDynamicAlignment * numLights;
+
+	//// LightData bufffer size
+
+	// Image descriptors for the offscreen color attachments
+	VkDescriptorImageInfo texDescriptorPosition =
+		oGFX::vk::inits::descriptorImageInfo(
+			deferredSampler,
+			att_position.view,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	VkDescriptorImageInfo texDescriptorNormal =
+		oGFX::vk::inits::descriptorImageInfo(
+			deferredSampler,
+			att_normal.view,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	VkDescriptorImageInfo texDescriptorAlbedo =
+		oGFX::vk::inits::descriptorImageInfo(
+			deferredSampler,
+			att_albedo.view, 
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	DescriptorBuilder::Begin(&DescLayoutCache, &DescAlloc)
+		.BindImage(1, &texDescriptorPosition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.BindImage(2, &texDescriptorNormal, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.BindImage(3, &texDescriptorAlbedo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.BindBuffer(4, &lightsBuffer.descriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.Build(deferredSet,deferredSetLayout);
+
+	// Deferred composition
+	//VK_CHK(vkAllocateDescriptorSets(m_device.logicalDevice, &allocInfo, &deferredSet));
+	//writeDescriptorSets = {
+	//	// Binding 1 : Position texture target
+	//	oGFX::vk::inits::writeDescriptorSet(deferredSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &texDescriptorPosition),
+	//	// Binding 2 : Normals texture target
+	//	oGFX::vk::inits::writeDescriptorSet(deferredSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &texDescriptorNormal),
+	//	// Binding 3 : Albedo texture target
+	//	oGFX::vk::inits::writeDescriptorSet(deferredSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &texDescriptorAlbedo),
+	//	// Binding 4 : Fragment shader uniform buffer
+	//	oGFX::vk::inits::writeDescriptorSet(deferredSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4, &lightsBuffer.descriptor),
+	//};
+	//vkUpdateDescriptorSets(m_device.logicalDevice, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+}
+
+void VulkanRenderer::DeferredComposition()
+{
+	std::array<VkClearValue, 2> clearValues{};
+	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
+	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
+	clearValues[1].depthStencil.depth = {1.0f};
+
+	//Information about how to begin a render pass (only needed for graphical applications)
+	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
+	renderPassBeginInfo.renderPass = renderPass;								//render pass to begin
+	renderPassBeginInfo.renderArea.offset = { 0,0 };								//start point of render pass in pixels
+	renderPassBeginInfo.renderArea.extent = m_swapchain.swapChainExtent;			//size of region to run render pass on (Starting from offset)
+	renderPassBeginInfo.pClearValues = clearValues.data();							//list of clear values
+	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+
+	renderPassBeginInfo.framebuffer = swapChainFramebuffers[swapchainImageIndex];
+
+	vkCmdBeginRenderPass(commandBuffers[swapchainImageIndex], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+
+	VkViewport viewport = { 0, float(windowPtr->m_height), float(windowPtr->m_width), -float(windowPtr->m_height), 0, 1 };
+	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
+	vkCmdSetViewport(commandBuffers[swapchainImageIndex], 0, 1, &viewport);
+	vkCmdSetScissor(commandBuffers[swapchainImageIndex], 0, 1, &scissor);
+
+	vkCmdBindPipeline(commandBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, compositionPipe);
+	std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[swapchainImageIndex],
+		globalSamplers };
+
+	vkCmdBindDescriptorSets(commandBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, compositionPipeLayout, 0, 1, &deferredSet, 0, nullptr);
+
+	vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], 3, 1, 0, 0, 0);
+	
+
+	// End Render  Pass
+	vkCmdEndRenderPass(commandBuffers[swapchainImageIndex]);
+}
+
+void VulkanRenderer::UpdateLightBuffer()
+{
+	// White
+	lightUBO.lights[0].position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+	lightUBO.lights[0].color = glm::vec3(1.5f);
+	lightUBO.lights[0].radius = 15.0f;
+	// Red
+	lightUBO.lights[1].position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
+	lightUBO.lights[1].color = glm::vec3(1.0f, 0.0f, 0.0f);
+	lightUBO.lights[1].radius = 15.0f;
+	// Blue
+	lightUBO.lights[2].position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
+	lightUBO.lights[2].color = glm::vec3(0.0f, 0.0f, 2.5f);
+	lightUBO.lights[2].radius = 5.0f;
+	// Yellow
+	lightUBO.lights[3].position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
+	lightUBO.lights[3].color = glm::vec3(1.0f, 1.0f, 0.0f);
+	lightUBO.lights[3].radius = 2.0f;
+	// Green
+	lightUBO.lights[4].position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
+	lightUBO.lights[4].color = glm::vec3(0.0f, 1.0f, 0.2f);
+	lightUBO.lights[4].radius = 5.0f;
+	// Yellow
+	lightUBO.lights[5].position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
+	lightUBO.lights[5].color = glm::vec3(1.0f, 0.7f, 0.3f);
+	lightUBO.lights[5].radius = 25.0f;
+	
+	lightUBO.lights[0].position.x = sin(glm::radians(360.0f * timer)) * 5.0f;
+	lightUBO.lights[0].position.z = cos(glm::radians(360.0f * timer)) * 5.0f;
+	
+	lightUBO.lights[1].position.x = -4.0f + sin(glm::radians(360.0f * timer) + 45.0f) * 2.0f;
+	lightUBO.lights[1].position.z =  0.0f + cos(glm::radians(360.0f * timer) + 45.0f) * 2.0f;
+	
+	lightUBO.lights[2].position.x = 4.0f + sin(glm::radians(360.0f * timer)) * 2.0f;
+	lightUBO.lights[2].position.z = 0.0f + cos(glm::radians(360.0f * timer)) * 2.0f;
+	
+	lightUBO.lights[4].position.x = 0.0f + sin(glm::radians(360.0f * timer + 90.0f)) * 5.0f;
+	lightUBO.lights[4].position.z = 0.0f - cos(glm::radians(360.0f * timer + 45.0f)) * 5.0f;
+	
+	lightUBO.lights[5].position.x = 0.0f + sin(glm::radians(-360.0f * timer + 135.0f)) * 10.0f;
+	lightUBO.lights[5].position.z = 0.0f - cos(glm::radians(-360.0f * timer - 45.0f)) * 10.0f;
+
+	// Current view position
+	lightUBO.viewPos = glm::vec4(camera.position, 0.0f) * glm::vec4(-1.0f, 1.0f, -1.0f, 1.0f);
+
+	memcpy(lightsBuffer.mapped, &lightUBO, sizeof(LightUBO));
 }
 
 void VulkanRenderer::CreateSynchronisation()
@@ -810,8 +1357,10 @@ void VulkanRenderer::CreateDescriptorPool()
 	// CREATE UNIFORM DESCRIPTOR POOL
 	//descriptor is an individual piece of data // it is NOT a descriptor SET
 	// Type of descriptors + how many DESCRIPTORS, not DESCRIPTOR_SETS (combined makes the pool size)
+
 	// ViewProjection pool
 	VkDescriptorPoolSize vpPoolsize = oGFX::vk::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, static_cast<uint32_t>(vpUniformBuffer.size()));
+	VkDescriptorPoolSize attachmentPool = oGFX::vk::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000);
 
 	//// LightData pool (DYNAMIC)
 	//VkDescriptorPoolSize modelPoolSize{};
@@ -819,10 +1368,10 @@ void VulkanRenderer::CreateDescriptorPool()
 	//modelPoolSize.descriptorCount = static_cast<uint32_t>(modelDUniformBuffer.size());
 
 	//list of pool sizes
-	std::vector<VkDescriptorPoolSize> descriptorPoolSizes = { vpPoolsize /*, modelPoolSize*/ };
+	std::vector<VkDescriptorPoolSize> descriptorPoolSizes = { vpPoolsize,attachmentPool /*, modelPoolSize*/ };
 
 	//data to create the descriptor pool
-	VkDescriptorPoolCreateInfo poolCreateInfo = oGFX::vk::inits::descriptorPoolCreateInfo(descriptorPoolSizes,static_cast<uint32_t>(m_swapchain.swapChainImages.size()));
+	VkDescriptorPoolCreateInfo poolCreateInfo = oGFX::vk::inits::descriptorPoolCreateInfo(descriptorPoolSizes,static_cast<uint32_t>(m_swapchain.swapChainImages.size()+1));
 	//create descriptor pool
 	VkResult result = vkCreateDescriptorPool(m_device.logicalDevice, &poolCreateInfo, nullptr, &descriptorPool);
 	if (result != VK_SUCCESS)
@@ -865,53 +1414,56 @@ void VulkanRenderer::CreateDescriptorPool()
 
 void VulkanRenderer::CreateDescriptorSets()
 {
+
+	
+
 	// Resize Descript Set List so one for every buffer
-	descriptorSets.resize(m_swapchain.swapChainImages.size());
+	//descriptorSets.resize(m_swapchain.swapChainImages.size());
 
-	std::vector<VkDescriptorSetLayout> setLayouts(m_swapchain.swapChainImages.size(),descriptorSetLayout);
-
-	// Descriptor set allocation info
-	VkDescriptorSetAllocateInfo setAllocInfo{};
-	setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	setAllocInfo.descriptorPool = descriptorPool;									// Pool to allocate descriptor set from
-	setAllocInfo.descriptorSetCount = static_cast<uint32_t>(m_swapchain.swapChainImages.size()); // Number of sets to alllocate
-	setAllocInfo.pSetLayouts = setLayouts.data();									// Layouts to use to allocate sets (1:1 relationship)
-
-																					//Allocate descriptor sets
-	VkResult result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, descriptorSets.data());
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to allocate descriptor sets!");
-	}
-
-	//update all of descriptor set bindings
-	for (size_t i = 0; i < m_swapchain.swapChainImages.size(); i++)
-	{
-		// VIEW PROJECTION DESCRIPTOR
+	//std::vector<VkDescriptorSetLayout> setLayouts(m_swapchain.swapChainImages.size(),descriptorSetLayout);
+	//
+	//// Descriptor set allocation info
+	//VkDescriptorSetAllocateInfo setAllocInfo{};
+	//setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	//setAllocInfo.descriptorPool = descriptorPool;									// Pool to allocate descriptor set from
+	//setAllocInfo.descriptorSetCount = static_cast<uint32_t>(m_swapchain.swapChainImages.size()); // Number of sets to alllocate
+	//setAllocInfo.pSetLayouts = setLayouts.data();									// Layouts to use to allocate sets (1:1 relationship)
+	//
+	//																				//Allocate descriptor sets
+	//VkResult result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, descriptorSets.data());
+	//if (result != VK_SUCCESS)
+	//{
+	//	throw std::runtime_error("Failed to allocate descriptor sets!");
+	//}
+	//
+	////update all of descriptor set bindings
+	//for (size_t i = 0; i < m_swapchain.swapChainImages.size(); i++)
+	//{
+	//	// VIEW PROJECTION DESCRIPTOR
 		// Buffer info and data offset info
-		VkDescriptorBufferInfo vpBufferInfo{};
-		vpBufferInfo.buffer = vpUniformBuffer[i];	// buffer to get data from
-		vpBufferInfo.offset = 0;					// position of start of data
-		vpBufferInfo.range = sizeof(UboViewProjection);			// size of data
-
-																// Data about connection between binding and buffer
-		VkWriteDescriptorSet vpSetWrite{};
-		vpSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		vpSetWrite.dstSet = descriptorSets[i];							// Descriptor set to update
-		vpSetWrite.dstBinding = 0;										// Binding to update (matches with binding on layout/shader)
-		vpSetWrite.dstArrayElement = 0;								// index in array to update
-		vpSetWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC; // Type of descriptor
-		vpSetWrite.descriptorCount = 1;								// amount to update
-		vpSetWrite.pBufferInfo = &vpBufferInfo;						// information about the buffer data to bind
-
-		//// MODEL DESCRIPTOR
-		//// model buffer binding info
-		//VkDescriptorBufferInfo modelBufferInfo{};
-		//modelBufferInfo.buffer = modelDUniformBuffer[i];
-		//modelBufferInfo.offset = 0;
-		//modelBufferInfo.range = modelUniformAlignment;
-		
-		//VkWriteDescriptorSet modelSetWrite{};
+	//	VkDescriptorBufferInfo vpBufferInfo{};
+	//	vpBufferInfo.buffer = vpUniformBuffer[i];	// buffer to get data from
+	//	vpBufferInfo.offset = 0;					// position of start of data
+	//	vpBufferInfo.range = sizeof(UboViewProjection);			// size of data
+	//
+	//															// Data about connection between binding and buffer
+	//	VkWriteDescriptorSet vpSetWrite{};
+	//	vpSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	//	vpSetWrite.dstSet = descriptorSets[i];							// Descriptor set to update
+	//	vpSetWrite.dstBinding = 0;										// Binding to update (matches with binding on layout/shader)
+	//	vpSetWrite.dstArrayElement = 0;								// index in array to update
+	//	vpSetWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC; // Type of descriptor
+	//	vpSetWrite.descriptorCount = 1;								// amount to update
+	//	vpSetWrite.pBufferInfo = &vpBufferInfo;						// information about the buffer data to bind
+	//
+	//	//// MODEL DESCRIPTOR
+	//	//// model buffer binding info
+	//	//VkDescriptorBufferInfo modelBufferInfo{};
+	//	//modelBufferInfo.buffer = modelDUniformBuffer[i];
+	//	//modelBufferInfo.offset = 0;
+	//	//modelBufferInfo.range = modelUniformAlignment;
+	//	
+	//	//VkWriteDescriptorSet modelSetWrite{};
 		//modelSetWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		//modelSetWrite.dstSet = descriptorSets[i];
 		//modelSetWrite.dstBinding = 1;
@@ -919,14 +1471,14 @@ void VulkanRenderer::CreateDescriptorSets()
 		//modelSetWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 		//modelSetWrite.descriptorCount = 1;
 		//modelSetWrite.pBufferInfo = &modelBufferInfo;
-
-																	// List of Descriptor set writes
-		std::vector<VkWriteDescriptorSet> setWrites = { vpSetWrite  /*, modelSetWrite*/ };
-
-		// Update the descriptor sets with new buffer/binding info
-		vkUpdateDescriptorSets(m_device.logicalDevice, static_cast<uint32_t>(setWrites.size()), setWrites.data(),
-			0, nullptr);
-	}
+	//
+	//																// List of Descriptor set writes
+	//	std::vector<VkWriteDescriptorSet> setWrites = { vpSetWrite  /*, modelSetWrite*/ };
+	//
+	//	// Update the descriptor sets with new buffer/binding info
+	//	vkUpdateDescriptorSets(m_device.logicalDevice, static_cast<uint32_t>(setWrites.size()), setWrites.data(),
+	//		0, nullptr);
+	//}
 }
 
 void VulkanRenderer::InitImGUI()
@@ -1078,14 +1630,25 @@ void VulkanRenderer::ResizeGUIBuffers()
 																			 //fbattachments[1] = m_depthImage.imageView;  // A depth attachment
 		VK_CHK(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i])); 
 	}
-
 }
 
 void VulkanRenderer::DrawGUI()
 {
 	ImGui::Begin("img");
-	auto sz = ImGui::GetContentRegionAvail();
-	ImGui::Image(myImg, { sz.x,sz.y });
+	{
+		auto sz = ImGui::GetContentRegionAvail();
+		ImGui::Image(myImg, { sz.x,sz.y });
+	}
+	ImGui::End();
+
+	ImGui::Begin("deferred");
+	{
+		auto sz = ImGui::GetContentRegionAvail();
+		ImGui::Image(deferredImg[0], { sz.x,sz.y/4 });
+		ImGui::Image(deferredImg[1], { sz.x,sz.y/4 });
+		ImGui::Image(deferredImg[2], { sz.x,sz.y/4 });
+		ImGui::Image(deferredImg[3], { sz.x,sz.y/4 });
+	}
 	ImGui::End();
 
 	VkRenderPassBeginInfo GUIpassInfo = {};
@@ -1413,6 +1976,8 @@ bool VulkanRenderer::ResizeSwapchain()
 	CreateFramebuffers();
 
 	ResizeGUIBuffers();
+	ResizeOffscreenFB();
+	ResizeDeferredFB();
 
 	return true;
 }
@@ -1785,12 +2350,7 @@ void VulkanRenderer::SimplePass()
 	vkCmdBindPipeline(commandBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, wirePipeline);
 	std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[swapchainImageIndex],
 		globalSamplers };
-	//auto& model = models[0];
-	
-	glm::mat4 iden = glm::mat4(1.0f);
-
-	
-	UpdateUniformBuffers(swapchainImageIndex);
+		
 	uint32_t dynamicOffset = 0;
 	vkCmdBindDescriptorSets(commandBuffers[swapchainImageIndex],VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
 		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);

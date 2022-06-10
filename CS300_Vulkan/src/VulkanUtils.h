@@ -11,7 +11,8 @@ namespace oGFX::vk::tools
 	std::string VkResultString(VkResult value);
 };
 
-#ifndef VK_CHK(x)
+#ifndef VK_CHK
+
 #define VK_CHK(x) do{\
 VkResult result = x;\
 if(result != VK_SUCCESS){\
@@ -20,6 +21,7 @@ assert(result == VK_SUCCESS);\
 throw std::runtime_error("Failed Vulkan Check");\
 }\
 }while(0)
+
 #endif // !VK_CHK
 
 struct VulkanInstance;
@@ -177,6 +179,23 @@ namespace oGFX
 		namespace inits
 		{
 
+			inline VkDescriptorImageInfo descriptorImageInfo(VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout)
+			{
+				VkDescriptorImageInfo descriptorImageInfo {};
+				descriptorImageInfo.sampler = sampler;
+				descriptorImageInfo.imageView = imageView;
+				descriptorImageInfo.imageLayout = imageLayout;
+				return descriptorImageInfo;
+			}
+
+			inline VkSamplerCreateInfo samplerCreateInfo()
+			{
+				VkSamplerCreateInfo samplerCreateInfo {};
+				samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+				samplerCreateInfo.maxAnisotropy = 1.0f;
+				return samplerCreateInfo;
+			}
+
 			inline VkMemoryAllocateInfo memoryAllocateInfo()
 			{
 				VkMemoryAllocateInfo memAllocInfo{};
@@ -324,6 +343,23 @@ namespace oGFX
 				writeDescriptorSet.descriptorType = type;
 				writeDescriptorSet.dstBinding = binding;
 				writeDescriptorSet.pImageInfo = imageInfo;
+				writeDescriptorSet.descriptorCount = descriptorCount;
+				return writeDescriptorSet;
+			}
+
+			inline VkWriteDescriptorSet writeDescriptorSet(
+				VkDescriptorSet dstSet,
+				VkDescriptorType type,
+				uint32_t binding,
+				VkDescriptorBufferInfo* bufferInfo,
+				uint32_t descriptorCount = 1)
+			{
+				VkWriteDescriptorSet writeDescriptorSet {};
+				writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				writeDescriptorSet.dstSet = dstSet;
+				writeDescriptorSet.descriptorType = type;
+				writeDescriptorSet.dstBinding = binding;
+				writeDescriptorSet.pBufferInfo = bufferInfo;
 				writeDescriptorSet.descriptorCount = descriptorCount;
 				return writeDescriptorSet;
 			}
