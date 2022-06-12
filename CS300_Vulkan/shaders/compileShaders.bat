@@ -7,13 +7,15 @@ for %%i in (*.vert  *.frag) do (
 	rem forfiles /M "%%~i.spv" /C "cmd /c set time=@ftime set date=@fdate 
 	rem echo !time!
 	rem echo !date!
-	rem echo "%%~ti"
-	for /f "tokens=1-6 delims=:0/,. " %%A in ("%%~ti") do (
+	rem echo %%~ti
+	for /f "tokens=1-8 delims=:0/,. " %%A in ("%%~ti") do (
 	set /A "Day=%%A"
 	set /A "Month=%%B"
-	set /A "Year=%%C"
-	set /A "Hour=%%D"
-	set /A "Min=%%E"
+	set /A "Year=%%D"
+	set /A "Hour=%%E"
+	set /A "Min=%%F"
+	set "f=%%G"
+	if !f! == pm ( set /A Hour=!Hour!+12 )
 	)
 	rem echo day !Day!
 	rem echo month !Month!
@@ -24,12 +26,14 @@ for %%i in (*.vert  *.frag) do (
 	for %%j in ("%%~i.spv") do (
 	 IF exist "%%~j" (
 				rem echo %%~tj				
-				for /f "tokens=1-6 delims=:0/,. " %%A in ("%%~tj") do (
+				for /f "tokens=1-8 delims=:0/,. " %%A in ("%%~tj") do (
 				set /A "jDay=%%A"
 				set /A "jMonth=%%B"
-				set /A "jYear=%%C"
-				set /A "jHour=%%D"
-				set /A "jMin=%%E"
+				set /A "jYear=%%D"
+				set /A "jHour=%%E"
+				set /A "jMin=%%F"
+				set "f=%%G"
+				if !f! == pm ( set /A jHour=!jHour!+12 )
 				)
 				rem echo jday !jDay!
 				rem echo jmonth !jMonth!
@@ -47,12 +51,28 @@ for %%i in (*.vert  *.frag) do (
 					)
 				)
 				
+				rem IF !Year! LSS !jYear! (set /A compile=0
+				rem 						echo !Year! y less than !jYear!) else (
+				rem 	IF !Month! LSS !jMonth! (set /A compile=0
+				rem 	echo !Month! m less than !jMonth!) else (
+				rem 		IF !Day! LSS !jDay! (set /A compile=0
+				rem 		echo !Day! d less than !jDay!) else (
+				rem 			IF !Hour! LSS !jHour! (set /A compile=0
+				rem 			echo !Hour! h less than !jHour!) else (
+				rem 				IF !Min! LSS !jMin! (set /A compile=0
+				rem 				echo !Min! m less than !jMin!) else (set /A compile=1)
+				rem 			)
+				rem 		)
+				rem 	)
+				rem )
+				
 		) else (echo does not exist!)
 		
 	set numberstring=                      %%~i
 	if !compile! EQU 1 ( 	
 	"%VULKAN_SDK%\Bin\glslc.exe" --target-env=vulkan1.2 "%%~i" -o "%%~i.spv"
 	if !ERRORLEVEL! NEQ 0 (echo ["%%~i" COMPILATION ERROR] 
+	exit /B 1
 		echo.) else ( echo !numberstring:~-28! compiled )	
 	)else (echo !numberstring:~-28! ^| unchanged no compilation)
 	
@@ -61,6 +81,7 @@ for %%i in (*.vert  *.frag) do (
 	rem echo.
  )
  echo.
+ call touch done.txt
  echo Finished
  echo.
 
