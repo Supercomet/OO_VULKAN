@@ -3,7 +3,6 @@
 
 namespace coll
 {
-	constexpr static float EPSILON = { 0.001f };
 	constexpr static float BARY_EPSILON = { 0.01f };
 
 bool PointSphere(const Point3D& p, const Sphere& s);

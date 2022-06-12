@@ -155,8 +155,8 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	GpuVector g_indexBuffer{ &m_device };
 	size_t g_indexOffset{};
 	size_t g_vertexOffset{};
-	uint32_t LoadMeshFromFile(const std::string& file);
-	uint32_t LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, Model* model);
+	Model* LoadMeshFromFile(const std::string& file);
+	uint32_t LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, gfxModel* model);
 	void SetMeshTextures(uint32_t modelID,uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough);
 
 	void UpdateModel(int modelId, glm::mat4 newModel);
@@ -231,7 +231,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
 
 	//Scene objects
-	std::vector<Model> models;
+	std::vector<gfxModel> models;
 
 	uint32_t currentFrame = 0;
 

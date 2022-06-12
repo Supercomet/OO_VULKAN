@@ -1,24 +1,5 @@
 #include "Geometry.h"
 
-Point3D::Point3D(const glm::vec3& v)
-	:pos{v}
-{
-}
-
-Point3D::operator const glm::vec3& ()const
-{
-	return this->pos;
-}
-
-Point3D::operator glm::vec3& ()
-{
-	return this->pos;
-}
-
-Point3D Point3D::operator-(const Point3D& rhs) const
-{
-	return Point3D(this->pos - rhs.pos);
-}
 
 AABB::AABB() :
 	center{},
@@ -26,19 +7,19 @@ AABB::AABB() :
 {
 }
 
-AABB::AABB(glm::vec3 min, glm::vec3 max)
+AABB::AABB(const Point3D& min, const Point3D& max)
 {
 	auto mid = (min + max) / 2.0f;
 	center = mid;
 	halfExt = { max - mid };
 }
 
-glm::vec3 AABB::max()const
+Point3D AABB::max()const
 {
 	return this->center + this->halfExt;
 }
 
-glm::vec3 AABB::min()const
+Point3D AABB::min()const
 {
 	return this->center - this->halfExt;
 }
@@ -53,11 +34,6 @@ Sphere::Sphere(Point3D p, float r) :
 {
 }
 
-Sphere::Sphere(glm::vec3 p, float r) :
-	centre{ p },
-	radius{ r }
-{
-}
 
 Ray::Ray() :
 	start{},
@@ -65,7 +41,7 @@ Ray::Ray() :
 {
 }
 
-Ray::Ray(glm::vec3 s, glm::vec3 dir) :
+Ray::Ray(const Point3D& s, const Point3D& dir) :
 	start{ s },
 	direction{ dir }
 {
@@ -81,10 +57,10 @@ Plane::Plane()
 	normal = { norm,0.0f };
 }
 
-Plane::Plane(glm::vec3 n, glm::vec3 p)
+Plane::Plane(const Point3D& n, const Point3D& p)
 {
-	n = glm::normalize(n);
-	normal = { n, (glm::dot(p,n)) };
+	auto nv = glm::normalize(n);
+	normal = { nv, (glm::dot(p,nv)) };
 }
 
 std::pair<glm::vec3, glm::vec3> Plane::ToPointNormal() const
@@ -99,7 +75,7 @@ v2{glm::vec3{0.5f,0.0f,0.5f}}
 {
 }
 
-Triangle::Triangle(glm::vec3 a, glm::vec3 b, glm::vec3 c)
+Triangle::Triangle(const Point3D& a, const Point3D& b, const Point3D& c)
 	:v0{a},
 	v1{b},
 	v2{c}

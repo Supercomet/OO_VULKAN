@@ -199,12 +199,8 @@ MeshContainer::~MeshContainer()
 {
 }
 
-Model::~Model()
-{
-	
-}
 
-void Model::destroy(VkDevice device)
+void gfxModel::destroy(VkDevice device)
 {
 
 	vkDestroyBuffer(device, vertices.buffer, nullptr);
@@ -218,7 +214,7 @@ void Model::destroy(VkDevice device)
 	}
 }
 
-void Model::loadNode(Node* parent,const aiScene* scene, const aiNode& node, uint32_t nodeIndex, std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices)
+void gfxModel::loadNode(Node* parent,const aiScene* scene, const aiNode& node, uint32_t nodeIndex, std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices)
 {
 	Node* newNode = new Node();
 	newNode->parent = parent;
@@ -252,12 +248,13 @@ void Model::loadNode(Node* parent,const aiScene* scene, const aiNode& node, uint
 	}
 }
 
-oGFX::Mesh* Model::processMesh(aiMesh* aimesh, const aiScene* scene, std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices)
+oGFX::Mesh* gfxModel::processMesh(aiMesh* aimesh, const aiScene* scene, std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices)
 {
 	oGFX::Mesh* mesh = new oGFX::Mesh;
 	mesh->vertexOffset  = static_cast<uint32_t>(vertices.size());
 	mesh->indicesOffset = static_cast<uint32_t>(indices.size());
 	mesh->vertexCount += aimesh->mNumVertices;
+	vertices.reserve(vertices.size() + aimesh->mNumVertices);
 
 	for (size_t i = 0; i < aimesh->mNumVertices; i++)
 	{
@@ -299,6 +296,7 @@ oGFX::Mesh* Model::processMesh(aiMesh* aimesh, const aiScene* scene, std::vector
 	}
 
 	uint32_t indicesCnt{  };
+	indices.reserve(indices.size() + aimesh->mNumFaces * aimesh->mFaces[0].mNumIndices);
 	for(uint32_t i = 0; i < aimesh->mNumFaces; i++)
 	{
 		const aiFace& face = aimesh->mFaces[i];

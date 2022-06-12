@@ -39,8 +39,14 @@ private:
 
 struct Model
 {
-	~Model();
+	uint32_t gfxIndex;
+	std::string fileName;
+	std::vector<oGFX::Vertex> vertices;
+	std::vector<uint32_t> indices;
+};
 
+struct gfxModel
+{
 	struct Vertices {
 		int count{};
 		uint32_t offset{};
@@ -63,7 +69,6 @@ struct Model
 	}textures;
 
 	void destroy(VkDevice device);
-
 
 	void loadNode(Node* parent,const aiScene* scene, const aiNode& node, uint32_t nodeIndex
 		,std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);

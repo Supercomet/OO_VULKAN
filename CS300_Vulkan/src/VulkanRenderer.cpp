@@ -1128,6 +1128,7 @@ void VulkanRenderer::CleanupDeferredStuff()
 	 vkDestroySampler(m_device.logicalDevice, deferredSampler, nullptr);
 	 vkDestroyRenderPass(m_device.logicalDevice,deferredPass, nullptr);
 	 vkDestroyPipeline(m_device.logicalDevice, deferredPipe, nullptr);
+	 vkDestroyRenderPass(m_device.logicalDevice,compositionPass, nullptr);
 }
 
 void VulkanRenderer::CreateCompositionBuffers()
@@ -1982,7 +1983,7 @@ bool VulkanRenderer::ResizeSwapchain()
 	return true;
 }
 
-uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
+Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
 {
 	// new model loader
 	
@@ -2025,7 +2026,7 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	}
 
 	auto index = models.size();
-	models.emplace_back(std::move(Model()));	
+	models.emplace_back(std::move(gfxModel()));	
 
 	auto& model = models[index];
 	for (auto& node : model.nodes)
@@ -2036,23 +2037,25 @@ uint32_t VulkanRenderer::LoadMeshFromFile(const std::string& file)
 		}
 	}
 
-	std::vector<oGFX::Vertex> verticeBuffer;
-	std::vector<uint32_t> indexBuffer;
+	Model* m = new Model;
+	m->gfxIndex = index;
+	//std::vector<oGFX::Vertex> verticeBuffer;
+	//std::vector<uint32_t> indexBuffer;
 
-	model.loadNode(nullptr, scene, *scene->mRootNode,0,verticeBuffer, indexBuffer);
+	model.loadNode(nullptr, scene, *scene->mRootNode,0,m->vertices, m->indices);
 	
-	LoadMeshFromBuffers(verticeBuffer, indexBuffer, &model);
+	LoadMeshFromBuffers(m->vertices, m->indices, &model);
 
-	return static_cast<uint32_t>(index);
+	return m;
 }
 
-uint32_t VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, Model* model)
+uint32_t VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model)
 {
 	uint32_t index = 0;
 	if (model == nullptr)
 	{
 		index = models.size();
-		models.emplace_back(std::move(Model()));
+		models.emplace_back(std::move(gfxModel()));
 		model = &models[index];
 		Node* n = new Node{};
 		oGFX::Mesh* msh = new oGFX::Mesh{};

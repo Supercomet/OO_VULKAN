@@ -10,6 +10,7 @@
 #include "glm/gtc/type_ptr.hpp"
 
 #include <iostream>
+#include <iomanip>
 #include <chrono>
 #include <cctype>
 #include <thread>
@@ -27,6 +28,13 @@
 #include <imgui.h>
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_win32.h>
+
+#include "BoudingVolume.h"
+std::ostream& operator<<(std::ostream& os, const glm::vec3& vec)
+{
+    os << std::setprecision(4) << "[" << vec.x << "," << vec.y << "," << vec.z << "]";
+    return os;
+}
 
 bool BoolQueryUser(const char * str)
 {
@@ -129,18 +137,57 @@ int main(int argc, char argv[])
     };
 
 
+    std::vector<Point3D> pts{
+        glm::vec3{5.03f,1.34f,3.0f},
+        glm::vec3{7.0f,10.0f,10.0f},
+        glm::vec3{-5.0f,0.0f,3.5f},
+        glm::vec3{6.5f,-3.63f,-5.81f},
+        glm::vec3{4.5f,0.0f,5.0f},
+        glm::vec3{8.0f,-3.0f,5.0f},
+    };
+   
+
     //uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
     //uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
 
-    uint32_t ball = renderer.LoadMeshFromFile("Models/sphere.obj");
+    std::unique_ptr<Model> ball;
+    ball.reset(renderer.LoadMeshFromFile("Models/sphere.obj"));
+    auto bunny = renderer.LoadMeshFromFile("Models/bunny.ply");
+    int o{};
+    std::vector<glm::vec3> positions(bunny->vertices.size());
+    std::transform(bunny->vertices.begin(), bunny->vertices.end(), positions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+    for (auto& v : bunny->vertices)
+    {
+        //std::cout << v.pos << " ";
+        //if ((++o % 5) == 0) std::cout << std::endl;
+        //++o;
+    }
+
+    std::cout << std::endl;
+    std::cout << "vertices : " << bunny->vertices.size() << std::endl;
     uint32_t box = renderer.LoadMeshFromBuffers(boxverts, boxindices, nullptr);
     uint32_t triangle = renderer.LoadMeshFromBuffers(quadVerts, quadIndices, nullptr);
     uint32_t plane = renderer.LoadMeshFromBuffers(planeVerts, planeIndices, nullptr);
+    delete bunny;
+
+    Sphere ms;
+    oGFX::BV::RitterSphere(ms, positions);
+    std::cout << "Ritter Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_6);
+    std::cout << "Larson_06 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_14);
+    std::cout << "Larson_14 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_26);
+    std::cout << "Larson_26 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_98);
+    std::cout << "Larson_98 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    oGFX::BV::RittersEigenSphere(ms, positions);
+    std::cout << "Eigen Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
 
     glm::mat4 id(1.0f);
 
     VulkanRenderer::EntityDetails ed;
-    ed.modelID = ball;
+    ed.modelID = ball->gfxIndex;
     ed.pos = { 2.0f,0.0f,2.0f };
     renderer.entities.push_back(ed);
     ed.modelID = box;

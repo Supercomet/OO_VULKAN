@@ -18,16 +18,16 @@ bool PointSphere(const Sphere& s, const Point3D& p)
 
 bool BaryCentricTriangle(const Point3D& p, const Triangle& tri, float& u, float& v, float& w)
 {
-	auto l0 = tri.v1.pos - tri.v0.pos;
-	auto l1 = tri.v2.pos - tri.v1.pos;
-	auto l2 = tri.v0.pos - tri.v2.pos;
+	auto l0 = tri.v1 - tri.v0;
+	auto l1 = tri.v2 - tri.v1;
+	auto l2 = tri.v0 - tri.v2;
 	auto signedMag = glm::length(glm::cross(-l1,l0));
 
 	if (signedMag == 0) return false;
 
-	auto s0 = p.pos - tri.v0.pos;
-	auto s1 = p.pos - tri.v1.pos;
-	auto s2 = p.pos - tri.v2.pos;
+	auto s0 = p - tri.v0;
+	auto s1 = p - tri.v1;
+	auto s2 = p - tri.v2;
 
 	auto al0 = glm::length(glm::cross(l0, s0));
 	auto al1 = glm::length(glm::cross(l1, s1));
@@ -94,7 +94,7 @@ bool PointAabb(const Point3D& p, const AABB& aabb)
 
 	for (uint32_t i = 0; i < 3; i++)
 	{
-		if (p.pos[i] < min[i] || p.pos[i] > max[i])
+		if (p[i] < min[i] || p[i] > max[i])
 			return false;
 	}
 	return true;
@@ -118,7 +118,7 @@ bool PointPlane(const Plane& p, const Point3D& q)
 
 bool PointPlane(const Point3D& q, const Plane& p, float epsilon)
 {
-	float d = glm::dot(q.pos, glm::vec3(p.normal));
+	float d = glm::dot(q, glm::vec3(p.normal));
 	return std::abs(d- p.normal.w) < epsilon;
 }
 
@@ -132,7 +132,7 @@ float SqDistPointAabb(const Point3D& p, const AABB& a)
 	// for each axis
 	for (glm::vec3::length_type i = 0; i < 3; i++)
 	{
-		float v = p.pos[i];
+		float v = p[i];
 		if (v < min[i]) sqrDist += (min[i] - v) * (min[i] - v);
 		if (v > max[i]) sqrDist += (v- max[i]) * (v - max[i]);
 	}
@@ -143,12 +143,12 @@ float SqDistPointAabb(const Point3D& p, const AABB& a)
 float DistPointPlane(const Point3D& q, const Plane& p)
 {
 	auto n = glm::vec3(p.normal);// can skip dot if normalized
-	return (glm::dot(n,q.pos)-p.normal.w)/ glm::dot(n,n);
+	return (glm::dot(n,q)-p.normal.w)/ glm::dot(n,n);
 }
 
 float ScalarTriple(const Point3D& u, const Point3D& v, const Point3D& w)
 {
-	return glm::dot(glm::cross(u.pos, v.pos), w.pos);
+	return glm::dot(glm::cross(u, v), w);
 }
 
 bool BaryCheckUVW(float u, float v, float w)
@@ -184,7 +184,7 @@ bool RayPlane(const Ray& r, const Plane& p, float& t, Point3D& pt)
 	float divs = glm::dot(pNorm, r.direction);
 	if (std::abs(divs) > EPSILON)
 	{
-		t = (d-glm::dot(pNorm, r.start.pos)) / divs;
+		t = (d-glm::dot(pNorm, r.start)) / divs;
 		if (t >= EPSILON)
 		{
 			return true;
@@ -240,14 +240,14 @@ bool RayAabb(const Ray& r, const AABB& a, float& tmin, float& tmax, Point3D& p)
 		if (std::abs(r.direction[i]) < EPSILON)
 		{
 			// Ray is parallel to slab. No hit if origin not within slab
-			if (r.start.pos[i] < aMin[i] || r.start.pos[i] > aMax[i]) return 0;
+			if (r.start[i] < aMin[i] || r.start[i] > aMax[i]) return 0;
 		}
 		else
 		{
 			// Compute intersection t value of ray with near and far plane of slab
 			float ood = 1.0f / r.direction[i];
-			float t1 = (aMin[i] - r.start.pos[i]) * ood;
-			float t2 = (aMax[i] - r.start.pos[i]) * ood;
+			float t1 = (aMin[i] - r.start[i]) * ood;
+			float t2 = (aMax[i] - r.start[i]) * ood;
 			// Make t1 be intersection with near plane, t2 with far plane
 			if (t1 > t2) std::swap(t1, t2);
 			// Compute the intersection of slab intersection intervals
@@ -258,7 +258,7 @@ bool RayAabb(const Ray& r, const AABB& a, float& tmin, float& tmax, Point3D& p)
 		}
 	}
 	// Ray intersects all 3 slabs. Return point (q) and intersection t value (tmin)
-	p= r.start.pos + r.direction * tmin;
+	p= r.start + r.direction * tmin;
 	return true;
 }
 
@@ -270,7 +270,7 @@ bool RaySphere(const Ray& r, const Sphere& s)
 
 bool RaySphere(const Ray& r, const Sphere& s, float& t)
 {
-	glm::vec3 m = r.start.pos - s.centre.pos;
+	glm::vec3 m = r.start - s.centre;
 	float b = glm::dot(m, r.direction);
 	float c = glm::dot (m, m) - s.radius * s.radius;
 	// Exit if r’s origin outside s (c > 0) and r pointing away from s (b > 0)
@@ -296,10 +296,10 @@ bool RayTriangle(const Ray& r, const Triangle& tri)
 
 bool RayTriangle(const Ray& r, const Triangle& tri, float& t)
 {
-	Plane plane = { glm::cross(tri.v1.pos, tri.v2.pos), tri.v1.pos };	
+	Plane plane = { glm::cross(tri.v1, tri.v2), tri.v1 };	
 	if (RayPlane(r, plane, t))
 	{
-		return PointInTriangle(r.start.pos + r.direction * t, tri);
+		return PointInTriangle(r.start + r.direction * t, tri);
 	}
 	return false;
 }
@@ -312,15 +312,15 @@ bool PointInTriangle(const Point3D& p, const Point3D& v1, const Point3D& v2, con
 	Point3D c{ v3 - p };
 
 	// Legrange's identity
-	float ab = glm::dot(a.pos, b.pos);
-	float ac = glm::dot(a.pos, c.pos);
-	float bc = glm::dot(b.pos, c.pos);
-	float cc = glm::dot(c.pos, c.pos);
+	float ab = glm::dot(a, b);
+	float ac = glm::dot(a, c);
+	float bc = glm::dot(b, c);
+	float cc = glm::dot(c, c);
 
 	// normals pab and pbc point in the same direction
 	if (bc * ac - cc * ab < 0.0f) return 0;
 
-	float bb = glm::dot(b.pos, b.pos);
+	float bb = glm::dot(b, b);
 	// normals for pab and pca point in the same direction
 	if (ab * bc - ac * bb < 0.0f) return 0;
 
@@ -347,7 +347,7 @@ bool PlaneSphere(const Plane& p, const Sphere& s)
 
 bool PlaneSphere(const Plane& p, const Sphere& s, float& t)
 {
-	float dist = glm::dot(s.centre.pos, glm::vec3(p.normal))-p.normal.w;
+	float dist = glm::dot(s.centre, glm::vec3(p.normal))-p.normal.w;
 	auto result = std::abs(dist) <= s.radius;
 	if (result != true)
 	{
@@ -377,7 +377,7 @@ bool PlaneAabb(const Plane& p, const AABB& a, float& t)
 	if (result != true)
 	{
 		glm::vec3 planePt(glm::vec3{p.normal} * p.normal.w);
-		t = -glm::dot(planePt-c.pos, glm::vec3{ p.normal });
+		t = -glm::dot(planePt-c, glm::vec3{ p.normal });
 	}
 	return result;
 }

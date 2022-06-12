@@ -26,6 +26,7 @@
     <ClCompile Include="..\vendor\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="src\BoudingVolume.cpp" />
     <ClCompile Include="src\DescriptorBuilder.cpp" />
     <ClCompile Include="src\DescriptorLayoutCache.cpp" />
     <ClCompile Include="src\DescriptorAllocator.cpp" />
@@ -53,6 +54,7 @@
     <ClCompile Include="src\tinyddsloader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\BoudingVolume.h" />
     <ClInclude Include="src\DescriptorBuilder.h" />
     <ClInclude Include="src\DescriptorLayoutCache.h" />
     <ClInclude Include="src\DescriptorAllocator.h" />
