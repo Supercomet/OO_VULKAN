@@ -111,16 +111,17 @@ int main(int argc, char argv[])
     };
 
     std::vector<oGFX::Vertex>boxverts{
-        oGFX::Vertex{ {-0.5,-0.5,-0.5}, { 0.3f,0.3f,0.3f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5,-0.5,-0.5}, { 0.0f,0.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ {-0.5, 0.5,-0.5}, { 0.0f,1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5, 0.5,-0.5}, { 0.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ {-0.5,-0.5,-0.5}, { -1.0f,-1.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5,-0.5,-0.5}, { 0.0f,-1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ {-0.5, 0.5,-0.5}, { -1.0f,0.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5, 0.5,-0.5}, { 0.0f,0.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
                                                            
-        oGFX::Vertex{ {-0.5,-0.5, 0.5}, { 1.0f,0.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5,-0.5, 0.5}, { 1.0f,0.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ {-0.5, 0.5, 0.5}, { 1.0f,1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ {-0.5,-0.5, 0.5}, { -1.0f,-1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5,-0.5, 0.5}, { 1.0f,-1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ {-0.5, 0.5, 0.5}, { -1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
         oGFX::Vertex{ { 0.5, 0.5, 0.5}, { 1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } }
     };
+    for (auto& v : boxverts) { v.norm = glm::normalize(v.norm); }
     std::vector<uint32_t> boxindices{
          1,0,2
         ,3,1,2
@@ -183,6 +184,9 @@ int main(int argc, char argv[])
     std::cout << "Larson_98 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
     oGFX::BV::RittersEigenSphere(ms, positions);
     std::cout << "Eigen Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    AABB ab;
+    oGFX::BV::BoundingAABB(ab, positions);
+    std::cout << "AABB " << ab.center << " , Extents = " << ab.halfExt << std::endl;
 
     glm::mat4 id(1.0f);
 

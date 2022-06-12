@@ -171,6 +171,27 @@ namespace  oGFX::BV
 		s.radius = std::sqrt(s.radius);
 	}
 
+	void BoundingAABB(AABB& aabb, const std::vector<Point3D>& points)
+	{
+		glm::vec3 Min( FLT_MAX );
+		glm::vec3 Max( -FLT_MAX );
+		for( unsigned int i = 0; i < points.size(); ++i )
+		{
+			const Point3D& pt = points[i];
+			Min.x = std::min( Min.x, pt.x );
+			Min.y = std::min( Min.y, pt.y );
+			Min.z = std::min( Min.z, pt.z );
+			Max.x = std::max( Max.x, pt.x );
+			Max.y = std::max( Max.y, pt.y );
+			Max.z = std::max( Max.z, pt.z );
+		}
+
+		auto midPoint = (Min + Max) / 2.0f;
+		aabb.center = midPoint;
+		aabb.halfExt = { Max.x - Min.x, Max.y - Min.y,Max.z - Min.z };
+		aabb.halfExt /= 2.0f;
+	}
+
 	void LarsonSphere(Sphere& s, const std::vector<Point3D>& points, size_t range)
 	{
 		// Get sphere encompassing two approximately most distant points

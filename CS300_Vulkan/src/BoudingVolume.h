@@ -22,6 +22,8 @@ namespace oGFX::BV
 	void ExpandSphereAboutPoint(Sphere& s, const Point3D& point, size_t range);
 	void SphereFromDistantPoints(Sphere& s, const std::vector<Point3D>& points);
 
+	void BoundingAABB(AABB& aabb, const std::vector<Point3D>& points);
+
 	void LarsonSphere(Sphere& s, const std::vector<Point3D>& points, size_t range = 2);
 
 	void RitterSphere(Sphere& s, const std::vector<Point3D>& points);
