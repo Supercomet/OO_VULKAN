@@ -99,7 +99,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	} lightUBO;
 	float timer{};
 
-	bool deferredRendering = false;
+	bool deferredRendering = true;
 	VkRenderPass compositionPass;
 	VkPipelineLayout compositionPipeLayout;
 	VkPipeline compositionPipe;

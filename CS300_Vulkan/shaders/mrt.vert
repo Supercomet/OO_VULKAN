@@ -20,6 +20,8 @@ layout(push_constant)uniform PushLight{
 
 layout(location = 0) out vec4 outPos;
 layout(location = 1) out vec2 outUV;
+layout(location = 2) out vec3 outCol;
+
 
 //layout(location = 1) out flat  struct{
 //  ivec4 maps;
@@ -63,4 +65,5 @@ void main(){
 	//outTexIndex.maps.z = instanceOcclusionTexIndex;
 	//outTexIndex.maps.w = instanceRoughnessTexIndex;
 	outUV = inUV;
+	outCol = inCol;
 }

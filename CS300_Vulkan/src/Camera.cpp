@@ -9,40 +9,40 @@ void Camera::updateViewMatrix()
 	rotation.x = std::max(rotation.x, -89.0f);
 	rotation.x = std::min(rotation.x,  89.0f);
 
-	glm::vec3 from{ 0.0f,0.0f,distance };
-	glm::vec3 worldUp(0.0f, -1.0f, 0.0f);
 
+	glm::mat4 rotM = glm::eulerAngleYXZ(glm::radians(rotation.y),glm::radians(rotation.x), glm::radians(rotation.z));
 	
-	glm::mat4 rotM = glm::mat4{ 1.0f };
-	//rotM = glm::rotate(rotM, glm::radians(rotation.x * (flipY ? -1.0f : 1.0f)), glm::vec3(1.0f, 0.0f, 0.0f));
-	//rotM = glm::rotate(rotM, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-	//rotM = glm::rotate(rotM, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-	rotM = glm::eulerAngleYXZ(glm::radians(rotation.y),glm::radians(rotation.x), glm::radians(rotation.z));
-	glm::vec3 temp = glm::mat3(rotM) * from;
-	from = temp;
 
-	position = target + from;
+	glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
+	if (type == CameraType::lookat)
+	{
+		glm::vec3 from{ 0.0f,0.0f, -distance };
+		glm::vec3 temp = glm::mat3(rotM) * from;
+		from = temp;
+		position = target + from;
+		m_forward = position- target;
+		worldUp = glm::eulerAngleZ(glm::radians(rotation.z)) * glm::vec4(worldUp,0.0f);
+	}
+	else
+	{
+		m_forward = rotM * glm::vec4{ 0.0f,0.0f,-1.0f ,0.0f };
+	}
 
-	
-	worldUp = glm::eulerAngleZ(glm::radians(rotation.z)) * glm::vec4(worldUp,0.0f);
+		
+	m_right = glm::cross(worldUp,m_forward);
+	m_up = glm::cross(m_forward,m_right);
 
-	forward = position- target;
-
-
-	m_right = glm::cross(forward, worldUp);
-	m_up = glm::cross(forward, m_right);
-
-	forward = glm::normalize(forward);
+	m_forward = glm::normalize(m_forward);
 	m_right = glm::normalize(m_right);
 	m_up = glm::normalize(m_up);
 
 	matrices.view = glm::mat4{
-	 m_right.x,  m_up.x,  forward.x,  0.0f,
-	 m_right.y,  m_up.y,  forward.y,  0.0f,
-	 m_right.z,  m_up.z,  forward.z,  0.0f,
-	 -glm::dot(position,m_right),   -glm::dot(position,m_up),   -glm::dot(position,forward),  1.0f
+	 m_right.x,  m_up.x,  m_forward.x,  0.0f,
+	 m_right.y,  m_up.y,  m_forward.y,  0.0f,
+	 m_right.z,  m_up.z,  m_forward.z,  0.0f,
+	 -glm::dot(position,m_right),   -glm::dot(position,m_up),   -glm::dot(position,m_forward),  1.0f
 	};
-
+	
 	updated = true;
 }
 
@@ -212,23 +212,17 @@ void Camera::Update(float deltaTime)
 	{
 		if (Moving())
 		{
-			updated = true;
-			glm::vec3 camFront;
-			camFront.x = -cos(glm::radians(rotation.x)) * sin(glm::radians(rotation.y));
-			camFront.y = sin(glm::radians(rotation.x));
-			camFront.z = cos(glm::radians(rotation.x)) * cos(glm::radians(rotation.y));
-			camFront = glm::normalize(camFront);
-
+			
 			float moveSpeed = deltaTime * movementSpeed;
 
 			if (keys.up)
-				position += camFront * moveSpeed;
+				position -= m_forward * moveSpeed;
 			if (keys.down)
-				position -= camFront * moveSpeed;
+				position += m_forward * moveSpeed;
 			if (keys.left)
-				position -= glm::normalize(glm::cross(camFront, glm::vec3(0.0f, 1.0f, 0.0f))) * moveSpeed;
+				position -= m_right * moveSpeed;
 			if (keys.right)
-				position += glm::normalize(glm::cross(camFront, glm::vec3(0.0f, 1.0f, 0.0f))) * moveSpeed;
+				position += m_right * moveSpeed;
 
 			//updateViewMatrix();
 		}
@@ -236,7 +230,7 @@ void Camera::Update(float deltaTime)
 }
 glm::vec3 Camera::GetFront()
 {
-	return forward;
+	return m_forward;
 }
 glm::vec3 Camera::GetRight()
 {

@@ -1639,6 +1639,8 @@ void VulkanRenderer::DrawGUI()
 {
 	ImGui::Begin("img");
 	{
+		const char* views[]  = { "Lookat", "FirstPerson" };
+		ImGui::ListBox("Camera View", reinterpret_cast<int*>(&camera.type), views, 2);
 		auto sz = ImGui::GetContentRegionAvail();
 		ImGui::Image(myImg, { sz.x,sz.y });
 	}

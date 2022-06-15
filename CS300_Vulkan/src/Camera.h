@@ -14,7 +14,7 @@ private:
 	float fov{ 60.0f };
 	float znear{ 0.1f }, zfar{ 1000.0f };
 
-	glm::vec3 forward{};
+	glm::vec3 m_forward{};
 	glm::vec3 m_up{0.0f,1.0f,0.0f};
 	glm::vec3 m_right{};
 

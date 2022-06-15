@@ -7,6 +7,7 @@ layout (set = 1, binding = 0) uniform sampler2D textureDesArr[];
 
 layout(location = 0) in vec4 inPos;
 layout(location = 1) in vec2 inUV;
+layout(location = 2) in vec3 inCol;
 
 //layout(location = 1) in flat struct{
 // ivec4 maps;
@@ -31,7 +32,7 @@ layout (location = 2) out vec4 outAlbedo;
 
 void main(){
 
-outAlbedo = vec4(1.0,0.0,0.0,1.0);
+outAlbedo = vec4(inCol,1.0);
 outNormal = vec4(inLightData.btn[2],1.0);
 outPosition = inPos;
 return;

@@ -66,7 +66,9 @@ for %%i in (*.vert  *.frag) do (
 				rem 	)
 				rem )
 				
-		) else (echo does not exist!)
+		) else (set /A compile=1
+		rem does not exist
+		)
 		
 	set numberstring=                      %%~i
 	if !compile! EQU 1 ( 	
@@ -84,7 +86,6 @@ for %%i in (*.vert  *.frag) do (
  call touch done.txt
  echo Finished
  echo.
-
 
 rem forfiles /s /m *.vert /c "cmd /c %VULKAN_SDK%/Bin/glslangValidator.exe -V @path -o @fname.vert.spv"
 rem forfiles /s /m *.frag /c "cmd /c %VULKAN_SDK%/Bin/glslangValidator.exe -V @path -o @fname.frag.spv"

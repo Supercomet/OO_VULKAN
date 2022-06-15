@@ -247,11 +247,11 @@ int main(int argc, char argv[])
     float angle = 0.0f;
     auto lastTime = std::chrono::high_resolution_clock::now();
 
-    renderer.camera.type = Camera::CameraType::firstperson;
+    renderer.camera.type = Camera::CameraType::lookat;
     renderer.camera.target = glm::vec3(0.01f, 0.0f, 0.0f);
     renderer.camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
     renderer.camera.SetRotationSpeed(0.5f);
-    renderer.camera.SetPosition(glm::vec3(0.1f, -2.0f, -10.5f));
+    renderer.camera.SetPosition(glm::vec3(0.1f, 2.0f, 10.5f));
 
     bool freezeLight = false;
 
@@ -304,10 +304,10 @@ int main(int argc, char argv[])
         float deltaTime = std::chrono::duration<float>( now - lastTime).count();
         lastTime = now;
 
-        if (Input::GetKeyHeld(KEY_A)) renderer.camera.keys.left = true;
-        if (Input::GetKeyHeld(KEY_D)) renderer.camera.keys.right = true;
-        if (Input::GetKeyHeld(KEY_S)) renderer.camera.keys.down = true;
-        if (Input::GetKeyHeld(KEY_W)) renderer.camera.keys.up = true;
+        renderer.camera.keys.left = Input::GetKeyHeld(KEY_A)? true : false;
+        renderer.camera.keys.right = Input::GetKeyHeld(KEY_D)? true : false;
+        renderer.camera.keys.down = Input::GetKeyHeld(KEY_S)? true : false;
+        renderer.camera.keys.up = Input::GetKeyHeld(KEY_W)? true : false;
         renderer.camera.Update(deltaTime);
         renderer.camera.movementSpeed = 5.0f;
         float speed = 0.05f;
@@ -317,20 +317,14 @@ int main(int argc, char argv[])
             renderer.camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
         }
 
-
+        auto mousedel = Input::GetMouseDelta();
+        float wheelDelta = Input::GetMouseWheel();
+        if (Input::GetMouseHeld(MOUSE_RIGHT)) {
+            renderer.camera.Rotate(glm::vec3(-mousedel.y * renderer.camera.rotationSpeed, mousedel.x * renderer.camera.rotationSpeed, 0.0f));
+        }
         if (renderer.camera.type == Camera::CameraType::lookat)
         {
-            auto mousedel = Input::GetMouseDelta();
-            float wheelDelta = Input::GetMouseWheel();
             renderer.camera.ChangeDistance(wheelDelta * -0.001f);
-            auto frontVec = renderer.camera.GetFront();
-            auto rightVec = renderer.camera.GetRight();
-            auto upVec = renderer.camera.GetUp();
-            if (Input::GetMouseHeld(MOUSE_RIGHT)) {
-                renderer.camera.Rotate(glm::vec3(mousedel.y * renderer.camera.rotationSpeed, mousedel.x * renderer.camera.rotationSpeed, 0.0f));
-                renderer.camera.keys.up = true;
-            }
-
         }
         
         if (Input::GetKeyTriggered(KEY_SPACE))
@@ -346,7 +340,7 @@ int main(int argc, char argv[])
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        std::cout<< "\r" << renderer.camera.position;
+        std::cout<<  renderer.camera.position << '\n';
 
         if (renderer.PrepareFrame() == true)
         {
