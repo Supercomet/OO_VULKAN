@@ -67,11 +67,11 @@ namespace oGFX
 		//float pos[3] ; // Vertex position (x, y, z)
 		//float col[3] ; // Vertex colour (r, g, b)
 		//float tex[2] ; // Texture Coords(u,v)
-		glm::vec3 pos; // Vertex position (x, y, z)
-		//glm::vec3 col; // Vertex colour (r, g, b)
+		glm::vec3 pos{0.0f}; // Vertex position (x, y, z)
 		glm::vec3 norm; // Vertex normal (x, y, z)
-		glm::vec3 tangent; // Vertex normal (x, y, z)
+		glm::vec3 col{0.0f,1.0f,0.0f}; // Vertex colour (r, g, b)
 		glm::vec2 tex; // Texture Coords(u,v)
+		glm::vec3 tangent; // Vertex normal (x, y, z)
 	};
 
 	// Per-instance data block

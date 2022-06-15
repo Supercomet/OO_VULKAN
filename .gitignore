@@ -3,6 +3,10 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Build-specific files
+*.spv
+done.txt
+
 # User-specific files
 *.filters
 *.rsuser

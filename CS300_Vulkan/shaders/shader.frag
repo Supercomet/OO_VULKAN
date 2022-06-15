@@ -8,6 +8,7 @@ layout(set = 1, binding= 0) uniform sampler2D textureSampler;
 layout(location = 0) out vec4 outColour; //final output colour (Must also have location!)
 
 void main(){
-outColour = texture(textureSampler,fragTex)*vec4(fragCol,1.0);
-outColour = vec4(1.0,0.0,0.0,1.0);
+outColour = vec4(fragCol,1.0);
+//outColour = texture(textureSampler,fragTex)*vec4(fragCol,1.0);
+outColour = vec4(0.0,1.0,0.0,1.0);
 }

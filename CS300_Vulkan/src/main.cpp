@@ -185,15 +185,14 @@ int main(int argc, char argv[])
     oGFX::BV::RittersEigenSphere(ms, positions);
     std::cout << "Eigen Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
     AABB ab;
+    positions.resize(ball->vertices.size());
+    std::transform(ball->vertices.begin(), ball->vertices.end(), positions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
     oGFX::BV::BoundingAABB(ab, positions);
     std::cout << "AABB " << ab.center << " , Extents = " << ab.halfExt << std::endl;
 
     glm::mat4 id(1.0f);
 
     VulkanRenderer::EntityDetails ed;
-    ed.modelID = ball->gfxIndex;
-    ed.pos = { 2.0f,0.0f,2.0f };
-    renderer.entities.push_back(ed);
     ed.modelID = box;
     ed.pos = { -2.0f,0.0f,-2.0f };
     renderer.entities.push_back(ed);
@@ -203,6 +202,10 @@ int main(int argc, char argv[])
     ed.modelID = plane;
     ed.pos = { 0.0f,-2.0f,0.0f };
     ed.scale = { 30.0f,30.0f,30.0f };
+    renderer.entities.push_back(ed);
+    ed.modelID = ball->gfxIndex;
+    ed.pos = { 2.0f,0.0f,2.0f };
+    ed.scale = { 1.0f,1.0f,1.0f };
     renderer.entities.push_back(ed);
     
     //uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");
@@ -244,7 +247,7 @@ int main(int argc, char argv[])
     float angle = 0.0f;
     auto lastTime = std::chrono::high_resolution_clock::now();
 
-    renderer.camera.type = Camera::CameraType::lookat;
+    renderer.camera.type = Camera::CameraType::firstperson;
     renderer.camera.target = glm::vec3(0.01f, 0.0f, 0.0f);
     renderer.camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
     renderer.camera.SetRotationSpeed(0.5f);
@@ -252,8 +255,44 @@ int main(int argc, char argv[])
 
     bool freezeLight = false;
 
+    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{ -ab.halfExt[0], -ab.halfExt[1], -ab.halfExt[2] } }); //0
+    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{ -ab.halfExt[0],  ab.halfExt[1], -ab.halfExt[2] } }); // 1
+    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{ -ab.halfExt[0], -ab.halfExt[1],  ab.halfExt[2] } }); // 2
+    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{  ab.halfExt[0], -ab.halfExt[1], -ab.halfExt[2] } }); // 3
+    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{ -ab.halfExt[0],  ab.halfExt[1],  ab.halfExt[2] } }); // 4
+    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{  ab.halfExt[0],  ab.halfExt[1], -ab.halfExt[2] } }); // 5
+    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{  ab.halfExt[0], -ab.halfExt[1],  ab.halfExt[2] } }); // 6
+	renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{  ab.halfExt[0],  ab.halfExt[1],  ab.halfExt[2] } }); // 7
+
+    renderer.g_debugDrawIndices = {  0,1,
+					0,2,
+					0,3,
+					1,4,
+					1,5,
+					3,5,
+					3,6,
+					2,6,
+					2,4,
+					6,7,
+					5,7,
+					4,7
+	};
+
+    //for (size_t i = 0; i < boxindices.size()-1; i++)
+    //{
+    //    ab.center + Point3D{ab.halfExt.x, ab.halfExt.y,ab.halfExt.z};
+    //    ab.center + Point3D{-ab.halfExt.x, ab.halfExt.y,ab.halfExt.z};
+    //    ab.center + Point3D{-ab.halfExt.x, ab.halfExt.y,ab.halfExt.z};
+    //}
+    //renderer.g_debugDrawIndices.push_back(boxindices[boxindices.size()-1]);
+    //renderer.g_debugDrawIndices.push_back(boxindices[0]);
+
+    renderer.UpdateDebugBuffers();
+
+
+
     glm::vec3 pos{0.1f, 1.1f, -3.5f};
-    //handling winOS messages
+    // handling winOS messages
     // This will handle inputs and pass it to our input callback
     while( mainWindow.windowShouldClose == false )  // infinite loop
     {
@@ -265,7 +304,12 @@ int main(int argc, char argv[])
         float deltaTime = std::chrono::duration<float>( now - lastTime).count();
         lastTime = now;
 
+        if (Input::GetKeyHeld(KEY_A)) renderer.camera.keys.left = true;
+        if (Input::GetKeyHeld(KEY_D)) renderer.camera.keys.right = true;
+        if (Input::GetKeyHeld(KEY_S)) renderer.camera.keys.down = true;
+        if (Input::GetKeyHeld(KEY_W)) renderer.camera.keys.up = true;
         renderer.camera.Update(deltaTime);
+        renderer.camera.movementSpeed = 5.0f;
         float speed = 0.05f;
 
         if (mainWindow.m_width != 0 && mainWindow.m_height != 0)
@@ -273,19 +317,22 @@ int main(int argc, char argv[])
             renderer.camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
         }
 
-        auto mousedel = Input::GetMouseDelta();
-        float wheelDelta = Input::GetMouseWheel();
 
-        renderer.camera.ChangeDistance(wheelDelta * -0.001f);
-        auto frontVec = renderer.camera.GetFront();
-        auto rightVec = renderer.camera.GetRight();
-        auto upVec = renderer.camera.GetUp();
+        if (renderer.camera.type == Camera::CameraType::lookat)
+        {
+            auto mousedel = Input::GetMouseDelta();
+            float wheelDelta = Input::GetMouseWheel();
+            renderer.camera.ChangeDistance(wheelDelta * -0.001f);
+            auto frontVec = renderer.camera.GetFront();
+            auto rightVec = renderer.camera.GetRight();
+            auto upVec = renderer.camera.GetUp();
+            if (Input::GetMouseHeld(MOUSE_RIGHT)) {
+                renderer.camera.Rotate(glm::vec3(mousedel.y * renderer.camera.rotationSpeed, mousedel.x * renderer.camera.rotationSpeed, 0.0f));
+                renderer.camera.keys.up = true;
+            }
 
-        if (Input::GetMouseHeld(MOUSE_RIGHT)) {
-            renderer.camera.Rotate(glm::vec3(mousedel.y * renderer.camera.rotationSpeed, mousedel.x * renderer.camera.rotationSpeed, 0.0f));
-            renderer.camera.keys.up = true;
         }
-
+        
         if (Input::GetKeyTriggered(KEY_SPACE))
         {
             freezeLight = !freezeLight;
@@ -299,16 +346,25 @@ int main(int argc, char argv[])
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
+        std::cout<< "\r" << renderer.camera.position;
+
         if (renderer.PrepareFrame() == true)
         {
+           
             renderer.timer += deltaTime*0.25f;
             renderer.UpdateLightBuffer();
             renderer.Draw();
             renderer.PrePass();
-            renderer.Deferred();
-            //renderer.SimplePass();
+            renderer.SimplePass();
+            
             //renderer.RecordCommands(renderer.swapchainImageIndex);
-            renderer.DeferredComposition();
+            
+            if (renderer.deferredRendering)
+            {
+                renderer.Deferred();
+                renderer.DeferredComposition();
+            }
+            renderer.DebugPass();
 
             // Create a dockspace over the mainviewport so that we can dock stuff
             ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), 

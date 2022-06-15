@@ -171,6 +171,23 @@ namespace  oGFX::BV
 		s.radius = std::sqrt(s.radius);
 	}
 
+	Sphere HorizonDisk(const Point3D& view, const Sphere& s)
+	{
+		Sphere disk;
+		glm::vec3 dir = s.centre - view;
+		float d = std::sqrt(glm::dot(dir,dir));
+		assert(d != 0.0f); // divide by zero why was this hit.
+		dir /= d; // length
+
+		float l = std::sqrt(d * d - s.radius * s.radius);
+		float rp = s.radius * l / d;
+		float z = std::sqrt(s.radius * s.radius - rp * rp);
+
+		disk.centre = s.centre - z * dir;
+		disk.radius = rp;
+		return disk;
+	}
+
 	void BoundingAABB(AABB& aabb, const std::vector<Point3D>& points)
 	{
 		glm::vec3 Min( FLT_MAX );

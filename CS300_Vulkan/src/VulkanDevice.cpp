@@ -88,7 +88,8 @@ void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
     }
 
     std::vector<const char*>deviceExtensions{
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
     };
 
     //information to create logical device (somtimes called only "device")
@@ -194,6 +195,7 @@ bool VulkanDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device)
     { 
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+        VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
         //        ,   VK_NV_GLSL_SHADER_EXTENSION_NAME  // nVidia useful extension to be able to load GLSL shaders
     };
 

@@ -103,20 +103,6 @@ void Camera::LookAtDirection(const glm::vec3& pos, const glm::vec3& direction, c
 	glm::vec3 r = glm::normalize(glm::cross(view, upVec));
 	glm::vec3 up = glm::cross(view ,r);
 
-	//matrices.view = glm::identity<glm::mat4>();
-	//matrices.view[0][0] = up.x;
-	//matrices.view[1][0] = up.y;
-	//matrices.view[2][0] = up.z;
-	//matrices.view[0][1] = r.x;
-	//matrices.view[1][1] = r.y;
-	//matrices.view[2][1] = r.z;
-	//matrices.view[0][2] = view.x;
-	//matrices.view[1][2] = view.y;
-	//matrices.view[2][2] = view.z;
-	//matrices.view[3][0] = -glm::dot(up, pos);
-	//matrices.view[3][1] = -glm::dot(r, pos);
-	//matrices.view[3][2] = -glm::dot(view, pos);
-
 	matrices.view = glm::mat4{
 		r.x,  up.x,  view.x,  0.0f,
 		r.y,  up.y,  view.y,  0.0f,
@@ -226,6 +212,7 @@ void Camera::Update(float deltaTime)
 	{
 		if (Moving())
 		{
+			updated = true;
 			glm::vec3 camFront;
 			camFront.x = -cos(glm::radians(rotation.x)) * sin(glm::radians(rotation.y));
 			camFront.y = sin(glm::radians(rotation.x));
@@ -243,7 +230,7 @@ void Camera::Update(float deltaTime)
 			if (keys.right)
 				position += glm::normalize(glm::cross(camFront, glm::vec3(0.0f, 1.0f, 0.0f))) * moveSpeed;
 
-			updateViewMatrix();
+			//updateViewMatrix();
 		}
 	}
 }

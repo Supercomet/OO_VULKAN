@@ -1,8 +1,9 @@
 #version 450 // use GLSL 4.5
 
 layout(location = 0) in vec3 pos;
-layout(location = 1) in vec3 col;
-layout(location = 2) in vec2 tex;
+layout(location = 1) in vec3 norm;
+layout(location = 3) in vec3 inCol;
+layout(location = 4) in vec2 tex;
 
 // vulkan passes a whole Uniform Buffer Object.
 layout(set = 0,binding = 0) uniform UboViewProjection{
@@ -26,6 +27,6 @@ void main(){
 
 gl_Position = uboViewProjection.projection * uboViewProjection.view *  pushModel.model * vec4(pos, 1.0);
 
-fragCol = col;
+fragCol = inCol;
 fragTex = tex;
 }

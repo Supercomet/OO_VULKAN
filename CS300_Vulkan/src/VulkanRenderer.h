@@ -99,6 +99,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	} lightUBO;
 	float timer{};
 
+	bool deferredRendering = false;
 	VkRenderPass compositionPass;
 	VkPipelineLayout compositionPipeLayout;
 	VkPipeline compositionPipe;
@@ -151,8 +152,20 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	uint32_t CreateTexture(uint32_t width, uint32_t height,unsigned char* imgData);
 	uint32_t CreateTexture(const std::string& fileName);
 
-	GpuVector g_vertexBuffer{&m_device};
-	GpuVector g_indexBuffer{ &m_device };
+	GpuVector<oGFX::Vertex> g_debugDrawVertBuffer{ &m_device };
+	GpuVector<uint32_t> g_debugDrawIndxBuffer{ &m_device };
+	std::vector<oGFX::Vertex> g_debugDrawVerts;
+	std::vector<uint32_t> g_debugDrawIndices;
+	void InitDebugBuffers();
+	void UpdateDebugBuffers();
+	void DestroyDebugBuffers();
+
+	VkRenderPass debugRenderpass;
+	void CreateDebugRenderpass();
+	void DebugPass();
+
+	GpuVector<oGFX::Vertex> g_vertexBuffer{&m_device};
+	GpuVector<uint32_t> g_indexBuffer{ &m_device };
 	size_t g_indexOffset{};
 	size_t g_vertexOffset{};
 	Model* LoadMeshFromFile(const std::string& file);
@@ -187,6 +200,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	// - Pipeline
 	VkPipeline graphicsPipeline{};
 	VkPipeline wirePipeline{};
+	VkPipeline linesPipeline{};
 	VkPipelineLayout pipelineLayout{};
 	VkRenderPass renderPass{};
 
@@ -208,7 +222,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 
 	VkDescriptorPool descriptorPool{};
 	VkDescriptorPool samplerDescriptorPool{};
-	std::vector<VkDescriptorSet> descriptorSets;
+	std::vector<VkDescriptorSet> uniformDescriptorSets;
 	std::vector<VkDescriptorSet> samplerDescriptorSets;
 
 	VkDescriptorSet globalSamplers; // big discriptor set of textures
