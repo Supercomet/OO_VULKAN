@@ -7,7 +7,7 @@ for %%i in (*.vert  *.frag) do (
 	rem forfiles /M "%%~i.spv" /C "cmd /c set time=@ftime set date=@fdate 
 	rem echo !time!
 	rem echo !date!
-	rem echo %%~ti
+	 echo %%~ti
 	for /f "tokens=1-8 delims=:0/,. " %%A in ("%%~ti") do (
 	set /A "Day=%%A"
 	set /A "Month=%%B"
@@ -17,15 +17,15 @@ for %%i in (*.vert  *.frag) do (
 	set "f=%%G"
 	if !f! == pm ( set /A Hour=!Hour!+12 )
 	)
-	rem echo day !Day!
-	rem echo month !Month!
 	rem echo year !Year!	
-	rem echo hours !Hour!
-	rem echo min !Min!
+	rem echo month !Month!
+	rem echo day !Day!
+	 echo hours !Hour!
+	 echo min !Min!
 	set /A compile=0
 	for %%j in ("%%~i.spv") do (
 	 IF exist "%%~j" (
-				rem echo %%~tj				
+				 echo %%~tj				
 				for /f "tokens=1-8 delims=:0/,. " %%A in ("%%~tj") do (
 				set /A "jDay=%%A"
 				set /A "jMonth=%%B"
@@ -35,36 +35,44 @@ for %%i in (*.vert  *.frag) do (
 				set "f=%%G"
 				if !f! == pm ( set /A jHour=!jHour!+12 )
 				)
-				rem echo jday !jDay!
-				rem echo jmonth !jMonth!
 				rem echo jyear !jYear!	
-				rem echo jhours !jHour!
-				rem echo jmin !jMin!
+				rem echo jmonth !jMonth!
+				rem echo jday !jDay!
+				 echo jhours !jHour!
+				 echo jmin !jMin!
 				
-				IF !Year! LSS !jYear! (set /A compile=0) else (
-					IF !Month! LSS !jMonth! (set /A compile=0) else (
-						IF !Day! LSS !jDay! (set /A compile=0) else (
-							IF !Hour! LSS !jHour! (set /A compile=0) else (
-								IF !Min! LSS !jMin! (set /A compile=0) else (set /A compile=1)
-							)
-						)
-					)
+				set /A compile=0
+				
+				set /A "source=!Year! * 365 + !Month! * 30 + !Day!"
+				set /A "output=!jYear! * 365 + !jMonth! * 30 +!jDay!"
+				echo !source! comp1 !output!
+				IF !source! GTR !output! (set /A compile=1) else (
+					IF !source! EQU !output! (set /A "source=!Hour!*60+!Min!"
+					set /A "output=!jHour!*60+!jMin!"
+					echo !source! comp2 !output!
+					IF !source! GEQ !output! (set /A compile=1))
+					
 				)
-				
-				rem IF !Year! LSS !jYear! (set /A compile=0
-				rem 						echo !Year! y less than !jYear!) else (
-				rem 	IF !Month! LSS !jMonth! (set /A compile=0
-				rem 	echo !Month! m less than !jMonth!) else (
-				rem 		IF !Day! LSS !jDay! (set /A compile=0
-				rem 		echo !Day! d less than !jDay!) else (
-				rem 			IF !Hour! LSS !jHour! (set /A compile=0
-				rem 			echo !Hour! h less than !jHour!) else (
-				rem 				IF !Min! LSS !jMin! (set /A compile=0
-				rem 				echo !Min! m less than !jMin!) else (set /A compile=1)
-				rem 			)
-				rem 		)
-				rem 	)
+				rem IF !Year! GTR !jYear! (set /A compile=1) 
+				rem IF !Month! GTR !jMonth! (set /A compile=1) 
+				rem IF !Day! GTR !jDay! (set /A compile=1) 
+				rem IF !Hour! GTR !jHour! (set /A compile=1) 
+				rem IF !Min! GEQ !jMin! (set /A compile=1) 
+							
+				rem IF !Year! GTR !jYear! (set /A compile=1
+				rem 						echo !Year! y greater than !jYear!) else (echo y lesser
 				rem )
+				rem 	IF !Month! GTR !jMonth! (set /A compile=1
+				rem 	echo !Month! m greater than !jMonth!) else (echo m lesser
+				rem 	)
+				rem 		IF !Day! GTR !jDay! (set /A compile=1
+				rem 		echo !Day! d greater than !jDay!) else (echo d lesser
+				rem 		)
+				rem 			IF !Hour! GTR !jHoufr! (set /A compile=1
+				rem 			echo !Hour! h greater than !jHour!) else (echo h lesser
+				rem 			)
+				rem 				IF !Min! GEQ !jMin! (set /A compile=1
+				rem 				echo !Min! m greater or same !jMin!) else (echo m lesser)
 				
 		) else (set /A compile=1
 		rem does not exist
