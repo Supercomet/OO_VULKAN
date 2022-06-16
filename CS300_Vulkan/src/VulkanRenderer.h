@@ -42,6 +42,8 @@ static constexpr int MAX_OBJECTS = 1024;
 static constexpr uint32_t VERTEX_BUFFER_ID = 0;
 static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 
+static constexpr uint32_t GPU_SCENE_BUFFER_ID = 3;
+
 	~VulkanRenderer();
 
 	void Init(const oGFX::SetupInfo& setupSpecs, Window& window);
@@ -84,7 +86,7 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	void CreateDeferredPipeline();
 	void CreateDeferredFB();
 	void ResizeDeferredFB();
-	void Deferred();
+	void DeferredPass();
 	void CleanupDeferredStuff();
 
 	struct Light {
@@ -195,13 +197,13 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	VulkanDevice m_device{};
 	VulkanSwapchain m_swapchain{};
 	std::vector<VkFramebuffer> swapChainFramebuffers;
-	uint32_t swapchainImageIndex{};
+	uint32_t swapchainImageIndex{0};
 
 	// - Pipeline
 	VkPipeline graphicsPipeline{};
 	VkPipeline wirePipeline{};
 	VkPipeline linesPipeline{};
-	VkPipelineLayout pipelineLayout{};
+	//VkPipelineLayout pipelineLayout{};
 	VkRenderPass renderPass{};
 
 	vk::Buffer indirectCommandsBuffer{};
@@ -224,6 +226,12 @@ static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
 	VkDescriptorPool samplerDescriptorPool{};
 	std::vector<VkDescriptorSet> uniformDescriptorSets;
 	std::vector<VkDescriptorSet> samplerDescriptorSets;
+
+	std::vector<GPUTransform> gpuTransform;
+	GpuVector<GPUTransform> gpuTransformBuffer{&m_device};
+
+	VkDescriptorSet g0_descriptors;
+	VkDescriptorSetLayout g0_descriptorsLayout;
 
 	VkDescriptorSet globalSamplers; // big discriptor set of textures
 

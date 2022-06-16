@@ -427,6 +427,7 @@ namespace oGFX
 		vkBindBufferMemory(device, *buffer, *bufferMemory, 0);
 	}
 
+	// TODO: Allow this to make multiple segmented copies
 	void CopyBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,
 		VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize,VkDeviceSize dstOffset,VkDeviceSize srcOffset)
 	{

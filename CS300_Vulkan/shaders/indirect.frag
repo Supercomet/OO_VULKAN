@@ -2,7 +2,7 @@
 
 #extension GL_EXT_nonuniform_qualifier : require
 
-layout (set = 1, binding = 0) uniform sampler2D textureDesArr[];
+layout (set = 2, binding = 0) uniform sampler2D textureDesArr[];
 //layout(set = 1, binding= 0) uniform sampler2D textureSampler;
 
 layout(location = 0) in vec2 inUV;

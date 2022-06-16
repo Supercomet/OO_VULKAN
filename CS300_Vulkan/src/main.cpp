@@ -92,9 +92,9 @@ int main(int argc, char argv[])
 
     std::vector<oGFX::Vertex>planeVerts{
         oGFX::Vertex{ {-0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ {-0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f } },
+        oGFX::Vertex{ { 0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,1.0f } },
+        oGFX::Vertex{ {-0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,1.0f } },
     };
     std::vector<uint32_t>planeIndices{
         0,2,1,2,0,3
@@ -103,8 +103,8 @@ int main(int argc, char argv[])
 
     std::vector<oGFX::Vertex>quadVerts{
             oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-            oGFX::Vertex{ { 0.5,-0.5,0.0}, { 0.0f,1.0f,0.0f }, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f } },
-            oGFX::Vertex{ { 0.0, 0.5,0.0}, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f } }
+            oGFX::Vertex{ { 0.5,-0.5,0.0}, { 0.0f,1.0f,0.0f }, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f } },
+            oGFX::Vertex{ { 0.0, 0.5,0.0}, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f,1.0f }, { 0.0f,1.0f } }
     };
     std::vector<uint32_t>quadIndices{
         0,1,2
@@ -114,12 +114,12 @@ int main(int argc, char argv[])
         oGFX::Vertex{ {-0.5,-0.5,-0.5}, { -1.0f,-1.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
         oGFX::Vertex{ { 0.5,-0.5,-0.5}, { 0.0f,-1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
         oGFX::Vertex{ {-0.5, 0.5,-0.5}, { -1.0f,0.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5, 0.5,-0.5}, { 0.0f,0.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5, 0.5,-0.5}, { 0.0f,0.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 1.0f,1.0f } },
                                                            
         oGFX::Vertex{ {-0.5,-0.5, 0.5}, { -1.0f,-1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
         oGFX::Vertex{ { 0.5,-0.5, 0.5}, { 1.0f,-1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ {-0.5, 0.5, 0.5}, { -1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5, 0.5, 0.5}, { 1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } }
+        oGFX::Vertex{ {-0.5, 0.5, 0.5}, { -1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,1.0f } },
+        oGFX::Vertex{ { 0.5, 0.5, 0.5}, { 1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 1.0f,1.0f } }
     };
     for (auto& v : boxverts) { v.norm = glm::normalize(v.norm); }
     std::vector<uint32_t> boxindices{
@@ -193,15 +193,16 @@ int main(int argc, char argv[])
     glm::mat4 id(1.0f);
 
     VulkanRenderer::EntityDetails ed;
-    ed.modelID = box;
-    ed.pos = { -2.0f,0.0f,-2.0f };
-    renderer.entities.push_back(ed);
-    ed.modelID = triangle;
-    ed.pos = { 0.0f,0.0f,0.0f };
-    renderer.entities.push_back(ed);
     ed.modelID = plane;
     ed.pos = { 0.0f,-2.0f,0.0f };
     ed.scale = { 30.0f,30.0f,30.0f };
+    renderer.entities.push_back(ed);
+    ed.modelID = box;
+    ed.pos = { -2.0f,0.0f,-2.0f };
+    ed.scale = { 1.0f,1.0f,1.0f };
+    renderer.entities.push_back(ed);
+    ed.modelID = triangle;
+    ed.pos = { 0.0f,0.0f,0.0f };  
     renderer.entities.push_back(ed);
     ed.modelID = ball->gfxIndex;
     ed.pos = { 2.0f,0.0f,2.0f };
@@ -215,10 +216,10 @@ int main(int argc, char argv[])
    //renderer.CreateTexture("TD_Checker_Normal_OpenGL.png");
    //renderer.CreateTexture("TD_Checker_Roughness.png");
 
-   //auto alb = renderer.CreateTexture("Textures/TD_Checker_Base_Color.dds");
-   //auto norm =renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
-   //auto occlu =renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
-   //auto rough =renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
+   auto alb = renderer.CreateTexture("Textures/TD_Checker_Base_Color.dds");
+   auto norm =renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
+   auto occlu =renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
+   auto rough =renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
    //renderer.SetMeshTextures(yes, alb, norm, occlu, rough);
 
    //renderer.SubmitMesh(yes, position);
@@ -227,7 +228,7 @@ int main(int argc, char argv[])
    std::default_random_engine rndEngine(123456);
    std::uniform_int_distribution<uint32_t> uniformDist( 0xFF000000, 0xFFFFFFFF );
    std::vector<oGFX::InstanceData> instanceData;
-   constexpr size_t numTex = 100;
+   constexpr size_t numTex = 5;
    constexpr size_t dims = 2;
    std::vector<uint32_t> bitmap(dims*dims);
    for (size_t i = 0; i < numTex; i++)
@@ -290,7 +291,6 @@ int main(int argc, char argv[])
     renderer.UpdateDebugBuffers();
 
 
-
     glm::vec3 pos{0.1f, 1.1f, -3.5f};
     // handling winOS messages
     // This will handle inputs and pass it to our input callback
@@ -340,7 +340,7 @@ int main(int argc, char argv[])
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        std::cout<<  renderer.camera.position << '\n';
+        //std::cout<<  renderer.camera.position << '\n';
 
         if (renderer.PrepareFrame() == true)
         {
@@ -349,16 +349,16 @@ int main(int argc, char argv[])
             renderer.UpdateLightBuffer();
             renderer.Draw();
             renderer.PrePass();
-            renderer.SimplePass();
+            //renderer.SimplePass();
             
             //renderer.RecordCommands(renderer.swapchainImageIndex);
             
             if (renderer.deferredRendering)
             {
-                renderer.Deferred();
+                renderer.DeferredPass();
                 renderer.DeferredComposition();
             }
-            renderer.DebugPass();
+            //renderer.DebugPass();
 
             // Create a dockspace over the mainviewport so that we can dock stuff
             ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), 

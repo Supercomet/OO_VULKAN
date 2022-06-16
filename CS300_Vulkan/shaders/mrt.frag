@@ -2,12 +2,14 @@
 
 #extension GL_EXT_nonuniform_qualifier : require
 
-layout (set = 1, binding = 0) uniform sampler2D textureDesArr[];
+layout (set = 2, binding = 0) uniform sampler2D textureDesArr[];
 //layout(set = 1, binding= 0) uniform sampler2D textureSampler;
 
 layout(location = 0) in vec4 inPos;
 layout(location = 1) in vec2 inUV;
 layout(location = 2) in vec3 inCol;
+
+layout(location = 15) in flat uvec4 inInstanceData;
 
 //layout(location = 1) in flat struct{
 // ivec4 maps;
@@ -16,6 +18,7 @@ layout(location = 2) in vec3 inCol;
 // //int occlusion;
 // //int roughness;
 //}inTexIndex;
+
 
 layout(location = 7) in struct {
 mat3 btn;
@@ -30,11 +33,19 @@ layout (location = 0) out vec4 outPosition;
 layout (location = 1) out vec4 outNormal;
 layout (location = 2) out vec4 outAlbedo;
 
+
+
 void main(){
 
 outAlbedo = vec4(inCol,1.0);
+if(inInstanceData.y > uint(0)){
+	outAlbedo.rgb = texture(textureDesArr[inInstanceData.y],inUV.xy).rgb;	
+}
+	
+
 outNormal = vec4(inLightData.btn[2],1.0);
 outPosition = inPos;
+
 return;
 
 //vec4 diffuseColour = texture( textureDesArr[nonuniformEXT(inTexIndex.maps.x)], inUV.xy);

@@ -5,7 +5,7 @@ layout(location = 1) in vec3 col;
 layout(location = 2) in vec2 tex;
 
 // vulkan passes a whole Uniform Buffer Object.
-layout(set = 0,binding = 0) uniform UboViewProjection{
+layout(set = 1,binding = 0) uniform UboViewProjection{
 	mat4 projection;
 	mat4 view;
 }uboViewProjection;

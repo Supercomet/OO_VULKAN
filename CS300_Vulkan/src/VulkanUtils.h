@@ -6,6 +6,8 @@
 #include <vector>
 #include <iostream>
 
+#include "../shaders/shared_structs.h"
+
 namespace oGFX::vk::tools
 {
 	std::string VkResultString(VkResult value);
@@ -76,13 +78,15 @@ namespace oGFX
 
 	// Per-instance data block
 	struct InstanceData {
+		uvec4 instanceAttributes{}; // ID, material, ...
+
+		/* // this is before trying to combine	
 		glm::mat4 matrix;
-		//glm::vec4 rot;
-		//glm::vec4 scale;
 		uint32_t albedo;
 		uint32_t normal;
 		uint32_t occlusion;
 		uint32_t roughness;
+		*/
 	};
 
 	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance, VkPhysicalDevice device);

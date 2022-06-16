@@ -49,6 +49,8 @@ GpuVector<T>::GpuVector(VulkanDevice* device) :
 template <typename T>
 void GpuVector<T>::Init(VkBufferUsageFlags usage)
 {
+	assert(m_buffer == VK_NULL_HANDLE); // called init twice
+	assert(m_gpuMemory == VK_NULL_HANDLE); // called init twice
 	m_usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	oGFX::CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, 1, m_usage,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_buffer, &m_gpuMemory);

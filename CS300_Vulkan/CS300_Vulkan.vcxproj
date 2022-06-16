@@ -83,7 +83,7 @@
     <ClInclude Include="src\tinyddsloader.h" />
   </ItemGroup>
   <ItemGroup>
-  <CustomBuild Include="shaders\*">
+    <CustomBuild Include="shaders\*">
       <Command>cmd /C "shaders\compileShaders.bat"</Command>
       <Message>Compiling shader</Message>
       <Outputs>done.txt</Outputs>
