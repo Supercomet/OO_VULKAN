@@ -39,10 +39,6 @@ static constexpr int MAX_OBJECTS = 1024;
 
 #define OBJECT_INSTANCE_COUNT 128
 
-static constexpr uint32_t VERTEX_BUFFER_ID = 0;
-static constexpr uint32_t INSTANCE_BUFFER_ID = 1;
-
-static constexpr uint32_t GPU_SCENE_BUFFER_ID = 3;
 
 	~VulkanRenderer();
 
@@ -58,7 +54,7 @@ static constexpr uint32_t GPU_SCENE_BUFFER_ID = 3;
 
 	void CreatePushConstantRange();
 	void CreateGraphicsPipeline();
-	void CreateDepthBufferImage();
+	//void CreateDepthBufferImage();
 	void CreateFramebuffers(); 
 	void CreateCommandBuffers();
 	void CreateTextureSampler();
@@ -72,22 +68,32 @@ static constexpr uint32_t GPU_SCENE_BUFFER_ID = 3;
 	void CreateOffscreenFB();
 	void ResizeOffscreenFB();
 
-	ImTextureID deferredImg[4]{};
-	VulkanFramebufferAttachment att_albedo;
-	VulkanFramebufferAttachment att_position;
-	VulkanFramebufferAttachment att_normal;
-	VulkanFramebufferAttachment att_depth;
-	VkFramebuffer deferredFB;
-	VkSampler deferredSampler;
-	VkRenderPass deferredPass;
+
+	inline static VulkanInstance m_instance{};
+	inline static VulkanDevice m_device{};
+	inline static VulkanSwapchain m_swapchain{};
+	inline static std::vector<VkFramebuffer> swapChainFramebuffers;
+	inline static uint32_t swapchainIdx{0};
+
+	//ImTextureID deferredImg[4]{};
+	//VulkanFramebufferAttachment att_albedo;
+	//VulkanFramebufferAttachment att_position;
+	//VulkanFramebufferAttachment att_normal;
+	//VulkanFramebufferAttachment att_depth;
+	//VkFramebuffer deferredFB;
+	//VkSampler deferredSampler;
+	//VkRenderPass deferredPass;
 	//VkPipelineLayout deferredPipeLayout; // stealing from pipeline
-	VkPipeline deferredPipe;
-	void CreateDeferredPass();
-	void CreateDeferredPipeline();
-	void CreateDeferredFB();
+	//VkPipeline deferredPipe;
+	inline static VkDescriptorSet deferredSet;
+	inline static VkDescriptorSetLayout deferredSetLayout;
+
+	//void CreateDeferredPass();
+	//void CreateDeferredPipeline();
+	//void CreateDeferredFB();
 	void ResizeDeferredFB();
 	void DeferredPass();
-	void CleanupDeferredStuff();
+	//void CleanupDeferredStuff();
 
 	struct Light {
 		glm::vec4 position;
@@ -102,12 +108,11 @@ static constexpr uint32_t GPU_SCENE_BUFFER_ID = 3;
 	float timer{};
 
 	bool deferredRendering = true;
-	VkRenderPass compositionPass;
-	VkPipelineLayout compositionPipeLayout;
-	VkPipeline compositionPipe;
-	VkDescriptorSet deferredSet;
-	VkDescriptorSetLayout deferredSetLayout;
-	vk::Buffer lightsBuffer;
+	//VkRenderPass compositionPass;
+	//VkPipelineLayout compositionPipeLayout;
+	//VkPipeline compositionPipe;
+
+	inline static vk::Buffer lightsBuffer;
 	void CreateCompositionBuffers(); 
 	void CreateDeferredDescriptorSet();
 	void DeferredComposition();
@@ -134,7 +139,7 @@ static constexpr uint32_t GPU_SCENE_BUFFER_ID = 3;
 	void UpdateInstanceData();
 	uint32_t objectCount{};
 	// Contains the instanced data
-	vk::Buffer instanceBuffer;
+	inline static vk::Buffer instanceBuffer;
 
 	bool PrepareFrame();
 	void Draw();
@@ -166,8 +171,8 @@ static constexpr uint32_t GPU_SCENE_BUFFER_ID = 3;
 	void CreateDebugRenderpass();
 	void DebugPass();
 
-	GpuVector<oGFX::Vertex> g_vertexBuffer{&m_device};
-	GpuVector<uint32_t> g_indexBuffer{ &m_device };
+	inline static GpuVector<oGFX::Vertex> g_vertexBuffer{&VulkanRenderer::m_device};
+	inline static GpuVector<uint32_t> g_indexBuffer{ &VulkanRenderer::m_device };
 	size_t g_indexOffset{};
 	size_t g_vertexOffset{};
 	Model* LoadMeshFromFile(const std::string& file);
@@ -178,7 +183,7 @@ static constexpr uint32_t GPU_SCENE_BUFFER_ID = 3;
 
 	bool ResizeSwapchain();
 
-	Window* windowPtr{nullptr};
+	inline static Window* windowPtr{nullptr};
 
 
 	//textures
@@ -193,23 +198,19 @@ static constexpr uint32_t GPU_SCENE_BUFFER_ID = 3;
 	std::vector<VkSemaphore> renderFinished;
 	std::vector<VkFence> drawFences;
 
-	VulkanInstance m_instance{};
-	VulkanDevice m_device{};
-	VulkanSwapchain m_swapchain{};
-	std::vector<VkFramebuffer> swapChainFramebuffers;
-	uint32_t swapchainImageIndex{0};
 
 	// - Pipeline
 	VkPipeline graphicsPipeline{};
 	VkPipeline wirePipeline{};
 	VkPipeline linesPipeline{};
 	//VkPipelineLayout pipelineLayout{};
-	VkRenderPass renderPass{};
+	inline static VkRenderPass defaultRenderPass{};
 
-	vk::Buffer indirectCommandsBuffer{};
-	VkPipeline indirectPipeline{};
-	VkPipelineLayout indirectPipeLayout{};
-	uint32_t indirectDrawCount{};
+	inline static vk::Buffer indirectCommandsBuffer{};
+	inline static VkPipeline indirectPipeline{};
+	inline static VkPipelineLayout indirectPipeLayout{};
+	inline static uint32_t indirectDrawCount{};
+	//uint32_t indirectDebugDrawCount{};
 
 
 	// - Descriptors
@@ -220,40 +221,41 @@ static constexpr uint32_t GPU_SCENE_BUFFER_ID = 3;
 		glm::mat4 xform{};
 		glm::vec3 light{};
 	};
-	VkPushConstantRange pushConstantRange{};
+	inline static VkPushConstantRange pushConstantRange{};
 
 	VkDescriptorPool descriptorPool{};
 	VkDescriptorPool samplerDescriptorPool{};
-	std::vector<VkDescriptorSet> uniformDescriptorSets;
+	inline static std::vector<VkDescriptorSet> uniformDescriptorSets;
 	std::vector<VkDescriptorSet> samplerDescriptorSets;
 
 	std::vector<GPUTransform> gpuTransform;
 	GpuVector<GPUTransform> gpuTransformBuffer{&m_device};
 
-	VkDescriptorSet g0_descriptors;
-	VkDescriptorSetLayout g0_descriptorsLayout;
+	inline static VkDescriptorSet g0_descriptors;
+	inline static VkDescriptorSetLayout g0_descriptorsLayout;
 
-	VkDescriptorSet globalSamplers; // big discriptor set of textures
+	inline static VkDescriptorSet globalSamplers; // big discriptor set of textures
 
 	std::vector<VkBuffer> vpUniformBuffer;
 	std::vector<VkDeviceMemory> vpUniformBufferMemory;
 
-	DescriptorAllocator DescAlloc;
-	DescriptorLayoutCache DescLayoutCache;
+	inline static DescriptorAllocator DescAlloc;
+	inline static DescriptorLayoutCache DescLayoutCache;
 
-	VkImage depthBufferImage{};
-	VkDeviceMemory depthBufferImageMemory{};
-	VkImageView depthBufferImageView{};
+	//VkImage depthBufferImage{};
+	//VkDeviceMemory depthBufferImageMemory{};
+	//VkImageView depthBufferImageView{};
 
 	VkSampler textureSampler{};
 
-	std::vector<VkCommandBuffer> commandBuffers;
+	inline static std::vector<VkCommandBuffer> commandBuffers;
 
 	// Store the indirect draw commands containing index offsets and instance count per object
-	std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
+	inline static std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
+	std::vector<VkDrawIndexedIndirectCommand> indirectDebugCommands;
 
 	//Scene objects
-	std::vector<gfxModel> models;
+	inline static std::vector<gfxModel> models;
 
 	uint32_t currentFrame = 0;
 
@@ -285,14 +287,14 @@ static constexpr uint32_t GPU_SCENE_BUFFER_ID = 3;
 		float rot{};
 		glm::vec3 rotVec{0.0f,1.0f,0.0f};
 	};
-	std::vector<EntityDetails> entities;
+	inline static std::vector<EntityDetails> entities;
 
+	static VkPipelineShaderStageCreateInfo LoadShader(VulkanDevice& device, const std::string& fileName, VkShaderStageFlagBits stage);
 	private:
 		uint32_t CreateTextureImage(const std::string& fileName);
 		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);
 		uint32_t CreateTextureDescriptor(VkImageView textureImage);
 		uint32_t CreateTextureDescriptor(vk::Texture2D texture);		
 
-		VkPipelineShaderStageCreateInfo LoadShader(const std::string& fileName, VkShaderStageFlagBits stage);
 };
 

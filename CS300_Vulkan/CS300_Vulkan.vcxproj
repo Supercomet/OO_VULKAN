@@ -26,6 +26,9 @@
     <ClCompile Include="..\vendor\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="src\DeferredCompositionRenderpass.cpp" />
+    <ClCompile Include="src\GfxRenderpass.cpp" />
+    <ClCompile Include="src\GBufferRenderPass.cpp" />
     <ClCompile Include="src\BoudingVolume.cpp" />
     <ClCompile Include="src\DescriptorBuilder.cpp" />
     <ClCompile Include="src\DescriptorLayoutCache.cpp" />
@@ -54,6 +57,9 @@
     <ClCompile Include="src\tinyddsloader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\DeferredCompositionRenderpass.h" />
+    <ClInclude Include="src\GfxRenderpass.h" />
+    <ClInclude Include="src\GBufferRenderPass.h" />
     <ClInclude Include="src\BoudingVolume.h" />
     <ClInclude Include="src\DescriptorBuilder.h" />
     <ClInclude Include="src\DescriptorLayoutCache.h" />

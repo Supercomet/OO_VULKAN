@@ -358,7 +358,7 @@ int main(int argc, char argv[])
                 renderer.DeferredPass();
                 renderer.DeferredComposition();
             }
-            //renderer.DebugPass();
+            renderer.DebugPass();
 
             // Create a dockspace over the mainviewport so that we can dock stuff
             ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), 

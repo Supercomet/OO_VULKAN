@@ -80,8 +80,8 @@ void main(){
 	outLightData.localLightPos = vec3(inverseMat * vec4(pushLight.pos, 1.0));
 
 	vec3 binormal = normalize(cross(inTangent, inNormal));
-	outLightData.btn = mat3(inTangent, binormal, inNormal);
-
+	
+	outLightData.btn = mat3(inTangent, binormal, mat3(transpose(inverseMat))*inNormal);
 
 	//outViewVec = -vec3(uboViewProjection.view[3]);	
 	outLightData.localVertexPos = inPos;

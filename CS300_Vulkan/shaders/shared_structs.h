@@ -1,6 +1,12 @@
 #ifndef COMMON_HOST_DEVICE
 #define COMMON_HOST_DEVICE
 
+
+#define VERTEX_BUFFER_ID  0
+#define INSTANCE_BUFFER_ID  1
+#define GPU_SCENE_BUFFER_ID  3
+
+
 #ifdef __cplusplus
 #include <glm/glm.hpp>
 // GLSL Type

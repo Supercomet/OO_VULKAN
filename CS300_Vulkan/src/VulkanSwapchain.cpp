@@ -131,6 +131,7 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 		swapChainImages.push_back(swapChainImage);
 	}
 
+	CreateDepthBuffer();
 	
 	if (oldSwapchain)
 	{
@@ -139,4 +140,18 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 			vkDestroySwapchainKHR(m_devicePtr->logicalDevice,oldSwapchain, nullptr);
 		}
 	}
+}
+
+void VulkanSwapchain::CreateDepthBuffer()
+{
+	if (depthAttachment.image)
+	{
+		depthAttachment.destroy(m_devicePtr->logicalDevice);
+	}
+	VkFormat depF = oGFX::ChooseSupportedFormat(*m_devicePtr,
+		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	depthAttachment.createAttachment(*m_devicePtr, swapChainExtent.width,  swapChainExtent.height,
+		depF, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
