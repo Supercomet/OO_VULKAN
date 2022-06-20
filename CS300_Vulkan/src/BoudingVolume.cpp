@@ -1,4 +1,5 @@
 #include "BoudingVolume.h"
+#include <algorithm>
 
 namespace  oGFX::BV
 {
