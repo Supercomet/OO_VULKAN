@@ -51,7 +51,7 @@ VkDescriptorSetLayout DescriptorLayoutCache::CreateDescriptorLayout(VkDescriptor
 		//create a new one (not found)
 		VkDescriptorSetLayout layout;
 		VK_CHK(vkCreateDescriptorSetLayout(device, info, nullptr, &layout));
-
+		VK_NAME(device, "LayoutCache::layout", layout);
 		//add to cache
 		layoutCache[layoutinfo] = layout;
 		return layout;

@@ -28,7 +28,7 @@ private:
 	VkBuffer m_buffer{};
 	VkDeviceMemory m_gpuMemory{};
 
-	VulkanDevice* m_device{};
+	VulkanDevice* m_device{nullptr};
 
 };
 
@@ -49,6 +49,7 @@ GpuVector<T>::GpuVector(VulkanDevice* device) :
 template <typename T>
 void GpuVector<T>::Init(VkBufferUsageFlags usage)
 {
+	assert(m_device != nullptr); // invalid device ptr. or didnt provide
 	assert(m_buffer == VK_NULL_HANDLE); // called init twice
 	assert(m_gpuMemory == VK_NULL_HANDLE); // called init twice
 	m_usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;

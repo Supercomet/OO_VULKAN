@@ -36,13 +36,20 @@
 #include "GfxRenderpass.h"
 #include "DeferredCompositionRenderpass.h"
 #include "GBufferRenderPass.h"
+#include "DebugRenderpass.h"
 
 VulkanRenderer::~VulkanRenderer()
 { 
 	//wait until no actions being run on device before destorying
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
+	for (auto& rp: RenderPassSingletonWrapper::Get()->m_AllRenderPasses)
+	{
+		rp->Shutdown();
+	}
+
 	gpuTransformBuffer.destroy();
+	debugTransformBuffer.destroy();
 
 	g_indexBuffer.destroy();
 	g_vertexBuffer.destroy();
@@ -138,6 +145,13 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateSurface(window);
 		AcquirePhysicalDevice();
 		CreateLogicalDevice();
+
+		//if (m_device.debugMarker)
+		//{
+		// TODO MAKE SURE THIS IS SUPPORTED
+			pfnDebugMarkerSetObjectName = (PFN_vkDebugMarkerSetObjectNameEXT)vkGetDeviceProcAddr(m_device.logicalDevice, "vkDebugMarkerSetObjectNameEXT");
+		//}
+		//
 		SetupSwapchain();
 
 		
@@ -150,6 +164,11 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		gpuTransformBuffer.Init(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 		gpuTransformBuffer.reserve(MAX_OBJECTS);
+
+		// TEMP debug drawing code
+		debugTransformBuffer.Init(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		debugTransformBuffer.reserve(MAX_OBJECTS);
+
 		CreateDescriptorSets();
 
 	
@@ -325,6 +344,7 @@ void VulkanRenderer::CreateRenderpass()
 	{
 		throw std::runtime_error("Failed to create Render Pass");
 	}
+	VK_NAME(m_device.logicalDevice, "defaultRenderPass",defaultRenderPass);
 
 	//depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	//result = vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &compositionPass);
@@ -406,6 +426,7 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 
 
 	VkResult result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &textureLayoutCreateInfo, nullptr, &samplerSetLayout);
+	VK_NAME(m_device.logicalDevice, "samplerSetLayout", samplerSetLayout);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a descriptor set layout!");
@@ -496,6 +517,7 @@ void VulkanRenderer::CreateGraphicsPipeline()
 
 	// indirect pipeline
 	VkResult result = vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &indirectPipeLayout);
+	VK_NAME(m_device.logicalDevice, "indirectPipeLayout", indirectPipeLayout);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create Pipeline Layout!");
@@ -536,6 +558,7 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	pipelineCreateInfo.layout = indirectPipeLayout;
 	// Indirect pipeline
 	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &indirectPipeline);
+	VK_NAME(m_device.logicalDevice, "indirectPipeline", indirectPipeline);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a Graphics Pipeline!");
@@ -554,6 +577,7 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	shaderStages[1] = LoadShader(m_device,"Shaders/shader.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPipeline);
+	VK_NAME(m_device.logicalDevice, "graphicsPipeline", graphicsPipeline);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a Graphics Pipeline!");
@@ -561,15 +585,16 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
 	pipelineCreateInfo.renderPass = defaultRenderPass;
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &wirePipeline));
+	VK_NAME(m_device.logicalDevice, "wirePipeline", wirePipeline);
 	
-	rasterizerCreateInfo.polygonMode = VkPolygonMode::VK_POLYGON_MODE_FILL;
-	inputAssembly.topology = VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-	rasterizerCreateInfo.lineWidth = 1.0f;
-	//rasterizerCreateInfo.cullMode = VK_CULL_MODE_NONE;
-	pipelineCreateInfo.renderPass = debugRenderpass;
-	depthStencilCreateInfo.depthWriteEnable = VK_FALSE;
-	//depthStencilCreateInfo.depthTestEnable = VK_FALSE;
-	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &linesPipeline));
+	//rasterizerCreateInfo.polygonMode = VkPolygonMode::VK_POLYGON_MODE_FILL;
+	//inputAssembly.topology = VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+	//rasterizerCreateInfo.lineWidth = 1.0f;
+	////rasterizerCreateInfo.cullMode = VK_CULL_MODE_NONE;
+	//pipelineCreateInfo.renderPass = debugRenderpass;
+	//depthStencilCreateInfo.depthWriteEnable = VK_FALSE;
+	////depthStencilCreateInfo.depthTestEnable = VK_FALSE;
+	//VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &linesPipeline));
 
 	//destroy shader modules after pipeline is created
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
@@ -628,6 +653,7 @@ void VulkanRenderer::CreateFramebuffers()
 		framebufferCreateInfo.layers = 1;
 
 		VkResult result = vkCreateFramebuffer(m_device.logicalDevice, &framebufferCreateInfo, nullptr, &swapChainFramebuffers[i]);
+		VK_NAME(m_device.logicalDevice, "swapchainFramebuffers", swapChainFramebuffers[i]);
 		if (result != VK_SUCCESS)
 		{
 			throw std::runtime_error("Failed to create a Framebuffer!");
@@ -675,6 +701,7 @@ void VulkanRenderer::CreateTextureSampler()
 	samplerCreateInfo.maxAnisotropy = 16;									// Anisotropy sample level
 
 	VkResult result = vkCreateSampler(m_device.logicalDevice, &samplerCreateInfo, nullptr, &textureSampler);
+	VK_NAME(m_device.logicalDevice, "textureSampler", textureSampler);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a texture sampler!");
@@ -775,6 +802,7 @@ void VulkanRenderer::CreateOffscreenPass()
 	renderPassCreateInfo.pDependencies = subpassDependancies.data();
 
 	VkResult result = vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &offscreenPass);
+	VK_NAME(m_device.logicalDevice, "offscreenPass", offscreenPass);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create Render Pass");
@@ -809,6 +837,7 @@ void VulkanRenderer::CreateOffscreenFB()
 
 
 	VkResult result = vkCreateFramebuffer(m_device.logicalDevice, &framebufferCreateInfo, nullptr, &offscreenFramebuffer);
+	VK_NAME(m_device.logicalDevice, "offscreenFramebuffer", offscreenFramebuffer);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a Framebuffer!");
@@ -1366,6 +1395,9 @@ void VulkanRenderer::CreateSynchronisation()
 		{
 			throw std::runtime_error("Failed to create a Semaphore and/or Fence!");
 		}
+		VK_NAME(m_device.logicalDevice, "imageAvailable", imageAvailable[i]);
+		VK_NAME(m_device.logicalDevice, "renderFinished", renderFinished[i]);
+		VK_NAME(m_device.logicalDevice, "drawFences", drawFences[i]);
 	}
 }
 
@@ -1429,6 +1461,7 @@ void VulkanRenderer::CreateDescriptorPool()
 	VkDescriptorPoolCreateInfo poolCreateInfo = oGFX::vk::inits::descriptorPoolCreateInfo(descriptorPoolSizes,static_cast<uint32_t>(m_swapchain.swapChainImages.size()+1));
 	//create descriptor pool
 	VkResult result = vkCreateDescriptorPool(m_device.logicalDevice, &poolCreateInfo, nullptr, &descriptorPool);
+	VK_NAME(m_device.logicalDevice, "descriptorPool", descriptorPool);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a descriptor pool!");
@@ -1441,6 +1474,7 @@ void VulkanRenderer::CreateDescriptorPool()
 
 	VkDescriptorPoolCreateInfo samplerPoolCreateInfo = oGFX::vk::inits::descriptorPoolCreateInfo(samplerpoolSizes,1); // or MAX_OBJECTS?
 	result = vkCreateDescriptorPool(m_device.logicalDevice, &samplerPoolCreateInfo, nullptr, &samplerDescriptorPool);
+	VK_NAME(m_device.logicalDevice, "samplerDescriptorPool", samplerDescriptorPool);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a descriptor pool!");
@@ -1588,6 +1622,7 @@ void VulkanRenderer::InitImGUI()
 	if (vkCreateRenderPass(m_device.logicalDevice, &info, nullptr, &m_imguiConfig.renderPass) != VK_SUCCESS) {
 		throw std::runtime_error("Could not create Dear ImGui's render pass");
 	}
+	VK_NAME(m_device.logicalDevice, "imguiConfig_renderpass", m_imguiConfig.renderPass);
 
 	std::vector<VkDescriptorPoolSize> pool_sizes
 	{
@@ -1606,6 +1641,7 @@ void VulkanRenderer::InitImGUI()
 
 	VkDescriptorPoolCreateInfo dpci = oGFX::vk::inits::descriptorPoolCreateInfo(pool_sizes,1000);
 	vkCreateDescriptorPool(m_device.logicalDevice, &dpci, nullptr, &m_imguiConfig.descriptorPools);
+	VK_NAME(m_device.logicalDevice, "imguiConfig_descriptorPools", m_imguiConfig.descriptorPools);
 
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
@@ -1665,6 +1701,7 @@ void VulkanRenderer::InitImGUI()
 		fbattachments[0] = m_swapchain.swapChainImages[i].imageView;         // A color attachment from the swap chain
 													//fbattachments[1] = m_depthImage.imageView;  // A depth attachment
 		VK_CHK(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i])); 
+		VK_NAME(m_device.logicalDevice, "imguiconfig_Framebuffer", m_imguiConfig.buffers[i]);
 	}
 
 }
@@ -1692,7 +1729,8 @@ void VulkanRenderer::ResizeGUIBuffers()
 		// TODO make sure all images resize for imgui
 		fbattachments[0] = m_swapchain.swapChainImages[i].imageView;         // A color attachment from the swap chain
 																			 //fbattachments[1] = m_depthImage.imageView;  // A depth attachment
-		VK_CHK(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i])); 
+		VK_CHK(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i]));
+		VK_NAME(m_device.logicalDevice, "imguiconfig_buffers", m_imguiConfig.buffers[i]);
 	}
 }
 
@@ -1714,10 +1752,10 @@ void VulkanRenderer::DrawGUI()
 		{
 		auto sz = ImGui::GetContentRegionAvail();
 		auto gbuff = GBufferRenderPass::Get();
-		ImGui::Image(gbuff->deferredImg[0], { sz.x,sz.y/4 });
-		ImGui::Image(gbuff->deferredImg[1], { sz.x,sz.y/4 });
-		ImGui::Image(gbuff->deferredImg[2], { sz.x,sz.y/4 });
-		ImGui::Image(gbuff->deferredImg[3], { sz.x,sz.y/4 });
+		ImGui::Image(gbuff->deferredImg[POSITION], { sz.x,sz.y/3 });
+		ImGui::Image(gbuff->deferredImg[NORMAL], { sz.x,sz.y/3 });
+		ImGui::Image(gbuff->deferredImg[ALBEDO], { sz.x,sz.y/3 });
+		//ImGui::Image(gbuff->deferredImg[3], { sz.x,sz.y/4 });
 		}
 	}
 	ImGui::End();
@@ -1744,6 +1782,52 @@ void VulkanRenderer::DestroyImGUI()
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext(ImGui::GetCurrentContext());
+}
+
+void VulkanRenderer::AddDebugBox(const AABB& aabb, const oGFX::Color& col)
+{
+	auto sz = g_debugDrawVerts.size();
+
+	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); //0
+	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 1
+	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 2
+	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 3
+	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 4
+	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 5
+	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 6
+	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 7
+
+	
+	static std::vector<uint32_t> boxindices{
+		0,1,
+		0,2,
+		0,3,
+		1,4,
+		1,5,
+		3,5,
+		3,6,
+		2,6,
+		2,4,
+		6,7,
+		5,7,
+		4,7
+	};
+	for (auto x : boxindices)
+	{
+		g_debugDrawIndices.push_back(x + sz);
+	}
+
+	//g_debugDrawVerts.push_back(oGFX::Vertex{ {aabb.center.x-aabb.halfExt.x,aabb.center.y-aabb.halfExt.y,aabb.center.z-aabb.halfExt.z},{ -1.0f,-1.0f,-1.0f },{ col.r, col.g, col.b}, { 0.0f, 0.0f } });
+	//g_debugDrawVerts.push_back(oGFX::Vertex{ { aabb.center.x+aabb.halfExt.x,aabb.center.y-aabb.halfExt.y, aabb.center.z-aabb.halfExt.z},{  0.0f,-1.0f, 0.0f },{ col.r, col.g, col.b }, { 0.0f, 0.0f } });
+	//g_debugDrawVerts.push_back(oGFX::Vertex{ {aabb.center.x-aabb.halfExt.x,  aabb.center.y+aabb.halfExt.y,aabb.center.z-aabb.halfExt.z},{ -1.0f, 0.0f,-1.0f },{ col.r, col.g, col.b }, { 0.0f, 0.0f } });
+	//g_debugDrawVerts.push_back(oGFX::Vertex{ { aabb.center.x+aabb.halfExt.x, aabb.center.y+aabb.halfExt.y,aabb.center.z-aabb.halfExt.z},{  0.0f, 0.0f,-1.0f },{ col.r, col.g, col.b }, { 1.0f, 1.0f } });
+	//																						  
+	//g_debugDrawVerts.push_back(oGFX::Vertex{ {aabb.center.x-aabb.halfExt.x, aabb.center.y-aabb.halfExt.y,  aabb.center.z+aabb.halfExt.z},{ -1.0f,-1.0f, 0.0f },{ col.r, col.g, col.b }, { 0.0f, 0.0f } });
+	//g_debugDrawVerts.push_back(oGFX::Vertex{ { aabb.center.x+aabb.halfExt.x,aabb.center.y-aabb.halfExt.y,  aabb.center.z+aabb.halfExt.z},{  1.0f,-1.0f, 1.0f },{ col.r, col.g, col.b }, { 0.0f, 0.0f } });
+	//g_debugDrawVerts.push_back(oGFX::Vertex{ {aabb.center.x-aabb.halfExt.x,  aabb.center.y+aabb.halfExt.y, aabb.center.z+aabb.halfExt.z},{ -1.0f, 1.0f, 1.0f },{ col.r, col.g, col.b }, { 0.0f, 1.0f } });
+	//g_debugDrawVerts.push_back(oGFX::Vertex{ { aabb.center.x+aabb.halfExt.x, aabb.center.y+aabb.halfExt.y, aabb.center.z+aabb.halfExt.z},{  1.0f, 1.0f, 1.0f },{ col.r, col.g, col.b }, { 1.0f, 1.0f } });
+	
+	
 }
 
 void VulkanRenderer::UpdateIndirectCommands()
@@ -1891,14 +1975,15 @@ void VulkanRenderer::UpdateInstanceData()
 		gpuTransform[i].row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
 		gpuTransform[i].row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
 		gpuTransform[i].row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
+		
 	}
 	gpuTransformBuffer.writeTo(gpuTransform.size(), gpuTransform.data());
 
 
-	instanceData[0].instanceAttributes = vec4(1.0f, 0.0f, 0.0f, 0.0f);
-	instanceData[1].instanceAttributes = vec4(0.0f, 1.0f, 0.0f, 0.0f);
-	instanceData[2].instanceAttributes = vec4(0.0f, 0.0f, 1.0f, 0.0f);
-	instanceData[3].instanceAttributes = vec4(1.0f, 1.0f, 1.0f, 0.0f);
+	//instanceData[0].instanceAttributes = vec4(1.0f, 0.0f, 0.0f, 0.0f);
+	//instanceData[1].instanceAttributes = vec4(0.0f, 1.0f, 0.0f, 0.0f);
+	//instanceData[2].instanceAttributes = vec4(0.0f, 0.0f, 1.0f, 0.0f);
+	//instanceData[3].instanceAttributes = vec4(1.0f, 1.0f, 1.0f, 0.0f);
 	for (size_t i = 0; i < entities.size(); i++)
 	{
 		instanceData[i].instanceAttributes = uvec4(i, i+1, 0, 0);
@@ -1999,7 +2084,7 @@ void VulkanRenderer::Draw()
 	VK_CHK(vkResetFences(m_device.logicalDevice, 1, &drawFences[currentFrame]));
 	
 	camera.updated = true;
-	if(camera.updated)
+	if(camera.updated){}
 		UpdateUniformBuffers(swapchainIdx);
 
 	UpdateIndirectCommands();
@@ -2383,155 +2468,155 @@ void VulkanRenderer::UpdateDebugBuffers()
 
 void VulkanRenderer::DestroyDebugBuffers()
 {
-	vkDestroyRenderPass(m_device.logicalDevice, debugRenderpass, nullptr);
-	vkDestroyPipeline(m_device.logicalDevice, linesPipeline, nullptr);
-	g_debugDrawVertBuffer.destroy();
-	g_debugDrawIndxBuffer.destroy();
+	//vkDestroyRenderPass(m_device.logicalDevice, debugRenderpass, nullptr);
+	//vkDestroyPipeline(m_device.logicalDevice, linesPipeline, nullptr);
+	//g_debugDrawVertBuffer.destroy();
+	//g_debugDrawIndxBuffer.destroy();
 }
 
 void VulkanRenderer::CreateDebugRenderpass()
 {
-	VkAttachmentDescription colourAttachment = {};
-	colourAttachment.format = m_swapchain.swapChainImageFormat;  //format to use for attachment
-	colourAttachment.samples = VK_SAMPLE_COUNT_1_BIT;//number of samples to use for multisampling
-	colourAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;//descripts what to do with attachment before rendering
-	colourAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;//describes what to do with attachment after rendering
-	colourAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; //describes what do with with stencil before rendering
-	colourAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; //describes what do with with stencil before rendering
+	//VkAttachmentDescription colourAttachment = {};
+	//colourAttachment.format = m_swapchain.swapChainImageFormat;  //format to use for attachment
+	//colourAttachment.samples = VK_SAMPLE_COUNT_1_BIT;//number of samples to use for multisampling
+	//colourAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;//descripts what to do with attachment before rendering
+	//colourAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;//describes what to do with attachment after rendering
+	//colourAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; //describes what do with with stencil before rendering
+	//colourAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; //describes what do with with stencil before rendering
 
-																		//frame buffer data will be stored as image, but images can be given different data layouts
-																		//to give optimal use for certain operations
-	colourAttachment.initialLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL; //image data layout before render pass starts
-																//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
-	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL; //image data layout aftet render pass ( to change to)
+	//																	//frame buffer data will be stored as image, but images can be given different data layouts
+	//																	//to give optimal use for certain operations
+	//colourAttachment.initialLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL; //image data layout before render pass starts
+	//															//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
+	//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL; //image data layout aftet render pass ( to change to)
 
-																	   // Depth attachment of render pass
-	VkAttachmentDescription depthAttachment{};
-	depthAttachment.format = oGFX::ChooseSupportedFormat(m_device,
-		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	//																   // Depth attachment of render pass
+	//VkAttachmentDescription depthAttachment{};
+	//depthAttachment.format = oGFX::ChooseSupportedFormat(m_device,
+	//	{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
+	//	VK_IMAGE_TILING_OPTIMAL,
+	//	VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	//depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	//depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	//depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	//depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	//depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	//depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	//depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	// REFERENCES 
-	//Attachment reference uses an atttachment index that refers to index i nthe attachment list passed to renderPassCreataeInfo
-	VkAttachmentReference  colourAttachmentReference = {};
-	colourAttachmentReference.attachment = 0;
-	colourAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	//// REFERENCES 
+	////Attachment reference uses an atttachment index that refers to index i nthe attachment list passed to renderPassCreataeInfo
+	//VkAttachmentReference  colourAttachmentReference = {};
+	//colourAttachmentReference.attachment = 0;
+	//colourAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-	// Depth attachment reference
-	VkAttachmentReference depthAttachmentReference{};
-	depthAttachmentReference.attachment = 1;
-	depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	//// Depth attachment reference
+	//VkAttachmentReference depthAttachmentReference{};
+	//depthAttachmentReference.attachment = 1;
+	//depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	//information about a particular subpass the render pass is using
-	VkSubpassDescription subpass = {};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; //pipeline type subpass is to be bound to
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &colourAttachmentReference;
-	subpass.pDepthStencilAttachment = &depthAttachmentReference;
+	////information about a particular subpass the render pass is using
+	//VkSubpassDescription subpass = {};
+	//subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; //pipeline type subpass is to be bound to
+	//subpass.colorAttachmentCount = 1;
+	//subpass.pColorAttachments = &colourAttachmentReference;
+	//subpass.pDepthStencilAttachment = &depthAttachmentReference;
 
-	// Need to determine when layout transitions occur using subpass dependancies
-	std::array<VkSubpassDependency, 2> subpassDependancies;
+	//// Need to determine when layout transitions occur using subpass dependancies
+	//std::array<VkSubpassDependency, 2> subpassDependancies;
 
-	//conversion from VK_IMAGE_LAYOUT_UNDEFINED to VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-	// Transiotion msut happen after...
-	subpassDependancies[0].srcSubpass = VK_SUBPASS_EXTERNAL; //subpass index (VK_SUBPASS_EXTERNAL = special vallue meaning outside of renderpass)
-	subpassDependancies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT; // Pipeline stage
-	subpassDependancies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT; //Stage acces mas (memory access)
-																	  // but must happen before...
-	subpassDependancies[0].dstSubpass = 0;
-	subpassDependancies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	subpassDependancies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	subpassDependancies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-
-	//conversion from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-	// Transiotion msut happen after...
-	subpassDependancies[1].srcSubpass = 0;
-	subpassDependancies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	subpassDependancies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	// but must happen before...
-	subpassDependancies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-	subpassDependancies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	subpassDependancies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	subpassDependancies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-	std::array<VkAttachmentDescription, 2> renderpassAttachments = { colourAttachment,depthAttachment };
-
-	//create info for render pass
-	VkRenderPassCreateInfo renderPassCreateInfo = {};
-	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(renderpassAttachments.size());
-	renderPassCreateInfo.pAttachments = renderpassAttachments.data();
-	renderPassCreateInfo.subpassCount = 1;
-	renderPassCreateInfo.pSubpasses = &subpass;
-	renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(subpassDependancies.size());
-	renderPassCreateInfo.pDependencies = subpassDependancies.data();
+	////conversion from VK_IMAGE_LAYOUT_UNDEFINED to VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	//// Transiotion msut happen after...
+	//subpassDependancies[0].srcSubpass = VK_SUBPASS_EXTERNAL; //subpass index (VK_SUBPASS_EXTERNAL = special vallue meaning outside of renderpass)
+	//subpassDependancies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT; // Pipeline stage
+	//subpassDependancies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT; //Stage acces mas (memory access)
+	//																  // but must happen before...
+	//subpassDependancies[0].dstSubpass = 0;
+	//subpassDependancies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	//subpassDependancies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	//subpassDependancies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
 
-	VkResult result = vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &debugRenderpass);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create Render Pass");
-	}
+	////conversion from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+	//// Transiotion msut happen after...
+	//subpassDependancies[1].srcSubpass = 0;
+	//subpassDependancies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	//subpassDependancies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	//// but must happen before...
+	//subpassDependancies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+	//subpassDependancies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	//subpassDependancies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	//subpassDependancies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	//std::array<VkAttachmentDescription, 2> renderpassAttachments = { colourAttachment,depthAttachment };
+
+	////create info for render pass
+	//VkRenderPassCreateInfo renderPassCreateInfo = {};
+	//renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	//renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(renderpassAttachments.size());
+	//renderPassCreateInfo.pAttachments = renderpassAttachments.data();
+	//renderPassCreateInfo.subpassCount = 1;
+	//renderPassCreateInfo.pSubpasses = &subpass;
+	//renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(subpassDependancies.size());
+	//renderPassCreateInfo.pDependencies = subpassDependancies.data();
+
+
+	//VkResult result = vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &debugRenderpass);
+	//if (result != VK_SUCCESS)
+	//{
+	//	throw std::runtime_error("Failed to create Render Pass");
+	//}
 
 }
 
 void VulkanRenderer::DebugPass()
 {
+	DebugRenderpass::Get()->Draw();
+	//std::array<VkClearValue, 2> clearValues{};
+	////clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
+	//clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
+	//clearValues[1].depthStencil.depth = {1.0f };
+	////Information about how to begin a render pass (only needed for graphical applications)
+	//VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
+	//renderPassBeginInfo.renderPass = debugRenderpass;									//render pass to begin
+	//renderPassBeginInfo.renderArea.offset = { 0,0 };								//start point of render pass in pixels
+	//renderPassBeginInfo.renderArea.extent = m_swapchain.swapChainExtent;			//size of region to run render pass on (Starting from offset)
+	//renderPassBeginInfo.pClearValues = clearValues.data();							//list of clear values
+	//renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size()); // no clearing
 
-	std::array<VkClearValue, 2> clearValues{};
-	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
-	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
-	clearValues[1].depthStencil.depth = {1.0f };
-	//Information about how to begin a render pass (only needed for graphical applications)
-	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
-	renderPassBeginInfo.renderPass = debugRenderpass;									//render pass to begin
-	renderPassBeginInfo.renderArea.offset = { 0,0 };								//start point of render pass in pixels
-	renderPassBeginInfo.renderArea.extent = m_swapchain.swapChainExtent;			//size of region to run render pass on (Starting from offset)
-	renderPassBeginInfo.pClearValues = clearValues.data();							//list of clear values
-	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size()); // no clearing
+	//renderPassBeginInfo.framebuffer = swapChainFramebuffers[swapchainIdx];
 
-	renderPassBeginInfo.framebuffer = swapChainFramebuffers[swapchainIdx];
+	//vkCmdBeginRenderPass(commandBuffers[swapchainIdx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBeginRenderPass(commandBuffers[swapchainIdx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	//VkViewport viewport = { 0, float(windowPtr->m_height), float(windowPtr->m_width), -float(windowPtr->m_height), 0, 1 };
+	//VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
+	//vkCmdSetViewport(commandBuffers[swapchainIdx], 0, 1, &viewport);
+	//vkCmdSetScissor(commandBuffers[swapchainIdx], 0, 1, &scissor);
 
-	VkViewport viewport = { 0, float(windowPtr->m_height), float(windowPtr->m_width), -float(windowPtr->m_height), 0, 1 };
-	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
-	vkCmdSetViewport(commandBuffers[swapchainIdx], 0, 1, &viewport);
-	vkCmdSetScissor(commandBuffers[swapchainIdx], 0, 1, &scissor);
+	//vkCmdBindPipeline(commandBuffers[swapchainIdx], VK_PIPELINE_BIND_POINT_GRAPHICS, linesPipeline);
 
-	vkCmdBindPipeline(commandBuffers[swapchainIdx], VK_PIPELINE_BIND_POINT_GRAPHICS, linesPipeline);
+	//uint32_t dynamicOffset = 0;
+	//std::array<VkDescriptorSet, 3> descriptorSetGroup = {g0_descriptors, uniformDescriptorSets[swapchainIdx],
+	//	globalSamplers };
+	//vkCmdBindDescriptorSets(commandBuffers[swapchainIdx],VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeLayout,
+	//	0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);
 
-	uint32_t dynamicOffset = 0;
-	std::array<VkDescriptorSet, 3> descriptorSetGroup = {g0_descriptors, uniformDescriptorSets[swapchainIdx],
-		globalSamplers };
-	vkCmdBindDescriptorSets(commandBuffers[swapchainIdx],VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeLayout,
-		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);
+	//glm::mat4 xform(1.0f) ;
+	//vkCmdPushConstants(commandBuffers[swapchainIdx],
+	//	indirectPipeLayout,
+	//	VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+	//	0,							// offset of push constants to update
+	//	sizeof(glm::mat4),			// size of data being pushed
+	//	glm::value_ptr(xform));		// actualy data being pushed (could be an array));
 
-	glm::mat4 xform(1.0f) ;
-	vkCmdPushConstants(commandBuffers[swapchainIdx],
-		indirectPipeLayout,
-		VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
-		0,							// offset of push constants to update
-		sizeof(glm::mat4),			// size of data being pushed
-		glm::value_ptr(xform));		// actualy data being pushed (could be an array));
+	//VkDeviceSize offsets[] = { 0 };	
+	//// just draw the whole set of debug stuff
+	//vkCmdBindIndexBuffer(commandBuffers[swapchainIdx], g_debugDrawIndxBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
+	//vkCmdBindVertexBuffers(commandBuffers[swapchainIdx], VERTEX_BUFFER_ID, 1,g_debugDrawVertBuffer.getBufferPtr(), offsets);
+	//vkCmdDrawIndexed(commandBuffers[swapchainIdx], static_cast<uint32_t>(g_debugDrawIndxBuffer.size()) , 1, 0, 0, 0);
 
-	VkDeviceSize offsets[] = { 0 };	
-	// just draw the whole set of debug stuff
-	vkCmdBindIndexBuffer(commandBuffers[swapchainIdx], g_debugDrawIndxBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
-	vkCmdBindVertexBuffers(commandBuffers[swapchainIdx], VERTEX_BUFFER_ID, 1,g_debugDrawVertBuffer.getBufferPtr(), offsets);
-	vkCmdDrawIndexed(commandBuffers[swapchainIdx], static_cast<uint32_t>(g_debugDrawIndxBuffer.size()) , 1, 0, 0, 0);
-
-	// End Render  Pass
-	vkCmdEndRenderPass(commandBuffers[swapchainIdx]);
+	//// End Render  Pass
+	//vkCmdEndRenderPass(commandBuffers[swapchainIdx]);
 
 }
 

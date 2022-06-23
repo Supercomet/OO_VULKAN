@@ -36,7 +36,7 @@ struct AABB
 	AABB();
 	AABB(const Point3D& min,const Point3D& max);
 	Point3D center;
-	Point3D halfExt;
+	Point3D halfExt{0.5f,0.5f,0.5f};
 
 	Point3D max() const;
 	Point3D min() const;

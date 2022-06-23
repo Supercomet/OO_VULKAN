@@ -4,9 +4,12 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <iostream>
+#include <typeindex>
 
 #include "../shaders/shared_structs.h"
+
 
 namespace oGFX::vk::tools
 {
@@ -14,17 +17,42 @@ namespace oGFX::vk::tools
 };
 
 #ifndef VK_CHK
-
 #define VK_CHK(x) do{\
 VkResult result = x;\
-if(result != VK_SUCCESS){\
-std::cout<< oGFX::vk::tools::VkResultString(result)<< std::endl;\
-assert(result == VK_SUCCESS);\
-throw std::runtime_error("Failed Vulkan Check");\
-}\
+	if(result != VK_SUCCESS){\
+	std::cout<< oGFX::vk::tools::VkResultString(result)<< std::endl;\
+	assert(result == VK_SUCCESS);\
+	throw std::runtime_error("Failed Vulkan Check");\
+	}\
+}while(0)
+#endif // !VK_CHK
+
+
+VkDebugReportObjectTypeEXT GetDebugNameExtTypeByID(std::type_index id);
+
+
+namespace oGFX
+{
+	void SetVulkanObjectName(VkDevice device, const VkDebugMarkerObjectNameInfoEXT& info);
+}
+
+
+#ifndef VK_NAME
+
+#define VK_NAME(DEVICE, NAME, OBJ) do{\
+VkDebugMarkerObjectNameInfoEXT nameInfo = {};\
+nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;\
+auto objType = std::type_index(typeid(decltype(OBJ)));\
+auto eType = GetDebugNameExtTypeByID(objType);\
+nameInfo.objectType = eType;\
+nameInfo.object = (uint64_t)OBJ;\
+nameInfo.pObjectName = NAME;\
+oGFX::SetVulkanObjectName(DEVICE,nameInfo);\
 }while(0)
 
-#endif // !VK_CHK
+#endif
+
+
 
 struct VulkanInstance;
 struct VulkanDevice;
@@ -88,6 +116,10 @@ namespace oGFX
 		uint32_t roughness;
 		*/
 	};
+
+	const std::vector<VkVertexInputBindingDescription>& GetGFXVertexInputBindings();	
+	const std::vector<VkVertexInputAttributeDescription>& GetGFXVertexInputAttributes();
+	
 
 	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance, VkPhysicalDevice device);
 	oGFX::QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);

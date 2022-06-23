@@ -38,10 +38,10 @@ void GBufferRenderPass::Draw()
 
 	// Clear values for all attachments written in the fragment shader
 	std::array<VkClearValue,4> clearValues;
-	clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-	clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-	clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-	clearValues[3].depthStencil = { 1.0f, 0 };
+	clearValues[POSITION].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[NORMAL]  .color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[ALBEDO]  .color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[DEPTH]   .depthStencil = { 1.0f, 0 };
 	
 	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
 	renderPassBeginInfo.renderPass =  deferredPass;
@@ -165,10 +165,10 @@ void GBufferRenderPass::SetupRenderpass()
 	}
 
 	// Formats
-	attachmentDescs[0].format = att_position.format;
-	attachmentDescs[1].format = att_normal.format;
-	attachmentDescs[2].format = att_albedo.format;
-	attachmentDescs[3].format = att_depth.format;
+	attachmentDescs[POSITION].format = att_position.format;
+	attachmentDescs[NORMAL]  .format = att_normal.format;
+	attachmentDescs[ALBEDO]  .format = att_albedo.format;
+	attachmentDescs[DEPTH]   .format = att_depth.format;
 
 	std::vector<VkAttachmentReference> colorReferences;
 	colorReferences.push_back({ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
@@ -214,15 +214,16 @@ void GBufferRenderPass::SetupRenderpass()
 	renderPassInfo.pDependencies = dependencies.data();
 
 	VK_CHK(vkCreateRenderPass(m_device.logicalDevice, &renderPassInfo, nullptr, &deferredPass));
+	VK_NAME(m_device.logicalDevice, "deferredPass", deferredPass);
 }
 
 void GBufferRenderPass::SetupFramebuffer()
 {
 	std::array<VkImageView,4> attachments;
-	attachments[0] = att_position.view;
-	attachments[1] = att_normal.view;
-	attachments[2] = att_albedo.view;
-	attachments[3] = VulkanRenderer::m_swapchain.depthAttachment.view;
+	attachments[POSITION] = att_position.view;
+	attachments[NORMAL]   = att_normal.view;
+	attachments[ALBEDO]   = att_albedo.view;
+	attachments[DEPTH]    = VulkanRenderer::m_swapchain.depthAttachment.view;
 
 	VkFramebufferCreateInfo fbufCreateInfo = {};
 	fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -234,11 +235,12 @@ void GBufferRenderPass::SetupFramebuffer()
 	fbufCreateInfo.height = VulkanRenderer::m_swapchain.swapChainExtent.height;
 	fbufCreateInfo.layers = 1;
 	VK_CHK(vkCreateFramebuffer(VulkanRenderer::m_device.logicalDevice, &fbufCreateInfo, nullptr, &deferredFB));
+	VK_NAME(VulkanRenderer::m_device.logicalDevice, "deferredFB", deferredFB);
 
-	deferredImg[0] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	deferredImg[1] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	deferredImg[2] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	deferredImg[3] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	deferredImg[POSITION] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	deferredImg[NORMAL]   = ImGui_ImplVulkan_AddTexture(deferredSampler, att_normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	deferredImg[ALBEDO]   = ImGui_ImplVulkan_AddTexture(deferredSampler, att_albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	//deferredImg[DEPTH]    = ImGui_ImplVulkan_AddTexture(deferredSampler, att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 }
 
@@ -258,6 +260,7 @@ void GBufferRenderPass::CreateSampler()
 	sampler.maxLod = 1.0f;
 	sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 	VK_CHK(vkCreateSampler(VulkanRenderer::m_device.logicalDevice, &sampler, nullptr, &deferredSampler));
+	VK_NAME(VulkanRenderer::m_device.logicalDevice, "deferredSampler", deferredSampler);
 }
 
 void GBufferRenderPass::CreateDescriptors()
@@ -334,22 +337,10 @@ void GBufferRenderPass::CreatePipeline()
 
 	// Vertex input state from glTF model for pipeline rendering models
 	//how the data for a single vertex (including infos such as pos, colour, texture, coords, normals etc) is as a whole
-	std::vector<VkVertexInputBindingDescription> bindingDescription {	
-		oGFX::vk::inits::vertexInputBindingDescription(VERTEX_BUFFER_ID,sizeof(oGFX::Vertex),VK_VERTEX_INPUT_RATE_VERTEX),
-
-		oGFX::vk::inits::vertexInputBindingDescription(INSTANCE_BUFFER_ID,sizeof(oGFX::InstanceData),VK_VERTEX_INPUT_RATE_INSTANCE),
-	};
+	auto& bindingDescription = oGFX::GetGFXVertexInputBindings();
 
 	//how the data for an attirbute is define in the vertex
-	std::vector<VkVertexInputAttributeDescription>attributeDescriptions{
-		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::Vertex, pos)), //Position attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,1,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::Vertex, norm)),//normals attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,2,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::Vertex, col)),//col attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,3,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::Vertex, tangent)),//tangent attribute
-		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,4,VK_FORMAT_R32G32_SFLOAT	  ,offsetof(oGFX::Vertex, tex)),    //Texture attribute
-
-		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,15,VK_FORMAT_R32G32B32A32_UINT,offsetof(oGFX::InstanceData,instanceAttributes)),    // instance attribute
-	};
+	auto& attributeDescriptions = oGFX::GetGFXVertexInputAttributes();
 
 	rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
 	// -- VERTEX INPUT -- 
@@ -357,8 +348,8 @@ void GBufferRenderPass::CreatePipeline()
 	//vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
 	//vertexInputCreateInfo.vertexAttributeDescriptionCount = 5;
 
-	vertexInputCreateInfo.vertexBindingDescriptionCount = bindingDescription.size()	;
-	vertexInputCreateInfo.vertexAttributeDescriptionCount = attributeDescriptions.size();
+	vertexInputCreateInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescription.size());
+	vertexInputCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
 
 	pipelineCI.pVertexInputState = &vertexInputCreateInfo;
 
@@ -382,6 +373,7 @@ void GBufferRenderPass::CreatePipeline()
 	colorBlendState.pAttachments = blendAttachmentStates.data();
 
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &deferredPipe));
+	VK_NAME(m_device.logicalDevice, "deferredPipe", deferredPipe);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
 

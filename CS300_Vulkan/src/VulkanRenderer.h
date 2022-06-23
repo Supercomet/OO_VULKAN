@@ -8,6 +8,7 @@
 
 #include "MeshModel.h"
 
+#include "GfxTypes.h"
 #include "VulkanUtils.h"
 #include "VulkanInstance.h"
 #include "VulkanDevice.h"
@@ -20,6 +21,7 @@
 #include "DescriptorBuilder.h"
 #include "DescriptorAllocator.h"
 #include "DescriptorLayoutCache.h"
+#include "Geometry.h"
 
 #include "Camera.h"
 
@@ -39,6 +41,8 @@ static constexpr int MAX_OBJECTS = 1024;
 
 #define OBJECT_INSTANCE_COUNT 128
 
+
+inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nullptr };
 
 	~VulkanRenderer();
 
@@ -96,15 +100,15 @@ static constexpr int MAX_OBJECTS = 1024;
 	//void CleanupDeferredStuff();
 
 	struct Light {
-		glm::vec4 position;
-		glm::vec3 color;
-		float radius;
+		glm::vec4 position{};
+		glm::vec3 color{1.0f};
+		float radius{1.0f};
 	};
 
 	struct LightUBO{
 		Light lights[6];
 		glm::vec4 viewPos;
-	} lightUBO;
+	} lightUBO{};
 	float timer{};
 
 	bool deferredRendering = true;
@@ -125,15 +129,18 @@ static constexpr int MAX_OBJECTS = 1024;
 
 	struct ImGUIStructures
 	{
-		VkDescriptorPool descriptorPools;
-		VkRenderPass renderPass;
+		VkDescriptorPool descriptorPools{};
+		VkRenderPass renderPass{};
 		std::vector<VkFramebuffer> buffers;
-	};
-	ImGUIStructures m_imguiConfig;
+	}m_imguiConfig{};
+	 
 	void InitImGUI();
 	void ResizeGUIBuffers();
 	void DrawGUI();
 	void DestroyImGUI();
+
+
+	void AddDebugBox(const AABB& aabb, const oGFX::Color& col);
 
 	void UpdateIndirectCommands();
 	void UpdateInstanceData();
@@ -159,15 +166,15 @@ static constexpr int MAX_OBJECTS = 1024;
 	uint32_t CreateTexture(uint32_t width, uint32_t height,unsigned char* imgData);
 	uint32_t CreateTexture(const std::string& fileName);
 
-	GpuVector<oGFX::Vertex> g_debugDrawVertBuffer{ &m_device };
-	GpuVector<uint32_t> g_debugDrawIndxBuffer{ &m_device };
+	inline static GpuVector<oGFX::Vertex> g_debugDrawVertBuffer{ &VulkanRenderer::m_device };
+	inline static GpuVector<uint32_t> g_debugDrawIndxBuffer{ &VulkanRenderer::m_device };
 	std::vector<oGFX::Vertex> g_debugDrawVerts;
 	std::vector<uint32_t> g_debugDrawIndices;
 	void InitDebugBuffers();
 	void UpdateDebugBuffers();
 	void DestroyDebugBuffers();
 
-	VkRenderPass debugRenderpass;
+	//VkRenderPass debugRenderpass;
 	void CreateDebugRenderpass();
 	void DebugPass();
 
@@ -178,8 +185,6 @@ static constexpr int MAX_OBJECTS = 1024;
 	Model* LoadMeshFromFile(const std::string& file);
 	uint32_t LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, gfxModel* model);
 	void SetMeshTextures(uint32_t modelID,uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough);
-
-	void UpdateModel(int modelId, glm::mat4 newModel);
 
 	bool ResizeSwapchain();
 
@@ -202,7 +207,7 @@ static constexpr int MAX_OBJECTS = 1024;
 	// - Pipeline
 	VkPipeline graphicsPipeline{};
 	VkPipeline wirePipeline{};
-	VkPipeline linesPipeline{};
+	//VkPipeline linesPipeline{};
 	//VkPipelineLayout pipelineLayout{};
 	inline static VkRenderPass defaultRenderPass{};
 
@@ -214,8 +219,9 @@ static constexpr int MAX_OBJECTS = 1024;
 
 
 	// - Descriptors
-	VkDescriptorSetLayout descriptorSetLayout{};
-	VkDescriptorSetLayout samplerSetLayout{};
+	inline static VkDescriptorSetLayout descriptorSetLayout{};
+	inline static VkDescriptorSetLayout samplerSetLayout{};
+
 	struct PushConstData
 	{
 		glm::mat4 xform{};
@@ -228,8 +234,13 @@ static constexpr int MAX_OBJECTS = 1024;
 	inline static std::vector<VkDescriptorSet> uniformDescriptorSets;
 	std::vector<VkDescriptorSet> samplerDescriptorSets;
 
+	// SSBO
 	std::vector<GPUTransform> gpuTransform;
 	GpuVector<GPUTransform> gpuTransformBuffer{&m_device};
+
+	std::vector<GPUTransform> debugTransform;
+	GpuVector<GPUTransform> debugTransformBuffer{&m_device};
+	// SSBO
 
 	inline static VkDescriptorSet g0_descriptors;
 	inline static VkDescriptorSetLayout g0_descriptorsLayout;

@@ -9,6 +9,8 @@ struct VulkanInstance;
 struct VulkanDevice
 {
 	~VulkanDevice();
+	VulkanDevice(const VulkanDevice&) = delete;
+
 	void InitPhysicalDevice(VulkanInstance& instance);
 	void InitLogicalDevice(VulkanInstance& instance);
 	

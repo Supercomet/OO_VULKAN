@@ -12,7 +12,7 @@ struct GBufferRenderPass : public GfxRenderpass
 	void Draw() override;
 	void Shutdown() override;
 
-	ImTextureID deferredImg[4]{};
+	ImTextureID deferredImg[3]{};
 	VulkanFramebufferAttachment att_albedo;
 	VulkanFramebufferAttachment att_position;
 	VulkanFramebufferAttachment att_normal;
@@ -23,7 +23,7 @@ struct GBufferRenderPass : public GfxRenderpass
 	VkSampler deferredSampler;
 
 	uint64_t uboDynamicAlignment;
-	VkPushConstantRange pushConstantRange;
+	//VkPushConstantRange pushConstantRange;
 	VkPipeline deferredPipe;
 
 
