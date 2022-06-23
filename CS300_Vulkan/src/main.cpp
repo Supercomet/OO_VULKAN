@@ -29,6 +29,9 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_win32.h>
 
+#include "IcoSphereCreator.h"
+//#include <algorithm>
+
 #include "BoudingVolume.h"
 std::ostream& operator<<(std::ostream& os, const glm::vec3& vec)
 {
@@ -219,6 +222,26 @@ int main(int argc, char argv[])
         ab.halfExt = e.scale * 0.5f;
         renderer.AddDebugBox(ab, {(iter+1)%3,(iter+2%3),(iter%3),1});
         ++iter;
+    }
+
+    
+    auto [sphVertices, spfIndices] = icosahedron::make_icosphere(2);
+    auto currsz = renderer.g_debugDrawVerts.size();
+    renderer.g_debugDrawVerts.reserve(renderer.g_debugDrawVerts.size() + sphVertices.size());
+    for (auto&& v : sphVertices)
+    {
+        renderer.g_debugDrawVerts.emplace_back(oGFX::Vertex{ v });
+    }
+    
+    renderer.g_debugDrawIndices.reserve( renderer.g_debugDrawIndices.size() + spfIndices.size()*3);
+    for (auto&& ind : spfIndices) 
+    {
+        renderer.g_debugDrawIndices.emplace_back(ind.vertex[0]+static_cast<uint32_t>(currsz));
+        renderer.g_debugDrawIndices.emplace_back(ind.vertex[1]+static_cast<uint32_t>(currsz));
+        renderer.g_debugDrawIndices.emplace_back(ind.vertex[0]+static_cast<uint32_t>(currsz)); 
+        renderer.g_debugDrawIndices.emplace_back(ind.vertex[2]+static_cast<uint32_t>(currsz));
+        renderer.g_debugDrawIndices.emplace_back(ind.vertex[2]+static_cast<uint32_t>(currsz));
+        renderer.g_debugDrawIndices.emplace_back(ind.vertex[1]+static_cast<uint32_t>(currsz));
     }
 
     //uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");

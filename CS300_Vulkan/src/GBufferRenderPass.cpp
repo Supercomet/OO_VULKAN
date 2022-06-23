@@ -83,8 +83,8 @@ void GBufferRenderPass::Draw()
 			glm::value_ptr(xform));		// actualy data being pushed (could be an array));
 	
 		VkDeviceSize offsets[] = { 0 };	
-		vkCmdBindIndexBuffer(commandBuffers[swapchainIdx], VulkanRenderer::g_indexBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
-		vkCmdBindVertexBuffers(commandBuffers[swapchainIdx], VERTEX_BUFFER_ID, 1, VulkanRenderer::g_vertexBuffer.getBufferPtr(), offsets);
+		vkCmdBindIndexBuffer(commandBuffers[swapchainIdx], VulkanRenderer::g_MeshBuffers.IdxBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(commandBuffers[swapchainIdx], VERTEX_BUFFER_ID, 1, VulkanRenderer::g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
 	
 		// bind instance buffer
 		vkCmdBindVertexBuffers(commandBuffers[swapchainIdx], INSTANCE_BUFFER_ID, 1, &VulkanRenderer::instanceBuffer.buffer, offsets);

@@ -6,8 +6,10 @@ struct VulkanDevice;
 template <typename T>
 class GpuVector{
 public:
+	GpuVector();
 	GpuVector(VulkanDevice* device);
 	void Init(VkBufferUsageFlags usage);
+	void Init(VulkanDevice* device,VkBufferUsageFlags usage);
 
 	void writeTo(size_t size, void* data, size_t offset = 0);
 
@@ -39,6 +41,13 @@ private:
 #include "VulkanUtils.h"
 #include "VulkanDevice.h"
 
+template<typename T>
+GpuVector<T>::GpuVector() : 
+	m_device{nullptr}
+{
+
+}
+
 template <typename T>
 GpuVector<T>::GpuVector(VulkanDevice* device) :
 	m_device{ device }
@@ -55,6 +64,13 @@ void GpuVector<T>::Init(VkBufferUsageFlags usage)
 	m_usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	oGFX::CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, 1, m_usage,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_buffer, &m_gpuMemory);
+}
+
+template<typename T>
+inline void GpuVector<T>::Init(VulkanDevice* device, VkBufferUsageFlags usage)
+{
+	m_device = device;
+	Init(usage);
 }
 
 template <typename T>
