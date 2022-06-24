@@ -6,8 +6,7 @@
 
 #include "gpuCommon.h"
 #include "VulkanRenderer.h"
-#include "glm/gtc/matrix_transform.hpp"
-#include "glm/gtc/type_ptr.hpp"
+
 
 #include <iostream>
 #include <iomanip>
@@ -468,8 +467,8 @@ int main(int argc, char argv[])
                 break;
                 }
                 auto id = std::to_string(entity.modelID);
-                ImGui::DragFloat3(std::string("Position"+ id).c_str(), glm::value_ptr(entity.pos));
-                ImGui::DragFloat3(("Scale"+id).c_str(),  glm::value_ptr(entity.scale));
+                ImGui::DragFloat3(std::string("Position"+ id).c_str(), glm::value_ptr(entity.pos), 0.01f);
+                ImGui::DragFloat3(("Scale"+id).c_str(),  glm::value_ptr(entity.scale), 0.01f);
                 ImGui::DragFloat(("theta"+id).c_str(),  &entity.rot);
                 ImGui::DragFloat3(("Rotation Vec"+id).c_str(),  glm::value_ptr(entity.rotVec));
             }

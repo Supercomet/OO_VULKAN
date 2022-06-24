@@ -5,7 +5,7 @@
 #include <cstdint>
 #include "keycodes.h"
 
-#include "glm/glm.hpp"
+#include "MathCommon.h"
 
 struct Input
 {

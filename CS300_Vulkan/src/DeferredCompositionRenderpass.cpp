@@ -1,15 +1,16 @@
 #include "DeferredCompositionRenderpass.h"
 
-#include <array>
-
 #include "VulkanRenderer.h"
 #include "Window.h"
 #include "VulkanUtils.h"
 
+#include <array>
+
+DECLARE_RENDERPASS(DeferredCompositionRenderpass);
 
 void DeferredCompositionRenderpass::Init()
 {
-	CreatePipeline();
+	//CreatePipeline(); // Dependency on GBuffer Init()
 }
 
 void DeferredCompositionRenderpass::Draw()
@@ -19,7 +20,7 @@ void DeferredCompositionRenderpass::Draw()
 	std::array<VkClearValue, 2> clearValues{};
 	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
 	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
-	clearValues[1].depthStencil.depth = {1.0f};
+	clearValues[1].depthStencil.depth = { 1.0f };
 
 	//Information about how to begin a render pass (only needed for graphical applications)
 	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();

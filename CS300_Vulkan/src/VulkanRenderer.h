@@ -27,6 +27,8 @@
 
 #include "imgui.h"
 
+#include "GfxSampler.h"
+
 struct Window;
 
 int Win32SurfaceCreator(ImGuiViewport* vp, ImU64 device, const void* allocator, ImU64* outSurface);
@@ -244,7 +246,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	inline static DescriptorAllocator DescAlloc;
 	inline static DescriptorLayoutCache DescLayoutCache;
 
-	VkSampler textureSampler{};
+	GfxSamplerManager samplerManager;
 
 	inline static std::vector<VkCommandBuffer> commandBuffers;
 

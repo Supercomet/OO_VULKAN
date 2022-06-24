@@ -1,6 +1,7 @@
 #pragma once
 
-#include "glm/glm.hpp"
+#include "MathCommon.h"
+
 namespace oGFX
 {
 using Color = glm::vec4;

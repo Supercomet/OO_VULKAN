@@ -1,17 +1,17 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
-#include "glm/glm.hpp"
-#include <vector>
+#include "MathCommon.h"
 
 #pragma warning( push )
 #pragma warning( disable : 26451 ) // vendor overflow
 #include "assimp/scene.h"
 #pragma warning( pop )
 
-
 #include "VulkanUtils.h"
 #include "Node.h"
+
+#include <vector>
 
 namespace oGFX
 {

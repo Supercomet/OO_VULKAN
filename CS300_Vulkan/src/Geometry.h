@@ -1,5 +1,6 @@
 #pragma once
-#include "glm/glm.hpp"
+
+#include "MathCommon.h"
 #include <tuple>
 
 using Point3D = glm::vec3;

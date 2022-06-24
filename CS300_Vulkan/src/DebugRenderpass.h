@@ -5,7 +5,7 @@
 struct DebugRenderpass : public GfxRenderpass
 {
 
-	DECLARE_RENDERPASS_SINGLETON(DebugRenderpass)
+	//DECLARE_RENDERPASS_SINGLETON(DebugRenderpass)
 
 	VkRenderPass debugRenderpass{};
 	VkPipeline linesPipeline{};

@@ -1,7 +1,7 @@
 #pragma once
-#include <vector>
 
 #include "Geometry.h"
+#include <vector>
 
 namespace oGFX::BV
 {

@@ -1,9 +1,10 @@
 #pragma once
+
 #include <vector>
 #include <memory>
 #include <cassert>
 #include <iostream>
-
+#include <type_traits>
 
 enum AttachmentIndex
 {
@@ -11,22 +12,55 @@ enum AttachmentIndex
     NORMAL = 1,
     ALBEDO = 2,
     DEPTH = 3,
+    // MATERIAL, // TODO
+    MAX_GBUFFER_ATTACHMENTS
 };
 
 class GfxRenderpass
 {
 public:
-virtual void Init() = 0;
-virtual void Draw() = 0;
-virtual void Shutdown() = 0;
+    virtual void Init() = 0;
+    virtual void Draw() = 0;
+    virtual void Shutdown() = 0;
+    uint8_t m_Index{ 0xFF };
 };
 
-struct RenderPassSingletonWrapper
+class RenderPassDatabase
 {
-    static std::unique_ptr<RenderPassSingletonWrapper> m_renderpass;
-    static RenderPassSingletonWrapper* Get();
-    void Add(std::unique_ptr<GfxRenderpass>&& renderPass);
+public:
+    ~RenderPassDatabase();
+    static RenderPassDatabase* Get();
+    void RegisterRenderPass(std::unique_ptr<GfxRenderpass>&& renderPass);
+
+    // Call this once to call "Init()" on all registered render passes.
+    // Take note the order of initialization is undefined.
+    static void InitAllRegisteredPasses();
+
+    static void ShutdownAllRegisteredPasses();
+
+    // TODO: Proper C++ Fix needed.
+    template<typename T_PASS>
+    static inline T_PASS* GetRenderPass()
+    {
+        for (auto& pass : Get()->m_AllRenderPasses)
+        {
+            GfxRenderpass* base = pass.get();
+            if constexpr (true) // TODO FIX ME
+            {
+                // This is bad ! Leaving this here as a fallback in case shit happens
+                if (T_PASS* derived = dynamic_cast<T_PASS*>(base))
+                {
+                    return derived;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+private:
+    static RenderPassDatabase* ms_renderpass; // Ideally unique_ptr, for now workaound to fix a (complier) bug?
     std::vector<std::unique_ptr<GfxRenderpass>> m_AllRenderPasses;
+    uint8_t m_RegisteredRenderPasses{ 0 };
 };
 
 
@@ -48,10 +82,7 @@ namespace DeclareRenderPass_ns\
             DeclareRenderPass_##pass()\
             {\
                 auto ptr = std::make_unique<pass>();\
-                assert(pass::m_pass == nullptr);\
-                pass::m_pass = ptr.get();\
-                RenderPassSingletonWrapper::Get()->Add(std::move(ptr));\
-                ptr.reset(nullptr);\
+                RenderPassDatabase::Get()->RegisterRenderPass(std::move(ptr));\
             }\
     }g_DeclareRenderPass_##pass;\
 }// end DeclareRenderPass_ns

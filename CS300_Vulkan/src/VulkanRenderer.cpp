@@ -5,9 +5,7 @@
 #include <stdexcept>
 #include <array>
 
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include "glm/gtc/matrix_transform.hpp"
-#include "glm/gtc/type_ptr.hpp"
+#include "MathCommon.h"
 
 #include <iostream>
 
@@ -43,10 +41,7 @@ VulkanRenderer::~VulkanRenderer()
 	//wait until no actions being run on device before destorying
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
-	for (auto& rp: RenderPassSingletonWrapper::Get()->m_AllRenderPasses)
-	{
-		rp->Shutdown();
-	}
+	RenderPassDatabase::ShutdownAllRegisteredPasses();
 
 	gpuTransformBuffer.destroy();
 	debugTransformBuffer.destroy();
@@ -99,8 +94,6 @@ VulkanRenderer::~VulkanRenderer()
 		vkDestroyBuffer(m_device.logicalDevice, vpUniformBuffer[i], nullptr);
 		vkFreeMemory(m_device.logicalDevice, vpUniformBufferMemory[i], nullptr);
 	}
-
-	vkDestroySampler(m_device.logicalDevice, textureSampler, nullptr);
 
 	for (size_t i = 0; i < drawFences.size(); i++)
 	{
@@ -156,17 +149,17 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		CreateDescriptorSets();
 
-	
-
 		CreateGraphicsPipeline();
 
 		InitImGUI();
 
 		CreateCompositionBuffers();
-		for (auto& r : RenderPassSingletonWrapper::Get()->m_AllRenderPasses)
-		{
-			r->Init();
-		}
+
+		// Initialize all sampler objects
+		samplerManager.Init();
+
+		// Calls "Init()" on all registered render passes. Order is not guarunteed.
+		RenderPassDatabase::InitAllRegisteredPasses();
 
 		CreateFramebuffers();
 
@@ -174,7 +167,6 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateOffscreenFB();
 
 		CreateCommandBuffers();
-		CreateTextureSampler();
 		CreateDescriptorPool();
 		CreateSynchronisation();
 
@@ -606,33 +598,6 @@ void VulkanRenderer::CreateCommandBuffers()
 	}
 }
 
-void VulkanRenderer::CreateTextureSampler()
-{
-	// Sampler creation info
-	VkSamplerCreateInfo samplerCreateInfo{};
-	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;							// how to render when image is magnified on screen
-	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;							// how to render when image is minified on the screen
-	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;		// how to handle texture wrap in U direction
-	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;		// how to handle texture wrap in V direction
-	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;		// how to handle texture wrap in W direction
-	samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;		// border beyond texture ( only works for border clamp )
-	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;					// Whether coords should be normalized (between 0 and 1)
-	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;			// Mipmap interpolation mode
-	samplerCreateInfo.mipLodBias = 0.0f;									// Level of details bias for mip level
-	samplerCreateInfo.minLod = 0.0f;										// minimum level of detail to pick mip level
-	samplerCreateInfo.maxLod = 0.0f;										// maximum level of detail to pick mip level
-	samplerCreateInfo.anisotropyEnable = VK_TRUE;							// Enable anisotropy
-	samplerCreateInfo.maxAnisotropy = 16;									// Anisotropy sample level
-
-	VkResult result = vkCreateSampler(m_device.logicalDevice, &samplerCreateInfo, nullptr, &textureSampler);
-	VK_NAME(m_device.logicalDevice, "textureSampler", textureSampler);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create a texture sampler!");
-	}
-}
-
 void VulkanRenderer::CreateOffscreenPass()
 {
 	if (offscreenPass)
@@ -767,7 +732,7 @@ void VulkanRenderer::CreateOffscreenFB()
 	{
 		throw std::runtime_error("Failed to create a Framebuffer!");
 	}
-	myImg = ImGui_ImplVulkan_AddTexture(textureSampler, offscreenFB.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	myImg = ImGui_ImplVulkan_AddTexture(samplerManager.GetDefaultSampler(), offscreenFB.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	
 }
 
@@ -788,8 +753,8 @@ void VulkanRenderer::ResizeDeferredFB()
 
 void VulkanRenderer::DeferredPass()
 {
-	GBufferRenderPass::Get()->Draw();
-
+	RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
+	//GBufferRenderPass::Get()->Draw();
 }
 
 void VulkanRenderer::CreateCompositionBuffers()
@@ -810,7 +775,8 @@ void VulkanRenderer::CreateCompositionBuffers()
 
 void VulkanRenderer::DeferredComposition()
 {
-	DeferredCompositionRenderpass::Get()->Draw();	
+	RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
+	//DeferredCompositionRenderpass::Get()->Draw();	
 }
 
 void VulkanRenderer::UpdateLightBuffer()
@@ -1170,17 +1136,23 @@ void VulkanRenderer::DrawGUI()
 	}
 	ImGui::End();
 
-	ImGui::Begin("deferred");
+	ImGui::Begin("Deferred Rendering GBuffer");
 	{
-		ImGui::Checkbox("Deferred Rendering", &deferredRendering);
+		ImGui::Checkbox("Enable Deferred Rendering", &deferredRendering);
 		if (deferredRendering)
 		{
-		auto sz = ImGui::GetContentRegionAvail();
-		auto gbuff = GBufferRenderPass::Get();
-		ImGui::Image(gbuff->deferredImg[POSITION], { sz.x,sz.y/3 });
-		ImGui::Image(gbuff->deferredImg[NORMAL], { sz.x,sz.y/3 });
-		ImGui::Image(gbuff->deferredImg[ALBEDO], { sz.x,sz.y/3 });
-		//ImGui::Image(gbuff->deferredImg[3], { sz.x,sz.y/4 });
+			auto sz = ImGui::GetContentRegionAvail();
+			auto gbuff = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
+			//auto gbuff = GBufferRenderPass::Get();
+			ImGui::BulletText("World Position");
+			ImGui::Image(gbuff->deferredImg[POSITION], { sz.x,sz.y/3 });
+			ImGui::BulletText("World Normal");
+			ImGui::Image(gbuff->deferredImg[NORMAL], { sz.x,sz.y/3 });
+			ImGui::BulletText("Albedo");
+			ImGui::Image(gbuff->deferredImg[ALBEDO], { sz.x,sz.y/3 });
+			ImGui::BulletText("Material (TODO)");
+			ImGui::BulletText("Depth (TODO)");
+			//ImGui::Image(gbuff->deferredImg[3], { sz.x,sz.y/4 });
 		}
 	}
 	ImGui::End();
@@ -1776,7 +1748,8 @@ void VulkanRenderer::UpdateDebugBuffers()
 
 void VulkanRenderer::DebugPass()
 {
-	DebugRenderpass::Get()->Draw();
+	RenderPassDatabase::GetRenderPass<DebugRenderpass>()->Draw();
+	//DebugRenderpass::Get()->Draw();
 }
 
 

@@ -8,9 +8,7 @@
 #include "VulkanUtils.h"
 
 #include "../shaders/shared_structs.h"
-#include "glm/glm.hpp"
-#include "glm/gtc/matrix_transform.hpp"
-#include "glm/gtc/type_ptr.hpp"
+#include "MathCommon.h"
 
 DECLARE_RENDERPASS(DebugRenderpass);
 

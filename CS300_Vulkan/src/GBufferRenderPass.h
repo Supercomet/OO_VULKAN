@@ -6,7 +6,7 @@
 
 struct GBufferRenderPass : public GfxRenderpass
 {
-	DECLARE_RENDERPASS_SINGLETON(GBufferRenderPass)
+	//DECLARE_RENDERPASS_SINGLETON(GBufferRenderPass)
 
 	void Init() override;
 	void Draw() override;
@@ -20,7 +20,6 @@ struct GBufferRenderPass : public GfxRenderpass
 
 	VkRenderPass deferredPass;
 	VkFramebuffer deferredFB;
-	VkSampler deferredSampler;
 
 	uint64_t uboDynamicAlignment;
 	//VkPushConstantRange pushConstantRange;
@@ -30,7 +29,6 @@ struct GBufferRenderPass : public GfxRenderpass
 private:
 	void SetupRenderpass();
 	void SetupFramebuffer();
-	void CreateSampler();
 	void CreateDescriptors();
 	void CreatePipeline();
 

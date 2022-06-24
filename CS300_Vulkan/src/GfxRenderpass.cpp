@@ -1,17 +1,44 @@
 #include "GfxRenderpass.h"
 
-std::unique_ptr<RenderPassSingletonWrapper> RenderPassSingletonWrapper::m_renderpass{ nullptr };
+RenderPassDatabase* RenderPassDatabase::ms_renderpass{ nullptr };
 
-RenderPassSingletonWrapper* RenderPassSingletonWrapper::Get()
+RenderPassDatabase::~RenderPassDatabase()
 {
-	if (m_renderpass.get() == nullptr)
-	{
-		m_renderpass = std::make_unique <RenderPassSingletonWrapper>();
-	}
-	return m_renderpass.get();
+	if (ms_renderpass)
+		delete ms_renderpass;
 }
 
-void RenderPassSingletonWrapper::Add(std::unique_ptr<GfxRenderpass>&& renderPass)
+RenderPassDatabase* RenderPassDatabase::Get()
 {
+	if (ms_renderpass == nullptr)
+	{
+		ms_renderpass = new RenderPassDatabase;
+	}
+	return ms_renderpass;
+}
+
+void RenderPassDatabase::RegisterRenderPass(std::unique_ptr<GfxRenderpass>&& renderPass)
+{
+	renderPass->m_Index = m_RegisteredRenderPasses++;
 	m_AllRenderPasses.emplace_back(std::move(renderPass));
+}
+
+void RenderPassDatabase::InitAllRegisteredPasses()
+{
+	auto renderpasses = Get();
+	
+	for (auto& renderPass : renderpasses->m_AllRenderPasses)
+	{
+		renderPass->Init();
+	}
+}
+
+void RenderPassDatabase::ShutdownAllRegisteredPasses()
+{
+    auto renderpasses = Get();
+
+    for (auto& renderPass : renderpasses->m_AllRenderPasses)
+    {
+        renderPass->Shutdown();
+    }
 }

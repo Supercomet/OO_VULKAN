@@ -1,7 +1,7 @@
 #include "Camera.h"
 #include <iostream>
 #include <algorithm> // std min
-#include "glm/gtx/euler_angles.hpp"
+
 
 void Camera::updateViewMatrix()
 {

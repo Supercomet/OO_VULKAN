@@ -1,5 +1,4 @@
 #include "GBufferRenderPass.h"
-#include <array>
 
 #include "imgui.h"
 #include "backends/imgui_impl_vulkan.h"
@@ -10,22 +9,25 @@
 #include "VulkanFramebufferAttachment.h"
 
 #include "../shaders/shared_structs.h"
-#include "glm/glm.hpp"
-#include "glm/gtc/matrix_transform.hpp"
-#include "glm/gtc/type_ptr.hpp"
-
-DECLARE_RENDERPASS(GBufferRenderPass);
+#include "MathCommon.h"
 
 #include "DeferredCompositionRenderpass.h"
-DECLARE_RENDERPASS(DeferredCompositionRenderpass);
+
+#include <array>
+
+DECLARE_RENDERPASS(GBufferRenderPass);
 
 void GBufferRenderPass::Init()
 {
 	SetupRenderpass();
 	SetupFramebuffer();
-	CreateSampler();
 	CreateDescriptors();
 	CreatePipeline();
+
+	// THIS IS A HACK.
+	// Because Init order is undefined.
+	if (RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>())
+		RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->CreatePipeline();
 }
 
 void GBufferRenderPass::Draw()
@@ -114,7 +116,6 @@ void GBufferRenderPass::Shutdown()
 	att_normal.destroy(m_device.logicalDevice);
 	att_depth.destroy(m_device.logicalDevice);
 	vkDestroyFramebuffer(m_device.logicalDevice, deferredFB, nullptr);
-	vkDestroySampler(m_device.logicalDevice, deferredSampler, nullptr);
 	vkDestroyRenderPass(m_device.logicalDevice,deferredPass, nullptr);
 	vkDestroyPipeline(m_device.logicalDevice, deferredPipe, nullptr);
 }
@@ -238,42 +239,24 @@ void GBufferRenderPass::SetupFramebuffer()
 	VK_CHK(vkCreateFramebuffer(VulkanRenderer::m_device.logicalDevice, &fbufCreateInfo, nullptr, &deferredFB));
 	VK_NAME(VulkanRenderer::m_device.logicalDevice, "deferredFB", deferredFB);
 
-	deferredImg[POSITION] = ImGui_ImplVulkan_AddTexture(deferredSampler, att_position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	deferredImg[NORMAL]   = ImGui_ImplVulkan_AddTexture(deferredSampler, att_normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	deferredImg[ALBEDO]   = ImGui_ImplVulkan_AddTexture(deferredSampler, att_albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	//deferredImg[DEPTH]    = ImGui_ImplVulkan_AddTexture(deferredSampler, att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-}
-
-void GBufferRenderPass::CreateSampler()
-{
-	// Create sampler to sample from the color attachments
-	VkSamplerCreateInfo sampler = oGFX::vk::inits::samplerCreateInfo();
-	sampler.magFilter = VK_FILTER_LINEAR;
-	sampler.minFilter = VK_FILTER_LINEAR;
-	sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler.addressModeV = sampler.addressModeU;
-	sampler.addressModeW = sampler.addressModeU;
-	sampler.mipLodBias = 0.0f;
-	sampler.maxAnisotropy = 1.0f;
-	sampler.minLod = 0.0f;
-	sampler.maxLod = 1.0f;
-	sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-	VK_CHK(vkCreateSampler(VulkanRenderer::m_device.logicalDevice, &sampler, nullptr, &deferredSampler));
-	VK_NAME(VulkanRenderer::m_device.logicalDevice, "deferredSampler", deferredSampler);
+	deferredImg[POSITION] = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	deferredImg[NORMAL]   = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	deferredImg[ALBEDO]   = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	//deferredImg[DEPTH]    = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
 void GBufferRenderPass::CreateDescriptors()
 {
 	auto& m_device = VulkanRenderer::m_device;
 
-	if (VulkanRenderer::deferredSet) return;
+	if (VulkanRenderer::deferredSet)
+		return;
 
 	VkPhysicalDeviceProperties props;
 	vkGetPhysicalDeviceProperties(VulkanRenderer::m_device.physicalDevice,&props);
 	size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
-	if (minUboAlignment > 0) {
+	if (minUboAlignment > 0)
+	{
 		uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
 	}
 
@@ -285,19 +268,19 @@ void GBufferRenderPass::CreateDescriptors()
 	// Image descriptors for the offscreen color attachments
 	VkDescriptorImageInfo texDescriptorPosition =
 		oGFX::vk::inits::descriptorImageInfo(
-			deferredSampler,
+			GfxSamplerManager::GetSampler_Deferred(),
 			att_position.view,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	VkDescriptorImageInfo texDescriptorNormal =
 		oGFX::vk::inits::descriptorImageInfo(
-			deferredSampler,
+			GfxSamplerManager::GetSampler_Deferred(),
 			att_normal.view,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	VkDescriptorImageInfo texDescriptorAlbedo =
 		oGFX::vk::inits::descriptorImageInfo(
-			deferredSampler,
+			GfxSamplerManager::GetSampler_Deferred(),
 			att_albedo.view, 
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -379,3 +362,4 @@ void GBufferRenderPass::CreatePipeline()
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
 
 }
+
