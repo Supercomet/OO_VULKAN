@@ -17,6 +17,7 @@
 #include "VulkanUtils.h"
 #include "VulkanInstance.h"
 #include "VulkanDevice.h"
+#include "VulkanRenderer.h" // pfn
 namespace oGFX
 {
 	oGFX::QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
@@ -108,6 +109,32 @@ namespace oGFX
 			mat[3][ 2] = fr/(fr-nr);
 	
 			return mat;
+	}
+
+	const std::vector<VkVertexInputBindingDescription>& GetGFXVertexInputBindings()
+	{
+	
+		static std::vector<VkVertexInputBindingDescription> bindingDescription {	
+			oGFX::vk::inits::vertexInputBindingDescription(VERTEX_BUFFER_ID,sizeof(Vertex),VK_VERTEX_INPUT_RATE_VERTEX),
+			oGFX::vk::inits::vertexInputBindingDescription(INSTANCE_BUFFER_ID,sizeof(oGFX::InstanceData),VK_VERTEX_INPUT_RATE_INSTANCE),
+		};
+		return bindingDescription;
+	
+	}
+
+	const std::vector<VkVertexInputAttributeDescription>& GetGFXVertexInputAttributes()
+	{
+		static std::vector<VkVertexInputAttributeDescription>attributeDescriptions{
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, pos)), //Position attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,1,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, norm)),//normals attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,2,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, col)), // colour attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,3,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex, tangent)),//tangent attribute
+		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,4,VK_FORMAT_R32G32_SFLOAT	  ,offsetof(Vertex, tex)),    //Texture attribute
+	
+		// instance data attributes
+		oGFX::vk::inits::vertexInputAttributeDescription(INSTANCE_BUFFER_ID,15,VK_FORMAT_R32G32B32A32_UINT,offsetof(InstanceData, InstanceData::instanceAttributes)),
+		};
+		return attributeDescriptions;
 	}
 
 	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance, VkPhysicalDevice device)
@@ -242,6 +269,7 @@ namespace oGFX
 		//create image view and return it
 		VkImageView imageView;
 		VkResult result = vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &imageView);
+		VK_NAME(device.logicalDevice, "createImageView::imageView", imageView);
 		if (result != VK_SUCCESS)
 		{
 			throw std::runtime_error("Failed to create an image view!");
@@ -293,6 +321,7 @@ namespace oGFX
 		imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;	// Whether image can be shared between queues
 		VkImage image;
 		VkResult result = vkCreateImage(device.logicalDevice, &imageCreateInfo, nullptr, &image);
+		VK_NAME(device.logicalDevice, "CreateImage::image", image);
 		if (result != VK_SUCCESS)
 		{
 			throw std::runtime_error("Failed to create an image!");
@@ -352,6 +381,7 @@ namespace oGFX
 
 		VkShaderModule shaderModule;
 		VkResult result = vkCreateShaderModule(device.logicalDevice, &shaderModuleCreateInfo, nullptr, &shaderModule);
+		VK_NAME(device.logicalDevice, code.data(), shaderModule);
 		if (result != VK_SUCCESS)
 		{
 			throw std::runtime_error("Failed to create a shader module!");
@@ -637,6 +667,14 @@ namespace oGFX
 		//}
 	}
 
+	void SetVulkanObjectName(VkDevice device,const VkDebugMarkerObjectNameInfoEXT& info)
+	{
+		if (VulkanRenderer::pfnDebugMarkerSetObjectName)
+		{
+			VulkanRenderer::pfnDebugMarkerSetObjectName(device, &info);
+		}
+	}
+
 }
 
 void oGFX::vk::tools::setImageLayout(VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldImageLayout, VkImageLayout newImageLayout, VkImageSubresourceRange subresourceRange, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask)
@@ -810,4 +848,59 @@ std::string oGFX::vk::tools::VkResultString(VkResult value)
 		//case (VK_ERROR_COMPRESSION_EXHAUSTED_EXT): return "ERROR_COMPRESSION_EXHAUSTED_EXT";
 	default: return std::string("UNKNOWN_VkResult_value") + std::to_string(value);
 	}
+}
+
+VkDebugReportObjectTypeEXT GetDebugNameExtTypeByID(std::type_index id)
+{
+	static std::unordered_map<std::type_index, VkDebugReportObjectTypeEXT> mapDebugNameExtTypeByID
+	{
+		{ std::type_index(typeid(VkInstance)),VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT },
+		{ std::type_index(typeid(VkPhysicalDevice)),VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT },
+		{ std::type_index(typeid(VkDevice)),VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT },
+		{ std::type_index(typeid(VkQueue)),VK_DEBUG_REPORT_OBJECT_TYPE_QUEUE_EXT },
+		{ std::type_index(typeid(VkSemaphore)),VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT },
+		{ std::type_index(typeid(VkCommandBuffer)),VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT },
+		{ std::type_index(typeid(VkFence)),VK_DEBUG_REPORT_OBJECT_TYPE_FENCE_EXT },
+		{ std::type_index(typeid(VkFence)),VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT },
+		{ std::type_index(typeid(VkDeviceMemory)), VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT},
+		{ std::type_index(typeid(VkBuffer)), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT},
+		{ std::type_index(typeid(VkImage)), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT},
+		{ std::type_index(typeid(VkEvent)), VK_DEBUG_REPORT_OBJECT_TYPE_EVENT_EXT},
+		{ std::type_index(typeid(VkQueryPool)), VK_DEBUG_REPORT_OBJECT_TYPE_QUERY_POOL_EXT},
+		{ std::type_index(typeid(VkBufferView)), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_VIEW_EXT},
+		{ std::type_index(typeid(VkImageView)), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT},
+		{ std::type_index(typeid(VkShaderModule)), VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT},
+		{ std::type_index(typeid(VkPipelineCache)), VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_CACHE_EXT},
+		{ std::type_index(typeid(VkPipelineLayout)), VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT},
+		{ std::type_index(typeid(VkRenderPass)), VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT},
+		{ std::type_index(typeid(VkPipeline)), VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT},
+		{ std::type_index(typeid(VkDescriptorSetLayout)), VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT_EXT},
+		{ std::type_index(typeid(VkSampler)), VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT},
+		{ std::type_index(typeid(VkDescriptorPool)), VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_POOL_EXT},
+		{ std::type_index(typeid(VkDescriptorSet)), VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT},
+		{ std::type_index(typeid(VkFramebuffer)), VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT},
+		{ std::type_index(typeid(VkCommandPool)), VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_POOL_EXT},
+		{ std::type_index(typeid(VkSurfaceKHR)), VK_DEBUG_REPORT_OBJECT_TYPE_SURFACE_KHR_EXT},
+		{ std::type_index(typeid(VkSwapchainKHR)), VK_DEBUG_REPORT_OBJECT_TYPE_SWAPCHAIN_KHR_EXT},
+		{ std::type_index(typeid(VkDebugReportCallbackEXT)), VK_DEBUG_REPORT_OBJECT_TYPE_DEBUG_REPORT_CALLBACK_EXT_EXT},
+		{ std::type_index(typeid(VkDisplayKHR)), VK_DEBUG_REPORT_OBJECT_TYPE_DISPLAY_KHR_EXT},
+		{ std::type_index(typeid(VkDisplayModeKHR)), VK_DEBUG_REPORT_OBJECT_TYPE_DISPLAY_MODE_KHR_EXT},
+		{ std::type_index(typeid(VkValidationCacheEXT)), VK_DEBUG_REPORT_OBJECT_TYPE_VALIDATION_CACHE_EXT_EXT},
+		{ std::type_index(typeid(VkSamplerYcbcrConversion)), VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_YCBCR_CONVERSION_EXT},
+		{ std::type_index(typeid(VkDescriptorUpdateTemplate)), VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_EXT},
+		{ std::type_index(typeid(VkCuModuleNVX)), VK_DEBUG_REPORT_OBJECT_TYPE_CU_MODULE_NVX_EXT},
+		{ std::type_index(typeid(VkCuFunctionNVX)), VK_DEBUG_REPORT_OBJECT_TYPE_CU_FUNCTION_NVX_EXT},
+		{ std::type_index(typeid(VkAccelerationStructureKHR)), VK_DEBUG_REPORT_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR_EXT},
+		{ std::type_index(typeid(VkAccelerationStructureNV)), VK_DEBUG_REPORT_OBJECT_TYPE_ACCELERATION_STRUCTURE_NV_EXT},
+		{ std::type_index(typeid(VK_OBJECT_TYPE_BUFFER_COLLECTION_FUCHSIA)), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_COLLECTION_FUCHSIA_EXT},
+		{ std::type_index(typeid(VkDebugReportCallbackEXT)), VK_DEBUG_REPORT_OBJECT_TYPE_DEBUG_REPORT_EXT},
+		{ std::type_index(typeid(VkValidationCacheEXT)), VK_DEBUG_REPORT_OBJECT_TYPE_VALIDATION_CACHE_EXT},
+		{ std::type_index(typeid(VkDescriptorUpdateTemplateKHR)), VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_KHR_EXT},
+		{ std::type_index(typeid(VkSamplerYcbcrConversionKHR)), VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_YCBCR_CONVERSION_KHR_EXT},
+	};
+
+	auto ret = mapDebugNameExtTypeByID[id];
+	if (ret == 0) return VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT;	
+
+	return ret;	
 }

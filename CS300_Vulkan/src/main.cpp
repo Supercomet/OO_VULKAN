@@ -29,6 +29,9 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_win32.h>
 
+#include "IcoSphereCreator.h"
+//#include <algorithm>
+
 #include "BoudingVolume.h"
 std::ostream& operator<<(std::ostream& os, const glm::vec3& vec)
 {
@@ -110,20 +113,22 @@ int main(int argc, char argv[])
         0,1,2
     };
 
+   
     std::vector<oGFX::Vertex>boxverts{
-        oGFX::Vertex{ {-0.5,-0.5,-0.5}, { -1.0f,-1.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5,-0.5,-0.5}, { 0.0f,-1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ {-0.5, 0.5,-0.5}, { -1.0f,0.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5, 0.5,-0.5}, { 0.0f,0.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 1.0f,1.0f } },
-                                                           
-        oGFX::Vertex{ {-0.5,-0.5, 0.5}, { -1.0f,-1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5,-0.5, 0.5}, { 1.0f,-1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ {-0.5, 0.5, 0.5}, { -1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,1.0f } },
-        oGFX::Vertex{ { 0.5, 0.5, 0.5}, { 1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 1.0f,1.0f } }
+    	oGFX::Vertex{ {-0.5,-0.5,-0.5}, { -1.0f,-1.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+    	oGFX::Vertex{ { 0.5,-0.5,-0.5}, { 0.0f,-1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+    	oGFX::Vertex{ {-0.5, 0.5,-0.5}, { -1.0f,0.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+    	oGFX::Vertex{ { 0.5, 0.5,-0.5}, { 0.0f,0.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 1.0f,1.0f } },
+    
+    	oGFX::Vertex{ {-0.5,-0.5, 0.5}, { -1.0f,-1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+    	oGFX::Vertex{ { 0.5,-0.5, 0.5}, { 1.0f,-1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+    	oGFX::Vertex{ {-0.5, 0.5, 0.5}, { -1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,1.0f } },
+    	oGFX::Vertex{ { 0.5, 0.5, 0.5}, { 1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 1.0f,1.0f } }
     };
     for (auto& v : boxverts) { v.norm = glm::normalize(v.norm); }
-    std::vector<uint32_t> boxindices{
-         1,0,2
+
+    static std::vector<uint32_t> boxindices{
+        1,0,2
         ,3,1,2
         ,5,1,3
         ,5,3,7
@@ -136,7 +141,6 @@ int main(int argc, char argv[])
         ,5,4,0
         ,5,0,1
     };
-
 
     std::vector<Point3D> pts{
         glm::vec3{5.03f,1.34f,3.0f},
@@ -163,6 +167,7 @@ int main(int argc, char argv[])
         //if ((++o % 5) == 0) std::cout << std::endl;
         //++o;
     }
+ 
 
     std::cout << std::endl;
     std::cout << "vertices : " << bunny->vertices.size() << std::endl;
@@ -209,6 +214,36 @@ int main(int argc, char argv[])
     ed.scale = { 1.0f,1.0f,1.0f };
     renderer.entities.push_back(ed);
     
+    int iter = 0;
+    for (auto& e: renderer.entities)
+    {
+        AABB ab;
+        ab.center = e.pos;
+        ab.halfExt = e.scale * 0.5f;
+        renderer.AddDebugBox(ab, {(iter+1)%3,(iter+2%3),(iter%3),1});
+        ++iter;
+    }
+
+    
+    auto [sphVertices, spfIndices] = icosahedron::make_icosphere(2);
+    auto currsz = renderer.g_debugDrawVerts.size();
+    renderer.g_debugDrawVerts.reserve(renderer.g_debugDrawVerts.size() + sphVertices.size());
+    for (auto&& v : sphVertices)
+    {
+        renderer.g_debugDrawVerts.emplace_back(oGFX::Vertex{ v });
+    }
+    
+    renderer.g_debugDrawIndices.reserve( renderer.g_debugDrawIndices.size() + spfIndices.size()*3);
+    for (auto&& ind : spfIndices) 
+    {
+        renderer.g_debugDrawIndices.emplace_back(ind.vertex[0]+static_cast<uint32_t>(currsz));
+        renderer.g_debugDrawIndices.emplace_back(ind.vertex[1]+static_cast<uint32_t>(currsz));
+        renderer.g_debugDrawIndices.emplace_back(ind.vertex[0]+static_cast<uint32_t>(currsz)); 
+        renderer.g_debugDrawIndices.emplace_back(ind.vertex[2]+static_cast<uint32_t>(currsz));
+        renderer.g_debugDrawIndices.emplace_back(ind.vertex[2]+static_cast<uint32_t>(currsz));
+        renderer.g_debugDrawIndices.emplace_back(ind.vertex[1]+static_cast<uint32_t>(currsz));
+    }
+
     //uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");
     //uint32_t obj = renderer.CreateMeshModel(verts, indices);
    //renderer.CreateTexture("Textures/TD_Checker_Base_Color.png");
@@ -256,28 +291,7 @@ int main(int argc, char argv[])
 
     bool freezeLight = false;
 
-    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{ -ab.halfExt[0], -ab.halfExt[1], -ab.halfExt[2] } }); //0
-    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{ -ab.halfExt[0],  ab.halfExt[1], -ab.halfExt[2] } }); // 1
-    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{ -ab.halfExt[0], -ab.halfExt[1],  ab.halfExt[2] } }); // 2
-    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{  ab.halfExt[0], -ab.halfExt[1], -ab.halfExt[2] } }); // 3
-    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{ -ab.halfExt[0],  ab.halfExt[1],  ab.halfExt[2] } }); // 4
-    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{  ab.halfExt[0],  ab.halfExt[1], -ab.halfExt[2] } }); // 5
-    renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{  ab.halfExt[0], -ab.halfExt[1],  ab.halfExt[2] } }); // 6
-	renderer.g_debugDrawVerts.push_back(oGFX::Vertex{ ed.pos+ab.center + Point3D{  ab.halfExt[0],  ab.halfExt[1],  ab.halfExt[2] } }); // 7
-
-    renderer.g_debugDrawIndices = {  0,1,
-					0,2,
-					0,3,
-					1,4,
-					1,5,
-					3,5,
-					3,6,
-					2,6,
-					2,4,
-					6,7,
-					5,7,
-					4,7
-	};
+  
 
     //for (size_t i = 0; i < boxindices.size()-1; i++)
     //{

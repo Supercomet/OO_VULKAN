@@ -2,7 +2,7 @@
 
 layout(location = 0) in vec3 pos;
 layout(location = 1) in vec3 norm;
-layout(location = 3) in vec3 inCol;
+layout(location = 2) in vec3 inCol;
 layout(location = 4) in vec2 tex;
 
 // vulkan passes a whole Uniform Buffer Object.
@@ -20,13 +20,13 @@ layout(push_constant)uniform PushModel{
 		mat4 model;
 }pushModel;
 
-layout(location = 0) out vec3 fragCol;
+layout(location = 0) out vec3 outCol;
 layout(location = 1) out vec2 fragTex;
 
 void main(){
 
-gl_Position = uboViewProjection.projection * uboViewProjection.view *  pushModel.model * vec4(pos, 1.0);
+gl_Position = uboViewProjection.projection * uboViewProjection.view *  vec4(pos, 1.0);
 
-fragCol = inCol;
+outCol = inCol;
 fragTex = tex;
 }

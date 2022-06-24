@@ -4,15 +4,21 @@
 #include <cassert>
 #include <iostream>
 
+
+enum AttachmentIndex
+{
+    POSITION = 0,
+    NORMAL = 1,
+    ALBEDO = 2,
+    DEPTH = 3,
+};
+
 class GfxRenderpass
 {
 public:
 virtual void Init() = 0;
 virtual void Draw() = 0;
 virtual void Shutdown() = 0;
-~GfxRenderpass() {
-    std::cout << "ive been destroyed\n";
-}
 };
 
 struct RenderPassSingletonWrapper
@@ -41,7 +47,6 @@ namespace DeclareRenderPass_ns\
     {\
             DeclareRenderPass_##pass()\
             {\
-                std::cout<< __FILE__ << std::endl;\
                 auto ptr = std::make_unique<pass>();\
                 assert(pass::m_pass == nullptr);\
                 pass::m_pass = ptr.get();\

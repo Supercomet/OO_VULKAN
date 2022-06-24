@@ -9,6 +9,7 @@
 
 VulkanSwapchain::~VulkanSwapchain()
 {
+	depthAttachment.destroy(m_devicePtr->logicalDevice);
 	for (auto& img : swapChainImages)
 	{
 		vkDestroyImageView(m_devicePtr->logicalDevice, img.imageView, nullptr);
@@ -109,6 +110,7 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 	{
 		throw std::runtime_error("Failed to create a Swapchain!");
 	}
+	VK_NAME(device.logicalDevice, "Swapchain", swapchain);
 
 	//store for later reference
 	swapChainImageFormat = surfaceFormat.format;

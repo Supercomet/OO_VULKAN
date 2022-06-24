@@ -134,6 +134,7 @@ namespace vk
 				imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 			}
 			vkCreateImage(device->logicalDevice, &imageCreateInfo, nullptr, &image);
+			VK_NAME(device->logicalDevice, "loadFromFile::image", image);
 
 			vkGetImageMemoryRequirements(device->logicalDevice, image, &memReqs);
 
@@ -209,6 +210,7 @@ namespace vk
 
 			// Load mip map level 0 to linear tiling image
 			vkCreateImage(device->logicalDevice, &imageCreateInfo, nullptr, &mappableImage);
+			VK_NAME(device->logicalDevice, "loadFromFile::mappableImage", mappableImage);
 
 			// Get memory requirements for this image 
 			// like size and alignment
@@ -279,6 +281,7 @@ namespace vk
 		samplerCreateInfo.anisotropyEnable = device->enabledFeatures.samplerAnisotropy;
 		samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 		vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler);
+		VK_NAME(device->logicalDevice, "LoadFromFile::sampler", sampler);
 
 		// Create image view
 		// Textures are not directly accessed by the shaders and
@@ -295,6 +298,7 @@ namespace vk
 		viewCreateInfo.subresourceRange.levelCount = (useStaging) ? mipLevels : 1;
 		viewCreateInfo.image = image;
 		vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view);
+		VK_NAME(device->logicalDevice, "loadFromFile::view", view);
 
 		// Update descriptor image info member that can be used for setting up descriptor sets
 		updateDescriptor();
@@ -386,6 +390,7 @@ namespace vk
 			imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		}
 		vkCreateImage(device->logicalDevice, &imageCreateInfo, nullptr, &image);
+		VK_NAME(device->logicalDevice, "fromBuffer::image", image);
 
 		vkGetImageMemoryRequirements(device->logicalDevice, image, &memReqs);
 
@@ -450,6 +455,7 @@ namespace vk
 		samplerCreateInfo.maxLod = 0.0f;
 		samplerCreateInfo.maxAnisotropy = 1.0f;
 		vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler);
+		VK_NAME(device->logicalDevice, "fromBuffer::sampler", sampler);
 
 		// Create image view
 		VkImageViewCreateInfo viewCreateInfo = {};
@@ -462,6 +468,7 @@ namespace vk
 		viewCreateInfo.subresourceRange.levelCount = 1;
 		viewCreateInfo.image = image;
 		vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view);
+		VK_NAME(device->logicalDevice, "fromBuffer::view", view);
 
 		// Update descriptor image info member that can be used for setting up descriptor sets
 		updateDescriptor();

@@ -8,6 +8,7 @@
 
 #include "MeshModel.h"
 
+#include "GfxTypes.h"
 #include "VulkanUtils.h"
 #include "VulkanInstance.h"
 #include "VulkanDevice.h"
@@ -20,6 +21,7 @@
 #include "DescriptorBuilder.h"
 #include "DescriptorAllocator.h"
 #include "DescriptorLayoutCache.h"
+#include "Geometry.h"
 
 #include "Camera.h"
 
@@ -39,6 +41,8 @@ static constexpr int MAX_OBJECTS = 1024;
 
 #define OBJECT_INSTANCE_COUNT 128
 
+
+inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nullptr };
 
 	~VulkanRenderer();
 
@@ -75,46 +79,28 @@ static constexpr int MAX_OBJECTS = 1024;
 	inline static std::vector<VkFramebuffer> swapChainFramebuffers;
 	inline static uint32_t swapchainIdx{0};
 
-	//ImTextureID deferredImg[4]{};
-	//VulkanFramebufferAttachment att_albedo;
-	//VulkanFramebufferAttachment att_position;
-	//VulkanFramebufferAttachment att_normal;
-	//VulkanFramebufferAttachment att_depth;
-	//VkFramebuffer deferredFB;
-	//VkSampler deferredSampler;
-	//VkRenderPass deferredPass;
-	//VkPipelineLayout deferredPipeLayout; // stealing from pipeline
-	//VkPipeline deferredPipe;
 	inline static VkDescriptorSet deferredSet;
 	inline static VkDescriptorSetLayout deferredSetLayout;
 
-	//void CreateDeferredPass();
-	//void CreateDeferredPipeline();
-	//void CreateDeferredFB();
 	void ResizeDeferredFB();
 	void DeferredPass();
-	//void CleanupDeferredStuff();
 
 	struct Light {
-		glm::vec4 position;
-		glm::vec3 color;
-		float radius;
+		glm::vec4 position{};
+		glm::vec3 color{1.0f};
+		float radius{1.0f};
 	};
 
 	struct LightUBO{
 		Light lights[6];
 		glm::vec4 viewPos;
-	} lightUBO;
+	} lightUBO{};
 	float timer{};
 
 	bool deferredRendering = true;
-	//VkRenderPass compositionPass;
-	//VkPipelineLayout compositionPipeLayout;
-	//VkPipeline compositionPipe;
 
 	inline static vk::Buffer lightsBuffer;
 	void CreateCompositionBuffers(); 
-	void CreateDeferredDescriptorSet();
 	void DeferredComposition();
 	void UpdateLightBuffer();
 
@@ -125,15 +111,18 @@ static constexpr int MAX_OBJECTS = 1024;
 
 	struct ImGUIStructures
 	{
-		VkDescriptorPool descriptorPools;
-		VkRenderPass renderPass;
+		VkDescriptorPool descriptorPools{};
+		VkRenderPass renderPass{};
 		std::vector<VkFramebuffer> buffers;
-	};
-	ImGUIStructures m_imguiConfig;
+	}m_imguiConfig{};
+	 
 	void InitImGUI();
 	void ResizeGUIBuffers();
 	void DrawGUI();
 	void DestroyImGUI();
+
+
+	void AddDebugBox(const AABB& aabb, const oGFX::Color& col);
 
 	void UpdateIndirectCommands();
 	void UpdateInstanceData();
@@ -159,27 +148,37 @@ static constexpr int MAX_OBJECTS = 1024;
 	uint32_t CreateTexture(uint32_t width, uint32_t height,unsigned char* imgData);
 	uint32_t CreateTexture(const std::string& fileName);
 
-	GpuVector<oGFX::Vertex> g_debugDrawVertBuffer{ &m_device };
-	GpuVector<uint32_t> g_debugDrawIndxBuffer{ &m_device };
-	std::vector<oGFX::Vertex> g_debugDrawVerts;
-	std::vector<uint32_t> g_debugDrawIndices;
+	
 	void InitDebugBuffers();
 	void UpdateDebugBuffers();
-	void DestroyDebugBuffers();
 
-	VkRenderPass debugRenderpass;
-	void CreateDebugRenderpass();
 	void DebugPass();
 
-	inline static GpuVector<oGFX::Vertex> g_vertexBuffer{&VulkanRenderer::m_device};
-	inline static GpuVector<uint32_t> g_indexBuffer{ &VulkanRenderer::m_device };
-	size_t g_indexOffset{};
-	size_t g_vertexOffset{};
+	struct VertexBufferObject
+	{
+		GpuVector<oGFX::Vertex> VtxBuffer;
+		GpuVector<uint32_t> IdxBuffer;
+		size_t VtxOffset{};
+		size_t IdxOffset{};
+	};
+
+	inline static VertexBufferObject g_MeshBuffers;
+
+	inline static VertexBufferObject g_AABBMeshBuffers;
+	std::vector<oGFX::Vertex> g_AABBMeshes;
+	inline static VertexBufferObject g_SphereMeshBuffers;
+	std::vector<oGFX::Vertex> g_SphereMeshes;
+
+
+	inline static GpuVector<oGFX::Vertex> g_debugDrawVertBuffer{ &VulkanRenderer::m_device };
+	inline static GpuVector<uint32_t> g_debugDrawIndxBuffer{ &VulkanRenderer::m_device };
+	std::vector<oGFX::Vertex> g_debugDrawVerts;
+	std::vector<uint32_t> g_debugDrawIndices;
+
+
 	Model* LoadMeshFromFile(const std::string& file);
 	uint32_t LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, gfxModel* model);
 	void SetMeshTextures(uint32_t modelID,uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough);
-
-	void UpdateModel(int modelId, glm::mat4 newModel);
 
 	bool ResizeSwapchain();
 
@@ -202,20 +201,18 @@ static constexpr int MAX_OBJECTS = 1024;
 	// - Pipeline
 	VkPipeline graphicsPipeline{};
 	VkPipeline wirePipeline{};
-	VkPipeline linesPipeline{};
-	//VkPipelineLayout pipelineLayout{};
 	inline static VkRenderPass defaultRenderPass{};
 
 	inline static vk::Buffer indirectCommandsBuffer{};
 	inline static VkPipeline indirectPipeline{};
 	inline static VkPipelineLayout indirectPipeLayout{};
 	inline static uint32_t indirectDrawCount{};
-	//uint32_t indirectDebugDrawCount{};
 
 
 	// - Descriptors
-	VkDescriptorSetLayout descriptorSetLayout{};
-	VkDescriptorSetLayout samplerSetLayout{};
+	inline static VkDescriptorSetLayout descriptorSetLayout{};
+	inline static VkDescriptorSetLayout samplerSetLayout{};
+
 	struct PushConstData
 	{
 		glm::mat4 xform{};
@@ -228,8 +225,13 @@ static constexpr int MAX_OBJECTS = 1024;
 	inline static std::vector<VkDescriptorSet> uniformDescriptorSets;
 	std::vector<VkDescriptorSet> samplerDescriptorSets;
 
+	// SSBO
 	std::vector<GPUTransform> gpuTransform;
 	GpuVector<GPUTransform> gpuTransformBuffer{&m_device};
+
+	std::vector<GPUTransform> debugTransform;
+	GpuVector<GPUTransform> debugTransformBuffer{&m_device};
+	// SSBO
 
 	inline static VkDescriptorSet g0_descriptors;
 	inline static VkDescriptorSetLayout g0_descriptorsLayout;
@@ -241,10 +243,6 @@ static constexpr int MAX_OBJECTS = 1024;
 
 	inline static DescriptorAllocator DescAlloc;
 	inline static DescriptorLayoutCache DescLayoutCache;
-
-	//VkImage depthBufferImage{};
-	//VkDeviceMemory depthBufferImageMemory{};
-	//VkImageView depthBufferImageView{};
 
 	VkSampler textureSampler{};
 
@@ -293,7 +291,6 @@ static constexpr int MAX_OBJECTS = 1024;
 	private:
 		uint32_t CreateTextureImage(const std::string& fileName);
 		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);
-		uint32_t CreateTextureDescriptor(VkImageView textureImage);
 		uint32_t CreateTextureDescriptor(vk::Texture2D texture);		
 
 };

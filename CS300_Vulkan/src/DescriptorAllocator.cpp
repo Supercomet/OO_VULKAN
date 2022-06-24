@@ -110,6 +110,7 @@ VkDescriptorPool DescriptorAllocator::CreatePool(VkDevice device, const Descript
 
 	VkDescriptorPool descriptorPool;
 	VK_CHK(vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptorPool));
+	VK_NAME(device, "Allocator::descriptorPool", descriptorPool);
 
 	return descriptorPool;
 }

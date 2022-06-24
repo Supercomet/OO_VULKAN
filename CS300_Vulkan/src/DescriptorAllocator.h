@@ -30,7 +30,7 @@ public:
 
 	void Cleanup();
 
-	VkDevice device;
+	VkDevice device{};
 private:
 	VkDescriptorPool GrabPool();
 	VkDescriptorPool CreatePool(VkDevice device, const DescriptorAllocator::PoolSizes& poolSizes, int count, VkDescriptorPoolCreateFlags flags);

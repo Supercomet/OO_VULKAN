@@ -14,6 +14,8 @@
 #include <stdexcept>
 #include <set>
 
+#include "VulkanUtils.h"
+
 VulkanDevice::~VulkanDevice()
 {
     if (commandPool)
@@ -133,6 +135,7 @@ void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
     {
         throw std::runtime_error("VK Renderer Failed to create a logical device!");
     }
+    VK_NAME(logicalDevice, "logicalDevice", logicalDevice);
 
     // Queues are created as the same time as the device...
     // So we want to handle the queues
@@ -148,6 +151,7 @@ void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
 
                                                                    //create a graphics queue family command pool
     result = vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool);
+    VK_NAME(logicalDevice, "commandPool", commandPool);
     if (result != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to createa a command pool!");
@@ -191,13 +195,14 @@ bool VulkanDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device)
     std::vector<VkExtensionProperties> extensions(extensionCount);
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, extensions.data());
 
-    static const std::vector<const char*>deviceExtensions   = 
+    static std::vector<const char*>deviceExtensions   = 
     { 
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
         VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
         //        ,   VK_NV_GLSL_SHADER_EXTENSION_NAME  // nVidia useful extension to be able to load GLSL shaders
     };
+    // TODO BETTER
 
     //check extensions
     for (const auto &deviceExtension : deviceExtensions)
@@ -228,6 +233,7 @@ VkResult VulkanDevice::CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPrope
     // Create the buffer handle
     VkBufferCreateInfo bufferCreateInfo = oGFX::vk::inits::bufferCreateInfo(usageFlags, size);
     vkCreateBuffer(logicalDevice, &bufferCreateInfo, nullptr, &buffer->buffer);
+    VK_NAME(logicalDevice, "CreateBuffer::buffer", buffer->buffer);
 
     // Create the memory backing up the buffer handle
     VkMemoryRequirements memReqs;
@@ -303,6 +309,7 @@ void VulkanDevice::FlushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue que
     VkFenceCreateInfo fenceInfo = oGFX::vk::inits::fenceCreateInfo(0);
     VkFence fence;
     vkCreateFence(logicalDevice, &fenceInfo, nullptr, &fence);
+    VK_NAME(logicalDevice, "fence", fence);
     // Submit to the queue
     vkQueueSubmit(queue, 1, &submitInfo, fence);
     // Wait for the fence to signal that command buffer has finished executing

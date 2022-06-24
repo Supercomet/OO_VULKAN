@@ -32,5 +32,5 @@ private:
 	};
 
 	std::unordered_map<DescriptorLayoutInfo, VkDescriptorSetLayout, DescriptorLayoutHash> layoutCache;
-	VkDevice device;
+	VkDevice device{};
 };

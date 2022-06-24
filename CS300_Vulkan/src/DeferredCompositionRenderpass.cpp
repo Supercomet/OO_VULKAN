@@ -55,7 +55,9 @@ void DeferredCompositionRenderpass::Draw()
 
 void DeferredCompositionRenderpass::Shutdown()
 {
+	vkDestroyPipelineLayout(VulkanRenderer::m_device.logicalDevice, compositionPipeLayout, nullptr);
 	vkDestroyRenderPass(VulkanRenderer::m_device.logicalDevice,compositionPass, nullptr);
+	vkDestroyPipeline(VulkanRenderer::m_device.logicalDevice, compositionPipe, nullptr);
 }
 
 void DeferredCompositionRenderpass::CreatePipeline()
@@ -69,6 +71,7 @@ void DeferredCompositionRenderpass::CreatePipeline()
 	plci.pPushConstantRanges = &VulkanRenderer::pushConstantRange;
 
 	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &compositionPipeLayout));
+	VK_NAME(m_device.logicalDevice, "compositionPipeLayout", compositionPipeLayout);
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vk::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
 	VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vk::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
@@ -116,8 +119,8 @@ void DeferredCompositionRenderpass::CreatePipeline()
 	// -- VERTEX INPUT -- 
 	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = oGFX::vk::inits::pipelineVertexInputStateCreateInfo(bindingDescription,attributeDescriptions);
 
-	vertexInputCreateInfo.vertexBindingDescriptionCount = bindingDescription.size()	;
-	vertexInputCreateInfo.vertexAttributeDescriptionCount = attributeDescriptions.size();
+	vertexInputCreateInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescription.size());
+	vertexInputCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
 
 	pipelineCI.pVertexInputState = &vertexInputCreateInfo;
 
@@ -135,6 +138,7 @@ void DeferredCompositionRenderpass::CreatePipeline()
 	blendAttachmentState= oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
 
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &compositionPipe));
+	VK_NAME(m_device.logicalDevice, "compositionPipe", compositionPipe);
 
 	vkDestroyShaderModule(m_device.logicalDevice,shaderStages[0].module , nullptr);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);

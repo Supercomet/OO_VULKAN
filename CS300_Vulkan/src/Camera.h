@@ -38,9 +38,9 @@ public:
 
 	struct
 	{
-		glm::mat4 perspective;
-		glm::mat4 view;
-	} matrices;
+		glm::mat4 perspective{};
+		glm::mat4 view{};
+	} matrices{};
 
 	struct
 	{

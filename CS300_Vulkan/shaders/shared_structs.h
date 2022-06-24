@@ -23,6 +23,7 @@ struct GPUTransform
 	vec4 row0;
 	vec4 row1;
 	vec4 row2;
+	vec4 colour; // temp
 };
 
 #endif //! COMMON_HOST_DEVICE

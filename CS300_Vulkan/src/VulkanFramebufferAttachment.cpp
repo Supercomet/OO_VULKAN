@@ -42,6 +42,7 @@ void VulkanFramebufferAttachment::createAttachment(VulkanDevice& indevice,uint32
 
 	
 	VK_CHK(vkCreateImage(device, &image, nullptr, &this->image));
+	VK_NAME(device, "createAttachment::image", this->image);
 	vkGetImageMemoryRequirements(device, this->image, &memReqs);
 	memAlloc.allocationSize = memReqs.size;
 
@@ -61,6 +62,7 @@ void VulkanFramebufferAttachment::createAttachment(VulkanDevice& indevice,uint32
 	imageView.subresourceRange.layerCount = 1;
 	imageView.image = this->image;
 	VK_CHK(vkCreateImageView(device, &imageView, nullptr, &this->view));
+	VK_NAME(device, "createAtt::imgView", this->view);
 }
 
 void VulkanFramebufferAttachment::destroy(VkDevice device)
