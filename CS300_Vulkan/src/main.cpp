@@ -153,52 +153,94 @@ int main(int argc, char argv[])
    
     
 
-
     //uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
     //uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
 
-    std::unique_ptr<Model> ball;
-    ball.reset(renderer.LoadMeshFromFile("Models/sphere.obj"));
-    auto bunny = renderer.LoadMeshFromFile("Models/bunny.ply");
-    int o{};
-    std::vector<glm::vec3> positions(bunny->vertices.size());
-    std::transform(bunny->vertices.begin(), bunny->vertices.end(), positions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
-    for (auto& v : bunny->vertices)
+    
+    
+   
+
+    uint32_t icoSphere{};
     {
-        //std::cout << v.pos << " ";
-        //if ((++o % 5) == 0) std::cout << std::endl;
-        //++o;
+        auto [pos,triangleList] = icosahedron::make_icosphere(1);
+
+        std::vector<oGFX::Vertex> vertices;
+        vertices.reserve(pos.size());
+        for (size_t i = 0; i < pos.size(); i++)
+        {
+            oGFX::Vertex v{};
+            v.pos = pos[i];
+            vertices.push_back(v);
+        }
+        std::vector<uint32_t>indices;
+        indices.reserve(triangleList.size() * 3ull);
+        uint32_t max{};
+        uint32_t min{};
+        for (size_t i = 0; i < triangleList.size(); i++)
+        {
+            max = std::max<uint32_t>({ max,
+                (uint32_t)triangleList[i].vertex[0],
+                (uint32_t)triangleList[i].vertex[2],
+                (uint32_t)triangleList[i].vertex[1] });
+
+            min = std::min<uint32_t>({ min,
+                (uint32_t)triangleList[i].vertex[0],
+                (uint32_t)triangleList[i].vertex[2],
+                (uint32_t)triangleList[i].vertex[1] });
+
+            indices.push_back(triangleList[i].vertex[0]);
+            indices.push_back(triangleList[i].vertex[1]);
+            indices.push_back(triangleList[i].vertex[2]);
+        }
+        std::cout << "max:" << max << " min: " << min << " verts " << vertices.size() << std::endl;
+        renderer.g_MeshBuffers.VtxBuffer.reserve(100000*sizeof(oGFX::Vertex));
+        renderer.g_MeshBuffers.IdxBuffer.reserve(100000*sizeof(oGFX::Vertex));
+        icoSphere = renderer.LoadMeshFromBuffers(vertices, indices, nullptr);
     }
- 
-
-    std::cout << std::endl;
-    std::cout << "vertices : " << bunny->vertices.size() << std::endl;
-
     uint32_t box = renderer.LoadMeshFromBuffers(boxverts, boxindices, nullptr);
-    uint32_t triangle = renderer.LoadMeshFromBuffers(quadVerts, quadIndices, nullptr);
+
+    //std::unique_ptr<Model> ball;
+    //ball.reset(renderer.LoadMeshFromFile("Models/sphere.obj"));
+    //auto bunny = renderer.LoadMeshFromFile("Models/bunny.ply");
+    //int o{};
+    //std::vector<glm::vec3> positions(bunny->vertices.size());
+    //std::transform(bunny->vertices.begin(), bunny->vertices.end(), positions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+    //for (auto& v : bunny->vertices)
+    //{
+    //    //std::cout << v.pos << " ";
+    //    //if ((++o % 5) == 0) std::cout << std::endl;
+    //    //++o;
+    //}
+    //
+    //
+    //std::cout << std::endl;
+    //std::cout << "vertices : " << bunny->vertices.size() << std::endl;
+    //
+    //
+    //uint32_t triangle = renderer.LoadMeshFromBuffers(quadVerts, quadIndices, nullptr);
     uint32_t plane = renderer.LoadMeshFromBuffers(planeVerts, planeIndices, nullptr);
-    delete bunny;
-
-    Sphere ms;
-    oGFX::BV::RitterSphere(ms, positions);
-    std::cout << "Ritter Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
-    oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_6);
-    std::cout << "Larson_06 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
-    oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_14);
-    std::cout << "Larson_14 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
-    oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_26);
-    std::cout << "Larson_26 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
-    oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_98);
-    std::cout << "Larson_98 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
-    oGFX::BV::RittersEigenSphere(ms, positions);
-    std::cout << "Eigen Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
-    AABB ab;
-    positions.resize(ball->vertices.size());
-    std::transform(ball->vertices.begin(), ball->vertices.end(), positions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
-    oGFX::BV::BoundingAABB(ab, positions);
-    std::cout << "AABB " << ab.center << " , Extents = " << ab.halfExt << std::endl;
-
-    glm::mat4 id(1.0f);
+    //delete bunny;
+    //
+    //Sphere ms;
+    //oGFX::BV::RitterSphere(ms, positions);
+    //std::cout << "Ritter Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    //oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_6);
+    //std::cout << "Larson_06 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    //oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_14);
+    //std::cout << "Larson_14 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    //oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_26);
+    //std::cout << "Larson_26 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    //oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_98);
+    //std::cout << "Larson_98 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    //oGFX::BV::RittersEigenSphere(ms, positions);
+    //std::cout << "Eigen Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    //AABB ab;
+    ////positions.resize(ball->vertices.size());
+    ////std::transform(ball->vertices.begin(), ball->vertices.end(), positions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+    ////oGFX::BV::BoundingAABB(ab, positions);
+    ////std::cout << "AABB " << ab.center << " , Extents = " << ab.halfExt << std::endl;
+    //
+    //glm::mat4 id(1.0f);
 
 
 
@@ -208,17 +250,17 @@ int main(int argc, char argv[])
     ed.pos = { 0.0f,-2.0f,0.0f };
     ed.scale = { 30.0f,30.0f,30.0f };
     renderer.entities.push_back(ed);
-    ed.modelID = box;
+    ed.modelID = icoSphere;
     ed.pos = { -2.0f,0.0f,-2.0f };
     ed.scale = { 1.0f,1.0f,1.0f };
     renderer.entities.push_back(ed);
-    ed.modelID = triangle;
-    ed.pos = { 0.0f,0.0f,0.0f };  
-    renderer.entities.push_back(ed);
-    ed.modelID = box;
-    ed.pos = { 2.0f,0.0f,2.0f };
-    ed.scale = { 1.0f,1.0f,1.0f };
-    renderer.entities.push_back(ed);
+    //ed.modelID = triangle;
+    //ed.pos = { 0.0f,0.0f,0.0f };  
+    //renderer.entities.push_back(ed);
+    //ed.modelID = box;
+    //ed.pos = { 2.0f,0.0f,2.0f };
+    //ed.scale = { 1.0f,1.0f,1.0f };
+    //renderer.entities.push_back(ed);
     
     int iter = 0;
     for (auto& e: renderer.entities)
@@ -266,28 +308,9 @@ int main(int argc, char argv[])
    //renderer.SubmitMesh(yes, position);
 
 
-   uint32_t icoSphere{};
-   {
-       auto [pos,triangleList] = icosahedron::make_icosphere(2);
+   
 
-       std::vector<oGFX::Vertex> vertices;
-       vertices.reserve(pos.size());
-       for (size_t i = 0; i < pos.size(); i++)
-       {
-           oGFX::Vertex v{};
-           v.pos = pos[i];
-           vertices.push_back(v);
-       }
-       std::vector<uint32_t>indices;
-       indices.reserve(triangleList.size() * 3ull);
-       for (size_t i = 0; i < triangleList.size(); i++)
-       {
-           indices.push_back(triangleList[i].vertex[0]);
-           indices.push_back(triangleList[i].vertex[1]);
-           indices.push_back(triangleList[i].vertex[2]);
-       }
-       icoSphere = renderer.LoadMeshFromBuffers(vertices, indices, nullptr);
-   }
+
    //create a hundred random textures because why not
    std::default_random_engine rndEngine(123456);
    std::uniform_int_distribution<uint32_t> uniformDist( 0xFF000000, 0xFFFFFFFF );
@@ -387,9 +410,23 @@ int main(int argc, char argv[])
 
         //std::cout<<  renderer.camera.position << '\n';
 
+        if (renderer.gpuTransformBuffer.MustUpdate())
+        {
+            auto dbi = renderer.gpuTransformBuffer.GetDescriptorBufferInfo();
+            //VkWriteDescriptorSet write = oGFX::vk::inits::writeDescriptorSet(renderer.g0_descriptors, 
+            //    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 
+            //    3,
+            //    &dbi);
+            //vkUpdateDescriptorSets(renderer.m_device.logicalDevice, 1, &write, 0, 0);
+            DescriptorBuilder::Begin(&VulkanRenderer::DescLayoutCache, &VulkanRenderer::DescAlloc)
+                .BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+                .Build(VulkanRenderer::g0_descriptors,VulkanRenderer::g0_descriptorsLayout);
+            renderer.gpuTransformBuffer.Updated();
+        }
+
         if (renderer.PrepareFrame() == true)
         {
-           
+            
             renderer.timer += deltaTime*0.25f;
             renderer.UpdateLightBuffer();
             renderer.Draw();

@@ -1,5 +1,6 @@
 #pragma once
 #include "vulkan/vulkan.h"
+#include <iostream>
 
 struct VulkanDevice;
 
@@ -23,15 +24,21 @@ public:
 	void destroy();
 	void clear();
 
+	const VkDescriptorBufferInfo& GetDescriptorBufferInfo();
+	bool MustUpdate();
+	void Updated();
+
 private:
 	size_t m_size{};
 	size_t m_capacity{};
 	VkBufferUsageFlags m_usage{};
 	VkBuffer m_buffer{};
 	VkDeviceMemory m_gpuMemory{};
+	VkDescriptorBufferInfo m_descriptor{};
 
 	VulkanDevice* m_device{nullptr};
 
+	bool m_mustUpdate;
 };
 
 
@@ -79,7 +86,10 @@ void GpuVector<T>::writeTo(size_t writeSize, void* data, size_t offset)
 	if ((writeSize + offset) > m_capacity)
 	{
 		// TODO:  maybe resize some amount instead of perfect amount?
-		resize(m_capacity+offset+ writeSize);
+		assert(true);
+		resize(m_capacity?m_capacity*2 : 64);
+		writeTo(writeSize, data, offset);
+		return;
 	}
 
 	using namespace oGFX;
@@ -120,6 +130,7 @@ void GpuVector<T>::writeTo(size_t writeSize, void* data, size_t offset)
 template <typename T>
 void GpuVector<T>::resize(size_t size)
 {
+	std::cout << "RESIZE!\n";
 	reserve(size);
 	m_size = size;	
 }
@@ -140,6 +151,7 @@ void GpuVector<T>::reserve(size_t size)
 	CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, bufferSize, m_usage,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tempBuffer, &tempMemory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
 																		//copy staging buffer to vertex buffer on GPU
+
 	if (m_size != 0)
 	{
 		CopyBuffer(m_device->logicalDevice, m_device->graphicsQueue, m_device->commandPool, m_buffer, tempBuffer, m_size* sizeof(T));
@@ -153,6 +165,8 @@ void GpuVector<T>::reserve(size_t size)
 	m_gpuMemory = tempMemory;
 
 	m_capacity = size;
+
+	m_mustUpdate = true;
 }
 
 template <typename T>
@@ -181,6 +195,27 @@ template <typename T>
 void GpuVector<T>::clear()
 {
 	m_size = 0;
+}
+
+template<typename T>
+inline const VkDescriptorBufferInfo& GpuVector<T>::GetDescriptorBufferInfo()
+{
+	m_descriptor.buffer = m_buffer;
+	m_descriptor.offset = 0;
+	m_descriptor.range = VK_WHOLE_SIZE;
+	return m_descriptor;
+}
+
+template<typename T>
+inline bool GpuVector<T>::MustUpdate()
+{
+	return m_mustUpdate;
+}
+
+template<typename T>
+inline void GpuVector<T>::Updated()
+{
+	m_mustUpdate = false;
 }
 
 #endif // !GPU_VECTOR_CPP

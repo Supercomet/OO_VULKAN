@@ -47,7 +47,7 @@ void DeferredCompositionRenderpass::Draw()
 	vkCmdBindDescriptorSets(VulkanRenderer::commandBuffers[swapchainIdx], VK_PIPELINE_BIND_POINT_GRAPHICS,
 		compositionPipeLayout, 0, 1, &VulkanRenderer::deferredSet, 0, nullptr);
 
-	vkCmdDrawIndexed(VulkanRenderer::commandBuffers[swapchainIdx], 3, 1, 0, 0, 0);
+	vkCmdDraw(VulkanRenderer::commandBuffers[swapchainIdx], 3, 1, 0, 0);
 
 
 	// End Render  Pass
