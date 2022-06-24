@@ -53,19 +53,25 @@ void GBufferRenderPass::Draw()
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassBeginInfo.pClearValues = clearValues.data();
 	
-	vkCmdBeginRenderPass(commandBuffers[swapchainIdx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	const VkCommandBuffer cmdlist = commandBuffers[swapchainIdx];
+
+	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	
 	VkViewport viewport = { 0, float(VulkanRenderer::m_swapchain.swapChainExtent.height), float(VulkanRenderer::m_swapchain.swapChainExtent.width), -float(VulkanRenderer::m_swapchain.swapChainExtent.height), 0, 1 };
 	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
-	vkCmdSetViewport(commandBuffers[swapchainIdx], 0, 1, &viewport);
-	vkCmdSetScissor(commandBuffers[swapchainIdx], 0, 1, &scissor);
+	vkCmdSetViewport(cmdlist, 0, 1, &viewport);
+	vkCmdSetScissor(cmdlist, 0, 1, &scissor);
 	
-	vkCmdBindPipeline(commandBuffers[swapchainIdx], VK_PIPELINE_BIND_POINT_GRAPHICS, deferredPipe);
-	std::array<VkDescriptorSet, 3> descriptorSetGroup = {VulkanRenderer::g0_descriptors, VulkanRenderer::uniformDescriptorSets[swapchainIdx],
-		VulkanRenderer::globalSamplers };
+	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredPipe);
+	std::array<VkDescriptorSet, 3> descriptorSetGroup = 
+	{
+		VulkanRenderer::g0_descriptors,
+		VulkanRenderer::uniformDescriptorSets[swapchainIdx],
+		VulkanRenderer::globalSamplers
+	};
 	
 	uint32_t dynamicOffset = 0;
-	vkCmdBindDescriptorSets(commandBuffers[swapchainIdx],VK_PIPELINE_BIND_POINT_GRAPHICS,VulkanRenderer:: indirectPipeLayout,
+	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS,VulkanRenderer::indirectPipeLayout,
 		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);
 	
 	for (auto& entity : VulkanRenderer::entities)
@@ -77,7 +83,7 @@ void GBufferRenderPass::Draw()
 		xform = glm::rotate(xform,glm::radians(entity.rot), entity.rotVec);
 		xform = glm::scale(xform, entity.scale);
 	
-		vkCmdPushConstants(commandBuffers[swapchainIdx],
+		vkCmdPushConstants(cmdlist,
 			VulkanRenderer::indirectPipeLayout,
 			VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
 			0,							// offset of push constants to update
@@ -85,11 +91,11 @@ void GBufferRenderPass::Draw()
 			glm::value_ptr(xform));		// actualy data being pushed (could be an array));
 	
 		VkDeviceSize offsets[] = { 0 };	
-		vkCmdBindIndexBuffer(commandBuffers[swapchainIdx], VulkanRenderer::g_MeshBuffers.IdxBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
-		vkCmdBindVertexBuffers(commandBuffers[swapchainIdx], VERTEX_BUFFER_ID, 1, VulkanRenderer::g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
+		vkCmdBindIndexBuffer(cmdlist, VulkanRenderer::g_MeshBuffers.IdxBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, VulkanRenderer::g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
 	
 		// bind instance buffer
-		vkCmdBindVertexBuffers(commandBuffers[swapchainIdx], INSTANCE_BUFFER_ID, 1, &VulkanRenderer::instanceBuffer.buffer, offsets);
+		vkCmdBindVertexBuffers(cmdlist, INSTANCE_BUFFER_ID, 1, &VulkanRenderer::instanceBuffer.buffer, offsets);
 		//vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
 	}
 	
@@ -101,11 +107,11 @@ void GBufferRenderPass::Draw()
 	{
 		for (size_t i = 0; i < VulkanRenderer::indirectCommands.size(); i++)
 		{		
-			vkCmdDrawIndexedIndirect(commandBuffers[swapchainIdx], VulkanRenderer::indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+			vkCmdDrawIndexedIndirect(cmdlist, VulkanRenderer::indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
 		}
 	}
 	// End Render  Pass
-	vkCmdEndRenderPass(commandBuffers[swapchainIdx]);
+	vkCmdEndRenderPass(cmdlist);
 }
 
 void GBufferRenderPass::Shutdown()

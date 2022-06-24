@@ -40,25 +40,32 @@ void DebugRenderpass::Draw()
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size()); // no clearing
 
 	renderPassBeginInfo.framebuffer =  VulkanRenderer::swapChainFramebuffers[swapchainIdx];
+	
+	const VkCommandBuffer cmdlist = VulkanRenderer::commandBuffers[swapchainIdx];
 
-	vkCmdBeginRenderPass( VulkanRenderer::commandBuffers[VulkanRenderer::swapchainIdx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
 
 	VkViewport viewport = { 0, float(VulkanRenderer::m_swapchain.swapChainExtent.height),
 		float(VulkanRenderer::m_swapchain.swapChainExtent.width), -float(VulkanRenderer::m_swapchain.swapChainExtent.height), 0, 1 };
 	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
-	vkCmdSetViewport( commandBuffers[swapchainIdx], 0, 1, &viewport);
-	vkCmdSetScissor( commandBuffers[swapchainIdx], 0, 1, &scissor);
+	vkCmdSetViewport(cmdlist, 0, 1, &viewport);
+	vkCmdSetScissor(cmdlist, 0, 1, &scissor);
 
-	vkCmdBindPipeline( VulkanRenderer::commandBuffers[swapchainIdx], VK_PIPELINE_BIND_POINT_GRAPHICS, linesPipeline);
+	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, linesPipeline);
 
 	uint32_t dynamicOffset = 0;
-	std::array<VkDescriptorSet, 3> descriptorSetGroup = { VulkanRenderer::g0_descriptors,  VulkanRenderer::uniformDescriptorSets[swapchainIdx],
-		VulkanRenderer::globalSamplers };
-	vkCmdBindDescriptorSets(commandBuffers[swapchainIdx],VK_PIPELINE_BIND_POINT_GRAPHICS,  VulkanRenderer::indirectPipeLayout,
+	std::array<VkDescriptorSet, 3> descriptorSetGroup =
+	{ 
+		VulkanRenderer::g0_descriptors,  
+		VulkanRenderer::uniformDescriptorSets[swapchainIdx],
+		VulkanRenderer::globalSamplers 
+	};
+	vkCmdBindDescriptorSets(cmdlist,VK_PIPELINE_BIND_POINT_GRAPHICS,  VulkanRenderer::indirectPipeLayout,
 		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);
 
-	glm::mat4 xform(1.0f) ;
-	vkCmdPushConstants(commandBuffers[swapchainIdx],
+	glm::mat4 xform{ 1.0f };
+	vkCmdPushConstants(cmdlist,
 		VulkanRenderer::indirectPipeLayout,
 		VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
 		0,							// offset of push constants to update
@@ -66,13 +73,13 @@ void DebugRenderpass::Draw()
 		glm::value_ptr(xform));		// actualy data being pushed (could be an array));
 
 	VkDeviceSize offsets[] = { 0 };	
-	// just draw the whole set of debug stuff
-	vkCmdBindIndexBuffer(commandBuffers[swapchainIdx],  VulkanRenderer::g_debugDrawIndxBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
-	vkCmdBindVertexBuffers(commandBuffers[swapchainIdx], VERTEX_BUFFER_ID, 1,VulkanRenderer::g_debugDrawVertBuffer.getBufferPtr(), offsets);
-	vkCmdDrawIndexed(commandBuffers[swapchainIdx], static_cast<uint32_t>(VulkanRenderer::g_debugDrawIndxBuffer.size()) , 1, 0, 0, 0);
 
-	// End Render  Pass
-	vkCmdEndRenderPass(commandBuffers[swapchainIdx]);
+	// just draw the whole set of debug stuff
+	vkCmdBindIndexBuffer(cmdlist,  VulkanRenderer::g_debugDrawIndxBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1,VulkanRenderer::g_debugDrawVertBuffer.getBufferPtr(), offsets);
+	vkCmdDrawIndexed(cmdlist, static_cast<uint32_t>(VulkanRenderer::g_debugDrawIndxBuffer.size()) , 1, 0, 0, 0);
+
+	vkCmdEndRenderPass(cmdlist);
 }
 
 void DebugRenderpass::Shutdown()

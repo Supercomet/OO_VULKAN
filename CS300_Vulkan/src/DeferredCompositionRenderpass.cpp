@@ -32,27 +32,25 @@ void DeferredCompositionRenderpass::Draw()
 
 	renderPassBeginInfo.framebuffer =  VulkanRenderer::swapChainFramebuffers[swapchainIdx];
 
-	vkCmdBeginRenderPass(VulkanRenderer::commandBuffers[swapchainIdx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	const VkCommandBuffer cmdlist = VulkanRenderer::commandBuffers[swapchainIdx];
 
+	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	VkViewport viewport = { 0, float(VulkanRenderer::m_swapchain.swapChainExtent.height),
 		float(VulkanRenderer::m_swapchain.swapChainExtent.width), -float(VulkanRenderer::m_swapchain.swapChainExtent.height), 0, 1 };
 	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
-	vkCmdSetViewport(VulkanRenderer::commandBuffers[swapchainIdx], 0, 1, &viewport);
-	vkCmdSetScissor(VulkanRenderer::commandBuffers[swapchainIdx], 0, 1, &scissor);
+	vkCmdSetViewport(cmdlist, 0, 1, &viewport);
+	vkCmdSetScissor(cmdlist, 0, 1, &scissor);
 
-	vkCmdBindPipeline(VulkanRenderer::commandBuffers[swapchainIdx], VK_PIPELINE_BIND_POINT_GRAPHICS, compositionPipe);
+	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, compositionPipe);
 	std::array<VkDescriptorSet, 2> descriptorSetGroup = { VulkanRenderer::uniformDescriptorSets[swapchainIdx],
 		VulkanRenderer::globalSamplers };
 
-	vkCmdBindDescriptorSets(VulkanRenderer::commandBuffers[swapchainIdx], VK_PIPELINE_BIND_POINT_GRAPHICS,
-		compositionPipeLayout, 0, 1, &VulkanRenderer::deferredSet, 0, nullptr);
+	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, compositionPipeLayout, 0, 1, &VulkanRenderer::deferredSet, 0, nullptr);
 
-	vkCmdDraw(VulkanRenderer::commandBuffers[swapchainIdx], 3, 1, 0, 0);
+	vkCmdDraw(cmdlist, 3, 1, 0, 0);
 
-
-	// End Render  Pass
-	vkCmdEndRenderPass(VulkanRenderer::commandBuffers[swapchainIdx]);
+	vkCmdEndRenderPass(cmdlist);
 }
 
 void DeferredCompositionRenderpass::Shutdown()

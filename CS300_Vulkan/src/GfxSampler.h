@@ -13,6 +13,19 @@ public:
     static const VkSampler GetSampler_Deferred() { return deferredSampler; }
     // TODO: Add more sampler objects as needed...
 
+    // List of some default sampler types to consider:
+    // PointWrap
+    // PointClamp
+    // PointBorder
+    // BilinearWrap
+    // BilinearClamp
+    // BilinearBorder
+    // TrilinearWrap
+    // TrilinearClamp
+    // TrilinearBorder
+    // DefaultSampler
+    // ShadowSampler
+
 private:
 
     static VkSampler textureSampler;
