@@ -45,8 +45,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_SIZE:
 	{
 		uint32_t width = LOWORD(lParam);
-		uint32_t height = HIWORD(lParam);
-		Window* window = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		uint32_t height = HIWORD(lParam);		
+        Window* window = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 		switch (wParam)
 		{
 		case SIZE_MAXHIDE: // Message is sent to all pop-up windows when some other window is maximized.
@@ -76,8 +76,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			window->m_width = width;
 			window->m_height = height;
+		    std::cout << "Window size changed to ["<< width << "," << height << "]" << std::endl;
 		}
-		//std::cout << "Window size changed to ["<< width << "," << height << "]" << std::endl;
 	}
 	break;
 	case WM_KEYDOWN:

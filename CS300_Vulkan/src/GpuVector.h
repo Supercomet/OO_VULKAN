@@ -79,30 +79,30 @@ void GpuVector<T>::writeTo(size_t writeSize, void* data, size_t offset)
 	if ((writeSize + offset) > m_capacity)
 	{
 		// TODO:  maybe resize some amount instead of perfect amount?
-		resize(m_capacity+ writeSize + offset);
+		resize(m_capacity+offset+ writeSize);
 	}
 
 	using namespace oGFX;
 	//get writeSize of buffer needed for vertices
-	VkDeviceSize bufferSize = writeSize*sizeof(T);
-	VkDeviceSize writeOffset = offset * sizeof(T);
+	VkDeviceSize bufferBytes = writeSize*sizeof(T);
+	VkDeviceSize writeBytesOffset = offset * sizeof(T);
 
 	//temporary buffer to stage vertex data before transferring to GPU
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory; 
 
 	//create buffer and allocate memory to it
-	CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, bufferBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
 
 	//MAP MEMORY TO VERTEX BUFFER
 	void *mappedData = nullptr;												
-	vkMapMemory(m_device->logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &mappedData);	
-	memcpy(mappedData, data, (size_t)bufferSize);					
+	vkMapMemory(m_device->logicalDevice, stagingBufferMemory, 0, bufferBytes, 0, &mappedData);	
+	memcpy(mappedData, data, (size_t)bufferBytes);					
 	vkUnmapMemory(m_device->logicalDevice, stagingBufferMemory);					
 
 	CopyBuffer(m_device->logicalDevice, m_device->graphicsQueue, m_device->commandPool,
-		stagingBuffer, m_buffer, bufferSize, writeOffset);
+		stagingBuffer, m_buffer, bufferBytes, writeBytesOffset);
 
 	//clean up staging buffer parts
 	vkDestroyBuffer(m_device->logicalDevice, stagingBuffer, nullptr);

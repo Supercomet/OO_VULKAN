@@ -53,7 +53,7 @@ void GBufferRenderPass::Draw()
 	
 	vkCmdBeginRenderPass(commandBuffers[swapchainIdx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	
-	VkViewport viewport = { 0, float(windowPtr->m_height), float(windowPtr->m_width), -float(windowPtr->m_height), 0, 1 };
+	VkViewport viewport = { 0, float(VulkanRenderer::m_swapchain.swapChainExtent.height), float(VulkanRenderer::m_swapchain.swapChainExtent.width), -float(VulkanRenderer::m_swapchain.swapChainExtent.height), 0, 1 };
 	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
 	vkCmdSetViewport(commandBuffers[swapchainIdx], 0, 1, &viewport);
 	vkCmdSetScissor(commandBuffers[swapchainIdx], 0, 1, &scissor);
@@ -123,6 +123,7 @@ void GBufferRenderPass::SetupRenderpass()
 {
 	auto& m_device = VulkanRenderer::m_device;
 	auto& m_swapchain = VulkanRenderer::m_swapchain;
+
 
 	att_position.createAttachment(m_device, m_swapchain.swapChainExtent.width,  m_swapchain.swapChainExtent.height,
 		VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
@@ -248,8 +249,8 @@ void GBufferRenderPass::CreateSampler()
 {
 	// Create sampler to sample from the color attachments
 	VkSamplerCreateInfo sampler = oGFX::vk::inits::samplerCreateInfo();
-	sampler.magFilter = VK_FILTER_NEAREST;
-	sampler.minFilter = VK_FILTER_NEAREST;
+	sampler.magFilter = VK_FILTER_LINEAR;
+	sampler.minFilter = VK_FILTER_LINEAR;
 	sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	sampler.addressModeV = sampler.addressModeU;

@@ -20,8 +20,8 @@ for %%i in (*.vert  *.frag) do (
 	rem echo year !Year!	
 	rem echo month !Month!
 	rem echo day !Day!
-	 echo hours !Hour!
-	 echo min !Min!
+	rem echo hours !Hour!
+	rem echo min !Min!
 	set /A compile=0
 	for %%j in ("%%~i.spv") do (
 	 IF exist "%%~j" (
@@ -38,18 +38,18 @@ for %%i in (*.vert  *.frag) do (
 				rem echo jyear !jYear!	
 				rem echo jmonth !jMonth!
 				rem echo jday !jDay!
-				 echo jhours !jHour!
-				 echo jmin !jMin!
+				rem echo jhours !jHour!
+				rem echo jmin !jMin!
 				
 				set /A compile=0
 				
 				set /A "source=!Year! * 365 + !Month! * 30 + !Day!"
 				set /A "output=!jYear! * 365 + !jMonth! * 30 +!jDay!"
-				echo !source! comp1 !output!
+				rem echo !source! comp1 !output!
 				IF !source! GTR !output! (set /A compile=1) else (
 					IF !source! EQU !output! (set /A "source=!Hour!*60+!Min!"
 					set /A "output=!jHour!*60+!jMin!"
-					echo !source! comp2 !output!
+					rem echo !source! comp2 !output!
 					IF !source! GEQ !output! (set /A compile=1))
 					
 				)
@@ -83,8 +83,8 @@ for %%i in (*.vert  *.frag) do (
 	"%VULKAN_SDK%\Bin\glslc.exe" --target-env=vulkan1.2 "%%~i" -o "%%~i.spv"
 	if !ERRORLEVEL! NEQ 0 (echo ["%%~i" COMPILATION ERROR] 
 	exit /B 1
-		echo.) else ( echo !numberstring:~-28! compiled )	
-	)else (echo !numberstring:~-28! ^| unchanged no compilation)
+		echo.) else ( echo !numberstring:~-28! [COMPILED] )	
+	)else (echo !numberstring:~-28! ^| NC)
 	
 	)
 	

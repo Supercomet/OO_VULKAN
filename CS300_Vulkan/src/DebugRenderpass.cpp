@@ -45,7 +45,8 @@ void DebugRenderpass::Draw()
 
 	vkCmdBeginRenderPass( VulkanRenderer::commandBuffers[VulkanRenderer::swapchainIdx], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	VkViewport viewport = { 0, float(windowPtr->m_height), float( windowPtr->m_width), -float(windowPtr->m_height), 0, 1 };
+	VkViewport viewport = { 0, float(VulkanRenderer::m_swapchain.swapChainExtent.height),
+		float(VulkanRenderer::m_swapchain.swapChainExtent.width), -float(VulkanRenderer::m_swapchain.swapChainExtent.height), 0, 1 };
 	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
 	vkCmdSetViewport( commandBuffers[swapchainIdx], 0, 1, &viewport);
 	vkCmdSetScissor( commandBuffers[swapchainIdx], 0, 1, &scissor);
@@ -251,7 +252,7 @@ void DebugRenderpass::CreatePipeline()
 	shaderStages[0] = VulkanRenderer::LoadShader(m_device,"Shaders/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = VulkanRenderer::LoadShader(m_device,"Shaders/shader.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
 	
-	rasterizerCreateInfo.polygonMode = VkPolygonMode::VK_POLYGON_MODE_FILL;
+	rasterizerCreateInfo.polygonMode = VkPolygonMode::VK_POLYGON_MODE_LINE;
 	inputAssembly.topology = VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 	rasterizerCreateInfo.lineWidth = 1.0f;
 	//rasterizerCreateInfo.cullMode = VK_CULL_MODE_NONE;

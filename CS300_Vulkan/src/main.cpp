@@ -151,6 +151,8 @@ int main(int argc, char argv[])
         glm::vec3{8.0f,-3.0f,5.0f},
     };
    
+    
+
 
     //uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
     //uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
@@ -171,6 +173,7 @@ int main(int argc, char argv[])
 
     std::cout << std::endl;
     std::cout << "vertices : " << bunny->vertices.size() << std::endl;
+
     uint32_t box = renderer.LoadMeshFromBuffers(boxverts, boxindices, nullptr);
     uint32_t triangle = renderer.LoadMeshFromBuffers(quadVerts, quadIndices, nullptr);
     uint32_t plane = renderer.LoadMeshFromBuffers(planeVerts, planeIndices, nullptr);
@@ -197,6 +200,9 @@ int main(int argc, char argv[])
 
     glm::mat4 id(1.0f);
 
+
+
+    
     VulkanRenderer::EntityDetails ed;
     ed.modelID = plane;
     ed.pos = { 0.0f,-2.0f,0.0f };
@@ -209,7 +215,7 @@ int main(int argc, char argv[])
     ed.modelID = triangle;
     ed.pos = { 0.0f,0.0f,0.0f };  
     renderer.entities.push_back(ed);
-    ed.modelID = ball->gfxIndex;
+    ed.modelID = box;
     ed.pos = { 2.0f,0.0f,2.0f };
     ed.scale = { 1.0f,1.0f,1.0f };
     renderer.entities.push_back(ed);
@@ -259,6 +265,29 @@ int main(int argc, char argv[])
 
    //renderer.SubmitMesh(yes, position);
 
+
+   uint32_t icoSphere{};
+   {
+       auto [pos,triangleList] = icosahedron::make_icosphere(2);
+
+       std::vector<oGFX::Vertex> vertices;
+       vertices.reserve(pos.size());
+       for (size_t i = 0; i < pos.size(); i++)
+       {
+           oGFX::Vertex v{};
+           v.pos = pos[i];
+           vertices.push_back(v);
+       }
+       std::vector<uint32_t>indices;
+       indices.reserve(triangleList.size() * 3ull);
+       for (size_t i = 0; i < triangleList.size(); i++)
+       {
+           indices.push_back(triangleList[i].vertex[0]);
+           indices.push_back(triangleList[i].vertex[1]);
+           indices.push_back(triangleList[i].vertex[2]);
+       }
+       icoSphere = renderer.LoadMeshFromBuffers(vertices, indices, nullptr);
+   }
    //create a hundred random textures because why not
    std::default_random_engine rndEngine(123456);
    std::uniform_int_distribution<uint32_t> uniformDist( 0xFF000000, 0xFFFFFFFF );
@@ -301,6 +330,8 @@ int main(int argc, char argv[])
     //}
     //renderer.g_debugDrawIndices.push_back(boxindices[boxindices.size()-1]);
     //renderer.g_debugDrawIndices.push_back(boxindices[0]);
+
+   
 
     renderer.UpdateDebugBuffers();
 
