@@ -1,20 +1,13 @@
 #include "GfxRenderpass.h"
 
-RenderPassDatabase* RenderPassDatabase::ms_renderpass{ nullptr };
-
-RenderPassDatabase::~RenderPassDatabase()
-{
-	if (ms_renderpass)
-		delete ms_renderpass;
-}
-
 RenderPassDatabase* RenderPassDatabase::Get()
 {
 	if (ms_renderpass == nullptr)
 	{
-		ms_renderpass = new RenderPassDatabase;
+		assert(true); // this shouldnt happen
+		ms_renderpass = std::make_unique<RenderPassDatabase>();
 	}
-	return ms_renderpass;
+	return ms_renderpass.get();
 }
 
 void RenderPassDatabase::RegisterRenderPass(std::unique_ptr<GfxRenderpass>&& renderPass)

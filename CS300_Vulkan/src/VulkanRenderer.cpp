@@ -43,6 +43,8 @@ VulkanRenderer::~VulkanRenderer()
 
 	RenderPassDatabase::ShutdownAllRegisteredPasses();
 
+	samplerManager.Shutdown();
+
 	gpuTransformBuffer.destroy();
 	debugTransformBuffer.destroy();
 

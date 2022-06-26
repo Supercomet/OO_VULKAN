@@ -342,10 +342,10 @@ int main(int argc, char argv[])
     //ed.modelID = triangle;
     //ed.pos = { 0.0f,0.0f,0.0f };  
     //renderer.entities.push_back(ed);
-    //ed.modelID = box;
-    //ed.pos = { 2.0f,0.0f,2.0f };
-    //ed.scale = { 1.0f,1.0f,1.0f };
-    //renderer.entities.push_back(ed);
+    ed.modelID = box;
+    ed.pos = { 2.0f,0.0f,2.0f };
+    ed.scale = { 1.0f,1.0f,1.0f };
+    renderer.entities.push_back(ed);
     
     int iter = 0;
     for (auto& e: renderer.entities)

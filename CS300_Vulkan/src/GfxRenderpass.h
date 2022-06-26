@@ -28,7 +28,6 @@ public:
 class RenderPassDatabase
 {
 public:
-    ~RenderPassDatabase();
     static RenderPassDatabase* Get();
     void RegisterRenderPass(std::unique_ptr<GfxRenderpass>&& renderPass);
 
@@ -58,7 +57,7 @@ public:
     }
 
 private:
-    static RenderPassDatabase* ms_renderpass; // Ideally unique_ptr, for now workaound to fix a (complier) bug?
+    inline static std::unique_ptr<RenderPassDatabase> ms_renderpass{std::make_unique<RenderPassDatabase>()};
     std::vector<std::unique_ptr<GfxRenderpass>> m_AllRenderPasses;
     uint8_t m_RegisteredRenderPasses{ 0 };
 };
