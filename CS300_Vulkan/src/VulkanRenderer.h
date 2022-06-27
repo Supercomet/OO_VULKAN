@@ -180,6 +180,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 
 	Model* LoadMeshFromFile(const std::string& file);
 	uint32_t LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, gfxModel* model);
+	std::unordered_map<uint32_t, const char*> m_MeshIndexToMeshName;
 	void SetMeshTextures(uint32_t modelID,uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough);
 
 	bool ResizeSwapchain();
@@ -281,11 +282,13 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	public:
 	struct EntityDetails
 	{
-		uint32_t modelID{};
 		glm::vec3 pos{};
 		glm::vec3 scale{1.0f};
 		float rot{};
 		glm::vec3 rotVec{0.0f,1.0f,0.0f};
+
+		uint32_t modelID{}; // Index for the mesh
+		uint32_t entityID{}; // Unique ID for this entity instance
 	};
 	inline static std::vector<EntityDetails> entities;
 

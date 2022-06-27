@@ -53,6 +53,131 @@ bool BoolQueryUser(const char * str)
     return response == 'n' ? false : true;
 }
 
+// Just a dummy struct to hold Vertex and 32-bit Index Buffers.
+struct DefaultMesh
+{
+    std::vector<oGFX::Vertex> m_VertexBuffer;
+    std::vector<uint32_t> m_IndexBuffer;
+};
+
+DefaultMesh CreateDefaultCubeMesh()
+{
+    DefaultMesh mesh;
+
+    constexpr glm::vec3 redColor = glm::vec3{ 1.0f,0.0f,0.0f };
+    constexpr glm::vec3 dirX = glm::vec3{ 1.0f,0.0f,0.0f };
+    constexpr glm::vec3 dirY = glm::vec3{ 0.0f,1.0f,0.0f };
+    constexpr glm::vec3 dirZ = glm::vec3{ 0.0f,0.0f,1.0f };
+
+    // The default box mesh must have 6 faces (or rather 6 planes),
+    // with the normals correctly pointing outwards relative to the planes.
+    // This cube is also unit and normalized (in [-0.5,0.5] range)
+    mesh.m_VertexBuffer = 
+    {
+        // 
+        oGFX::Vertex{ {-0.5, 0.5, 0.5}, dirZ, redColor, { 0.0f, 1.0f }, dirX },
+        oGFX::Vertex{ { 0.5, 0.5, 0.5}, dirZ, redColor, { 1.0f, 1.0f }, dirX },
+        oGFX::Vertex{ {-0.5,-0.5, 0.5}, dirZ, redColor, { 0.0f, 0.0f }, dirX },
+        oGFX::Vertex{ { 0.5,-0.5, 0.5}, dirZ, redColor, { 1.0f, 0.0f }, dirX },
+        //
+        oGFX::Vertex{ { 0.5, 0.5,-0.5}, -dirZ, redColor, { 0.0f, 1.0f }, -dirX },
+        oGFX::Vertex{ {-0.5, 0.5,-0.5}, -dirZ, redColor, { 1.0f, 1.0f }, -dirX },
+        oGFX::Vertex{ { 0.5,-0.5,-0.5}, -dirZ, redColor, { 0.0f, 0.0f }, -dirX },
+        oGFX::Vertex{ {-0.5,-0.5,-0.5}, -dirZ, redColor, { 1.0f, 0.0f }, -dirX },
+        //
+        oGFX::Vertex{ { 0.5, 0.5, 0.5}, dirX, redColor, { 0.0f, 1.0f }, -dirZ },
+        oGFX::Vertex{ { 0.5, 0.5,-0.5}, dirX, redColor, { 1.0f, 1.0f }, -dirZ },
+        oGFX::Vertex{ { 0.5,-0.5, 0.5}, dirX, redColor, { 0.0f, 0.0f }, -dirZ },
+        oGFX::Vertex{ { 0.5,-0.5,-0.5}, dirX, redColor, { 1.0f, 0.0f }, -dirZ },
+        //
+        oGFX::Vertex{ {-0.5, 0.5,-0.5}, -dirX, redColor, { 0.0f, 1.0f }, dirZ },
+        oGFX::Vertex{ {-0.5, 0.5, 0.5}, -dirX, redColor, { 1.0f, 1.0f }, dirZ },
+        oGFX::Vertex{ {-0.5,-0.5,-0.5}, -dirX, redColor, { 0.0f, 0.0f }, dirZ },
+        oGFX::Vertex{ {-0.5,-0.5, 0.5}, -dirX, redColor, { 1.0f, 0.0f }, dirZ },
+        //
+        oGFX::Vertex{ {-0.5, 0.5,-0.5}, dirY, redColor, { 0.0f, 1.0f }, dirX },
+        oGFX::Vertex{ { 0.5, 0.5,-0.5}, dirY, redColor, { 1.0f, 1.0f }, dirX },
+        oGFX::Vertex{ {-0.5, 0.5, 0.5}, dirY, redColor, { 0.0f, 0.0f }, dirX },
+        oGFX::Vertex{ { 0.5, 0.5, 0.5}, dirY, redColor, { 1.0f, 0.0f }, dirX },
+        //
+        oGFX::Vertex{ {-0.5,-0.5, 0.5}, -dirY, redColor, { 0.0f, 1.0f }, dirX },
+        oGFX::Vertex{ { 0.5,-0.5, 0.5}, -dirY, redColor, { 1.0f, 1.0f }, dirX },
+        oGFX::Vertex{ {-0.5,-0.5,-0.5}, -dirY, redColor, { 0.0f, 0.0f }, dirX },
+        oGFX::Vertex{ { 0.5,-0.5,-0.5}, -dirY, redColor, { 1.0f, 0.0f }, dirX }
+
+        // Data here is dumped from my engine somewhere...
+        // Putting all these here for sanity check
+        //[0]	position=[-0.5  0.5 0.5] normal=[0 0 1] tangent=[1 0 0] bitangent=[0 1 0] uv=[0 1]
+        //[1]	position=[ 0.5  0.5 0.5] normal=[0 0 1] tangent=[1 0 0] bitangent=[0 1 0] uv=[1 1]
+        //[2]	position=[-0.5 -0.5 0.5] normal=[0 0 1] tangent=[1 0 0] bitangent=[0 1 0] uv=[0 0]
+        //[3]	position=[ 0.5 -0.5 0.5] normal=[0 0 1] tangent=[1 0 0] bitangent=[0 1 0] uv=[1 0]
+        //
+        //[4]	position=[ 0.5  0.5 -0.5] normal=[0 0 -1] tangent=[-1 0 0] bitangent=[0 1 0] uv=[0 1]
+        //[5]	position=[-0.5  0.5 -0.5] normal=[0 0 -1] tangent=[-1 0 0] bitangent=[0 1 0] uv=[1 1]
+        //[6]	position=[ 0.5 -0.5 -0.5] normal=[0 0 -1] tangent=[-1 0 0] bitangent=[0 1 0] uv=[0 0]
+        //[7]	position=[-0.5 -0.5 -0.5] normal=[0 0 -1] tangent=[-1 0 0] bitangent=[0 1 0] uv=[1 0]
+        //
+        //[8]	position=[0.5  0.5  0.5] normal=[1 0 0] tangent=[0 0 -1] bitangent=[0 1 0] uv=[0 1]
+        //[9]	position=[0.5  0.5 -0.5] normal=[1 0 0] tangent=[0 0 -1] bitangent=[0 1 0] uv=[1 1]
+        //[10]  position=[0.5 -0.5  0.5] normal=[1 0 0] tangent=[0 0 -1] bitangent=[0 1 0] uv=[0 0]
+        //[11]  position=[0.5 -0.5 -0.5] normal=[1 0 0] tangent=[0 0 -1] bitangent=[0 1 0] uv=[1 0]
+        //
+        //[12]  position=[-0.5  0.5 -0.5] normal=[-1 0 0] tangent=[0 0 1] bitangent=[0 1 0] uv=[0 1]
+        //[13]  position=[-0.5  0.5  0.5] normal=[-1 0 0] tangent=[0 0 1] bitangent=[0 1 0] uv=[1 1]
+        //[14]  position=[-0.5 -0.5 -0.5] normal=[-1 0 0] tangent=[0 0 1] bitangent=[0 1 0] uv=[0 0]
+        //[15]  position=[-0.5 -0.5  0.5] normal=[-1 0 0] tangent=[0 0 1] bitangent=[0 1 0] uv=[1 0]
+        //
+        //[16]  {position=[-0.5 0.5 -0.5] normal=[0 1 0] tangent=[1 0 0] bitangent=[0 0 -1] uv=[0 1]
+        //[17]  {position=[ 0.5 0.5 -0.5] normal=[0 1 0] tangent=[1 0 0] bitangent=[0 0 -1] uv=[1 1]
+        //[18]  {position=[-0.5 0.5  0.5] normal=[0 1 0] tangent=[1 0 0] bitangent=[0 0 -1] uv=[0 0]
+        //[19]  {position=[ 0.5 0.5  0.5] normal=[0 1 0] tangent=[1 0 0] bitangent=[0 0 -1] uv=[1 0]
+        //
+        //[20]  {position=[-0.5 -0.5  0.5] normal=[0 -1 0] tangent=[1 0 0] bitangent=[0 0 1] uv=[0 1]
+        //[21]  {position=[ 0.5 -0.5  0.5] normal=[0 -1 0] tangent=[1 0 0] bitangent=[0 0 1] uv=[1 1]
+        //[22]  {position=[-0.5 -0.5 -0.5] normal=[0 -1 0] tangent=[1 0 0] bitangent=[0 0 1] uv=[0 0]
+        //[23]  {position=[ 0.5 -0.5 -0.5] normal=[0 -1 0] tangent=[1 0 0] bitangent=[0 0 1] uv=[1 0]
+    };
+
+    mesh.m_IndexBuffer = 
+    {
+        0,2,1,
+        1,2,3,
+        4,6,5,
+        5,6,7,
+        8,10,9,
+        9,10,11,
+        12,14,13,
+        13,14,15,
+        16,18,17,
+        17,18,19,
+        20,22,21,
+        21,22,23
+    };
+
+    return mesh;
+}
+
+// We must be explicit by saying this is a XZ-plane, because a plane can mean anything, is it XY, XZ, or YZ...?
+DefaultMesh CreateDefaultPlaneXZMesh()
+{
+    DefaultMesh mesh;
+    
+    mesh.m_VertexBuffer =
+    {
+        oGFX::Vertex{ {-0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f } },
+        oGFX::Vertex{ { 0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,1.0f } },
+        oGFX::Vertex{ {-0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,1.0f } },
+    };
+
+    mesh.m_IndexBuffer = 
+    {
+        0,2,1,
+        2,0,3
+    };
+
+    return mesh;
+}
 
 int main(int argc, char argv[])
 {
@@ -92,142 +217,19 @@ int main(int argc, char argv[])
     uint32_t colour = 0xFFFFFFFF; // ABGR
     renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&colour));
 
-    std::vector<oGFX::Vertex>planeVerts{
-        oGFX::Vertex{ {-0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f } },
-        oGFX::Vertex{ { 0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,1.0f } },
-        oGFX::Vertex{ {-0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,1.0f } },
-    };
-    std::vector<uint32_t>planeIndices{
-        0,2,1,2,0,3
-    };
-
-
-    std::vector<oGFX::Vertex>quadVerts{
+    std::vector<oGFX::Vertex>quadVerts
+    {
             oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
             oGFX::Vertex{ { 0.5,-0.5,0.0}, { 0.0f,1.0f,0.0f }, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f } },
             oGFX::Vertex{ { 0.0, 0.5,0.0}, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f,1.0f }, { 0.0f,1.0f } }
     };
-    std::vector<uint32_t>quadIndices{
+    std::vector<uint32_t>quadIndices
+    {
         0,1,2
     };
 
-    constexpr glm::vec3 redColor = glm::vec3{ 1.0f,0.0f,0.0f };
-    constexpr glm::vec3 dirX = glm::vec3{ 1.0f,0.0f,0.0f };
-    constexpr glm::vec3 dirY = glm::vec3{ 0.0f,1.0f,0.0f };
-    constexpr glm::vec3 dirZ = glm::vec3{ 0.0f,0.0f,1.0f };
-
-    std::vector<oGFX::Vertex> boxverts
+    std::vector<Point3D> pts
     {
-        /*
-    	oGFX::Vertex{ {-0.5,-0.5,-0.5}, { -1.0f,-1.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-    	oGFX::Vertex{ { 0.5,-0.5,-0.5}, { 0.0f,-1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-    	oGFX::Vertex{ {-0.5, 0.5,-0.5}, { -1.0f,0.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-    	oGFX::Vertex{ { 0.5, 0.5,-0.5}, { 0.0f,0.0f,-1.0f },{ 1.0f,0.0f,0.0f }, { 1.0f,1.0f } },
-    
-    	oGFX::Vertex{ {-0.5,-0.5, 0.5}, { -1.0f,-1.0f,0.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-    	oGFX::Vertex{ { 0.5,-0.5, 0.5}, { 1.0f,-1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-    	oGFX::Vertex{ {-0.5, 0.5, 0.5}, { -1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 0.0f,1.0f } },
-    	oGFX::Vertex{ { 0.5, 0.5, 0.5}, { 1.0f,1.0f,1.0f },{ 1.0f,0.0f,0.0f }, { 1.0f,1.0f } }
-        */
-
-        // 
-        oGFX::Vertex{ {-0.5, 0.5, 0.5}, dirZ, redColor, { 0, 1 }, dirX },
-        oGFX::Vertex{ { 0.5, 0.5, 0.5}, dirZ, redColor, { 1, 1 }, dirX },
-        oGFX::Vertex{ {-0.5,-0.5, 0.5}, dirZ, redColor, { 0, 0 }, dirX },
-        oGFX::Vertex{ { 0.5,-0.5, 0.5}, dirZ, redColor, { 1, 0 }, dirX },
-        //
-        oGFX::Vertex{ { 0.5, 0.5,-0.5}, -dirZ, redColor, { 0, 1 }, -dirX },
-        oGFX::Vertex{ {-0.5, 0.5,-0.5}, -dirZ, redColor, { 1, 1 }, -dirX },
-        oGFX::Vertex{ { 0.5,-0.5,-0.5}, -dirZ, redColor, { 0, 0 }, -dirX },
-        oGFX::Vertex{ {-0.5,-0.5,-0.5}, -dirZ, redColor, { 1, 0 }, -dirX },
-        //
-        oGFX::Vertex{ { 0.5, 0.5, 0.5}, dirX, redColor, { 0, 1 }, -dirZ },
-        oGFX::Vertex{ { 0.5, 0.5,-0.5}, dirX, redColor, { 1, 1 }, -dirZ },
-        oGFX::Vertex{ { 0.5,-0.5, 0.5}, dirX, redColor, { 0, 0 }, -dirZ },
-        oGFX::Vertex{ { 0.5,-0.5,-0.5}, dirX, redColor, { 1, 0 }, -dirZ },
-        //
-        oGFX::Vertex{ {-0.5, 0.5,-0.5}, -dirX, redColor, { 0, 1 }, dirZ },
-        oGFX::Vertex{ {-0.5, 0.5, 0.5}, -dirX, redColor, { 1, 1 }, dirZ },
-        oGFX::Vertex{ {-0.5,-0.5,-0.5}, -dirX, redColor, { 0, 0 }, dirZ },
-        oGFX::Vertex{ {-0.5,-0.5, 0.5}, -dirX, redColor, { 1, 0 }, dirZ },
-        //
-        oGFX::Vertex{ {-0.5, 0.5,-0.5}, dirY, redColor, { 0, 1 }, dirX },
-        oGFX::Vertex{ { 0.5, 0.5,-0.5}, dirY, redColor, { 1, 1 }, dirX },
-        oGFX::Vertex{ {-0.5, 0.5, 0.5}, dirY, redColor, { 0, 0 }, dirX },
-        oGFX::Vertex{ { 0.5, 0.5, 0.5}, dirY, redColor, { 1, 0 }, dirX },
-        //
-        oGFX::Vertex{ {-0.5,-0.5, 0.5}, -dirY, redColor, { 0, 1 }, dirX },
-        oGFX::Vertex{ { 0.5,-0.5, 0.5}, -dirY, redColor, { 1, 1 }, dirX },
-        oGFX::Vertex{ {-0.5,-0.5,-0.5}, -dirY, redColor, { 0, 0 }, dirX },
-        oGFX::Vertex{ { 0.5,-0.5,-0.5}, -dirY, redColor, { 1, 0 }, dirX }
-
-        /*
-        // Data here is dumped from my engine somewhere...
-        [0]	{position=[-0.5 0.5 0.5] normal=[0 0 1] tangent=[1 0 0] ...}     {bitangent=[0 1 0] uv=[0 1]
-        [1]	{position=[0.5 0.5 0.5] normal=[0 0 1] tangent=[1 0 0] ...}      {bitangent=[0 1 0] uv=[1 1]
-        [2]	{position=[-0.5 -0.5 0.5] normal=[0 0 1] tangent=[1 0 0] ...}    {bitangent=[0 1 0] uv=[0 0]
-        [3]	{position=[0.5 -0.5 0.5] normal=[0 0 1] tangent=[1 0 0] ...}     {bitangent=[0 1 0] uv=[1 0]
-
-        [4]	{position=[0.5 0.5 -0.5] normal=[-8.74228e-08 0 -1] tangent=[-1 0 8.9407e-08] ...}       {bitangent=[0 1 0] uv=[0 1]
-        [5]	{position=[-0.5 0.5 -0.5] normal=[-8.74228e-08 0 -1] tangent=[-1 0 8.9407e-08] ...}      {bitangent=[0 1 0] uv=[1 1]
-        [6]	{position=[0.5 -0.5 -0.5] normal=[-8.74228e-08 0 -1] tangent=[-1 0 8.9407e-08] ...}      {bitangent=[0 1 0] uv=[0 0]
-        [7]	{position=[-0.5 -0.5 -0.5] normal=[-8.74228e-08 0 -1] tangent=[-1 0 8.9407e-08] ...}     {bitangent=[0 1 0] uv=[1 0]
-
-        [8]	{position=[0.5 0.5 0.5] normal=[1 0 -4.37114e-08] tangent=[-2.98023e-08 0 -1] ...}        {bitangent=[0 1 0] uv=[0 1]
-        [9]	{position=[0.5 0.5 -0.5] normal=[1 0 -4.37114e-08] tangent=[-2.98023e-08 0 -1] ...}       {bitangent=[0 1 0] uv=[1 1]
-        [10	{position=[0.5 -0.5 0.5] normal=[1 0 -4.37114e-08] tangent=[-2.98023e-08 0 -1] ...}       {bitangent=[0 1 0] uv=[0 0]
-        [11 {position=[0.5 -0.5 -0.5] normal=[1 0 -4.37114e-08] tangent=[-2.98023e-08 0 -1] ...}      {bitangent=[0 1 0] uv=[1 0]
-
-        [12]	{position=[-0.5 0.5 -0.5] normal=[-1 0 -4.37114e-08] tangent=[-2.98023e-08 0 1] ...}     {bitangent=[0 1 0] uv=[0 1]
-        [13]	{position=[-0.5 0.5 0.5] normal=[-1 0 -4.37114e-08] tangent=[-2.98023e-08 0 1] ...}      {bitangent=[0 1 0] uv=[1 1]
-        [14]	{position=[-0.5 -0.5 -0.5] normal=[-1 0 -4.37114e-08] tangent=[-2.98023e-08 0 1] ...}    {bitangent=[0 1 0] uv=[0 0]
-        [15]	{position=[-0.5 -0.5 0.5] normal=[-1 0 -4.37114e-08] tangent=[-2.98023e-08 0 1] ...}     {bitangent=[0 1 0] uv=[1 0]
-
-        [16]	{position=[-0.5 0.5 -0.5] normal=[0 1 -4.37114e-08] tangent=[1 0 0] ...}   {bitangent=[0 -2.98023e-08 -1] uv=[0 1]
-        [17]	{position=[0.5 0.5 -0.5] normal=[0 1 -4.37114e-08] tangent=[1 0 0] ...}    {bitangent=[0 -2.98023e-08 -1] uv=[1 1]
-        [18]	{position=[-0.5 0.5 0.5] normal=[0 1 -4.37114e-08] tangent=[1 0 0] ...}    {bitangent=[0 -2.98023e-08 -1] uv=[0 0]
-        [19]	{position=[0.5 0.5 0.5] normal=[0 1 -4.37114e-08] tangent=[1 0 0] ...}     {bitangent=[0 -2.98023e-08 -1] uv=[1 0]
-
-        [20]	{position=[-0.5 -0.5 0.5] normal=[0 -1 -4.37114e-08] tangent=[1 0 0] ...}     {bitangent=[0 -2.98023e-08 1] uv=[0 1]
-        [21]	{position=[0.5 -0.5 0.5] normal=[0 -1 -4.37114e-08] tangent=[1 0 0] ...}      {bitangent=[0 -2.98023e-08 1] uv=[1 1]
-        [22]	{position=[-0.5 -0.5 -0.5] normal=[0 -1 -4.37114e-08] tangent=[1 0 0] ...}    {bitangent=[0 -2.98023e-08 1] uv=[0 0]
-        [23]	{position=[0.5 -0.5 -0.5] normal=[0 -1 -4.37114e-08] tangent=[1 0 0] ...}     {bitangent=[0 -2.98023e-08 1] uv=[1 0]
-        */
-    };
-    for (auto& v : boxverts) { v.norm = glm::normalize(v.norm); }
-
-    static std::vector<uint32_t> boxindices
-    {
-        /*
-        1,0,2
-        ,3,1,2
-        ,5,1,3
-        ,5,3,7
-        ,4,5,7
-        ,4,7,6
-        ,0,4,6
-        ,0,6,2
-        ,3,2,6
-        ,3,6,7
-        ,5,4,0
-        ,5,0,1
-        */
-        0,2,1,
-        1,2,3,
-        4,6,5,
-        5,6,7,
-        8,10,9,
-        9,10,11,
-        12,14,13,
-        13,14,15,
-        16,18,17,
-        17,18,19,
-        20,22,21,
-        21,22,23
-    };
-
-    std::vector<Point3D> pts{
         glm::vec3{5.03f,1.34f,3.0f},
         glm::vec3{7.0f,10.0f,10.0f},
         glm::vec3{-5.0f,0.0f,3.5f},
@@ -235,17 +237,19 @@ int main(int argc, char argv[])
         glm::vec3{4.5f,0.0f,5.0f},
         glm::vec3{8.0f,-3.0f,5.0f},
     };
-   
-    
 
     //uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
     //uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
 
     
-    
-   
+    auto defaultPlaneMesh = CreateDefaultPlaneXZMesh();
+    auto defaultCubeMesh = CreateDefaultCubeMesh();
+    uint32_t planeMeshIndex = renderer.LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr);
+    uint32_t cubeMeshIndex = renderer.LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr);
+    renderer.m_MeshIndexToMeshName.emplace(planeMeshIndex, "Plane");
+    renderer.m_MeshIndexToMeshName.emplace(cubeMeshIndex, "Cube");
 
-    uint32_t icoSphere{};
+    uint32_t icoSphereMeshIndex{};
     {
         auto [pos,triangleList] = icosahedron::make_icosphere(1);
 
@@ -280,9 +284,11 @@ int main(int argc, char argv[])
         std::cout << "max:" << max << " min: " << min << " verts " << vertices.size() << std::endl;
         renderer.g_MeshBuffers.VtxBuffer.reserve(100000*sizeof(oGFX::Vertex));
         renderer.g_MeshBuffers.IdxBuffer.reserve(100000*sizeof(oGFX::Vertex));
-        icoSphere = renderer.LoadMeshFromBuffers(vertices, indices, nullptr);
+        icoSphereMeshIndex = renderer.LoadMeshFromBuffers(vertices, indices, nullptr);
+        renderer.m_MeshIndexToMeshName.emplace(icoSphereMeshIndex, "Sphere");
     }
-    uint32_t box = renderer.LoadMeshFromBuffers(boxverts, boxindices, nullptr);
+    //uint32_t box = renderer.LoadMeshFromBuffers(boxverts, boxindices, nullptr);
+    
 
     //std::unique_ptr<Model> ball;
     //ball.reset(renderer.LoadMeshFromFile("Models/sphere.obj"));
@@ -303,7 +309,8 @@ int main(int argc, char argv[])
     //
     //
     //uint32_t triangle = renderer.LoadMeshFromBuffers(quadVerts, quadIndices, nullptr);
-    uint32_t plane = renderer.LoadMeshFromBuffers(planeVerts, planeIndices, nullptr);
+    //uint32_t plane = renderer.LoadMeshFromBuffers(planeVerts, planeIndices, nullptr);
+    
     //delete bunny;
     //
     //Sphere ms;
@@ -327,25 +334,39 @@ int main(int argc, char argv[])
     //
     //glm::mat4 id(1.0f);
 
+    // Temporary solution to assign random numbers... Shamelessly stolen from Intel.
+    auto FastRandomMagic = []() -> uint32_t
+    {
+        static uint32_t seed = 0xDEADBEEF;
+        seed = (214013 * seed + 2531011);
+        return (seed >> 16) & 0x7FFF;
+    };
 
+    // Setup some default objects in the scene
+    {
+        VulkanRenderer::EntityDetails entity;
+        entity.pos = { 0.0f,-2.0f,0.0f };
+        entity.scale = { 30.0f,30.0f,30.0f };
+        entity.modelID = planeMeshIndex;
+        entity.entityID = FastRandomMagic();
+        renderer.entities.push_back(entity);
 
-    
-    VulkanRenderer::EntityDetails ed;
-    ed.modelID = plane;
-    ed.pos = { 0.0f,-2.0f,0.0f };
-    ed.scale = { 30.0f,30.0f,30.0f };
-    renderer.entities.push_back(ed);
-    ed.modelID = icoSphere;
-    ed.pos = { -2.0f,0.0f,-2.0f };
-    ed.scale = { 1.0f,1.0f,1.0f };
-    renderer.entities.push_back(ed);
-    //ed.modelID = triangle;
-    //ed.pos = { 0.0f,0.0f,0.0f };  
-    //renderer.entities.push_back(ed);
-    ed.modelID = box;
-    ed.pos = { 2.0f,0.0f,2.0f };
-    ed.scale = { 1.0f,1.0f,1.0f };
-    renderer.entities.push_back(ed);
+        entity.pos = { -2.0f,0.0f,-2.0f };
+        entity.scale = { 1.0f,1.0f,1.0f };
+        entity.modelID = icoSphereMeshIndex;
+        entity.entityID = FastRandomMagic();
+        renderer.entities.push_back(entity);
+
+        entity.pos = { 2.0f,0.0f,2.0f };
+        entity.scale = { 1.0f,1.0f,1.0f };
+        entity.modelID = cubeMeshIndex;
+        entity.entityID = FastRandomMagic();
+        renderer.entities.push_back(entity);
+
+        //entity.modelID = triangle;
+        //entity.pos = { 0.0f,0.0f,0.0f };  
+        //renderer.entities.push_back(entity);
+    }
     
     int iter = 0;
     for (auto& e: renderer.entities)
@@ -426,7 +447,7 @@ int main(int argc, char argv[])
     renderer.camera.SetRotationSpeed(0.5f);
     renderer.camera.SetPosition(glm::vec3(0.1f, 2.0f, 10.5f));
 
-    bool freezeLight = false;
+    static bool freezeLight = false;
 
   
 
@@ -512,7 +533,7 @@ int main(int argc, char argv[])
         if (renderer.PrepareFrame() == true)
         {
             
-            renderer.timer += deltaTime*0.25f;
+            renderer.timer += deltaTime * 0.25f;
             renderer.UpdateLightBuffer();
             renderer.Draw();
             renderer.PrePass();
@@ -535,36 +556,83 @@ int main(int argc, char argv[])
             
             //ImGui::ShowDemoWindow();
             
-            ImGui::Begin("Entity List");
-            for (auto& entity: renderer.entities)
+            // Display ImGui Window
             {
-                ImGui::PushID(entity.modelID);
-                
-                ImGui::BulletText("[%d] ", entity.modelID);
-                ImGui::SameLine();
-                switch (entity.modelID)
+                if (ImGui::Begin("Scene Helper"))
                 {
-                case 0:
-                ImGui::Text("Sphere");
-                break;
-                case 1:
-                ImGui::Text("Box");
-                break;
-                case 2:
-                ImGui::Text("Triangle");
-                break;
-                default:
-                break;
-                }
-                
-                ImGui::DragFloat3("Position", glm::value_ptr(entity.pos), 0.01f);
-                ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
-                ImGui::DragFloat("theta", &entity.rot);
-                ImGui::DragFloat3("Rotation Vec", glm::value_ptr(entity.rotVec));
+                    if (ImGui::BeginTabBar("SceneHelperTabBar"))
+                    {
+                        if (ImGui::BeginTabItem("Entity"))
+                        {
+                            if (ImGui::SmallButton("Create Cube"))
+                            {
+                                VulkanRenderer::EntityDetails entity;
+                                entity.pos = { 2.0f,2.0f,2.0f };
+                                entity.scale = { 1.0f,1.0f,1.0f };
+                                entity.modelID = cubeMeshIndex;
+                                entity.entityID = FastRandomMagic();
+                                renderer.entities.push_back(entity);
+                            }
 
-                ImGui::PopID();
+                            for (auto& entity : renderer.entities)
+                            {
+                                ImGui::PushID(entity.modelID);
+
+                                ImGui::BulletText("[ID:%u] ", entity.entityID);
+                                ImGui::SameLine();
+
+                                // TODO: This code could not be made cleaner... (this is seen as a temporary solution)
+                                auto iter = renderer.m_MeshIndexToMeshName.find(entity.modelID);
+                                if (iter != renderer.m_MeshIndexToMeshName.end())
+                                    ImGui::Text("%s", iter->second ? iter->second : "(nullptr)");
+                                else
+                                    ImGui::Text("(unknown mesh name)");
+
+                                ImGui::DragFloat3("Position", glm::value_ptr(entity.pos), 0.01f);
+                                ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
+                                ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
+                                ImGui::DragFloat("Theta", &entity.rot);
+                                // TODO: We should be using quaternions.........
+
+                                ImGui::PopID();
+                            }
+                            
+                            ImGui::EndTabItem();
+                        }//ImGui::BeginTabItem
+                        
+                        if (ImGui::BeginTabItem("Light"))
+                        {
+                            ImGui::BeginDisabled(); // TODO remove once implemented
+                            if (ImGui::SmallButton("Create PointLight")) {} // TODO Implement me!
+                            ImGui::EndDisabled(); // TODO remove once implemented
+
+                            ImGui::Checkbox("Freeze Lights", &freezeLight);
+                            ImGui::DragFloat4("ViewPos", glm::value_ptr(renderer.lightUBO.viewPos));
+                            for (int i = 0; i < 6; ++i)
+                            {
+                                ImGui::PushID(i);
+                                auto& light = renderer.lightUBO.lights[i];
+                                ImGui::DragFloat4("Position", glm::value_ptr(light.position));
+                                ImGui::DragFloat3("Color", glm::value_ptr(light.color));
+                                ImGui::DragFloat("Radius", &light.radius);
+                                ImGui::PopID();
+                            }
+
+                            ImGui::EndTabItem();
+                        }//ImGui::BeginTabItem
+
+                        if (ImGui::BeginTabItem("Settings"))
+                        {
+                            // TODO?
+                            ImGui::EndTabItem();
+                        }//ImGui::BeginTabItem
+
+                        ImGui::EndTabBar();
+                    }//ImGui::BeginTabBar
+                }//ImGui::Begin
+                ImGui::End();
             }
-            ImGui::End();
+
             renderer.DrawGUI();
 
             renderer.Present();
