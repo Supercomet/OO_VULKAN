@@ -1,5 +1,3 @@
-#version 450 // use GLSL 4.5
-
 layout(location = 0) in vec3 inPos;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec3 inCol;
@@ -19,41 +17,43 @@ layout(location = 4) in vec2 inUV;
 layout(location = 15) in uvec4 inInstanceData;
 
 // vulkan passes a whole Uniform Buffer Object.
-layout(set = 1,binding = 0) uniform UboViewProjection{
+layout(set = 1,binding = 0) uniform UboViewProjection
+{
 	mat4 projection;
 	mat4 view;
 	vec4 camPos;
 }uboViewProjection;
 
-layout(push_constant)uniform PushLight{
-		vec3 pos;
+layout(push_constant)uniform PushLight
+{
+	vec3 pos;
 }pushLight;
 
 
 layout(location = 0) out vec2 outUV;
 
-layout(location = 1) out flat  struct{
-  ivec4 maps;
-  //int albedo;	
- //int normal;	
- //int occlusion;
- //int roughness;
+layout(location = 1) out flat  struct
+{
+	ivec4 maps;
+	//int albedo;	
+	//int normal;	
+	//int occlusion;
+	//int roughness;
 }outTexIndex;
 
 layout(location = 4)out vec3 outViewVec;
 
 layout(location = 7) out struct 
 {
-mat3 btn;
-vec3 vertCol;
-vec3 localVertexPos;
-vec3 localLightPos;
-vec3 localEyePos;
+	mat3 btn;
+	vec3 vertCol;
+	vec3 localVertexPos;
+	vec3 localLightPos;
+	vec3 localEyePos;
 }outLightData;
 
-
-void main(){
-
+void main()
+{
 	// inefficient
 	mat4 instanceMatrix = mat4(1.0);
 	mat4 inverseMat = inverse(instanceMatrix);

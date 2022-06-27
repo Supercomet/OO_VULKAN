@@ -80,7 +80,7 @@ for %%i in (*.vert  *.frag) do (
 		
 	set numberstring=                      %%~i
 	if !compile! EQU 1 ( 	
-	"%VULKAN_SDK%\Bin\glslc.exe" --target-env=vulkan1.2 "%%~i" -o "%%~i.spv"
+	"%VULKAN_SDK%\Bin\glslc.exe" --target-env=vulkan1.2 -std=460 "%%~i" -o "%%~i.spv"
 	if !ERRORLEVEL! NEQ 0 (echo ["%%~i" COMPILATION ERROR] 
 	exit /B 1
 		echo.) else ( echo !numberstring:~-28! [COMPILED] )	

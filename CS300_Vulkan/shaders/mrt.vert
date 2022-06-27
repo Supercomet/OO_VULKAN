@@ -1,4 +1,3 @@
-#version 450 // use GLSL 4.5
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_nonuniform_qualifier : require
 
@@ -12,14 +11,14 @@ layout(location = 4) in vec2 inUV;
 
 layout(location = 15) in uvec4 inInstanceData; // id, material
 
-
 layout(std430, set = 0, binding = 3) readonly buffer GPUScene
 {
-  GPUTransform GPUScene_SSBO[];
+	GPUTransform GPUScene_SSBO[];
 };
 
 // vulkan passes a whole Uniform Buffer Object.
-layout(set = 1,binding = 0) uniform UboViewProjection{
+layout(set = 1,binding = 0) uniform UboViewProjection
+{
 	mat4 projection;
 	mat4 view;
 	vec4 camPos;
@@ -28,11 +27,11 @@ layout(set = 1,binding = 0) uniform UboViewProjection{
 
 //layout (set = 2, binding = 0) uniform sampler2D textureDesArr[];
 
-layout(push_constant)uniform PushLight{
-		mat4 instanceMatrix;
-		vec3 pos;
+layout(push_constant)uniform PushLight
+{
+	mat4 instanceMatrix;
+	vec3 pos;
 }pushLight;
-
 
 mat4 GPUTransformToMatrix4x4(const in GPUTransform m)
 {
@@ -46,10 +45,10 @@ layout(location = 0) out vec4 outPos;
 layout(location = 1) out vec2 outUV;
 layout(location = 2) out vec3 outCol;
 
-
 layout (location = 15)flat out uvec4 outInstanceData;
 
-//layout(location = 1) out flat  struct{
+//layout(location = 1) out flat  struct
+//{
 //  ivec4 maps;
 //  //int albedo;	
 // //int normal;	
@@ -57,19 +56,17 @@ layout (location = 15)flat out uvec4 outInstanceData;
 // //int roughness;
 //}outTexIndex;
 
-
 layout(location = 7) out struct 
 {
-mat3 btn;
-vec3 vertCol;
-vec3 localVertexPos;
-vec3 localLightPos;
-vec3 localEyePos;
+	mat3 btn;
+	vec3 vertCol;
+	vec3 localVertexPos;
+	vec3 localLightPos;
+	vec3 localEyePos;
 }outLightData;
 
-
-void main(){
-
+void main()
+{
 	//decode the matrix into transform matrix
 	mat4 dInsMatrix = GPUTransformToMatrix4x4(GPUScene_SSBO[inInstanceData.x]);
 	// inefficient
