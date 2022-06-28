@@ -576,7 +576,7 @@ int main(int argc, char argv[])
 
                             for (auto& entity : renderer.entities)
                             {
-                                ImGui::PushID(entity.modelID);
+                                ImGui::PushID(entity.entityID);
 
                                 ImGui::BulletText("[ID:%u] ", entity.entityID);
                                 ImGui::SameLine();

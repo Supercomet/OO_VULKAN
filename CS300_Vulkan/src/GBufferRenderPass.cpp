@@ -105,7 +105,7 @@ void GBufferRenderPass::Draw()
 	//}
 	//else
 	{
-		for (size_t i = 0; i < VulkanRenderer::indirectCommands.size(); i++)
+		for (size_t i = 0; i < VulkanRenderer::m_DrawIndirectCommandsCPU.size(); i++)
 		{		
 			vkCmdDrawIndexedIndirect(cmdlist, VulkanRenderer::indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
 		}

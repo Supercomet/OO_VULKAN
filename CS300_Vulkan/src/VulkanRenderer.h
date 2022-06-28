@@ -252,8 +252,8 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	inline static std::vector<VkCommandBuffer> commandBuffers;
 
 	// Store the indirect draw commands containing index offsets and instance count per object
-	inline static std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
-	std::vector<VkDrawIndexedIndirectCommand> indirectDebugCommands;
+	inline static std::vector<VkDrawIndexedIndirectCommand> m_DrawIndirectCommandsCPU;
+	std::vector<VkDrawIndexedIndirectCommand> indirectDebugCommandsCPU;
 
 	//Scene objects
 	inline static std::vector<gfxModel> models;

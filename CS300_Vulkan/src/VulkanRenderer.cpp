@@ -1,13 +1,7 @@
 #define NOMINMAX
 #include "VulkanRenderer.h"
-#include <vector>
-#include <set>
-#include <stdexcept>
-#include <array>
 
 #include "MathCommon.h"
-
-#include <iostream>
 
 #include <vulkan/vulkan.h>
 
@@ -21,9 +15,6 @@
 #include "VulkanUtils.h"
 #include "Window.h"
 
-#include <chrono>
-#include <random>
-
 #include <imgui.h>
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_win32.h>
@@ -35,6 +26,14 @@
 #include "DeferredCompositionRenderpass.h"
 #include "GBufferRenderPass.h"
 #include "DebugRenderpass.h"
+
+#include <vector>
+#include <set>
+#include <stdexcept>
+#include <array>
+#include <iostream>
+#include <chrono>
+#include <random>
 
 VulkanRenderer::~VulkanRenderer()
 { 
@@ -1222,9 +1221,9 @@ void VulkanRenderer::AddDebugBox(const AABB& aabb, const oGFX::Color& col)
 
 void VulkanRenderer::UpdateIndirectCommands()
 {
-	
-	indirectCommands.clear();
-	indirectDebugCommands.clear();
+	m_DrawIndirectCommandsCPU.clear();
+	indirectDebugCommandsCPU.clear();
+
 	// Create on indirect command for node in the scene with a mesh attached to it
 	uint32_t m = 0;
 	for (auto& e : entities)
@@ -1248,9 +1247,9 @@ void VulkanRenderer::UpdateIndirectCommands()
 
 					// for counting
 					//vertexCount += node->meshes[0]->vertexCount;
-					indirectCommands.push_back(indirectCmd);
+					m_DrawIndirectCommandsCPU.emplace_back(indirectCmd);
 
-					indirectDebugCommands.push_back(indirectCmd);
+					indirectDebugCommandsCPU.emplace_back(indirectCmd);
 				}
 				m++;
 			}
@@ -1259,11 +1258,11 @@ void VulkanRenderer::UpdateIndirectCommands()
 
 
 	//std::cout << "Triangles rendered : " << models[0].indices.count * OBJECT_INSTANCE_COUNT /3 << std::endl;
-	indirectDrawCount = static_cast<uint32_t>(indirectCommands.size());
+	indirectDrawCount = static_cast<uint32_t>(m_DrawIndirectCommandsCPU.size());
 	//indirectDebugDrawCount = static_cast<uint32_t>(indirectDebugCommands.size());
 
 	objectCount = 0;
-	for (auto& indirectCmd : indirectCommands)
+	for (auto& indirectCmd : m_DrawIndirectCommandsCPU)
 	{
 		objectCount += indirectCmd.instanceCount;
 	}
@@ -1274,21 +1273,20 @@ void VulkanRenderer::UpdateIndirectCommands()
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		&stagingBuffer,
-		indirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
-		indirectCommands.data());
+		m_DrawIndirectCommandsCPU.size() * sizeof(VkDrawIndexedIndirectCommand),
+		m_DrawIndirectCommandsCPU.data());
 
 	if (indirectCommandsBuffer.size == 0)
 	{
-	m_device.CreateBuffer(
-		VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		&indirectCommandsBuffer,
-		stagingBuffer.size);
+		m_device.CreateBuffer(
+			VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			&indirectCommandsBuffer,
+			MAX_OBJECTS);
 	}
 	m_device.CopyBuffer(&stagingBuffer, &indirectCommandsBuffer, m_device.graphicsQueue);
 
 	stagingBuffer.destroy();
-
 }
 
 void VulkanRenderer::UpdateInstanceData()
@@ -1339,7 +1337,7 @@ void VulkanRenderer::UpdateInstanceData()
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			&instanceBuffer,
-			stagingBuffer.size);
+			MAX_OBJECTS);
 	}
 
 	m_device.CopyBuffer(&stagingBuffer, &instanceBuffer, m_device.graphicsQueue);
@@ -1975,7 +1973,7 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 	 }
 	 else
 	 {
-		for (size_t i = 0; i < indirectCommands.size(); i++)
+		for (size_t i = 0; i < m_DrawIndirectCommandsCPU.size(); i++)
 		{		
 			vkCmdDrawIndexedIndirect(commandBuffers[currentImage], indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
 		}
