@@ -220,17 +220,6 @@ int main(int argc, char argv[])
     uint32_t colour = 0xFFFFFFFF; // ABGR
     renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&colour));
 
-    std::vector<oGFX::Vertex>planeVerts{
-        oGFX::Vertex{ {-0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f } },
-        oGFX::Vertex{ { 0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,1.0f } },
-        oGFX::Vertex{ {-0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,1.0f } },
-    };
-    std::vector<uint32_t>planeIndices{
-        0,2,1,2,0,3
-    };
-
-
     std::vector<oGFX::Vertex>triVerts{
             oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
             oGFX::Vertex{ { 0.5,-0.5,0.0}, { 0.0f,1.0f,0.0f }, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f } },
@@ -253,6 +242,12 @@ int main(int argc, char argv[])
     //uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
     //uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
    
+    auto defaultPlaneMesh = CreateDefaultPlaneXZMesh();
+    auto defaultCubeMesh = CreateDefaultCubeMesh();
+    uint32_t planeMeshIndex = renderer.LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr);
+    uint32_t cubeMeshIndex = renderer.LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr);
+    renderer.m_MeshIndexToMeshName.emplace(planeMeshIndex, "Plane");
+    renderer.m_MeshIndexToMeshName.emplace(cubeMeshIndex, "Cube");
 
     uint32_t icoSphereMeshIndex{};
     {
@@ -347,62 +342,44 @@ int main(int argc, char argv[])
         return (seed >> 16) & 0x7FFF;
     };
 
-    // Setup some default objects in the scene
-    {
-        VulkanRenderer::EntityDetails entity;
-        entity.pos = { 0.0f,-2.0f,0.0f };
-        entity.scale = { 30.0f,30.0f,30.0f };
-        entity.modelID = planeMeshIndex;
-        entity.entityID = FastRandomMagic();
-        renderer.entities.push_back(entity);
-
-        entity.pos = { -2.0f,0.0f,-2.0f };
-        entity.scale = { 1.0f,1.0f,1.0f };
-        entity.modelID = icoSphereMeshIndex;
-        entity.entityID = FastRandomMagic();
-        renderer.entities.push_back(entity);
-
-        entity.pos = { 2.0f,0.0f,2.0f };
-        entity.scale = { 1.0f,1.0f,1.0f };
-        entity.modelID = cubeMeshIndex;
-        entity.entityID = FastRandomMagic();
-        renderer.entities.push_back(entity);
-
-        //entity.modelID = triangle;
-        //entity.pos = { 0.0f,0.0f,0.0f };  
-        //renderer.entities.push_back(entity);
-    }
-    
     int iter = 0;
     
     VulkanRenderer::EntityDetails ed;
     ed.name = "Plane";
-    ed.modelID = plane;
+    ed.entityID = FastRandomMagic();
+    ed.modelID = planeMeshIndex;
     ed.pos = { 0.0f,-2.0f,0.0f };
     ed.scale = { 30.0f,1.0f,30.0f };
     //renderer.entities.push_back(ed);
     ed.name = "Sphere";
-    ed.modelID = icoSphere;
+    ed.entityID = FastRandomMagic();
+    ed.modelID = icoSphereMeshIndex;
     ed.pos = { -2.0f,0.0f,-2.0f };
     ed.scale = { 1.0f,1.0f,1.0f };
     renderer.entities.push_back(ed);
     //ed.modelID = triangle;
+    //ed.entityID = FastRandomMagic();
     //ed.pos = { 0.0f,0.0f,0.0f };  
     //renderer.entities.push_back(ed);
-    ed.modelID = box;
+    ed.modelID = cubeMeshIndex;
     ed.name = "Box";
+    ed.entityID = FastRandomMagic();
     ed.pos = { 2.0f,0.0f,2.0f };
     ed.scale = { 2.0f,3.0f,1.0f };
     renderer.entities.push_back(ed);
+    ed.entityID = FastRandomMagic();
     ed.pos = { 5.0f,-1.0f,2.0f };
     ed.scale = { 1.0f,3.0f,3.0f };
     renderer.entities.push_back(ed);
+    ed.entityID = FastRandomMagic();
     ed.pos = { 5.0f,0.0f,-5.0f };
     ed.scale = { 2.0f,1.2f,2.0f };
     renderer.entities.push_back(ed);
+    ed.entityID = FastRandomMagic();
     ed.pos = { 3.0f,-2.0f,-5.0f };
     ed.scale = { 1.0f,1.2f,2.0f };
     renderer.entities.push_back(ed);
+    ed.entityID = FastRandomMagic();
     ed.pos = { 1.0f,-2.0f,5.0f };
     ed.scale = { 1.0f,1.0f,1.0f };
     renderer.entities.push_back(ed);
@@ -723,7 +700,7 @@ int main(int argc, char argv[])
                 | ImGuiDockNodeFlags_NoDockingInCentralNode // dont allow docking in the central area
             );
             
-            //ImGui::ShowDemoWindow();
+            ImGui::ShowDemoWindow();
             
             // Display ImGui Window
             {
@@ -775,7 +752,9 @@ int main(int argc, char argv[])
                             if (ImGui::SmallButton("Create PointLight")) {} // TODO Implement me!
                             ImGui::EndDisabled(); // TODO remove once implemented
 
+                            static bool debugDrawPosition = false;
                             ImGui::Checkbox("Freeze Lights", &freezeLight);
+                            ImGui::Checkbox("Debug Draw Position", &debugDrawPosition);
                             ImGui::DragFloat4("ViewPos", glm::value_ptr(renderer.lightUBO.viewPos));
                             for (int i = 0; i < 6; ++i)
                             {
@@ -785,6 +764,36 @@ int main(int argc, char argv[])
                                 ImGui::DragFloat3("Color", glm::value_ptr(light.color));
                                 ImGui::DragFloat("Radius", &light.radius);
                                 ImGui::PopID();
+                            }
+
+                            // Shamelessly hijack ImGui for debugging tools
+                            if (debugDrawPosition)
+                            {
+                                if (ImDrawList* bgDrawList = ImGui::GetBackgroundDrawList())
+                                {
+                                    auto WorldToScreen = [&](const glm::vec3& worldPosition) -> ImVec2
+                                    {
+                                        const int screenWidth = 1440;
+                                            const int screenHeight = 900;
+                                            const glm::mat4& viewMatrix = renderer.camera.matrices.view;
+                                            const glm::mat4& projectionMatrix = renderer.camera.matrices.perspective;
+                                            // World Space to NDC Space
+                                            glm::vec4 ndcPosition = projectionMatrix * viewMatrix * glm::vec4{ worldPosition, 1.0f };
+                                            // Perspective Division
+                                            ndcPosition /= ndcPosition.w;
+                                        // NDC Space to Viewport Space
+                                        const float winX = glm::round(((ndcPosition.x + 1.0f) / 2.0f) * (float)screenWidth);
+                                        const float winY = glm::round(((1.0f - ndcPosition.y) / 2.0f) * (float)screenHeight);
+                                        return ImVec2{ winX, winY };
+                                    };
+
+                                    for (int i = 0; i < 6; ++i)
+                                    {
+                                        auto& light = renderer.lightUBO.lights[i];
+                                        auto& pos = light.position;
+                                        bgDrawList->AddCircle(WorldToScreen(pos), 10.0f, 0xFFFFFFFF, 0, 8.0f);
+                                    }
+                                }
                             }
 
                             ImGui::EndTabItem();
@@ -799,6 +808,9 @@ int main(int argc, char argv[])
                         ImGui::EndTabBar();
                     }//ImGui::BeginTabBar
                 }//ImGui::Begin
+
+                
+
                 ImGui::End();
             }
 
