@@ -148,7 +148,7 @@ namespace  oGFX::BV
 	void ExpandSphereAboutPoint(Sphere& s, const Point3D& point)
 	{
 		// Compute squared distance between point and sphere center
-		glm::vec3 d = point - s.centre;
+		glm::vec3 d = point - s.center;
 		float dist2 = glm::dot(d, d);
 		// Only update s if point p is outside i
 		if (dist2 > s.radius * s.radius)
@@ -157,7 +157,7 @@ namespace  oGFX::BV
 			float newRadius = (s.radius + dist) * 0.5f;
 			float k = (newRadius - s.radius) / dist;
 			s.radius = newRadius;
-			s.centre += d * k;
+			s.center += d * k;
 		}
 	}
 
@@ -167,15 +167,15 @@ namespace  oGFX::BV
 		uint32_t min, max;
 		MostSeperatedPointsOnAxes(min, max, points, range);
 		// Set up sphere to just encompass these two points
-		s.centre = (points[min] + points[max]) * 0.5f;
-		s.radius = glm::dot(points[max] - s.centre, points[max] - s.centre);
+		s.center = (points[min] + points[max]) * 0.5f;
+		s.radius = glm::dot(points[max] - s.center, points[max] - s.center);
 		s.radius = std::sqrt(s.radius);
 	}
 
 	Sphere HorizonDisk(const Point3D& view, const Sphere& s)
 	{
 		Sphere disk;
-		glm::vec3 dir = s.centre - view;
+		glm::vec3 dir = s.center - view;
 		float d = std::sqrt(glm::dot(dir,dir));
 		assert(d != 0.0f); // divide by zero why was this hit.
 		dir /= d; // length
@@ -184,7 +184,7 @@ namespace  oGFX::BV
 		float rp = s.radius * l / d;
 		float z = std::sqrt(s.radius * s.radius - rp * rp);
 
-		disk.centre = s.centre - z * dir;
+		disk.center = s.center - z * dir;
 		disk.radius = rp;
 		return disk;
 	}
@@ -359,7 +359,7 @@ namespace  oGFX::BV
 		Point3D maxpt = points[imax];
 		float dist = std::sqrt(glm::dot(maxpt - minpt, maxpt - minpt));
 		s.radius = dist * 0.5f;
-		s.centre = (minpt + maxpt) * 0.5f;
+		s.center = (minpt + maxpt) * 0.5f;
 	}
 
 	void RittersEigenSphere(Sphere& s, const std::vector<Point3D>& points)

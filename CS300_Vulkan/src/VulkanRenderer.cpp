@@ -36,12 +36,16 @@
 #include "GBufferRenderPass.h"
 #include "DebugRenderpass.h"
 
+#include "IcoSphereCreator.h"
+
 VulkanRenderer::~VulkanRenderer()
 { 
 	//wait until no actions being run on device before destorying
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
 	RenderPassDatabase::ShutdownAllRegisteredPasses();
+
+	ShutdownTreeDebug();
 
 	samplerManager.Shutdown();
 
@@ -173,10 +177,10 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateSynchronisation();
 
 
+		InitTreeDebugDraws();
 		InitDebugBuffers();
 		g_MeshBuffers.IdxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 		g_MeshBuffers.VtxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-
 		
 	
 	}
@@ -1186,20 +1190,8 @@ void VulkanRenderer::DestroyImGUI()
 	ImGui::DestroyContext(ImGui::GetCurrentContext());
 }
 
-void VulkanRenderer::AddDebugBox(const AABB& aabb, const oGFX::Color& col)
+void VulkanRenderer::AddDebugBox(const AABB& aabb, const oGFX::Color& col, size_t loc)
 {
-	auto sz = g_debugDrawVerts.size();
-
-	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); //0
-	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 1
-	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 2
-	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 3
-	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 4
-	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 5
-	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 6
-	g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 7
-
-	
 	static std::vector<uint32_t> boxindices{
 		0,1,
 		0,2,
@@ -1214,10 +1206,106 @@ void VulkanRenderer::AddDebugBox(const AABB& aabb, const oGFX::Color& col)
 		5,7,
 		4,7
 	};
-	for (auto x : boxindices)
+		
+	if (loc == size_t(-1))
 	{
-		g_debugDrawIndices.push_back(x + sz);
-	}	
+		auto sz = g_debugDrawVerts.size();
+		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); //0
+		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 1
+		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 2
+		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 3
+		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 4
+		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 5
+		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 6
+		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 7
+		for (auto x : boxindices)
+		{
+			g_debugDrawIndices.push_back(x + static_cast<uint32_t>(sz));
+		}
+	}
+	else
+	{
+		auto& debug = g_DebugDraws[loc];
+
+		auto sz = debug.vertex.size();
+		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); //0
+		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 1
+		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 2
+		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 3
+		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 4
+		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 5
+		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 6
+		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 7
+		for (auto x : boxindices)
+		{
+			debug.indices.push_back(x + static_cast<uint32_t>(sz));
+		}
+	}
+
+	
+}
+
+void VulkanRenderer::AddDebugSphere(const Sphere& sphere, const oGFX::Color& col, size_t loc)
+{
+	static std::vector<oGFX::Vertex> vertices;
+	static std::vector<uint32_t> indices;
+	static bool once = [&]() {
+		auto [sphVertices, spfIndices] = icosahedron::make_icosphere(1);
+		vertices.reserve(sphVertices.size());
+		for (auto&& v : sphVertices)
+		{
+			vertices.emplace_back(oGFX::Vertex{ v });
+		}
+		indices.reserve(spfIndices.size() * 3);
+		for (auto&& ind : spfIndices) 
+		{
+			indices.emplace_back(ind.vertex[0]);
+			indices.emplace_back(ind.vertex[1]);
+			indices.emplace_back(ind.vertex[0]); 
+			indices.emplace_back(ind.vertex[2]);
+			indices.emplace_back(ind.vertex[2]);
+			indices.emplace_back(ind.vertex[1]);
+		}
+		return true;
+	}();
+	
+	if (loc == size_t(-1))
+	{
+		auto currsz = g_debugDrawVerts.size();
+		g_debugDrawVerts.reserve(g_debugDrawVerts.size() + vertices.size());
+		for (const auto& v : vertices)
+		{
+			oGFX::Vertex vert{ v };
+			vert.pos += vert.pos*sphere.radius + sphere.center;
+			vert.col = col;
+			g_debugDrawVerts.push_back(vert);
+		}
+
+		g_debugDrawIndices.reserve( g_debugDrawIndices.size() + indices.size());
+		for (const auto ind : indices) 
+		{
+			g_debugDrawIndices.emplace_back(ind+static_cast<uint32_t>(currsz));
+		}
+	}
+	else
+	{
+		auto& debug = g_DebugDraws[loc];
+		auto currsz = debug.vertex.size();
+		debug.vertex.reserve(debug.vertex.size() + vertices.size());
+		for (const auto& v : vertices)
+		{
+			oGFX::Vertex vert{ v };
+			vert.pos += vert.pos*sphere.radius + sphere.center;
+			vert.col = col;
+			debug.vertex.push_back(vert);
+		}
+		debug.indices.reserve( debug.indices.size() + indices.size());
+		for (const auto ind : indices) 
+		{
+			debug.indices.emplace_back(ind+static_cast<uint32_t>(currsz));
+		}
+	}
+	
 }
 
 void VulkanRenderer::UpdateIndirectCommands()
@@ -1476,6 +1564,24 @@ bool VulkanRenderer::ResizeSwapchain()
 	ResizeDeferredFB();
 
 	return true;
+}
+
+void VulkanRenderer::InitTreeDebugDraws()
+{
+	for (size_t i = 0; i < 4; i++)
+	{
+		g_DebugDraws[i].vbo.Init(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		g_DebugDraws[i].ibo.Init(VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	}
+}
+
+void VulkanRenderer::ShutdownTreeDebug()
+{
+	for (size_t i = 0; i < 4; i++)
+	{
+		g_DebugDraws[i].vbo.destroy();
+		g_DebugDraws[i].ibo.destroy();
+	}
 }
 
 Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
@@ -1748,6 +1854,57 @@ void VulkanRenderer::UpdateDebugBuffers()
 
 	g_debugDrawVertBuffer.writeTo(g_debugDrawVerts.size() , g_debugDrawVerts.data());
 	g_debugDrawIndxBuffer.writeTo(g_debugDrawIndices.size() , g_debugDrawIndices.data());
+
+}
+
+void VulkanRenderer::UpdateTreeBuffers()
+{
+	if (debug_btmUp_aabb && g_DebugDraws[g_btmUp_AABB].dirty)
+	{
+		auto& debug = g_DebugDraws[g_btmUp_AABB];
+
+		debug.vbo.reserve(debug.vertex.size());
+		debug.ibo.reserve(debug.indices.size());
+
+		debug.vbo.writeTo(debug.vertex.size() , debug.vertex.data());
+		debug.ibo.writeTo(debug.indices.size() , debug.indices.data());
+		
+		debug.dirty = false;
+	}
+	if (debug_topDown_aabb && g_DebugDraws[g_topDwn_AABB].dirty)
+	{
+		auto& debug = g_DebugDraws[g_topDwn_AABB];
+		debug.vbo.reserve(debug.vertex.size());
+		debug.ibo.reserve(debug.indices.size());
+
+		debug.vbo.writeTo(debug.vertex.size() , debug.vertex.data());
+		debug.ibo.writeTo(debug.indices.size() , debug.indices.data());
+
+		debug.dirty = false;
+
+	}
+	if (debug_btmUp_sphere && g_DebugDraws[g_btmUp_Sphere].dirty)
+	{
+		auto& debug = g_DebugDraws[g_btmUp_Sphere];
+		debug.vbo.reserve(debug.vertex.size());
+		debug.ibo.reserve(debug.indices.size());
+
+		debug.vbo.writeTo(debug.vertex.size() , debug.vertex.data());
+		debug.ibo.writeTo(debug.indices.size() , debug.indices.data());
+
+		debug.dirty = false;
+	}
+	if (debug_topDown_sphere && g_DebugDraws[g_topDwn_Sphere].dirty)
+	{
+		auto& debug = g_DebugDraws[g_topDwn_Sphere];
+		debug.vbo.reserve(debug.vertex.size());
+		debug.ibo.reserve(debug.indices.size());
+
+		debug.vbo.writeTo(debug.vertex.size() , debug.vertex.data());
+		debug.ibo.writeTo(debug.indices.size() , debug.indices.data());
+
+		debug.dirty = false;
+	}
 
 }
 

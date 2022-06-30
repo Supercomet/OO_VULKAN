@@ -79,6 +79,36 @@ void DebugRenderpass::Draw()
 	vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1,VulkanRenderer::g_debugDrawVertBuffer.getBufferPtr(), offsets);
 	vkCmdDrawIndexed(cmdlist, static_cast<uint32_t>(VulkanRenderer::g_debugDrawIndxBuffer.size()) , 1, 0, 0, 0);
 
+	if (VulkanRenderer::debug_btmUp_aabb)
+	{
+		auto& debug = VulkanRenderer::g_DebugDraws[VulkanRenderer::g_btmUp_AABB];
+		vkCmdBindIndexBuffer(cmdlist,  debug.ibo.getBuffer(),0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, debug.vbo.getBufferPtr(), offsets);
+		vkCmdDrawIndexed(cmdlist, static_cast<uint32_t>(debug.indices.size()) , 1, 0, 0, 0);
+	}
+	if (VulkanRenderer::debug_topDown_aabb)
+	{
+		auto& debug = VulkanRenderer::g_DebugDraws[VulkanRenderer::g_topDwn_AABB];
+		vkCmdBindIndexBuffer(cmdlist,  debug.ibo.getBuffer(),0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, debug.vbo.getBufferPtr(), offsets);
+		vkCmdDrawIndexed(cmdlist, static_cast<uint32_t>(debug.indices.size()) , 1, 0, 0, 0);
+	}
+	if (VulkanRenderer::debug_btmUp_sphere)
+	{
+		auto& debug = VulkanRenderer::g_DebugDraws[VulkanRenderer::g_btmUp_Sphere];
+		vkCmdBindIndexBuffer(cmdlist,  debug.ibo.getBuffer(),0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, debug.vbo.getBufferPtr(), offsets);
+		vkCmdDrawIndexed(cmdlist, static_cast<uint32_t>(debug.indices.size()) , 1, 0, 0, 0);
+		
+	}
+	if (VulkanRenderer::debug_topDown_sphere)
+	{
+		auto& debug = VulkanRenderer::g_DebugDraws[VulkanRenderer::g_topDwn_Sphere];
+		vkCmdBindIndexBuffer(cmdlist,  debug.ibo.getBuffer(),0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, debug.vbo.getBufferPtr(), offsets);
+		vkCmdDrawIndexed(cmdlist, static_cast<uint32_t>(debug.indices.size()) , 1, 0, 0, 0);
+	}
+
 	vkCmdEndRenderPass(cmdlist);
 }
 

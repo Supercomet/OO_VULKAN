@@ -19,7 +19,7 @@ namespace oGFX::BV
 
 	void ExtremePointsAlongDirection(const glm::vec3& axis, const std::vector<Point3D>& points, uint32_t& min, uint32_t& max, float* min_val = nullptr, float* max_val = nullptr);
 
-	void ExpandSphereAboutPoint(Sphere& s, const Point3D& point, size_t range);
+	void ExpandSphereAboutPoint(Sphere& s, const Point3D& point);
 	void SphereFromDistantPoints(Sphere& s, const std::vector<Point3D>& points);
 
 	Sphere HorizonDisk(const Point3D& view, const Sphere& s);

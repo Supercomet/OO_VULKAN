@@ -29,6 +29,9 @@
 #include <backends/imgui_impl_win32.h>
 
 #include "IcoSphereCreator.h"
+#include "Tree.h"
+
+#include <numeric>
 //#include <algorithm>
 
 #include "BoudingVolume.h"
@@ -103,12 +106,12 @@ int main(int argc, char argv[])
     };
 
 
-    std::vector<oGFX::Vertex>quadVerts{
+    std::vector<oGFX::Vertex>triVerts{
             oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
             oGFX::Vertex{ { 0.5,-0.5,0.0}, { 0.0f,1.0f,0.0f }, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f } },
             oGFX::Vertex{ { 0.0, 0.5,0.0}, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f,1.0f }, { 0.0f,1.0f } }
     };
-    std::vector<uint32_t>quadIndices{
+    std::vector<uint32_t>triIndices{
         0,1,2
     };
 
@@ -240,9 +243,6 @@ int main(int argc, char argv[])
 
     //uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
     //uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
-
-    
-    
    
 
     uint32_t icoSphere{};
@@ -308,17 +308,17 @@ int main(int argc, char argv[])
     //
     //Sphere ms;
     //oGFX::BV::RitterSphere(ms, positions);
-    //std::cout << "Ritter Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    //std::cout << "Ritter Sphere " << ms.center << " , r = " << ms.radius << std::endl;
     //oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_6);
-    //std::cout << "Larson_06 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    //std::cout << "Larson_06 Sphere " << ms.center << " , r = " << ms.radius << std::endl;
     //oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_14);
-    //std::cout << "Larson_14 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    //std::cout << "Larson_14 Sphere " << ms.center << " , r = " << ms.radius << std::endl;
     //oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_26);
-    //std::cout << "Larson_26 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    //std::cout << "Larson_26 Sphere " << ms.center << " , r = " << ms.radius << std::endl;
     //oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_98);
-    //std::cout << "Larson_98 Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    //std::cout << "Larson_98 Sphere " << ms.center << " , r = " << ms.radius << std::endl;
     //oGFX::BV::RittersEigenSphere(ms, positions);
-    //std::cout << "Eigen Sphere " << ms.centre << " , r = " << ms.radius << std::endl;
+    //std::cout << "Eigen Sphere " << ms.center << " , r = " << ms.radius << std::endl;
     //AABB ab;
     ////positions.resize(ball->vertices.size());
     ////std::transform(ball->vertices.begin(), ball->vertices.end(), positions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
@@ -331,10 +331,12 @@ int main(int argc, char argv[])
 
     
     VulkanRenderer::EntityDetails ed;
+    ed.name = "Plane";
     ed.modelID = plane;
     ed.pos = { 0.0f,-2.0f,0.0f };
-    ed.scale = { 30.0f,30.0f,30.0f };
-    renderer.entities.push_back(ed);
+    ed.scale = { 30.0f,1.0f,30.0f };
+    //renderer.entities.push_back(ed);
+    ed.name = "Sphere";
     ed.modelID = icoSphere;
     ed.pos = { -2.0f,0.0f,-2.0f };
     ed.scale = { 1.0f,1.0f,1.0f };
@@ -343,38 +345,90 @@ int main(int argc, char argv[])
     //ed.pos = { 0.0f,0.0f,0.0f };  
     //renderer.entities.push_back(ed);
     ed.modelID = box;
+    ed.name = "Box";
     ed.pos = { 2.0f,0.0f,2.0f };
+    ed.scale = { 2.0f,3.0f,1.0f };
+    renderer.entities.push_back(ed);
+    ed.pos = { 5.0f,-1.0f,2.0f };
+    ed.scale = { 1.0f,3.0f,3.0f };
+    renderer.entities.push_back(ed);
+    ed.pos = { 5.0f,0.0f,-5.0f };
+    ed.scale = { 2.0f,1.2f,2.0f };
+    renderer.entities.push_back(ed);
+    ed.pos = { 3.0f,-2.0f,-5.0f };
+    ed.scale = { 1.0f,1.2f,2.0f };
+    renderer.entities.push_back(ed);
+    ed.pos = { 1.0f,-2.0f,5.0f };
     ed.scale = { 1.0f,1.0f,1.0f };
     renderer.entities.push_back(ed);
-    
-    int iter = 0;
+
+    renderer.entities.resize(2);
+
     for (auto& e: renderer.entities)
     {
         AABB ab;
         ab.center = e.pos;
         ab.halfExt = e.scale * 0.5f;
-        renderer.AddDebugBox(ab, {(iter+1)%3,(iter+2%3),(iter%3),1});
-        ++iter;
+        e.aabb = ab;
+
+        e.sphere.center = e.pos;
+        e.sphere.radius = std::max({ 
+            e.scale[0],
+            e.scale[1],
+            e.scale[2]}) ;
+
+        //renderer.AddDebugBox(ab, {(iter+1)%3,(iter+2%3),(iter%3),1});
     }
 
-    
-    auto [sphVertices, spfIndices] = icosahedron::make_icosphere(2);
-    auto currsz = renderer.g_debugDrawVerts.size();
-    renderer.g_debugDrawVerts.reserve(renderer.g_debugDrawVerts.size() + sphVertices.size());
-    for (auto&& v : sphVertices)
-    {
-        renderer.g_debugDrawVerts.emplace_back(oGFX::Vertex{ v });
+    std::vector<uint32_t> ids(renderer.entities.size());
+    std::iota(ids.begin(), ids.end(), 0);
+
+    Tree<VulkanRenderer::EntityDetails,Sphere> topDownSphere;
+    topDownSphere.root = std::make_unique<TreeNode<Sphere>>();
+    Tree<VulkanRenderer::EntityDetails, Sphere>::TopDownTree<VulkanRenderer::EntityDetails, Sphere>
+        (renderer.entities, topDownSphere.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
+
+    std::vector<std::pair<uint32_t,Sphere>> topSphereDebugs;
+    topDownSphere.getDrawList<VulkanRenderer::EntityDetails, Sphere>(topSphereDebugs,topDownSphere.root.get());
+
+    for (auto& [depth,sphere] : topSphereDebugs)
+    {         
+        renderer.AddDebugSphere(sphere, oGFX::Colors::c[depth], renderer.g_topDwn_Sphere);
     }
-    
-    renderer.g_debugDrawIndices.reserve( renderer.g_debugDrawIndices.size() + spfIndices.size()*3);
-    for (auto&& ind : spfIndices) 
+
+    Tree<VulkanRenderer::EntityDetails,AABB> boxTree;
+    std::iota(ids.begin(), ids.end(), 0);
+    boxTree.root = std::make_unique<TreeNode<AABB>>();
+    Tree<VulkanRenderer::EntityDetails, AABB>::TopDownTree<VulkanRenderer::EntityDetails, AABB>(renderer.entities, boxTree.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
+    std::vector<std::pair<uint32_t,AABB>> topBoxDebugs;
+    boxTree.getDrawList<VulkanRenderer::EntityDetails, AABB>(topBoxDebugs,boxTree.root.get());
+    for (auto& [depth,box] : topBoxDebugs)
     {
-        renderer.g_debugDrawIndices.emplace_back(ind.vertex[0]+static_cast<uint32_t>(currsz));
-        renderer.g_debugDrawIndices.emplace_back(ind.vertex[1]+static_cast<uint32_t>(currsz));
-        renderer.g_debugDrawIndices.emplace_back(ind.vertex[0]+static_cast<uint32_t>(currsz)); 
-        renderer.g_debugDrawIndices.emplace_back(ind.vertex[2]+static_cast<uint32_t>(currsz));
-        renderer.g_debugDrawIndices.emplace_back(ind.vertex[2]+static_cast<uint32_t>(currsz));
-        renderer.g_debugDrawIndices.emplace_back(ind.vertex[1]+static_cast<uint32_t>(currsz));
+        renderer.AddDebugBox(box, oGFX::Colors::c[depth],renderer.g_topDwn_AABB);
+    }
+
+
+    std::iota(ids.begin(), ids.end(), 0);
+    Tree<VulkanRenderer::EntityDetails,AABB> btmTree;
+    btmTree.BottomUpTree(renderer.entities, btmTree.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
+
+    std::vector<std::pair<uint32_t,AABB>> btmBoxDebugs;
+    btmTree.getDrawList<VulkanRenderer::EntityDetails, AABB>(btmBoxDebugs,btmTree.root.get());
+    for (auto& [depth,box] : btmBoxDebugs)
+    {
+        renderer.AddDebugBox(box, oGFX::Colors::c[depth],renderer.g_btmUp_AABB);
+    }
+
+
+    std::iota(ids.begin(), ids.end(), 0);
+    Tree<VulkanRenderer::EntityDetails,Sphere> btmSphereTree;
+    btmSphereTree.BottomUpTree(renderer.entities, btmSphereTree.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
+
+    std::vector<std::pair<uint32_t,Sphere>> btmSphereDebugs;
+    btmSphereTree.getDrawList<VulkanRenderer::EntityDetails, Sphere>(btmSphereDebugs,btmSphereTree.root.get());
+    for (auto& [depth,sphere] : btmSphereDebugs)
+    {
+        renderer.AddDebugSphere(sphere, oGFX::Colors::c[depth],renderer.g_btmUp_Sphere);
     }
 
     //uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");
@@ -387,13 +441,7 @@ int main(int argc, char argv[])
    auto alb = renderer.CreateTexture("Textures/TD_Checker_Base_Color.dds");
    auto norm =renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
    auto occlu =renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
-   auto rough =renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
-   //renderer.SetMeshTextures(yes, alb, norm, occlu, rough);
-
-   //renderer.SubmitMesh(yes, position);
-
-
-   
+   auto rough =renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");   
 
 
    //create a hundred random textures because why not
@@ -425,25 +473,13 @@ int main(int argc, char argv[])
     renderer.camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
     renderer.camera.SetRotationSpeed(0.5f);
     renderer.camera.SetPosition(glm::vec3(0.1f, 2.0f, 10.5f));
+    renderer.camera.movementSpeed = 5.0f;
 
     bool freezeLight = false;
 
-  
+    //renderer.UpdateDebugBuffers();
 
-    //for (size_t i = 0; i < boxindices.size()-1; i++)
-    //{
-    //    ab.center + Point3D{ab.halfExt.x, ab.halfExt.y,ab.halfExt.z};
-    //    ab.center + Point3D{-ab.halfExt.x, ab.halfExt.y,ab.halfExt.z};
-    //    ab.center + Point3D{-ab.halfExt.x, ab.halfExt.y,ab.halfExt.z};
-    //}
-    //renderer.g_debugDrawIndices.push_back(boxindices[boxindices.size()-1]);
-    //renderer.g_debugDrawIndices.push_back(boxindices[0]);
-
-   
-
-    renderer.UpdateDebugBuffers();
-
-
+    bool geomChanged = false;
     glm::vec3 pos{0.1f, 1.1f, -3.5f};
     // handling winOS messages
     // This will handle inputs and pass it to our input callback
@@ -457,13 +493,12 @@ int main(int argc, char argv[])
         float deltaTime = std::chrono::duration<float>( now - lastTime).count();
         lastTime = now;
 
-        renderer.camera.keys.left = Input::GetKeyHeld(KEY_A)? true : false;
-        renderer.camera.keys.right = Input::GetKeyHeld(KEY_D)? true : false;
-        renderer.camera.keys.down = Input::GetKeyHeld(KEY_S)? true : false;
-        renderer.camera.keys.up = Input::GetKeyHeld(KEY_W)? true : false;
+        renderer.camera.keys.left =     Input::GetKeyHeld(KEY_A)? true : false;
+        renderer.camera.keys.right =    Input::GetKeyHeld(KEY_D)? true : false;
+        renderer.camera.keys.down =     Input::GetKeyHeld(KEY_S)? true : false;
+        renderer.camera.keys.up =       Input::GetKeyHeld(KEY_W)? true : false;
         renderer.camera.Update(deltaTime);
-        renderer.camera.movementSpeed = 5.0f;
-        float speed = 0.05f;
+
 
         if (mainWindow.m_width != 0 && mainWindow.m_height != 0)
         {
@@ -494,6 +529,116 @@ int main(int argc, char argv[])
         ImGui::NewFrame();
 
         //std::cout<<  renderer.camera.position << '\n';
+
+        if (geomChanged)
+        {
+            // update bv
+            for (auto& e: renderer.entities)
+            {
+                AABB ab;
+                ab.center = e.pos;
+                ab.halfExt = e.scale * 0.5f;
+                e.aabb = ab;
+
+                e.sphere.center = e.pos;
+                e.sphere.radius = std::max({ 
+                    e.scale[0],
+                    e.scale[1],
+                    e.scale[2]}) * 0.5f;
+
+            }
+
+            {// TOPDOWN AABB
+                std::iota(ids.begin(), ids.end(), 0);
+                auto& debug = renderer.g_DebugDraws[renderer.g_topDwn_AABB];
+                debug.dirty = true;
+                boxTree.Clear();
+                boxTree.root = std::make_unique<TreeNode<AABB>>();
+                Tree<VulkanRenderer::EntityDetails, AABB>::TopDownTree<VulkanRenderer::EntityDetails, AABB>
+                    (renderer.entities, boxTree.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
+
+                debug.vertex.clear();
+                debug.indices.clear();
+                topBoxDebugs.clear();
+                boxTree.getDrawList<VulkanRenderer::EntityDetails, AABB>(topBoxDebugs, boxTree.root.get());
+                for (auto& [depth,box] : topBoxDebugs)
+                {
+                    renderer.AddDebugBox(box, oGFX::Colors::c[depth],renderer.g_topDwn_AABB);
+                }
+            }
+
+            {// BOTTOM AABB
+                std::iota(ids.begin(), ids.end(), 0);
+                auto& debug = renderer.g_DebugDraws[renderer.g_btmUp_AABB];
+                debug.dirty = true;
+                btmTree.Clear();
+                btmTree.BottomUpTree(renderer.entities, btmTree.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
+
+                debug.vertex.clear();
+                debug.indices.clear();
+
+                btmBoxDebugs.clear();
+                btmTree.getDrawList<VulkanRenderer::EntityDetails, AABB>(btmBoxDebugs,btmTree.root.get());
+                for (auto& [depth,box] : btmBoxDebugs)
+                {
+                    renderer.AddDebugBox(box, oGFX::Colors::c[depth],renderer.g_btmUp_AABB);
+                }
+            }
+            
+            {// TOP DOWN SPHERE
+                std::iota(ids.begin(), ids.end(), 0);
+                auto& debug = renderer.g_DebugDraws[renderer.g_topDwn_Sphere];
+                debug.dirty = true;
+                topDownSphere.Clear();
+                topDownSphere.root = std::make_unique<TreeNode<Sphere>>();
+                Tree<VulkanRenderer::EntityDetails, Sphere>::TopDownTree<VulkanRenderer::EntityDetails, Sphere>
+                    (renderer.entities, topDownSphere.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
+                debug.vertex.clear();
+                debug.indices.clear();
+
+                topSphereDebugs.clear();
+                topDownSphere.getDrawList<VulkanRenderer::EntityDetails, Sphere>(topSphereDebugs,topDownSphere.root.get());
+                for (auto& [depth,sphere] : topSphereDebugs)
+                {         
+                    renderer.AddDebugSphere(sphere, oGFX::Colors::c[depth], renderer.g_topDwn_Sphere);
+                }
+            }
+
+            {// BOTTOMUP SPHERE
+                std::iota(ids.begin(), ids.end(), 0);
+                auto& debug = renderer.g_DebugDraws[renderer.g_btmUp_Sphere];
+                debug.dirty = true;
+                btmSphereTree.Clear();
+                btmSphereTree.BottomUpTree(renderer.entities, btmSphereTree.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
+                debug.vertex.clear();
+                debug.indices.clear();
+
+                btmSphereDebugs.clear();
+                btmSphereTree.getDrawList<VulkanRenderer::EntityDetails, Sphere>(btmSphereDebugs,btmSphereTree.root.get());
+                for (auto& [depth,sphere] : btmSphereDebugs)
+                {
+                    renderer.AddDebugSphere(sphere, oGFX::Colors::c[depth],renderer.g_btmUp_Sphere);
+                }
+            }
+
+           //std::iota(ids.begin(), ids.end(), 0);
+           //btmTree.Clear();
+           //renderer.g_debugDrawVerts.clear();
+           //renderer.g_debugDrawIndices.clear();
+           //btmTree.BottomUpTree(renderer.entities, btmTree.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
+           //
+           //std::vector<std::pair<uint32_t,AABB>> btmDebugs;
+           //btmTree.getDrawList<VulkanRenderer::EntityDetails, AABB>(btmDebugs, btmTree.root.get());
+           //for (auto& [depth,box] : btmDebugs)
+           //{
+           //    renderer.AddDebugBox(box, oGFX::Colors::c[depth]);
+           //}           
+
+            //renderer.UpdateDebugBuffers();
+            geomChanged = false;
+        }
+
+        renderer.UpdateTreeBuffers();
 
         if (renderer.gpuTransformBuffer.MustUpdate())
         {
@@ -536,35 +681,32 @@ int main(int argc, char argv[])
             //ImGui::ShowDemoWindow();
             
             ImGui::Begin("Entity List");
+            int id{};
+            
             for (auto& entity: renderer.entities)
             {
-                ImGui::PushID(entity.modelID);
+                ImGui::PushID(id++);
                 
                 ImGui::BulletText("[%d] ", entity.modelID);
                 ImGui::SameLine();
-                switch (entity.modelID)
-                {
-                case 0:
-                ImGui::Text("Sphere");
-                break;
-                case 1:
-                ImGui::Text("Box");
-                break;
-                case 2:
-                ImGui::Text("Triangle");
-                break;
-                default:
-                break;
-                }
+                ImGui::Text(entity.name.c_str());
                 
-                ImGui::DragFloat3("Position", glm::value_ptr(entity.pos), 0.01f);
-                ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
-                ImGui::DragFloat("theta", &entity.rot);
-                ImGui::DragFloat3("Rotation Vec", glm::value_ptr(entity.rotVec));
+                geomChanged |= ImGui::DragFloat3("Position", glm::value_ptr(entity.pos), 0.01f);
+                geomChanged |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
+                geomChanged |= ImGui::DragFloat("theta", &entity.rot);
+                geomChanged |= ImGui::DragFloat3("Rotation Vec", glm::value_ptr(entity.rotVec));
 
                 ImGui::PopID();
             }
             ImGui::End();
+
+            ImGui::Begin("Debug Draws");
+            ImGui::Checkbox("Top down AABB", &renderer.debug_btmUp_aabb);
+            ImGui::Checkbox("Bottom Up AABB", &renderer.debug_topDown_aabb);
+            ImGui::Checkbox("Top down Sphere", &renderer.debug_topDown_sphere);
+            ImGui::Checkbox("Bottom Up Sphere", &renderer.debug_btmUp_sphere);
+            ImGui::End();
+
             renderer.DrawGUI();
 
             renderer.Present();

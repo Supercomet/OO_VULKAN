@@ -50,7 +50,7 @@ namespace icosahedron
 
 using IndexedMesh=std::pair<VertexList, TriangleList>;
 
-IndexedMesh make_icosphere(int subdivisions);
+IndexedMesh make_icosphere(int subdivisions, bool normalized = true);
 
 }
 
