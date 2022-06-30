@@ -6,7 +6,7 @@ namespace coll
 
 bool PointSphere(const Point3D& p, const Sphere& s)
 {
-	glm::vec3 d = (glm::vec3)p - (glm::vec3)s.centre;
+	glm::vec3 d = (glm::vec3)p - (glm::vec3)s.center;
 	float r_sq = (s.radius * s.radius);
 	return (glm::dot(d, d) <= r_sq);
 }
@@ -51,8 +51,8 @@ bool BaryCentricTriangle(const Point3D& p, const Triangle& tri, float& u, float&
 
 bool SphereSphere(const Sphere& a, const Sphere& b)
 {
-	return PointSphere(b.centre,
-		Sphere{a.centre, a.radius + b.radius});
+	return PointSphere(b.center,
+		Sphere{a.center, a.radius + b.radius});
 }
 
 bool AabbAabb(const AABB& a, const AABB& b)
@@ -77,7 +77,7 @@ bool AabbAabb(const AABB& a, const AABB& b)
 
 bool SphereAabb(const Sphere& s, const AABB& a)
 {
-	float sqrDist = SqDistPointAabb(s.centre, a);
+	float sqrDist = SqDistPointAabb(s.center, a);
 
 	return sqrDist <= s.radius*s.radius;
 }
@@ -270,7 +270,7 @@ bool RaySphere(const Ray& r, const Sphere& s)
 
 bool RaySphere(const Ray& r, const Sphere& s, float& t)
 {
-	glm::vec3 m = r.start - s.centre;
+	glm::vec3 m = r.start - s.center;
 	float b = glm::dot(m, r.direction);
 	float c = glm::dot (m, m) - s.radius * s.radius;
 	// Exit if r’s origin outside s (c > 0) and r pointing away from s (b > 0)
@@ -347,7 +347,7 @@ bool PlaneSphere(const Plane& p, const Sphere& s)
 
 bool PlaneSphere(const Plane& p, const Sphere& s, float& t)
 {
-	float dist = glm::dot(s.centre, glm::vec3(p.normal))-p.normal.w;
+	float dist = glm::dot(s.center, glm::vec3(p.normal))-p.normal.w;
 	auto result = std::abs(dist) <= s.radius;
 	if (result != true)
 	{

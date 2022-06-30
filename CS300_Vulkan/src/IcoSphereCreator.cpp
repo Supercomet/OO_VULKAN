@@ -90,7 +90,7 @@ TriangleList subdivide(VertexList& vertices, TriangleList triangles)
 	return result;
 }
 
-IndexedMesh make_icosphere(int subdivisions)
+IndexedMesh make_icosphere(int subdivisions, bool normalized)
 {
 	VertexList vertices=icosahedron::vertices;
 	TriangleList triangles=icosahedron::triangles;
@@ -101,10 +101,13 @@ IndexedMesh make_icosphere(int subdivisions)
 	{
 		triangles=subdivide(vertices, triangles);
 	}
-	for (auto&v:vertices)
+	if (normalized)
 	{
-		// normalize to 0.5 radius sphere
-		v *= 0.5f;
+		for (auto&v:vertices)
+		{
+			// normalize to 0.5 radius sphere
+			v *= 0.5f;
+		}
 	}
 
 	return{vertices, triangles};

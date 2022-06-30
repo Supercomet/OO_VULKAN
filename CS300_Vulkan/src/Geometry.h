@@ -28,7 +28,7 @@ struct Sphere
 {
 	Sphere();
 	Sphere(Point3D p, float r);
-	Point3D centre;
+	Point3D center;
 	float radius;
 };
 

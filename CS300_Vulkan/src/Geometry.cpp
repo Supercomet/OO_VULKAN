@@ -24,12 +24,12 @@ Point3D AABB::min()const
 	return this->center - this->halfExt;
 }
 
-Sphere::Sphere() : centre{}, radius{ 1.0f }
+Sphere::Sphere() : center{}, radius{ 1.0f }
 {
 }
 
 Sphere::Sphere(Point3D p, float r) :
-	centre{ p },
+	center{ p },
 	radius{ r }
 {
 }

@@ -124,7 +124,8 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	void DestroyImGUI();
 
 
-	void AddDebugBox(const AABB& aabb, const oGFX::Color& col);
+	void AddDebugBox(const AABB& aabb, const oGFX::Color& col, size_t loc = -1);
+	void AddDebugSphere(const Sphere& aabb, const oGFX::Color& col,size_t loc = -1);
 
 	void UpdateIndirectCommands();
 	void UpdateInstanceData();
@@ -154,6 +155,9 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	void InitDebugBuffers();
 	void UpdateDebugBuffers();
 
+	void UpdateTreeBuffers();
+
+	
 	void DebugPass();
 
 	struct VertexBufferObject
@@ -176,6 +180,30 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	inline static GpuVector<uint32_t> g_debugDrawIndxBuffer{ &VulkanRenderer::m_device };
 	std::vector<oGFX::Vertex> g_debugDrawVerts;
 	std::vector<uint32_t> g_debugDrawIndices;
+
+	//TEMP
+	struct DebugDraw
+	{
+		GpuVector<oGFX::Vertex> vbo{ &VulkanRenderer::m_device };
+		GpuVector<uint32_t> ibo{ &VulkanRenderer::m_device };
+		std::vector<oGFX::Vertex> vertex;
+		std::vector<uint32_t> indices;
+		bool dirty = true;
+	};
+
+	inline static bool debug_btmUp_aabb = false;
+	inline static bool debug_topDown_aabb = false;
+	inline static bool debug_btmUp_sphere = false;
+	inline static bool debug_topDown_sphere = false;
+	static constexpr size_t g_btmUp_AABB =0;
+	static constexpr size_t g_topDwn_AABB =1;
+	static constexpr size_t g_btmUp_Sphere=2;
+	static constexpr size_t g_topDwn_Sphere=3;
+
+	inline static DebugDraw g_DebugDraws[4];
+	void InitTreeDebugDraws();
+	void ShutdownTreeDebug();
+
 
 
 	Model* LoadMeshFromFile(const std::string& file);
@@ -282,6 +310,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	public:
 	struct EntityDetails
 	{
+		std::string name;
 		glm::vec3 pos{};
 		glm::vec3 scale{1.0f};
 		float rot{};
@@ -289,6 +318,26 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 
 		uint32_t modelID{}; // Index for the mesh
 		uint32_t entityID{}; // Unique ID for this entity instance
+		Sphere sphere;
+		AABB aabb;
+
+		template <typename T>
+		float GetBVHeuristic();
+
+		template <>
+		float GetBVHeuristic<Sphere>()
+		{
+			return glm::pi<float>()* sphere.radius* sphere.radius;
+		}
+
+		template <>
+		float GetBVHeuristic<AABB>()
+		{
+			const auto width  = aabb.halfExt[0];
+			const auto height = aabb.halfExt[1];
+			const auto depth  = aabb.halfExt[2];
+			return 8.0f * ( (width*height)*(width*depth)*(height*depth) );
+		}
 	};
 	inline static std::vector<EntityDetails> entities;
 
