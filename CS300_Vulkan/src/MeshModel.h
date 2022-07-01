@@ -4,6 +4,7 @@
 #include "MathCommon.h"
 #include "VulkanUtils.h"
 #include "Mesh.h"
+#include "Geometry.h"
 
 #pragma warning( push )
 #pragma warning( disable : 26451 ) // vendor overflow
@@ -43,6 +44,8 @@ struct Model
 	std::string fileName;
 	std::vector<oGFX::Vertex> vertices;
 	std::vector<uint32_t> indices;
+	Sphere s;
+	AABB aabb;
 };
 
 struct gfxModel
@@ -67,6 +70,8 @@ struct gfxModel
 		uint32_t occlusion;
 		uint32_t roughness;
 	}textures;
+
+	Model* cpuModel;
 
 	void destroy(VkDevice device);
 

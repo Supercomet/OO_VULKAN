@@ -219,6 +219,7 @@ int main(int argc, char argv[])
 
     uint32_t colour = 0xFFFFFFFF; // ABGR
     renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&colour));
+    renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&colour));
 
     std::vector<oGFX::Vertex>triVerts{
             oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
@@ -249,7 +250,7 @@ int main(int argc, char argv[])
     renderer.m_MeshIndexToMeshName.emplace(planeMeshIndex, "Plane");
     renderer.m_MeshIndexToMeshName.emplace(cubeMeshIndex, "Cube");
 
-    uint32_t icoSphereMeshIndex{};
+    std::unique_ptr<Model> icoSphere{};
     {
         auto [pos,triangleList] = icosahedron::make_icosphere(1);
 
@@ -263,36 +264,49 @@ int main(int argc, char argv[])
         }
         std::vector<uint32_t>indices;
         indices.reserve(triangleList.size() * 3ull);
-        uint32_t max{};
-        uint32_t min{};
         for (size_t i = 0; i < triangleList.size(); i++)
-        {
-            max = std::max<uint32_t>({ max,
-                (uint32_t)triangleList[i].vertex[0],
-                (uint32_t)triangleList[i].vertex[2],
-                (uint32_t)triangleList[i].vertex[1] });
-
-            min = std::min<uint32_t>({ min,
-                (uint32_t)triangleList[i].vertex[0],
-                (uint32_t)triangleList[i].vertex[2],
-                (uint32_t)triangleList[i].vertex[1] });
-
+        {           
             indices.push_back(triangleList[i].vertex[0]);
             indices.push_back(triangleList[i].vertex[1]);
             indices.push_back(triangleList[i].vertex[2]);
+
+            glm::vec3 e1 = vertices[triangleList[i].vertex[0]].pos - vertices[triangleList[i].vertex[1]].pos;
+            glm::vec3 e2 = vertices[triangleList[i].vertex[2]].pos - vertices[triangleList[i].vertex[1]].pos;
+            glm::vec3 norm = glm::normalize(glm::cross(e1, e2));
+            for (size_t j = 0; j < 3; j++)
+            {
+                vertices[triangleList[i].vertex[j]].norm = norm;
+            }
+
         }
-        std::cout << "max:" << max << " min: " << min << " verts " << vertices.size() << std::endl;
         renderer.g_MeshBuffers.VtxBuffer.reserve(100000*sizeof(oGFX::Vertex));
         renderer.g_MeshBuffers.IdxBuffer.reserve(100000*sizeof(oGFX::Vertex));
-        icoSphereMeshIndex = renderer.LoadMeshFromBuffers(vertices, indices, nullptr);
-        renderer.m_MeshIndexToMeshName.emplace(icoSphereMeshIndex, "Sphere");
+        icoSphere.reset( renderer.LoadMeshFromBuffers(vertices, indices, nullptr));
     }
-    //uint32_t box = renderer.LoadMeshFromBuffers(boxverts, boxindices, nullptr);
-    
+
+    std::vector<Point3D> vertPositions;
+    std::unique_ptr<Model> bunny { renderer.LoadMeshFromFile("Models/bunny.ply") };
+    vertPositions.resize(bunny->vertices.size());
+    std::transform(bunny->vertices.begin(), bunny->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+    oGFX::BV::RitterSphere(bunny->s, vertPositions);
+    oGFX::BV::BoundingAABB(bunny->aabb, vertPositions);
+    Sphere ms;
+    //oGFX::BV::RittersEigenSphere(bunny->s, vertPositions);
+
+    vertPositions.resize(icoSphere->vertices.size());
+    std::transform(icoSphere->vertices.begin(), icoSphere->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+    oGFX::BV::RitterSphere(icoSphere->s, vertPositions);
+    oGFX::BV::BoundingAABB(icoSphere->aabb, vertPositions);
+
+    std::unique_ptr<Model> box{ renderer.LoadMeshFromBuffers(boxverts, boxindices, nullptr) };
+    vertPositions.resize(box->vertices.size());
+    std::transform(box->vertices.begin(), box->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+    oGFX::BV::RitterSphere(box->s, vertPositions);
+    oGFX::BV::BoundingAABB(box->aabb, vertPositions);
 
     //std::unique_ptr<Model> ball;
     //ball.reset(renderer.LoadMeshFromFile("Models/sphere.obj"));
-    //auto bunny = renderer.LoadMeshFromFile("Models/bunny.ply");
+    
     //int o{};
     //std::vector<glm::vec3> positions(bunny->vertices.size());
     //std::transform(bunny->vertices.begin(), bunny->vertices.end(), positions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
@@ -309,11 +323,9 @@ int main(int argc, char argv[])
     //
     //
     //uint32_t triangle = renderer.LoadMeshFromBuffers(quadVerts, quadIndices, nullptr);
-    //uint32_t plane = renderer.LoadMeshFromBuffers(planeVerts, planeIndices, nullptr);
-    
+    std::unique_ptr<Model> plane{ renderer.LoadMeshFromBuffers(planeVerts, planeIndices, nullptr) };
     //delete bunny;
     //
-    //Sphere ms;
     //oGFX::BV::RitterSphere(ms, positions);
     //std::cout << "Ritter Sphere " << ms.center << " , r = " << ms.radius << std::endl;
     //oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_6);
@@ -324,7 +336,6 @@ int main(int argc, char argv[])
     //std::cout << "Larson_26 Sphere " << ms.center << " , r = " << ms.radius << std::endl;
     //oGFX::BV::LarsonSphere(ms, positions, oGFX::BV::EPOS::_98);
     //std::cout << "Larson_98 Sphere " << ms.center << " , r = " << ms.radius << std::endl;
-    //oGFX::BV::RittersEigenSphere(ms, positions);
     //std::cout << "Eigen Sphere " << ms.center << " , r = " << ms.radius << std::endl;
     //AABB ab;
     ////positions.resize(ball->vertices.size());
@@ -347,21 +358,28 @@ int main(int argc, char argv[])
     VulkanRenderer::EntityDetails ed;
     ed.name = "Plane";
     ed.entityID = FastRandomMagic();
-    ed.modelID = planeMeshIndex;
+    ed.modelID = plane->gfxIndex;
     ed.pos = { 0.0f,-2.0f,0.0f };
     ed.scale = { 30.0f,1.0f,30.0f };
     //renderer.entities.push_back(ed);
     ed.name = "Sphere";
     ed.entityID = FastRandomMagic();
-    ed.modelID = icoSphereMeshIndex;
+    ed.modelID = icoSphere->gfxIndex;
     ed.pos = { -2.0f,0.0f,-2.0f };
     ed.scale = { 1.0f,1.0f,1.0f };
+    renderer.entities.push_back(ed);
+
+    ed.modelID = bunny->gfxIndex;
+    ed.name = "Bunny";
+    ed.entityID = FastRandomMagic();
+    ed.pos = { -3.0f,2.0f,-3.0f };
+    ed.scale = { 2.0f,1.0f,2.0f };
     renderer.entities.push_back(ed);
     //ed.modelID = triangle;
     //ed.entityID = FastRandomMagic();
     //ed.pos = { 0.0f,0.0f,0.0f };  
     //renderer.entities.push_back(ed);
-    ed.modelID = cubeMeshIndex;
+    ed.modelID = box->gfxIndex;
     ed.name = "Box";
     ed.entityID = FastRandomMagic();
     ed.pos = { 2.0f,0.0f,2.0f };
@@ -384,21 +402,26 @@ int main(int argc, char argv[])
     ed.scale = { 1.0f,1.0f,1.0f };
     renderer.entities.push_back(ed);
 
-    renderer.entities.resize(2);
+    //renderer.entities.resize(2);
 
     for (auto& e: renderer.entities)
     {
         AABB ab;
+        auto& model = renderer.models[e.modelID];
         ab.center = e.pos;
         ab.halfExt = e.scale * 0.5f;
-        e.aabb = ab;
+        e.aabb = model.cpuModel->aabb;
+        e.aabb.center += e.pos;
+        e.aabb.halfExt *= e.scale;
 
-        e.sphere.center = e.pos;
-        e.sphere.radius = std::max({ 
+
+        e.sphere = model.cpuModel->s;
+        e.sphere.center += e.pos;
+        e.sphere.radius *= std::max({ 
             e.scale[0],
             e.scale[1],
             e.scale[2]}) ;
-
+        
         //renderer.AddDebugBox(ab, {(iter+1)%3,(iter+2%3),(iter%3),1});
     }
 
@@ -558,16 +581,20 @@ int main(int argc, char argv[])
             for (auto& e: renderer.entities)
             {
                 AABB ab;
+                auto& model = renderer.models[e.modelID];
                 ab.center = e.pos;
                 ab.halfExt = e.scale * 0.5f;
-                e.aabb = ab;
+                e.aabb = model.cpuModel->aabb;
+                e.aabb.center += e.pos;
+                e.aabb.halfExt *= e.scale ;
 
-                e.sphere.center = e.pos;
-                e.sphere.radius = std::max({ 
+                e.sphere = model.cpuModel->s;
+                e.sphere.center += e.pos;
+                e.sphere.radius *= std::max({ 
                     e.scale[0],
                     e.scale[1],
-                    e.scale[2]}) * 0.5f;
-
+                    e.scale[2]});
+                
             }
 
             {// TOPDOWN AABB
@@ -815,6 +842,13 @@ int main(int argc, char argv[])
             }
 
             ImGui::Begin("Debug Draws");
+
+            static const char* sphereTypes[]
+            {
+                "Hello"
+            };
+
+            //ImGui::ListBox()
             ImGui::Checkbox("Top down AABB", &renderer.debug_btmUp_aabb);
             ImGui::Checkbox("Bottom Up AABB", &renderer.debug_topDown_aabb);
             ImGui::Checkbox("Top down Sphere", &renderer.debug_topDown_sphere);
