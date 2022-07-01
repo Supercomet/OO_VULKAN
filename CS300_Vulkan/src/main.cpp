@@ -245,10 +245,6 @@ int main(int argc, char argv[])
    
     auto defaultPlaneMesh = CreateDefaultPlaneXZMesh();
     auto defaultCubeMesh = CreateDefaultCubeMesh();
-    uint32_t planeMeshIndex = renderer.LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr);
-    uint32_t cubeMeshIndex = renderer.LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr);
-    renderer.m_MeshIndexToMeshName.emplace(planeMeshIndex, "Plane");
-    renderer.m_MeshIndexToMeshName.emplace(cubeMeshIndex, "Cube");
 
     std::unique_ptr<Model> icoSphere{};
     {
@@ -298,7 +294,7 @@ int main(int argc, char argv[])
     oGFX::BV::RitterSphere(icoSphere->s, vertPositions);
     oGFX::BV::BoundingAABB(icoSphere->aabb, vertPositions);
 
-    std::unique_ptr<Model> box{ renderer.LoadMeshFromBuffers(boxverts, boxindices, nullptr) };
+    std::unique_ptr<Model> box{ renderer.LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
     vertPositions.resize(box->vertices.size());
     std::transform(box->vertices.begin(), box->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
     oGFX::BV::RitterSphere(box->s, vertPositions);
@@ -323,7 +319,7 @@ int main(int argc, char argv[])
     //
     //
     //uint32_t triangle = renderer.LoadMeshFromBuffers(quadVerts, quadIndices, nullptr);
-    std::unique_ptr<Model> plane{ renderer.LoadMeshFromBuffers(planeVerts, planeIndices, nullptr) };
+    std::unique_ptr<Model> plane{ renderer.LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
     //delete bunny;
     //
     //oGFX::BV::RitterSphere(ms, positions);
@@ -742,7 +738,7 @@ int main(int argc, char argv[])
                                 VulkanRenderer::EntityDetails entity;
                                 entity.pos = { 2.0f,2.0f,2.0f };
                                 entity.scale = { 1.0f,1.0f,1.0f };
-                                entity.modelID = cubeMeshIndex;
+                                entity.modelID = box->gfxIndex;
                                 entity.entityID = FastRandomMagic();
                                 renderer.entities.push_back(entity);
                             }
@@ -752,15 +748,6 @@ int main(int argc, char argv[])
                                 ImGui::PushID(entity.entityID);
 
                                 ImGui::BulletText("[ID:%u] ", entity.entityID);
-                                ImGui::SameLine();
-
-                                // TODO: This code could not be made cleaner... (this is seen as a temporary solution)
-                                auto iter = renderer.m_MeshIndexToMeshName.find(entity.modelID);
-                                if (iter != renderer.m_MeshIndexToMeshName.end())
-                                    ImGui::Text("%s", iter->second ? iter->second : "(nullptr)");
-                                else
-                                    ImGui::Text("(unknown mesh name)");
-
                                 ImGui::DragFloat3("Position", glm::value_ptr(entity.pos), 0.01f);
                                 ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
                                 ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
@@ -818,7 +805,7 @@ int main(int argc, char argv[])
                                     {
                                         auto& light = renderer.lightUBO.lights[i];
                                         auto& pos = light.position;
-                                        bgDrawList->AddCircle(WorldToScreen(pos), 10.0f, 0xFFFFFFFF, 0, 8.0f);
+                                        bgDrawList->AddCircle(WorldToScreen(pos), 10.0f, IM_COL32(light.color.r * 0xFF, light.color.g * 0xFF, light.color.b * 0xFF, 0xFF), 0, 2.0f);
                                     }
                                 }
                             }
