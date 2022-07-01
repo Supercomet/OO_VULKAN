@@ -2251,3 +2251,21 @@ int Win32SurfaceCreator(ImGuiViewport* vp, ImU64 device, const void* allocator, 
 	//*outSurface = 
 	return 1;
 }
+
+// Helper function to set Viewport & Scissor to the default window full extents.
+void SetDefaultViewportAndScissor(VkCommandBuffer commandBuffer)
+{
+    auto* windowPtr = VulkanRenderer::windowPtr;
+    const float vpHeight = (float)VulkanRenderer::m_swapchain.swapChainExtent.height;
+    const float vpWidth = (float)VulkanRenderer::m_swapchain.swapChainExtent.width;
+    VkViewport viewport = { 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f };
+    VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width), uint32_t(windowPtr->m_height) } };
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+}
+
+// Helper function to draw a Full Screen Quad, without binding vertex and index buffers.
+void DrawFullScreenQuad(VkCommandBuffer commandBuffer)
+{
+    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+}

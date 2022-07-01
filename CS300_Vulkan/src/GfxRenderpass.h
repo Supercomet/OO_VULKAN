@@ -6,14 +6,14 @@
 #include <iostream>
 #include <type_traits>
 
-enum AttachmentIndex
+enum GBufferAttachmentIndex
 {
     POSITION = 0,
     NORMAL = 1,
     ALBEDO = 2,
-    DEPTH = 3,
     // MATERIAL, // TODO
-    MAX_GBUFFER_ATTACHMENTS
+    DEPTH = 3,
+    MAX_ATTACHMENTS
 };
 
 class GfxRenderpass

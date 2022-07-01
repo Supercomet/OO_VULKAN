@@ -32,24 +32,24 @@ void GBufferRenderPass::Init()
 
 void GBufferRenderPass::Draw()
 {
-	auto& m_device = VulkanRenderer::m_device;
-	auto& m_swapchain = VulkanRenderer::m_swapchain;
+	auto& device = VulkanRenderer::m_device;
+	auto& swapchain = VulkanRenderer::m_swapchain;
 	auto& commandBuffers = VulkanRenderer::commandBuffers;
 	auto& swapchainIdx = VulkanRenderer::swapchainIdx;
 	auto* windowPtr = VulkanRenderer::windowPtr;
 
 	// Clear values for all attachments written in the fragment shader
-	std::array<VkClearValue,4> clearValues;
-	clearValues[POSITION].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-	clearValues[NORMAL]  .color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-	clearValues[ALBEDO]  .color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-	clearValues[DEPTH]   .depthStencil = { 1.0f, 0 };
+	std::array<VkClearValue, GBufferAttachmentIndex::MAX_ATTACHMENTS> clearValues;
+	clearValues[GBufferAttachmentIndex::POSITION].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[GBufferAttachmentIndex::NORMAL]  .color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[GBufferAttachmentIndex::ALBEDO]  .color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 1.0f, 0 };
 	
 	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
 	renderPassBeginInfo.renderPass =  deferredPass;
 	renderPassBeginInfo.framebuffer = deferredFB;
-	renderPassBeginInfo.renderArea.extent.width = m_swapchain.swapChainExtent.width;
-	renderPassBeginInfo.renderArea.extent.height = m_swapchain.swapChainExtent.height;
+	renderPassBeginInfo.renderArea.extent.width = swapchain.swapChainExtent.width;
+	renderPassBeginInfo.renderArea.extent.height = swapchain.swapChainExtent.height;
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassBeginInfo.pClearValues = clearValues.data();
 	
@@ -57,11 +57,8 @@ void GBufferRenderPass::Draw()
 
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	
-	VkViewport viewport = { 0, float(VulkanRenderer::m_swapchain.swapChainExtent.height), float(VulkanRenderer::m_swapchain.swapChainExtent.width), -float(VulkanRenderer::m_swapchain.swapChainExtent.height), 0, 1 };
-	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
-	vkCmdSetViewport(cmdlist, 0, 1, &viewport);
-	vkCmdSetScissor(cmdlist, 0, 1, &scissor);
-	
+	SetDefaultViewportAndScissor(cmdlist);
+
 	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredPipe);
 	std::array<VkDescriptorSet, 3> descriptorSetGroup = 
 	{
@@ -152,7 +149,7 @@ void GBufferRenderPass::SetupRenderpass()
 	std::array<VkAttachmentDescription, 4> attachmentDescs = {};
 
 	// Init attachment properties
-	for (uint32_t i = 0; i < 4; ++i)
+	for (uint32_t i = 0; i < GBufferAttachmentIndex::MAX_ATTACHMENTS; ++i)
 	{
 		attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
 		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -173,18 +170,18 @@ void GBufferRenderPass::SetupRenderpass()
 	}
 
 	// Formats
-	attachmentDescs[POSITION].format = att_position.format;
-	attachmentDescs[NORMAL]  .format = att_normal.format;
-	attachmentDescs[ALBEDO]  .format = att_albedo.format;
-	attachmentDescs[DEPTH]   .format = att_depth.format;
+	attachmentDescs[GBufferAttachmentIndex::POSITION].format = att_position.format;
+	attachmentDescs[GBufferAttachmentIndex::NORMAL]  .format = att_normal.format;
+	attachmentDescs[GBufferAttachmentIndex::ALBEDO]  .format = att_albedo.format;
+	attachmentDescs[GBufferAttachmentIndex::DEPTH]   .format = att_depth.format;
 
 	std::vector<VkAttachmentReference> colorReferences;
-	colorReferences.push_back({ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-	colorReferences.push_back({ 1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-	colorReferences.push_back({ 2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	colorReferences.push_back({ GBufferAttachmentIndex::POSITION, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	colorReferences.push_back({ GBufferAttachmentIndex::NORMAL,   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	colorReferences.push_back({ GBufferAttachmentIndex::ALBEDO,   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 
 	VkAttachmentReference depthReference = {};
-	depthReference.attachment = 3;
+	depthReference.attachment = GBufferAttachmentIndex::DEPTH;
 	depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	VkSubpassDescription subpass = {};
@@ -228,10 +225,10 @@ void GBufferRenderPass::SetupRenderpass()
 void GBufferRenderPass::SetupFramebuffer()
 {
 	std::array<VkImageView,4> attachments;
-	attachments[POSITION] = att_position.view;
-	attachments[NORMAL]   = att_normal.view;
-	attachments[ALBEDO]   = att_albedo.view;
-	attachments[DEPTH]    = VulkanRenderer::m_swapchain.depthAttachment.view;
+	attachments[GBufferAttachmentIndex::POSITION] = att_position.view;
+	attachments[GBufferAttachmentIndex::NORMAL]   = att_normal.view;
+	attachments[GBufferAttachmentIndex::ALBEDO]   = att_albedo.view;
+	attachments[GBufferAttachmentIndex::DEPTH]    = VulkanRenderer::m_swapchain.depthAttachment.view;
 
 	VkFramebufferCreateInfo fbufCreateInfo = {};
 	fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -245,10 +242,10 @@ void GBufferRenderPass::SetupFramebuffer()
 	VK_CHK(vkCreateFramebuffer(VulkanRenderer::m_device.logicalDevice, &fbufCreateInfo, nullptr, &deferredFB));
 	VK_NAME(VulkanRenderer::m_device.logicalDevice, "deferredFB", deferredFB);
 
-	deferredImg[POSITION] = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	deferredImg[NORMAL]   = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	deferredImg[ALBEDO]   = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	//deferredImg[DEPTH]    = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	deferredImg[GBufferAttachmentIndex::POSITION] = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	deferredImg[GBufferAttachmentIndex::NORMAL]   = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	deferredImg[GBufferAttachmentIndex::ALBEDO]   = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	//deferredImg[GBufferAttachmentIndex::DEPTH]    = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
 void GBufferRenderPass::CreateDescriptors()

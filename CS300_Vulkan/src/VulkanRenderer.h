@@ -349,3 +349,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 
 };
 
+// Helper function to set Viewport & Scissor to the default window full extents.
+void SetDefaultViewportAndScissor(VkCommandBuffer commandBuffer);
+// Helper function to draw a Full Screen Quad, without binding vertex and index buffers.
+void DrawFullScreenQuad(VkCommandBuffer commandBuffer);

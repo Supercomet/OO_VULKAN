@@ -24,10 +24,10 @@ void DeferredCompositionRenderpass::Draw()
 
 	//Information about how to begin a render pass (only needed for graphical applications)
 	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
-	renderPassBeginInfo.renderPass = VulkanRenderer::defaultRenderPass;								//render pass to begin
-	renderPassBeginInfo.renderArea.offset = { 0,0 };								//start point of render pass in pixels
-	renderPassBeginInfo.renderArea.extent = VulkanRenderer::m_swapchain.swapChainExtent;			//size of region to run render pass on (Starting from offset)
-	renderPassBeginInfo.pClearValues = clearValues.data();							//list of clear values
+	renderPassBeginInfo.renderPass = VulkanRenderer::defaultRenderPass;                  //render pass to begin
+	renderPassBeginInfo.renderArea.offset = { 0,0 };                                     //start point of render pass in pixels
+	renderPassBeginInfo.renderArea.extent = VulkanRenderer::m_swapchain.swapChainExtent; //size of region to run render pass on (Starting from offset)
+	renderPassBeginInfo.pClearValues = clearValues.data();                               //list of clear values
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 
 	renderPassBeginInfo.framebuffer =  VulkanRenderer::swapChainFramebuffers[swapchainIdx];
@@ -36,19 +36,18 @@ void DeferredCompositionRenderpass::Draw()
 
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	VkViewport viewport = { 0, float(VulkanRenderer::m_swapchain.swapChainExtent.height),
-		float(VulkanRenderer::m_swapchain.swapChainExtent.width), -float(VulkanRenderer::m_swapchain.swapChainExtent.height), 0, 1 };
-	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
-	vkCmdSetViewport(cmdlist, 0, 1, &viewport);
-	vkCmdSetScissor(cmdlist, 0, 1, &scissor);
+	SetDefaultViewportAndScissor(cmdlist);
 
 	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, compositionPipe);
-	std::array<VkDescriptorSet, 2> descriptorSetGroup = { VulkanRenderer::uniformDescriptorSets[swapchainIdx],
-		VulkanRenderer::globalSamplers };
+	std::array<VkDescriptorSet, 2> descriptorSetGroup = 
+	{
+		VulkanRenderer::uniformDescriptorSets[swapchainIdx],
+		VulkanRenderer::globalSamplers
+	};
 
 	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, compositionPipeLayout, 0, 1, &VulkanRenderer::deferredSet, 0, nullptr);
 
-	vkCmdDraw(cmdlist, 3, 1, 0, 0);
+	DrawFullScreenQuad(cmdlist);
 
 	vkCmdEndRenderPass(cmdlist);
 }
@@ -105,7 +104,7 @@ void DeferredCompositionRenderpass::CreatePipeline()
 	};
 
 	//how the data for an attirbute is define in the vertex
-	std::vector<VkVertexInputAttributeDescription>attributeDescriptions{
+	std::vector<VkVertexInputAttributeDescription> attributeDescriptions {
 		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::Vertex, pos)), //Position attribute
 		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,1,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::Vertex, norm)),//normals attribute
 		oGFX::vk::inits::vertexInputAttributeDescription(VERTEX_BUFFER_ID,2,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::Vertex, col)),//col attribute
