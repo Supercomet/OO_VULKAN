@@ -1250,7 +1250,7 @@ void VulkanRenderer::AddDebugSphere(const Sphere& sphere, const oGFX::Color& col
 	static std::vector<oGFX::Vertex> vertices;
 	static std::vector<uint32_t> indices;
 	static bool once = [&]() {
-		auto [sphVertices, spfIndices] = icosahedron::make_icosphere(1);
+		auto [sphVertices, spfIndices] = icosahedron::make_icosphere(2,false);
 		vertices.reserve(sphVertices.size());
 		for (auto&& v : sphVertices)
 		{
@@ -1276,7 +1276,7 @@ void VulkanRenderer::AddDebugSphere(const Sphere& sphere, const oGFX::Color& col
 		for (const auto& v : vertices)
 		{
 			oGFX::Vertex vert{ v };
-			vert.pos += vert.pos*sphere.radius + sphere.center;
+			vert.pos = vert.pos*sphere.radius + sphere.center;
 			vert.col = col;
 			g_debugDrawVerts.push_back(vert);
 		}
@@ -1295,7 +1295,7 @@ void VulkanRenderer::AddDebugSphere(const Sphere& sphere, const oGFX::Color& col
 		for (const auto& v : vertices)
 		{
 			oGFX::Vertex vert{ v };
-			vert.pos += vert.pos*sphere.radius + sphere.center;
+			vert.pos = vert.pos*sphere.radius + sphere.center;
 			vert.col = col;
 			debug.vertex.push_back(vert);
 		}
@@ -1410,7 +1410,7 @@ void VulkanRenderer::UpdateInstanceData()
 
 	for (size_t i = 0; i < entities.size(); i++)
 	{
-		instanceData[i].instanceAttributes = uvec4(i, i+1, 0, 0);
+		instanceData[i].instanceAttributes = uvec4(i, 1, 0, 0);
 	}
 
 	vk::Buffer stagingBuffer;
@@ -1601,6 +1601,7 @@ Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
 		| aiProcess_FindInvalidData            // detect invalid model data, such as invalid normal vectors
 		| aiProcess_PreTransformVertices       // TODO: remove for skinning?
 		| aiProcess_FlipUVs						// TODO: some mesh need
+		| aiProcess_GenNormals					// TODO: some mesh need
 	);
 
 	if (!scene)
@@ -1640,19 +1641,31 @@ Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
 
 	Model* m = new Model;
 	m->gfxIndex = static_cast<uint32_t>(index);
+	model.cpuModel = m;
 	//std::vector<oGFX::Vertex> verticeBuffer;
 	//std::vector<uint32_t> indexBuffer;
 
 	model.loadNode(nullptr, scene, *scene->mRootNode,0,m->vertices, m->indices);
+	for (auto& node:model.nodes)
+	{
+		for (auto& mesh : node->meshes)
+		{
+			mesh->indicesOffset += static_cast<uint32_t>(g_MeshBuffers.IdxOffset);
+			mesh->vertexOffset += static_cast<uint32_t>(g_MeshBuffers.VtxOffset);
+		}
+
+	}
 	
 	LoadMeshFromBuffers(m->vertices, m->indices, &model);
 
 	return m;
 }
 
-uint32_t VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model)
+Model* VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model)
 {
 	uint32_t index = 0;
+	Model* m{ nullptr };
+
 	if (model == nullptr)
 	{
 		index = static_cast<uint32_t>(models.size());
@@ -1666,6 +1679,13 @@ uint32_t VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, 
 		msh->vertexCount = static_cast<uint32_t>(vertex.size());;
 		n->meshes.push_back(msh);
 		model->nodes.push_back(n);
+
+		m = new Model();
+		m->vertices = vertex;
+		m->indices = indices;
+		m->gfxIndex = static_cast<uint32_t>(index);
+
+		model->cpuModel = m;
 	}
 
 	model->indices.count = static_cast<uint32_t>(indices.size());
@@ -1680,72 +1700,72 @@ uint32_t VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, 
 	g_MeshBuffers.IdxOffset += model->indices.count ;
 	g_MeshBuffers.VtxOffset += model->vertices.count;
 
-	return index;
+	return m;
 
-	{
-		using namespace oGFX;
-		//get size of buffer needed for vertices
-		VkDeviceSize bufferSize = sizeof(Vertex) * vertex.size();
-
-		//temporary buffer to stage vertex data before transferring to GPU
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory; 
-		//create buffer and allocate memory to it
-
-		CreateBuffer(m_device.physicalDevice,m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
-
-		//MAP MEMORY TO VERTEX BUFFER
-		void *data = nullptr;												//1. create a pointer to a point in normal memory
-		vkMapMemory(m_device.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);	//2. map the vertex buffer to that point
-		memcpy(data, vertex.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
-		vkUnmapMemory(m_device.logicalDevice, stagingBufferMemory);							//4. unmap the vertex buffer memory
-
-																							//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
-																							// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
-		CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model->vertices.buffer, &model->vertices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
-
-																								  //copy staging buffer to vertex buffer on GPU
-		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model->vertices.buffer, bufferSize);
-
-		//clean up staging buffer parts
-		vkDestroyBuffer(m_device.logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(m_device.logicalDevice, stagingBufferMemory, nullptr);
-	}
-
-	//CreateIndexBuffer
-	{
-		using namespace oGFX;
-		//get size of buffer needed for vertices
-		VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
-
-		//temporary buffer to stage vertex data before transferring to GPU
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory; 
-		//create buffer and allocate memory to it
-		CreateBuffer(m_device.physicalDevice,m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
-
-		//MAP MEMORY TO VERTEX BUFFER
-		void *data = nullptr;												//1. create a pointer to a point in normal memory
-		vkMapMemory(m_device.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);	//2. map the vertex buffer to that point
-		memcpy(data, indices.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
-		vkUnmapMemory(m_device.logicalDevice, stagingBufferMemory);				//4. unmap the vertex buffer memory
-
-																				//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
-																				// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
-		CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model->indices.buffer, &model->indices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
-
-																								//copy staging buffer to vertex buffer on GPU
-		CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model->indices.buffer, bufferSize);
-
-		//clean up staging buffer parts
-		vkDestroyBuffer(m_device.logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(m_device.logicalDevice, stagingBufferMemory, nullptr);
-	}
-	return index;
+	//{
+	//	using namespace oGFX;
+	//	//get size of buffer needed for vertices
+	//	VkDeviceSize bufferSize = sizeof(Vertex) * vertex.size();
+	//
+	//	//temporary buffer to stage vertex data before transferring to GPU
+	//	VkBuffer stagingBuffer;
+	//	VkDeviceMemory stagingBufferMemory; 
+	//	//create buffer and allocate memory to it
+	//
+	//	CreateBuffer(m_device.physicalDevice,m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	//		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
+	//
+	//	//MAP MEMORY TO VERTEX BUFFER
+	//	void *data = nullptr;												//1. create a pointer to a point in normal memory
+	//	vkMapMemory(m_device.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);	//2. map the vertex buffer to that point
+	//	memcpy(data, vertex.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
+	//	vkUnmapMemory(m_device.logicalDevice, stagingBufferMemory);							//4. unmap the vertex buffer memory
+	//
+	//																						//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
+	//																						// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
+	//	CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	//		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model->vertices.buffer, &model->vertices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
+	//
+	//																							  //copy staging buffer to vertex buffer on GPU
+	//	CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model->vertices.buffer, bufferSize);
+	//
+	//	//clean up staging buffer parts
+	//	vkDestroyBuffer(m_device.logicalDevice, stagingBuffer, nullptr);
+	//	vkFreeMemory(m_device.logicalDevice, stagingBufferMemory, nullptr);
+	//}
+	//
+	////CreateIndexBuffer
+	//{
+	//	using namespace oGFX;
+	//	//get size of buffer needed for vertices
+	//	VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
+	//
+	//	//temporary buffer to stage vertex data before transferring to GPU
+	//	VkBuffer stagingBuffer;
+	//	VkDeviceMemory stagingBufferMemory; 
+	//	//create buffer and allocate memory to it
+	//	CreateBuffer(m_device.physicalDevice,m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	//		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
+	//
+	//	//MAP MEMORY TO VERTEX BUFFER
+	//	void *data = nullptr;												//1. create a pointer to a point in normal memory
+	//	vkMapMemory(m_device.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);	//2. map the vertex buffer to that point
+	//	memcpy(data, indices.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
+	//	vkUnmapMemory(m_device.logicalDevice, stagingBufferMemory);				//4. unmap the vertex buffer memory
+	//
+	//																			//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
+	//																			// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
+	//	CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+	//		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model->indices.buffer, &model->indices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
+	//
+	//																							//copy staging buffer to vertex buffer on GPU
+	//	CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model->indices.buffer, bufferSize);
+	//
+	//	//clean up staging buffer parts
+	//	vkDestroyBuffer(m_device.logicalDevice, stagingBuffer, nullptr);
+	//	vkFreeMemory(m_device.logicalDevice, stagingBufferMemory, nullptr);
+	//}
+	//return m;
 }
 
 void VulkanRenderer::SetMeshTextures(uint32_t modelID, uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough)

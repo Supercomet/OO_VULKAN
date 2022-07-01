@@ -206,8 +206,8 @@ namespace  oGFX::BV
 
 		auto midPoint = (Min + Max) / 2.0f;
 		aabb.center = midPoint;
-		aabb.halfExt = { Max.x - Min.x, Max.y - Min.y,Max.z - Min.z };
-		aabb.halfExt /= 2.0f;
+		aabb.halfExt = { Max-aabb.center };
+		//aabb.halfExt /= 2.0f;
 	}
 
 	void LarsonSphere(Sphere& s, const std::vector<Point3D>& points, size_t range)

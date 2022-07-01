@@ -67,35 +67,29 @@ BVType makeBV(const std::vector<T>& entities, uint32_t objects[], uint32_t numOj
 				min[x] = std::min(eMin[x], min[x]);
 			}
 		}
-		bv.halfExt = (max - min) * 0.5f;
-		bv.center = min + bv.halfExt;
+		bv.center = (max + min) * 0.5f;
+		bv.halfExt = max-bv.center;
 
 		return bv;
 	}
 	if constexpr (std::is_same_v<BVType, Sphere>)
-	{
-		Sphere bv;
 
-		glm::vec3 min{ FLT_MAX };
-		glm::vec3 max{ -FLT_MAX };
-		glm::vec3 center{ 0.0f };
-		for (size_t i = 0; i < numOjbects; i++)
+	{
+		Sphere bv = entities[objects[0]].sphere;
+
+		//float dist = 0;
+		//glm::vec3 center{ 0.0f };
+		for (size_t i = 1; i < numOjbects; i++)
 		{
-			auto& ent = entities[objects[i]];
-			center += ent.aabb.center;
-			auto eMax = ent.aabb.center + ent.aabb.halfExt;
-			auto eMin = ent.aabb.center - ent.aabb.halfExt;
-			for (uint32_t x = 0; x < 3; x++)
-			{
-				max[x] = std::max(eMax[x], max[x]);
-				min[x] = std::min(eMin[x], min[x]);
-			}
+			const auto& otherSphere = entities[objects[i]].sphere;
+			glm::vec3 dir = glm::normalize(otherSphere.center - bv.center);
+			oGFX::BV::ExpandSphereAboutPoint(bv, otherSphere.center + dir * otherSphere.radius);
 		}
-		center /= numOjbects;
+		//center /= numOjbects;
 		//max = (max - centre);
 		//bv.radius = std::max({ max[0],max[1],max[2] });
-		bv.radius = std::sqrt(glm::dot(max - min, max - min));
-		bv.center = center;
+		//bv.radius = std::sqrt(glm::dot(max - min, max - min));
+		//bv.center = center;
 
 		return bv;
 	}
@@ -140,27 +134,25 @@ public:
 		}
 		else
 		{
-		BVType bv = makeBV<dataT, BVType>(entities, objects, numOjbects);
-		parent->BV = bv;
-		parent->type = TreeNode<BVType>::Type::INTERNAL;
-		parent->objects.reserve(numOjbects);
-		for (size_t i = 0; i < numOjbects; i++)
-		{
-			parent->objects.push_back(objects[i]);
+			BVType bv = makeBV<dataT, BVType>(entities, objects, numOjbects);
+			parent->BV = bv;
+			parent->type = TreeNode<BVType>::Type::INTERNAL;
+			parent->objects.reserve(numOjbects);
+			for (size_t i = 0; i < numOjbects; i++)
+			{
+				parent->objects.push_back(objects[i]);
+			}
+			auto partitions = PartitionObjects<dataT, BVType >(entities, objects, numOjbects);
+			for (size_t i = 0; i < numChilden; i++)
+			{
+				parent->children[i] = std::make_unique<TreeNode<BVType>>();
+				parent->children[i]->depth = parent->depth + 1;
+				uint32_t k = partitions[i];
+				uint32_t n = partitions[i + 1];
+				TopDownTree<dataT, BVType>(entities, parent->children[i].get(), &objects[k], n - k);
+			}
 		}
-
-		auto partitions = PartitionObjects<dataT, BVType >(entities, objects, numOjbects);
-
-		for (size_t i = 0; i < numChilden; i++)
-		{
-			parent->children[i] = std::make_unique<TreeNode<BVType>>();
-			parent->children[i]->depth = parent->depth + 1;
-			uint32_t k = partitions[i];
-			uint32_t n = partitions[i + 1];
-			TopDownTree<dataT, BVType>(entities, parent->children[i].get(), &objects[k], n - k);
-		}
-
-		}
+		
 	}
 
 	template <typename BVType>
@@ -229,8 +221,8 @@ public:
 						min[i] = std::min(right->BV.min()[i], min[i]);
 					}
 					nodes.back()->BV.halfExt = (max - min) * 0.5f;
-					//glm::vec3 cen = max - min;
 					nodes.back()->BV.center = max - nodes.back()->BV.halfExt;
+					//glm::vec3 cen = max - min;
 				}
 				if constexpr (std::is_same_v<BVType, Sphere>)
 				{
@@ -240,21 +232,21 @@ public:
 					glm::vec3 dir = left->BV.center - right->BV.center;
 					float dist = std::sqrt(glm::dot(dir, dir));
 					dir = glm::normalize(dir);
-					//if ((dist + rr) < lr || (dist + lr) < rr )
-					//{
-					//	//degenerate case
-					//	if (lr > rr) 
-					//	{
-					//		s.radius = lr;
-					//		s.center = left->BV.center;
-					//	}
-					//	else
-					//	{
-					//		s.radius = rr;
-					//		s.center = right->BV.center;
-					//	}						
-					//}
-					//else
+					if ((dist + rr) < lr || (dist + lr) < rr )
+					{
+						//degenerate case
+						if (lr > rr) 
+						{
+							s.radius = lr;
+							s.center = left->BV.center;
+						}
+						else
+						{
+							s.radius = rr;
+							s.center = right->BV.center;
+						}						
+					}
+					else
 					{
 						s = right->BV;
 						oGFX::BV::ExpandSphereAboutPoint(s, left->BV.center+ dir*lr);
