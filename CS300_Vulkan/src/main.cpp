@@ -211,9 +211,14 @@ int main(int argc, char argv[])
 
         std::cout << "Created vulkan instance!"<< std::endl;
     }
+    catch (std::runtime_error e)
+    {
+        std::cout << "Cannot create vulkan instance! " << e.what() << std::endl;
+        return 0;
+    }
     catch (...)
     {
-        std::cout << "Cannot create vulkan instance!"<< std::endl;
+        std::cout << "caught something unexpected" << std::endl; 
         return 0;
     }
 

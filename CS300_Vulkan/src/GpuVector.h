@@ -188,8 +188,11 @@ template <typename T>
 void GpuVector<T>::destroy()
 {
 	//clean up old buffer
-	vkDestroyBuffer(m_device->logicalDevice, m_buffer, nullptr);
-	vkFreeMemory(m_device->logicalDevice, m_gpuMemory, nullptr);
+	if (m_buffer)
+	{
+		vkDestroyBuffer(m_device->logicalDevice, m_buffer, nullptr);
+		vkFreeMemory(m_device->logicalDevice, m_gpuMemory, nullptr);
+	}
 }
 template <typename T>
 void GpuVector<T>::clear()

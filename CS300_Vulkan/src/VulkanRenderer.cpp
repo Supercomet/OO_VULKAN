@@ -184,9 +184,13 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		
 	
 	}
+	catch (std::runtime_error e)
+	{
+		throw e;
+	}
 	catch (...)
 	{
-		throw;
+		std::cout << "caught something unexpected" << std::endl;
 	}
 }
 
