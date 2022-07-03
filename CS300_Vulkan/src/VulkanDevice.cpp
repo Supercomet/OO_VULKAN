@@ -328,7 +328,7 @@ void VulkanDevice::FlushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue que
 
 void VulkanDevice::CopyBuffer(vk::Buffer* src, vk::Buffer* dst, VkQueue queue, VkBufferCopy* copyRegion)
 {
-    assert(dst->size <= src->size);
+    assert(dst->size >= src->size);
     assert(src->buffer);
     VkCommandBuffer copyCmd = CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
     VkBufferCopy bufferCopy{};

@@ -748,10 +748,12 @@ int main(int argc, char argv[])
                                 ImGui::PushID(entity.entityID);
 
                                 ImGui::BulletText("[ID:%u] ", entity.entityID);
-                                ImGui::DragFloat3("Position", glm::value_ptr(entity.pos), 0.01f);
-                                ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
-                                ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
-                                ImGui::DragFloat("Theta", &entity.rot);
+                                ImGui::SameLine();
+                                ImGui::Text(entity.name.c_str());
+                                geomChanged |= ImGui::DragFloat3("Position", glm::value_ptr(entity.pos), 0.01f);
+                                geomChanged |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
+                                geomChanged |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
+                                geomChanged |= ImGui::DragFloat("Theta", &entity.rot);
                                 // TODO: We should be using quaternions.........
 
                                 ImGui::PopID();

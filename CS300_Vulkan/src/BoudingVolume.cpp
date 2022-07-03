@@ -123,22 +123,42 @@ namespace  oGFX::BV
 
 	void ExtremePointsAlongDirection(const glm::vec3& axis, const std::vector<Point3D>& points, uint32_t& min, uint32_t& max, float* min_val, float* max_val)
 	{
+		max = 0;
+		min = 0;
 		float t_min{FLT_MAX};
 		float t_max{FLT_MIN};
 		for (size_t p = 0; p < points.size(); p++)
 		{
 			float val = glm::dot(axis, points[p]);
-			if (val > t_max)
+			if (val == t_max) // degenerate exactly the same dist
+			{
+				float smallDist = glm::dot(points[p], points[max]);
+				for (size_t i = max; i < points.size(); i++)
+				{
+					if (i != p)
+					{
+						float dist = glm::dot(points[p], points[i]);
+						if (dist > smallDist)
+						{
+							t_max = val;
+							max = i;
+						}
+					}
+
+				}
+			}
+			else if (val > t_max)
 			{
 				t_max = val;
 				max = p;
-
 			}
+
 			if (val < t_min)
 			{
 				t_min = val;
 				min = p;
 			}
+			
 		}		
 
 		if (max_val) *max_val = t_max;
