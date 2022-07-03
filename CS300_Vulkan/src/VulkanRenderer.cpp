@@ -507,8 +507,8 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	//graphics pipeline creation requires array of shader stages create
 
 	//create graphics pipeline
-	shaderStages[0]  = LoadShader(m_device,"Shaders/indirect.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = LoadShader(m_device,"Shaders/indirect.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[0]  = LoadShader(m_device,"Shaders/bin/indirect.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = LoadShader(m_device,"Shaders/bin/indirect.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	pipelineCreateInfo.layout = indirectPipeLayout;
 	// Indirect pipeline
@@ -528,8 +528,8 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
 	vertexInputCreateInfo.vertexAttributeDescriptionCount = 5;
 
-	shaderStages[0] = LoadShader(m_device,"Shaders/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = LoadShader(m_device,"Shaders/shader.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[0] = LoadShader(m_device,"Shaders/bin/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = LoadShader(m_device,"Shaders/bin/shader.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPipeline);
 	VK_NAME(m_device.logicalDevice, "graphicsPipeline", graphicsPipeline);

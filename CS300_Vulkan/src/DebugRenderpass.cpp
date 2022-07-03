@@ -284,8 +284,8 @@ void DebugRenderpass::CreatePipeline()
 	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
 	vertexInputCreateInfo.vertexAttributeDescriptionCount = 5;
 
-	shaderStages[0] = VulkanRenderer::LoadShader(m_device,"Shaders/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = VulkanRenderer::LoadShader(m_device,"Shaders/shader.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[0] = VulkanRenderer::LoadShader(m_device,"Shaders/bin/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = VulkanRenderer::LoadShader(m_device,"Shaders/bin/shader.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
 	
 	rasterizerCreateInfo.polygonMode = VkPolygonMode::VK_POLYGON_MODE_LINE;
 	inputAssembly.topology = VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_LINE_LIST;

@@ -1,6 +1,7 @@
 @echo off
-
-for %%f in (*vert.spv *frag.spv) do (
+cd "bin"
+for %%f in (*.spv) do (
 	DEL %%f
 )
+cd "../"
 pause

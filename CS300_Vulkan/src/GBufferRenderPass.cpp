@@ -128,7 +128,6 @@ void GBufferRenderPass::SetupRenderpass()
 	auto& m_device = VulkanRenderer::m_device;
 	auto& m_swapchain = VulkanRenderer::m_swapchain;
 
-
 	att_position.createAttachment(m_device, m_swapchain.swapChainExtent.width,  m_swapchain.swapChainExtent.height,
 		VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 
@@ -341,8 +340,8 @@ void GBufferRenderPass::CreatePipeline()
 	pipelineCI.pVertexInputState = &vertexInputCreateInfo;
 
 	// Offscreen pipeline
-	shaderStages[0]  = VulkanRenderer::LoadShader(m_device, "Shaders/mrt.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = VulkanRenderer::LoadShader(m_device, "Shaders/mrt.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[0]  = VulkanRenderer::LoadShader(m_device, "Shaders/bin/gbuffer.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = VulkanRenderer::LoadShader(m_device, "Shaders/bin/gbuffer.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Separate render pass
 	pipelineCI.renderPass = deferredPass;
@@ -350,7 +349,8 @@ void GBufferRenderPass::CreatePipeline()
 	// Blend attachment states required for all color attachments
 	// This is important, as color write mask will otherwise be 0x0 and you
 	// won't see anything rendered to the attachment
-	std::array<VkPipelineColorBlendAttachmentState, 3> blendAttachmentStates = {
+	std::array<VkPipelineColorBlendAttachmentState, 3> blendAttachmentStates = 
+	{
 		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
 		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
 		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE)
