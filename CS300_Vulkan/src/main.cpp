@@ -723,7 +723,7 @@ int main(int argc, char argv[])
                 | ImGuiDockNodeFlags_NoDockingInCentralNode // dont allow docking in the central area
             );
             
-            ImGui::ShowDemoWindow();
+            //ImGui::ShowDemoWindow();
             
             // Display ImGui Window
             {
