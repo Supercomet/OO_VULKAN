@@ -4,13 +4,20 @@
 #include "Window.h"
 #include "VulkanUtils.h"
 
+#include "GBufferRenderPass.h"
+
 #include <array>
 
 DECLARE_RENDERPASS(DeferredCompositionRenderpass);
 
 void DeferredCompositionRenderpass::Init()
 {
-	//CreatePipeline(); // Dependency on GBuffer Init()
+}
+
+void DeferredCompositionRenderpass::CreatePSO()
+{
+	CreateDescriptors();
+	CreatePipeline(); // Dependency on GBuffer Init()
 }
 
 void DeferredCompositionRenderpass::Draw()
@@ -45,7 +52,7 @@ void DeferredCompositionRenderpass::Draw()
 		VulkanRenderer::globalSamplers
 	};
 
-	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, compositionPipeLayout, 0, 1, &VulkanRenderer::deferredSet, 0, nullptr);
+	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, compositionPipeLayout, 0, 1, &VulkanRenderer::descriptorSet_Deferred, 0, nullptr);
 
 	DrawFullScreenQuad(cmdlist);
 
@@ -59,11 +66,62 @@ void DeferredCompositionRenderpass::Shutdown()
 	vkDestroyPipeline(VulkanRenderer::m_device.logicalDevice, compositionPipe, nullptr);
 }
 
+void DeferredCompositionRenderpass::CreateDescriptors()
+{
+	// At this point, all dependent resources (gbuffer etc) must be ready.
+	auto gbuffer = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
+	assert(gbuffer != nullptr);
+
+    auto& m_device = VulkanRenderer::m_device;
+
+    if (VulkanRenderer::descriptorSet_Deferred)
+        return;
+
+    // TODO: Share this function?
+    VkPhysicalDeviceProperties props;
+    vkGetPhysicalDeviceProperties(VulkanRenderer::m_device.physicalDevice, &props);
+    size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
+    if (minUboAlignment > 0)
+    {
+        uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
+    }
+
+    size_t numLights = 1;
+    VkDeviceSize vpBufferSize = uboDynamicAlignment * numLights;
+
+    //// LightData bufffer size
+
+    // Image descriptors for the offscreen color attachments
+    VkDescriptorImageInfo texDescriptorPosition = oGFX::vk::inits::descriptorImageInfo(
+        GfxSamplerManager::GetSampler_Deferred(),
+		gbuffer->att_position.view,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    VkDescriptorImageInfo texDescriptorNormal = oGFX::vk::inits::descriptorImageInfo(
+        GfxSamplerManager::GetSampler_Deferred(),
+		gbuffer->att_normal.view,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    VkDescriptorImageInfo texDescriptorAlbedo = oGFX::vk::inits::descriptorImageInfo(
+        GfxSamplerManager::GetSampler_Deferred(),
+		gbuffer->att_albedo.view,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    // TODO: Seems like this should be in deferred lighting instead? The layout use case are after gbuffer, in deferred lighting passes.
+    DescriptorBuilder::Begin(&VulkanRenderer::DescLayoutCache, &VulkanRenderer::DescAlloc)
+        .BindImage(1, &texDescriptorPosition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .BindImage(2, &texDescriptorNormal, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .BindImage(3, &texDescriptorAlbedo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .BindBuffer(4, &VulkanRenderer::lightsBuffer.descriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .Build(VulkanRenderer::descriptorSet_Deferred, VulkanRenderer::descriptorSetLayout_Deferred);
+
+}
+
 void DeferredCompositionRenderpass::CreatePipeline()
 {
 	auto& m_device = VulkanRenderer::m_device;
 
-	std::vector<VkDescriptorSetLayout> setLayouts{ VulkanRenderer::deferredSetLayout };
+	std::vector<VkDescriptorSetLayout> setLayouts{ VulkanRenderer::descriptorSetLayout_Deferred };
 
 	VkPipelineLayoutCreateInfo plci = oGFX::vk::inits::pipelineLayoutCreateInfo(setLayouts.data(),static_cast<uint32_t>(setLayouts.size()));	
 	plci.pushConstantRangeCount = 1;

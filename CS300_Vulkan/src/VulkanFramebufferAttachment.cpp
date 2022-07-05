@@ -2,7 +2,7 @@
 #include <assert.h>
 #include "VulkanUtils.h"
 
-void VulkanFramebufferAttachment::createAttachment(VulkanDevice& indevice,uint32_t width, uint32_t height,
+void VulkanFramebufferAttachment::createAttachment(VulkanDevice& indevice, uint32_t width, uint32_t height,
 	VkFormat format, VkImageUsageFlagBits usage)
 {
 	VkImageAspectFlags aspectMask = 0;

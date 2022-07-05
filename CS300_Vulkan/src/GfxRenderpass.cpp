@@ -24,6 +24,11 @@ void RenderPassDatabase::InitAllRegisteredPasses()
 	{
 		renderPass->Init();
 	}
+
+    for (auto& renderPass : renderpasses->m_AllRenderPasses)
+    {
+        renderPass->CreatePSO();
+    }
 }
 
 void RenderPassDatabase::ShutdownAllRegisteredPasses()
