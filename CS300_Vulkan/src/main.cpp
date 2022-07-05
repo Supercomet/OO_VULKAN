@@ -745,8 +745,34 @@ int main(int argc, char argv[])
                                 entity.scale = { 1.0f,1.0f,1.0f };
                                 entity.modelID = box->gfxIndex;
                                 entity.entityID = FastRandomMagic();
-                                renderer.entities.push_back(entity);
+                                renderer.entities.emplace_back(entity);
                             }
+
+                            int addRandomEntityCount = 0;
+                            ImGui::Text("Add Random Entity: ");
+                            ImGui::SameLine();
+                            if (ImGui::SmallButton("+10")) { addRandomEntityCount = 10; }
+                            ImGui::SameLine();
+                            if (ImGui::SmallButton("+50")) { addRandomEntityCount = 50; }
+                            ImGui::SameLine();
+                            if (ImGui::SmallButton("+100")) { addRandomEntityCount = 100; }
+
+                            if (addRandomEntityCount)
+                            {
+                                for (int i = 0; i < addRandomEntityCount; ++i)
+                                {
+                                    const glm::vec3 pos = glm::sphericalRand(10.0f);
+
+                                    VulkanRenderer::EntityDetails entity;
+                                    entity.pos = pos;
+                                    entity.scale = { 1.0f,1.0f,1.0f };
+                                    entity.modelID = box->gfxIndex;
+                                    entity.entityID = FastRandomMagic();
+                                    renderer.entities.emplace_back(entity);
+                                }
+                            }
+
+                            ImGui::Text("Total Entities: %u", renderer.entities.size());
 
                             for (auto& entity : renderer.entities)
                             {
