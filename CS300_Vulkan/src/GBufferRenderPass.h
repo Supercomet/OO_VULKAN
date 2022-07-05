@@ -19,12 +19,12 @@ struct GBufferRenderPass : public GfxRenderpass
 	VulkanFramebufferAttachment att_normal;
 	VulkanFramebufferAttachment att_depth;
 
+	// This is for ImGui
 	ImTextureID deferredImg[3]{};
 
 	VkRenderPass renderpass_GBuffer;
 	VkFramebuffer framebuffer_GBuffer;
 
-	uint64_t uboDynamicAlignment;
 	//VkPushConstantRange pushConstantRange;
 	VkPipeline pso_GBufferDefault;
 

@@ -37,11 +37,13 @@ void GBufferRenderPass::Draw()
 	auto& swapchainIdx = VulkanRenderer::swapchainIdx;
 	auto* windowPtr = VulkanRenderer::windowPtr;
 
+	constexpr VkClearColorValue zeroFloat4 = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
+
 	// Clear values for all attachments written in the fragment shader
 	std::array<VkClearValue, GBufferAttachmentIndex::MAX_ATTACHMENTS> clearValues;
-	clearValues[GBufferAttachmentIndex::POSITION].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-	clearValues[GBufferAttachmentIndex::NORMAL]  .color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-	clearValues[GBufferAttachmentIndex::ALBEDO]  .color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[GBufferAttachmentIndex::POSITION].color = zeroFloat4;
+	clearValues[GBufferAttachmentIndex::NORMAL]  .color = zeroFloat4;
+	clearValues[GBufferAttachmentIndex::ALBEDO]  .color = zeroFloat4;
 	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 1.0f, 0 };
 	
 	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
@@ -67,45 +69,57 @@ void GBufferRenderPass::Draw()
 	};
 	
 	uint32_t dynamicOffset = 0;
-	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS,VulkanRenderer::indirectPipeLayout,
+	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, VulkanRenderer::indirectPipeLayout,
 		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);
 	
-	for (auto& entity : VulkanRenderer::entities)
+	// Bind merged mesh vertex & index buffers, instancing buffers.
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, VulkanRenderer::g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
+    vkCmdBindIndexBuffer(cmdlist, VulkanRenderer::g_MeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(cmdlist, INSTANCE_BUFFER_ID, 1, &VulkanRenderer::instanceBuffer.buffer, offsets);
+
+    const VkBuffer idcb = VulkanRenderer::indirectCommandsBuffer.buffer;
+    const uint32_t count = (uint32_t)VulkanRenderer::m_DrawIndirectCommandsCPU.size();
+	if (device.enabledFeatures.multiDrawIndirect)
 	{
-		auto& model = VulkanRenderer::models[entity.modelID];
-	
-		glm::mat4 xform(1.0f);
-		xform = glm::translate(xform, entity.pos);
-		xform = glm::rotate(xform,glm::radians(entity.rot), entity.rotVec);
-		xform = glm::scale(xform, entity.scale);
-	
-		vkCmdPushConstants(cmdlist,
-			VulkanRenderer::indirectPipeLayout,
-			VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
-			0,							// offset of push constants to update
-			sizeof(glm::mat4),			// size of data being pushed
-			glm::value_ptr(xform));		// actualy data being pushed (could be an array));
-	
-		VkDeviceSize offsets[] = { 0 };	
-		vkCmdBindIndexBuffer(cmdlist, VulkanRenderer::g_MeshBuffers.IdxBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
-		vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, VulkanRenderer::g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
-	
-		// bind instance buffer
-		vkCmdBindVertexBuffers(cmdlist, INSTANCE_BUFFER_ID, 1, &VulkanRenderer::instanceBuffer.buffer, offsets);
-		//vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
+		vkCmdDrawIndexedIndirect(cmdlist, idcb, 0, count, sizeof(VkDrawIndexedIndirectCommand));
 	}
-	
-	//if (m_device.enabledFeatures.multiDrawIndirect)
-	//{
-	//	vkCmdDrawIndexedIndirect(commandBuffers[swapchainImageIndex], indirectCommandsBuffer.buffer, 0, indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
-	//}
-	//else
+	else
 	{
-		for (size_t i = 0; i < VulkanRenderer::m_DrawIndirectCommandsCPU.size(); i++)
-		{		
-			vkCmdDrawIndexedIndirect(cmdlist, VulkanRenderer::indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+		// If MDI not supported, still use IDCB but draw one by one per instance instead of one MDI for all instances
+		for (uint32_t i = 0; i < count; ++i)
+		{
+			vkCmdDrawIndexedIndirect(cmdlist, idcb, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
 		}
 	}
+
+	// Other draw calls that are not supported by MDI
+    // TODO: Deprecate this, or handle it gracefully. Leaving this here.
+    if constexpr (false)
+    {
+        for (auto& entity : VulkanRenderer::entities)
+        {
+            auto& model = VulkanRenderer::models[entity.modelID];
+
+            glm::mat4 xform(1.0f);
+            xform = glm::translate(xform, entity.pos);
+            xform = glm::rotate(xform, glm::radians(entity.rot), entity.rotVec);
+            xform = glm::scale(xform, entity.scale);
+
+            vkCmdPushConstants(cmdlist,
+                VulkanRenderer::indirectPipeLayout,
+                VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+                0,							// offset of push constants to update
+                sizeof(glm::mat4),			// size of data being pushed
+                glm::value_ptr(xform));		// actualy data being pushed (could be an array));
+
+            VkDeviceSize offsets[] = { 0 };
+            vkCmdBindIndexBuffer(cmdlist, VulkanRenderer::g_MeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, VulkanRenderer::g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
+            vkCmdBindVertexBuffers(cmdlist, INSTANCE_BUFFER_ID, 1, &VulkanRenderer::instanceBuffer.buffer, offsets);
+            //vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
+        }
+    }
 
 	vkCmdEndRenderPass(cmdlist);
 }
@@ -247,7 +261,7 @@ void GBufferRenderPass::SetupFramebuffer()
 void GBufferRenderPass::CreateDescriptors()
 {
 	// TODO?
-	// Layout for GBUffer, NOT Deferred Lighting
+	// Layout for GBuffer, NOT Deferred Lighting
 }
 
 void GBufferRenderPass::CreatePipeline()
@@ -297,7 +311,7 @@ void GBufferRenderPass::CreatePipeline()
 
 	// Offscreen pipeline
 	shaderStages[0] = VulkanRenderer::LoadShader(m_device, "Shaders/bin/gbuffer.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = VulkanRenderer::LoadShader(m_device, "Shaders/bin/gbuffer.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[1] = VulkanRenderer::LoadShader(m_device, "Shaders/bin/gbuffer.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Separate render pass
 	pipelineCI.renderPass = renderpass_GBuffer;
