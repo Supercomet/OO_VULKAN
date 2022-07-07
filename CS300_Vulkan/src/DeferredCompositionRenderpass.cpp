@@ -24,6 +24,11 @@ void DeferredCompositionRenderpass::Draw()
 {
 	auto swapchainIdx = VulkanRenderer::swapchainIdx;
 	auto* windowPtr = VulkanRenderer::windowPtr;
+
+    const VkCommandBuffer cmdlist = VulkanRenderer::commandBuffers[swapchainIdx];
+    PROFILE_GPU_CONTEXT(cmdlist);
+    PROFILE_GPU_EVENT("DeferredComposition");
+
 	std::array<VkClearValue, 2> clearValues{};
 	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
 	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
@@ -38,8 +43,6 @@ void DeferredCompositionRenderpass::Draw()
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 
 	renderPassBeginInfo.framebuffer =  VulkanRenderer::swapChainFramebuffers[swapchainIdx];
-
-	const VkCommandBuffer cmdlist = VulkanRenderer::commandBuffers[swapchainIdx];
 
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 

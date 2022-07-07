@@ -34,6 +34,8 @@
 #include <numeric>
 //#include <algorithm>
 
+#include "Profiling.h"
+
 #include "BoudingVolume.h"
 std::ostream& operator<<(std::ostream& os, const glm::vec3& vec)
 {
@@ -531,6 +533,8 @@ int main(int argc, char argv[])
     // This will handle inputs and pass it to our input callback
     while( mainWindow.windowShouldClose == false )  // infinite loop
     {
+        PROFILE_FRAME("MainThread");
+        
         //reset keys
         Input::Begin();
         while(Window::PollEvents());
@@ -553,7 +557,8 @@ int main(int argc, char argv[])
 
         auto mousedel = Input::GetMouseDelta();
         float wheelDelta = Input::GetMouseWheel();
-        if (Input::GetMouseHeld(MOUSE_RIGHT)) {
+        if (Input::GetMouseHeld(MOUSE_RIGHT)) 
+        {
             renderer.camera.Rotate(glm::vec3(-mousedel.y * renderer.camera.rotationSpeed, mousedel.x * renderer.camera.rotationSpeed, 0.0f));
         }
         if (renderer.camera.type == Camera::CameraType::lookat)
@@ -688,7 +693,10 @@ int main(int argc, char argv[])
             geomChanged = false;
         }
 
-        renderer.UpdateTreeBuffers();
+        {
+            PROFILE_SCOPED("UpdateTreeBuffers");
+            renderer.UpdateTreeBuffers();
+        }
 
         if (renderer.gpuTransformBuffer.MustUpdate())
         {
@@ -706,21 +714,28 @@ int main(int argc, char argv[])
 
         if (renderer.PrepareFrame() == true)
         {
-            
+            PROFILE_SCOPED("renderer.PrepareFrame() == true");
+
             renderer.timer += deltaTime * 0.25f;
             renderer.UpdateLightBuffer();
             renderer.Draw();
-            renderer.PrePass();
-            //renderer.SimplePass();
-            
-            //renderer.RecordCommands(renderer.swapchainImageIndex);
-            
-            if (renderer.deferredRendering)
             {
-                renderer.DeferredPass();
-                renderer.DeferredComposition();
+                // This cmdlist is scoped
+                PROFILE_GPU_CONTEXT(renderer.commandBuffers[renderer.swapchainIdx]);
+                PROFILE_GPU_EVENT("CommandList");
+
+                renderer.PrePass();
+                //renderer.SimplePass();
+
+                //renderer.RecordCommands(renderer.swapchainImageIndex);
+
+                if (renderer.deferredRendering)
+                {
+                    renderer.DeferredPass();
+                    renderer.DeferredComposition();
+                }
+                renderer.DebugPass();
             }
-            renderer.DebugPass();
 
             // Create a dockspace over the mainviewport so that we can dock stuff
             ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), 
@@ -732,6 +747,7 @@ int main(int argc, char argv[])
             
             // Display ImGui Window
             {
+                PROFILE_SCOPED("ImGuiSceneHelper");
                 if (ImGui::Begin("Scene Helper"))
                 {
                     if (ImGui::BeginTabBar("SceneHelperTabBar"))
@@ -774,21 +790,26 @@ int main(int argc, char argv[])
 
                             ImGui::Text("Total Entities: %u", renderer.entities.size());
 
-                            for (auto& entity : renderer.entities)
+                            if (ImGui::TreeNode("Entity List"))
                             {
-                                ImGui::PushID(entity.entityID);
+                                for (auto& entity : renderer.entities)
+                                {
+                                    ImGui::PushID(entity.entityID);
 
-                                ImGui::BulletText("[ID:%u] ", entity.entityID);
-                                ImGui::SameLine();
-                                ImGui::Text(entity.name.c_str());
-                                geomChanged |= ImGui::DragFloat3("Position", glm::value_ptr(entity.pos), 0.01f);
-                                geomChanged |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
-                                geomChanged |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
-                                geomChanged |= ImGui::DragFloat("Theta", &entity.rot);
-                                // TODO: We should be using quaternions.........
+                                    ImGui::BulletText("[ID:%u] ", entity.entityID);
+                                    ImGui::SameLine();
+                                    ImGui::Text(entity.name.c_str());
+                                    geomChanged |= ImGui::DragFloat3("Position", glm::value_ptr(entity.pos), 0.01f);
+                                    geomChanged |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
+                                    geomChanged |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
+                                    geomChanged |= ImGui::DragFloat("Theta", &entity.rot);
+                                    // TODO: We should be using quaternions.........
 
-                                ImGui::PopID();
-                            }
+                                    ImGui::PopID();
+                                }
+                                
+                                ImGui::TreePop();
+                            }//ImGui::TreeNode
                             
                             ImGui::EndTabItem();
                         }//ImGui::BeginTabItem

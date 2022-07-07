@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Profiling.h"
+
 #include <vector>
 #include <memory>
 #include <cassert>

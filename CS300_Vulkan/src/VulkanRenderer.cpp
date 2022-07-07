@@ -29,6 +29,8 @@
 
 #include "IcoSphereCreator.h"
 
+#include "Profiling.h"
+
 #include <vector>
 #include <set>
 #include <stdexcept>
@@ -36,7 +38,6 @@
 #include <iostream>
 #include <chrono>
 #include <random>
-
 
 VulkanRenderer::~VulkanRenderer()
 { 
@@ -182,7 +183,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		g_MeshBuffers.IdxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 		g_MeshBuffers.VtxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 		
-	
+		PROFILE_INIT_VULKAN(&m_device.logicalDevice, &m_device.physicalDevice, &m_device.graphicsQueue, (uint32_t*)&m_device.queueIndices.graphicsFamily, 1, nullptr);
 	}
 	catch (std::runtime_error e)
 	{
@@ -791,6 +792,8 @@ void VulkanRenderer::DeferredComposition()
 
 void VulkanRenderer::UpdateLightBuffer()
 {
+	PROFILE_SCOPED();
+
 	// White
 	lightUBO.lights[0].position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
 	lightUBO.lights[0].color = glm::vec3(1.5f);
@@ -1314,6 +1317,7 @@ void VulkanRenderer::AddDebugSphere(const Sphere& sphere, const oGFX::Color& col
 
 void VulkanRenderer::UpdateIndirectCommands()
 {
+	PROFILE_SCOPED();
 	m_DrawIndirectCommandsCPU.clear();
 	indirectDebugCommandsCPU.clear();
 
@@ -1399,6 +1403,7 @@ void VulkanRenderer::UpdateIndirectCommands()
 
 void VulkanRenderer::UpdateInstanceData()
 {
+	PROFILE_SCOPED();
 	//if (instanceBuffer.size != 0) return;
 	
 	using namespace std::chrono;
@@ -1480,6 +1485,8 @@ bool VulkanRenderer::PrepareFrame()
 
 void VulkanRenderer::Draw()
 {
+	PROFILE_SCOPED();
+
 	//wait for given fence to signal from last draw before continueing
 	VK_CHK(vkWaitForFences(m_device.logicalDevice, 1, &drawFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max()));
 	//mainually reset fences
@@ -1492,23 +1499,31 @@ void VulkanRenderer::Draw()
 	UpdateIndirectCommands();
 	UpdateInstanceData();	
 
-	//1. get the next available image to draw to and set somethingg to signal when we're finished with the image ( a semaphere )
-	// -- GET NEXT IMAGE
-	//get  index of next image to be drawn to , and signal semaphere when ready to be drawn to
-	VkResult res = vkAcquireNextImageKHR(m_device.logicalDevice, m_swapchain.swapchain, std::numeric_limits<uint64_t>::max(),
-		imageAvailable[currentFrame], VK_NULL_HANDLE, &swapchainIdx);
-	if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR /*|| WINDOW_RESIZED*/)
 	{
-		resizeSwapchain = true;
-	}	
+		PROFILE_SCOPED("vkAcquireNextImageKHR");
 
-	//Information about how to begin each command buffer
-	VkCommandBufferBeginInfo bufferBeginInfo = oGFX::vk::inits::commandBufferBeginInfo();
-	//start recording commanders to command buffer!
-	VkResult result = vkBeginCommandBuffer(commandBuffers[swapchainIdx], &bufferBeginInfo);
-	if (result != VK_SUCCESS)
+        //1. get the next available image to draw to and set somethingg to signal when we're finished with the image ( a semaphere )
+		// -- GET NEXT IMAGE
+		//get  index of next image to be drawn to , and signal semaphere when ready to be drawn to
+        VkResult res = vkAcquireNextImageKHR(m_device.logicalDevice, m_swapchain.swapchain, std::numeric_limits<uint64_t>::max(),
+            imageAvailable[currentFrame], VK_NULL_HANDLE, &swapchainIdx);
+        if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR /*|| WINDOW_RESIZED*/)
+        {
+            resizeSwapchain = true;
+        }
+	}
+
 	{
-		throw std::runtime_error("Failed to start recording a Command Buffer!");
+		PROFILE_SCOPED("Begin Command Buffer");
+
+        //Information about how to begin each command buffer
+        VkCommandBufferBeginInfo bufferBeginInfo = oGFX::vk::inits::commandBufferBeginInfo();
+        //start recording commanders to command buffer!
+        VkResult result = vkBeginCommandBuffer(commandBuffers[swapchainIdx], &bufferBeginInfo);
+        if (result != VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to start recording a Command Buffer!");
+        }
 	}
 }
 
@@ -1557,6 +1572,7 @@ void VulkanRenderer::Present()
 	presentInfo.pImageIndices = &swapchainIdx;		//index of images in swapchains to present
 
 															//present image
+	PROFILE_GPU_PRESENT(m_swapchain.swapchain);
 	try
 	{
 		result = vkQueuePresentKHR(m_device.presentationQueue, &presentInfo);
@@ -1805,8 +1821,8 @@ void VulkanRenderer::SetMeshTextures(uint32_t modelID, uint32_t alb, uint32_t no
 	models[modelID].textures = { alb,norm,occlu,rough };
 }
 
-VkCommandBuffer VulkanRenderer::beginSingleTimeCommands(){
-
+VkCommandBuffer VulkanRenderer::beginSingleTimeCommands()
+{
 	VkCommandBufferAllocateInfo allocInfo= oGFX::vk::inits::commandBufferAllocateInfo(m_device.commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY,1);
 
 	VkCommandBuffer commandBuffer;
@@ -1969,6 +1985,7 @@ void VulkanRenderer::DebugPass()
 
 void VulkanRenderer::PrePass()
 {
+	PROFILE_SCOPED();
 	std::array<VkClearValue, 2> clearValues{};
 	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
 	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
@@ -1987,21 +2004,25 @@ void VulkanRenderer::PrePass()
     const VkCommandBuffer cmdlist = commandBuffers[swapchainIdx];
 
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    PROFILE_GPU_CONTEXT(cmdlist);
+    PROFILE_GPU_EVENT("PrePass");
 
-	VkViewport viewport = { 0, float(windowPtr->m_height), float(windowPtr->m_width), -float(windowPtr->m_height), 0, 1 };
-	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
-	vkCmdSetViewport(cmdlist, 0, 1, &viewport);
-	vkCmdSetScissor(cmdlist, 0, 1, &scissor);
+	SetDefaultViewportAndScissor(cmdlist);
 
 	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-	std::array<VkDescriptorSet, 3> descriptorSetGroup = {g0_descriptors, uniformDescriptorSets[swapchainIdx],
-		globalSamplers };
+	std::array<VkDescriptorSet, 3> descriptorSetGroup =
+	{
+		g0_descriptors,
+		uniformDescriptorSets[swapchainIdx],
+		globalSamplers
+	};
 
 	//using the second camera
 	std::array<uint32_t, 1> dynamicOffsets{ 0 };
 	dynamicOffsets[0] = static_cast<uint32_t>(uboDynamicAlignment);	
 
 	{
+		PROFILE_SCOPED("Camera");
 		Camera cam;
 		auto ar = (float)windowPtr->m_width / windowPtr->m_height;
 		cam.SetOrtho(10.0f,ar,0.1f,1000.0f);
@@ -2025,30 +2046,31 @@ void VulkanRenderer::PrePass()
 	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeLayout,
 		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), static_cast<uint32_t>(dynamicOffsets.size()) , dynamicOffsets.data() );
 
-	
-	for (auto& entity : entities)
 	{
-		auto& model = models[entity.modelID];
+		PROFILE_SCOPED("for (auto& entity : entities)");
+		for (auto& entity : entities)
+		{
+			auto& model = models[entity.modelID];
 
-		glm::mat4 xform(1.0f);
-		xform = glm::translate(xform, entity.pos);
-		xform = glm::rotate(xform,glm::radians(entity.rot), entity.rotVec);
-		xform = glm::scale(xform, entity.scale);
+			glm::mat4 xform(1.0f);
+			xform = glm::translate(xform, entity.pos);
+			xform = glm::rotate(xform, glm::radians(entity.rot), entity.rotVec);
+			xform = glm::scale(xform, entity.scale);
 
-		vkCmdPushConstants(cmdlist,
-			indirectPipeLayout,
-			VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
-			0,							// offset of push constants to update
-			sizeof(glm::mat4),			// size of data being pushed
-			glm::value_ptr(xform));		// actualy data being pushed (could be an array));
+			vkCmdPushConstants(cmdlist,
+				indirectPipeLayout,
+				VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+				0,							// offset of push constants to update
+				sizeof(glm::mat4),			// size of data being pushed
+				glm::value_ptr(xform));		// actualy data being pushed (could be an array));
 
 
-		VkDeviceSize offsets[] = { 0 };	
-		vkCmdBindIndexBuffer(cmdlist, g_MeshBuffers.IdxBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
-		vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1,g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
-		vkCmdDrawIndexed(cmdlist, model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindIndexBuffer(cmdlist, g_MeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+			vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
+			vkCmdDrawIndexed(cmdlist, model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
+		}
 	}
-
 	vkCmdEndRenderPass(cmdlist);
 }
 
@@ -2197,6 +2219,7 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 
 void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 {		
+	PROFILE_SCOPED();
 
 	float height = static_cast<float>(windowPtr->m_height);
 	float width = static_cast<float>(windowPtr->m_width);

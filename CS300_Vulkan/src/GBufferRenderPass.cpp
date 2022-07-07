@@ -37,6 +37,10 @@ void GBufferRenderPass::Draw()
 	auto& swapchainIdx = VulkanRenderer::swapchainIdx;
 	auto* windowPtr = VulkanRenderer::windowPtr;
 
+    const VkCommandBuffer cmdlist = commandBuffers[swapchainIdx];
+    PROFILE_GPU_CONTEXT(cmdlist);
+    PROFILE_GPU_EVENT("GBuffer");
+
 	constexpr VkClearColorValue zeroFloat4 = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
 
 	// Clear values for all attachments written in the fragment shader
@@ -53,8 +57,6 @@ void GBufferRenderPass::Draw()
 	renderPassBeginInfo.renderArea.extent.height = swapchain.swapChainExtent.height;
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassBeginInfo.pClearValues = clearValues.data();
-	
-	const VkCommandBuffer cmdlist = commandBuffers[swapchainIdx];
 
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	
@@ -80,6 +82,8 @@ void GBufferRenderPass::Draw()
 
     const VkBuffer idcb = VulkanRenderer::indirectCommandsBuffer.buffer;
     const uint32_t count = (uint32_t)VulkanRenderer::m_DrawIndirectCommandsCPU.size();
+
+	// TODO: Make this fallback generic...
 	if (device.enabledFeatures.multiDrawIndirect)
 	{
 		vkCmdDrawIndexedIndirect(cmdlist, idcb, 0, count, sizeof(VkDrawIndexedIndirectCommand));
