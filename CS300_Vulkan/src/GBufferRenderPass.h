@@ -12,19 +12,21 @@ struct GBufferRenderPass : public GfxRenderpass
 	void Draw() override;
 	void Shutdown() override;
 
-	ImTextureID deferredImg[3]{};
+	void CreatePSO() override;
+	
 	VulkanFramebufferAttachment att_albedo;
 	VulkanFramebufferAttachment att_position;
 	VulkanFramebufferAttachment att_normal;
 	VulkanFramebufferAttachment att_depth;
 
-	VkRenderPass deferredPass;
-	VkFramebuffer deferredFB;
+	// This is for ImGui
+	ImTextureID deferredImg[3]{};
 
-	uint64_t uboDynamicAlignment;
+	VkRenderPass renderpass_GBuffer;
+	VkFramebuffer framebuffer_GBuffer;
+
 	//VkPushConstantRange pushConstantRange;
-	VkPipeline deferredPipe;
-
+	VkPipeline pso_GBufferDefault;
 
 private:
 	void SetupRenderpass();

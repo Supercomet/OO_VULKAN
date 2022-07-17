@@ -22,12 +22,11 @@ void GBufferRenderPass::Init()
 	SetupRenderpass();
 	SetupFramebuffer();
 	CreateDescriptors();
-	CreatePipeline();
+}
 
-	// THIS IS A HACK.
-	// Because Init order is undefined.
-	if (RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>())
-		RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->CreatePipeline();
+void GBufferRenderPass::CreatePSO()
+{
+	CreatePipeline();
 }
 
 void GBufferRenderPass::Draw()
@@ -38,28 +37,32 @@ void GBufferRenderPass::Draw()
 	auto& swapchainIdx = VulkanRenderer::swapchainIdx;
 	auto* windowPtr = VulkanRenderer::windowPtr;
 
+    const VkCommandBuffer cmdlist = commandBuffers[swapchainIdx];
+    PROFILE_GPU_CONTEXT(cmdlist);
+    PROFILE_GPU_EVENT("GBuffer");
+
+	constexpr VkClearColorValue zeroFloat4 = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
+
 	// Clear values for all attachments written in the fragment shader
 	std::array<VkClearValue, GBufferAttachmentIndex::MAX_ATTACHMENTS> clearValues;
-	clearValues[GBufferAttachmentIndex::POSITION].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-	clearValues[GBufferAttachmentIndex::NORMAL]  .color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-	clearValues[GBufferAttachmentIndex::ALBEDO]  .color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+	clearValues[GBufferAttachmentIndex::POSITION].color = zeroFloat4;
+	clearValues[GBufferAttachmentIndex::NORMAL]  .color = zeroFloat4;
+	clearValues[GBufferAttachmentIndex::ALBEDO]  .color = zeroFloat4;
 	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 1.0f, 0 };
 	
 	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
-	renderPassBeginInfo.renderPass =  deferredPass;
-	renderPassBeginInfo.framebuffer = deferredFB;
+	renderPassBeginInfo.renderPass =  renderpass_GBuffer;
+	renderPassBeginInfo.framebuffer = framebuffer_GBuffer;
 	renderPassBeginInfo.renderArea.extent.width = swapchain.swapChainExtent.width;
 	renderPassBeginInfo.renderArea.extent.height = swapchain.swapChainExtent.height;
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassBeginInfo.pClearValues = clearValues.data();
-	
-	const VkCommandBuffer cmdlist = commandBuffers[swapchainIdx];
 
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	
 	SetDefaultViewportAndScissor(cmdlist);
 
-	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredPipe);
+	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, pso_GBufferDefault);
 	std::array<VkDescriptorSet, 3> descriptorSetGroup = 
 	{
 		VulkanRenderer::g0_descriptors,
@@ -68,46 +71,60 @@ void GBufferRenderPass::Draw()
 	};
 	
 	uint32_t dynamicOffset = 0;
-	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS,VulkanRenderer::indirectPipeLayout,
+	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, VulkanRenderer::indirectPipeLayout,
 		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);
 	
-	for (auto& entity : VulkanRenderer::entities)
+	// Bind merged mesh vertex & index buffers, instancing buffers.
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, VulkanRenderer::g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
+    vkCmdBindIndexBuffer(cmdlist, VulkanRenderer::g_MeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(cmdlist, INSTANCE_BUFFER_ID, 1, &VulkanRenderer::instanceBuffer.buffer, offsets);
+
+    const VkBuffer idcb = VulkanRenderer::indirectCommandsBuffer.buffer;
+    const uint32_t count = (uint32_t)VulkanRenderer::m_DrawIndirectCommandsCPU.size();
+
+	// TODO: Make this fallback generic...
+	if (device.enabledFeatures.multiDrawIndirect)
 	{
-		auto& model = VulkanRenderer::models[entity.modelID];
-	
-		glm::mat4 xform(1.0f);
-		xform = glm::translate(xform, entity.pos);
-		xform = glm::rotate(xform,glm::radians(entity.rot), entity.rotVec);
-		xform = glm::scale(xform, entity.scale);
-	
-		vkCmdPushConstants(cmdlist,
-			VulkanRenderer::indirectPipeLayout,
-			VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
-			0,							// offset of push constants to update
-			sizeof(glm::mat4),			// size of data being pushed
-			glm::value_ptr(xform));		// actualy data being pushed (could be an array));
-	
-		VkDeviceSize offsets[] = { 0 };	
-		vkCmdBindIndexBuffer(cmdlist, VulkanRenderer::g_MeshBuffers.IdxBuffer.getBuffer(),0, VK_INDEX_TYPE_UINT32);
-		vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, VulkanRenderer::g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
-	
-		// bind instance buffer
-		vkCmdBindVertexBuffers(cmdlist, INSTANCE_BUFFER_ID, 1, &VulkanRenderer::instanceBuffer.buffer, offsets);
-		//vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
+		vkCmdDrawIndexedIndirect(cmdlist, idcb, 0, count, sizeof(VkDrawIndexedIndirectCommand));
 	}
-	
-	//if (m_device.enabledFeatures.multiDrawIndirect)
-	//{
-	//	vkCmdDrawIndexedIndirect(commandBuffers[swapchainImageIndex], indirectCommandsBuffer.buffer, 0, indirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
-	//}
-	//else
+	else
 	{
-		for (size_t i = 0; i < VulkanRenderer::m_DrawIndirectCommandsCPU.size(); i++)
-		{		
-			vkCmdDrawIndexedIndirect(cmdlist, VulkanRenderer::indirectCommandsBuffer.buffer, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+		// If MDI not supported, still use IDCB but draw one by one per instance instead of one MDI for all instances
+		for (uint32_t i = 0; i < count; ++i)
+		{
+			vkCmdDrawIndexedIndirect(cmdlist, idcb, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
 		}
 	}
-	// End Render  Pass
+
+	// Other draw calls that are not supported by MDI
+    // TODO: Deprecate this, or handle it gracefully. Leaving this here.
+    if constexpr (false)
+    {
+        for (auto& entity : VulkanRenderer::entities)
+        {
+            auto& model = VulkanRenderer::models[entity.modelID];
+
+            glm::mat4 xform(1.0f);
+            xform = glm::translate(xform, entity.pos);
+            xform = glm::rotate(xform, glm::radians(entity.rot), entity.rotVec);
+            xform = glm::scale(xform, entity.scale);
+
+            vkCmdPushConstants(cmdlist,
+                VulkanRenderer::indirectPipeLayout,
+                VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+                0,							// offset of push constants to update
+                sizeof(glm::mat4),			// size of data being pushed
+                glm::value_ptr(xform));		// actualy data being pushed (could be an array));
+
+            VkDeviceSize offsets[] = { 0 };
+            vkCmdBindIndexBuffer(cmdlist, VulkanRenderer::g_MeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, VulkanRenderer::g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
+            vkCmdBindVertexBuffers(cmdlist, INSTANCE_BUFFER_ID, 1, &VulkanRenderer::instanceBuffer.buffer, offsets);
+            //vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
+        }
+    }
+
 	vkCmdEndRenderPass(cmdlist);
 }
 
@@ -118,9 +135,9 @@ void GBufferRenderPass::Shutdown()
 	att_position.destroy(m_device.logicalDevice);
 	att_normal.destroy(m_device.logicalDevice);
 	att_depth.destroy(m_device.logicalDevice);
-	vkDestroyFramebuffer(m_device.logicalDevice, deferredFB, nullptr);
-	vkDestroyRenderPass(m_device.logicalDevice,deferredPass, nullptr);
-	vkDestroyPipeline(m_device.logicalDevice, deferredPipe, nullptr);
+	vkDestroyFramebuffer(m_device.logicalDevice, framebuffer_GBuffer, nullptr);
+	vkDestroyRenderPass(m_device.logicalDevice,renderpass_GBuffer, nullptr);
+	vkDestroyPipeline(m_device.logicalDevice, pso_GBufferDefault, nullptr);
 }
 
 void GBufferRenderPass::SetupRenderpass()
@@ -128,21 +145,20 @@ void GBufferRenderPass::SetupRenderpass()
 	auto& m_device = VulkanRenderer::m_device;
 	auto& m_swapchain = VulkanRenderer::m_swapchain;
 
-	att_position.createAttachment(m_device, m_swapchain.swapChainExtent.width,  m_swapchain.swapChainExtent.height,
-		VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+	const uint32_t width = m_swapchain.swapChainExtent.width;
+	const uint32_t height = m_swapchain.swapChainExtent.height;
 
-	att_normal.createAttachment(m_device,m_swapchain.swapChainExtent.width,  m_swapchain.swapChainExtent.height,
-		VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+	// TODO: Texture format optimization/packing?
+	att_position.createAttachment(m_device, width, height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+	att_normal  .createAttachment(m_device, width, height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+	att_albedo  .createAttachment(m_device, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 
-	att_albedo.createAttachment(m_device, m_swapchain.swapChainExtent.width,  m_swapchain.swapChainExtent.height,
-		VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
-
-	VkFormat depF = oGFX::ChooseSupportedFormat(m_device,
+	// TODO: This is unnecessary... Just choose 1 format? Preferably VK_FORMAT_D32_SFLOAT_S8_UINT?
+	VkFormat depthFormat = oGFX::ChooseSupportedFormat(m_device,
 		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-	att_depth.createAttachment(m_device, m_swapchain.swapChainExtent.width,  m_swapchain.swapChainExtent.height,
-		depF, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	att_depth.createAttachment(m_device, width, height, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
 	// Set up separate renderpass with references to the color and depth attachments
 	std::array<VkAttachmentDescription, 4> attachmentDescs = {};
@@ -155,9 +171,8 @@ void GBufferRenderPass::SetupRenderpass()
 		attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		attachmentDescs[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		if (i == 3)
+		if (i == GBufferAttachmentIndex::DEPTH)
 		{
-			// depth format
 			attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 			attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		}
@@ -217,8 +232,8 @@ void GBufferRenderPass::SetupRenderpass()
 	renderPassInfo.dependencyCount = 2;
 	renderPassInfo.pDependencies = dependencies.data();
 
-	VK_CHK(vkCreateRenderPass(m_device.logicalDevice, &renderPassInfo, nullptr, &deferredPass));
-	VK_NAME(m_device.logicalDevice, "deferredPass", deferredPass);
+	VK_CHK(vkCreateRenderPass(m_device.logicalDevice, &renderPassInfo, nullptr, &renderpass_GBuffer));
+	VK_NAME(m_device.logicalDevice, "deferredPass", renderpass_GBuffer);
 }
 
 void GBufferRenderPass::SetupFramebuffer()
@@ -232,14 +247,14 @@ void GBufferRenderPass::SetupFramebuffer()
 	VkFramebufferCreateInfo fbufCreateInfo = {};
 	fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	fbufCreateInfo.pNext = NULL;
-	fbufCreateInfo.renderPass = deferredPass;
+	fbufCreateInfo.renderPass = renderpass_GBuffer;
 	fbufCreateInfo.pAttachments = attachments.data();
 	fbufCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 	fbufCreateInfo.width = VulkanRenderer::m_swapchain.swapChainExtent.width;
 	fbufCreateInfo.height = VulkanRenderer::m_swapchain.swapChainExtent.height;
 	fbufCreateInfo.layers = 1;
-	VK_CHK(vkCreateFramebuffer(VulkanRenderer::m_device.logicalDevice, &fbufCreateInfo, nullptr, &deferredFB));
-	VK_NAME(VulkanRenderer::m_device.logicalDevice, "deferredFB", deferredFB);
+	VK_CHK(vkCreateFramebuffer(VulkanRenderer::m_device.logicalDevice, &fbufCreateInfo, nullptr, &framebuffer_GBuffer));
+	VK_NAME(VulkanRenderer::m_device.logicalDevice, "deferredFB", framebuffer_GBuffer);
 
 	deferredImg[GBufferAttachmentIndex::POSITION] = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	deferredImg[GBufferAttachmentIndex::NORMAL]   = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -249,49 +264,8 @@ void GBufferRenderPass::SetupFramebuffer()
 
 void GBufferRenderPass::CreateDescriptors()
 {
-	auto& m_device = VulkanRenderer::m_device;
-
-	if (VulkanRenderer::deferredSet)
-		return;
-
-	VkPhysicalDeviceProperties props;
-	vkGetPhysicalDeviceProperties(VulkanRenderer::m_device.physicalDevice,&props);
-	size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
-	if (minUboAlignment > 0)
-	{
-		uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
-	}
-
-	size_t numLights = 1;
-	VkDeviceSize vpBufferSize = uboDynamicAlignment * numLights;
-
-	//// LightData bufffer size
-
-	// Image descriptors for the offscreen color attachments
-	VkDescriptorImageInfo texDescriptorPosition =
-		oGFX::vk::inits::descriptorImageInfo(
-			GfxSamplerManager::GetSampler_Deferred(),
-			att_position.view,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	VkDescriptorImageInfo texDescriptorNormal =
-		oGFX::vk::inits::descriptorImageInfo(
-			GfxSamplerManager::GetSampler_Deferred(),
-			att_normal.view,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	VkDescriptorImageInfo texDescriptorAlbedo =
-		oGFX::vk::inits::descriptorImageInfo(
-			GfxSamplerManager::GetSampler_Deferred(),
-			att_albedo.view, 
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	DescriptorBuilder::Begin(&VulkanRenderer::DescLayoutCache, &VulkanRenderer::DescAlloc)
-		.BindImage(1, &texDescriptorPosition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.BindImage(2, &texDescriptorNormal, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.BindImage(3, &texDescriptorAlbedo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.BindBuffer(4, &VulkanRenderer::lightsBuffer.descriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.Build(VulkanRenderer::deferredSet,VulkanRenderer::deferredSetLayout);
+	// TODO?
+	// Layout for GBuffer, NOT Deferred Lighting
 }
 
 void GBufferRenderPass::CreatePipeline()
@@ -340,11 +314,11 @@ void GBufferRenderPass::CreatePipeline()
 	pipelineCI.pVertexInputState = &vertexInputCreateInfo;
 
 	// Offscreen pipeline
-	shaderStages[0]  = VulkanRenderer::LoadShader(m_device, "Shaders/bin/gbuffer.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = VulkanRenderer::LoadShader(m_device, "Shaders/bin/gbuffer.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[0] = VulkanRenderer::LoadShader(m_device, "Shaders/bin/gbuffer.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = VulkanRenderer::LoadShader(m_device, "Shaders/bin/gbuffer.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Separate render pass
-	pipelineCI.renderPass = deferredPass;
+	pipelineCI.renderPass = renderpass_GBuffer;
 
 	// Blend attachment states required for all color attachments
 	// This is important, as color write mask will otherwise be 0x0 and you
@@ -359,8 +333,8 @@ void GBufferRenderPass::CreatePipeline()
 	colorBlendState.attachmentCount = static_cast<uint32_t>(blendAttachmentStates.size());
 	colorBlendState.pAttachments = blendAttachmentStates.data();
 
-	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &deferredPipe));
-	VK_NAME(m_device.logicalDevice, "deferredPipe", deferredPipe);
+	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_GBufferDefault));
+	VK_NAME(m_device.logicalDevice, "deferredPipe", pso_GBufferDefault);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
 

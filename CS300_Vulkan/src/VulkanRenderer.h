@@ -81,8 +81,8 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	inline static std::vector<VkFramebuffer> swapChainFramebuffers;
 	inline static uint32_t swapchainIdx{0};
 
-	inline static VkDescriptorSet deferredSet;
-	inline static VkDescriptorSetLayout deferredSetLayout;
+	inline static VkDescriptorSet descriptorSet_Deferred;
+	inline static VkDescriptorSetLayout descriptorSetLayout_Deferred;
 
 	void ResizeDeferredFB();
 	void DeferredPass();

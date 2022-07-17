@@ -19,3 +19,4 @@
 #include "glm/gtx/color_encoding.hpp"
 #include "glm/gtx/color_space_YCoCg.hpp"
 #include "glm/gtc/noise.hpp"
+#include "glm/gtc/random.hpp"

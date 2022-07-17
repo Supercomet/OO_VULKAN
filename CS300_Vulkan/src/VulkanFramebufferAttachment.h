@@ -17,9 +17,11 @@ struct VulkanFramebufferAttachment
 
 	void destroy(VkDevice device);
 };
+
 struct FrameBuffer
 {
-	int32_t width, height;
+	int32_t width;
+	int32_t height;
 	VkFramebuffer frameBuffer;
 	VulkanFramebufferAttachment position, normal, albedo;
 	VulkanFramebufferAttachment depth;

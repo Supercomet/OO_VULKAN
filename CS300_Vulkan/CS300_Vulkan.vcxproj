@@ -76,6 +76,7 @@
     <ClInclude Include="src\GpuVector.h" />
     <ClInclude Include="src\GfxTypes.h" />
     <ClInclude Include="src\MathCommon.h" />
+    <ClInclude Include="src\Profiling.h" />
     <ClInclude Include="src\Tree.h" />
     <ClInclude Include="src\VulkanFramebufferAttachment.h" />
     <ClInclude Include="src\Node.h" />

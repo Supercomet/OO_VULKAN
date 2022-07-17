@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Profiling.h"
+
 #include <vector>
 #include <memory>
 #include <cassert>
@@ -20,6 +22,7 @@ class GfxRenderpass
 {
 public:
     virtual void Init() = 0;
+    virtual void CreatePSO(){};
     virtual void Draw() = 0;
     virtual void Shutdown() = 0;
     uint8_t m_Index{ 0xFF };

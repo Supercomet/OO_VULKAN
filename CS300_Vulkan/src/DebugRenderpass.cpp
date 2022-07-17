@@ -22,7 +22,6 @@ void DebugRenderpass::Init()
 
 void DebugRenderpass::Draw()
 {
-
 	auto swapchainIdx = VulkanRenderer::swapchainIdx;
 	auto* windowPtr = VulkanRenderer::windowPtr;
 	auto& commandBuffers = VulkanRenderer::commandBuffers;
@@ -42,15 +41,12 @@ void DebugRenderpass::Draw()
 	renderPassBeginInfo.framebuffer =  VulkanRenderer::swapChainFramebuffers[swapchainIdx];
 	
 	const VkCommandBuffer cmdlist = VulkanRenderer::commandBuffers[swapchainIdx];
+    PROFILE_GPU_CONTEXT(cmdlist);
+    PROFILE_GPU_EVENT("DebugRender");
 
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-
-	VkViewport viewport = { 0, float(VulkanRenderer::m_swapchain.swapChainExtent.height),
-		float(VulkanRenderer::m_swapchain.swapChainExtent.width), -float(VulkanRenderer::m_swapchain.swapChainExtent.height), 0, 1 };
-	VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width),uint32_t(windowPtr->m_height) } };
-	vkCmdSetViewport(cmdlist, 0, 1, &viewport);
-	vkCmdSetScissor(cmdlist, 0, 1, &scissor);
+	SetDefaultViewportAndScissor(cmdlist);
 
 	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, linesPipeline);
 
