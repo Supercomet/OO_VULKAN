@@ -104,6 +104,13 @@ void DebugRenderpass::Draw()
 		vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, debug.vbo.getBufferPtr(), offsets);
 		vkCmdDrawIndexed(cmdlist, static_cast<uint32_t>(debug.indices.size()) , 1, 0, 0, 0);
 	}
+	if (VulkanRenderer::debug_octTree_tris)
+	{
+		auto& debug = VulkanRenderer::g_DebugDraws[VulkanRenderer::g_octTree_tris];
+		vkCmdBindIndexBuffer(cmdlist,  debug.ibo.getBuffer(),0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, debug.vbo.getBufferPtr(), offsets);
+		vkCmdDrawIndexed(cmdlist, static_cast<uint32_t>(debug.indices.size()) , 1, 0, 0, 0);
+	}
 
 	vkCmdEndRenderPass(cmdlist);
 }

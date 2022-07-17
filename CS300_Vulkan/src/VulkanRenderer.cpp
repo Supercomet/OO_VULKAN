@@ -1315,6 +1315,42 @@ void VulkanRenderer::AddDebugSphere(const Sphere& sphere, const oGFX::Color& col
 	
 }
 
+void VulkanRenderer::AddDebugTriangle(const Triangle& tri, const oGFX::Color& col, size_t loc)
+{
+
+	if (loc == size_t(-1))
+	{
+		auto sz = g_debugDrawVerts.size();
+		g_debugDrawVerts.push_back(oGFX::Vertex{ tri.v0,{/*normal*/},col }); //0
+		g_debugDrawVerts.push_back(oGFX::Vertex{ tri.v1,{/*normal*/},col }); //1
+		g_debugDrawVerts.push_back(oGFX::Vertex{ tri.v2,{/*normal*/},col }); //2
+		
+		g_debugDrawIndices.push_back(0 + static_cast<uint32_t>(sz)); // E0
+		g_debugDrawIndices.push_back(1 + static_cast<uint32_t>(sz)); // E0
+		g_debugDrawIndices.push_back(1 + static_cast<uint32_t>(sz)); // E1
+		g_debugDrawIndices.push_back(2 + static_cast<uint32_t>(sz)); // E1
+		g_debugDrawIndices.push_back(2 + static_cast<uint32_t>(sz)); // E2
+		g_debugDrawIndices.push_back(0 + static_cast<uint32_t>(sz)); // E2
+		
+	}
+	else
+	{
+		auto& debug = g_DebugDraws[loc];
+
+		auto sz = debug.vertex.size();
+		debug.vertex.push_back(oGFX::Vertex{ tri.v0,{/*normal*/},col }); //0
+		debug.vertex.push_back(oGFX::Vertex{ tri.v1,{/*normal*/},col }); //1
+		debug.vertex.push_back(oGFX::Vertex{ tri.v2,{/*normal*/},col }); //2
+
+		debug.indices.push_back(0 + static_cast<uint32_t>(sz)); // E0
+		debug.indices.push_back(1 + static_cast<uint32_t>(sz)); // E0
+		debug.indices.push_back(1 + static_cast<uint32_t>(sz)); // E1
+		debug.indices.push_back(2 + static_cast<uint32_t>(sz)); // E1
+		debug.indices.push_back(2 + static_cast<uint32_t>(sz)); // E2
+		debug.indices.push_back(0 + static_cast<uint32_t>(sz)); // E2
+	}
+}
+
 void IndirectCommandsHelper(Node* node, std::vector<VkDrawIndexedIndirectCommand>& m_DrawIndirectCommandsCPU,
 	std::vector<VkDrawIndexedIndirectCommand>& indirectDebugCommandsCPU, uint32_t& m)
 {
@@ -1641,7 +1677,7 @@ bool VulkanRenderer::ResizeSwapchain()
 
 void VulkanRenderer::InitTreeDebugDraws()
 {
-	for (size_t i = 0; i < 4; i++)
+	for (size_t i = 0; i < debugDrawBufferCnt; i++)
 	{
 		g_DebugDraws[i].vbo.Init(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 		g_DebugDraws[i].ibo.Init(VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
@@ -1650,7 +1686,7 @@ void VulkanRenderer::InitTreeDebugDraws()
 
 void VulkanRenderer::ShutdownTreeDebug()
 {
-	for (size_t i = 0; i < 4; i++)
+	for (size_t i = 0; i < debugDrawBufferCnt; i++)
 	{
 		g_DebugDraws[i].vbo.destroy();
 		g_DebugDraws[i].ibo.destroy();
@@ -2001,6 +2037,17 @@ void VulkanRenderer::UpdateTreeBuffers()
 	if (debug_topDown_sphere && g_DebugDraws[g_topDwn_Sphere].dirty)
 	{
 		auto& debug = g_DebugDraws[g_topDwn_Sphere];
+		debug.vbo.reserve(debug.vertex.size());
+		debug.ibo.reserve(debug.indices.size());
+
+		debug.vbo.writeTo(debug.vertex.size() , debug.vertex.data());
+		debug.ibo.writeTo(debug.indices.size() , debug.indices.data());
+
+		debug.dirty = false;
+	}
+	if (debug_octTree_tris && g_DebugDraws[g_octTree_tris].dirty)
+	{
+		auto& debug = g_DebugDraws[g_octTree_tris];
 		debug.vbo.reserve(debug.vertex.size());
 		debug.ibo.reserve(debug.indices.size());
 

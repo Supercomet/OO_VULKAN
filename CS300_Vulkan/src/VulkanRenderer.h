@@ -125,7 +125,8 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 
 
 	void AddDebugBox(const AABB& aabb, const oGFX::Color& col, size_t loc = -1);
-	void AddDebugSphere(const Sphere& aabb, const oGFX::Color& col,size_t loc = -1);
+	void AddDebugSphere(const Sphere& sphere, const oGFX::Color& col,size_t loc = -1);
+	void AddDebugTriangle(const Triangle& tri, const oGFX::Color& col,size_t loc = -1);
 
 	void UpdateIndirectCommands();
 	void UpdateInstanceData();
@@ -195,12 +196,16 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	inline static bool debug_topDown_aabb = false;
 	inline static bool debug_btmUp_sphere = false;
 	inline static bool debug_topDown_sphere = false;
+	inline static bool debug_octTree_tris = false;
 	static constexpr size_t g_btmUp_AABB =0;
 	static constexpr size_t g_topDwn_AABB =1;
 	static constexpr size_t g_btmUp_Sphere=2;
 	static constexpr size_t g_topDwn_Sphere=3;
+	static constexpr size_t g_octTree_tris=4;
 
-	inline static DebugDraw g_DebugDraws[4];
+	static constexpr size_t debugDrawBufferCnt = 5;
+
+	inline static DebugDraw g_DebugDraws[debugDrawBufferCnt];
 	void InitTreeDebugDraws();
 	void ShutdownTreeDebug();
 

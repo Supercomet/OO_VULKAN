@@ -30,6 +30,7 @@
 
 #include "IcoSphereCreator.h"
 #include "Tree.h"
+#include "OctTree.h"
 
 #include <numeric>
 //#include <algorithm>
@@ -56,6 +57,23 @@ bool BoolQueryUser(const char * str)
         }
     }
     return response == 'n' ? false : true;
+}
+
+oGFX::Color generateRandomColor()
+{
+    static std::default_random_engine rndEngine(123456);
+    static std::uniform_real<float> uniformDist( 0.0f,1.0f);
+   
+    oGFX::Color col; 
+    col.a = 1.0f;
+    do
+    {
+        col.r = uniformDist(rndEngine);
+        col.g = uniformDist(rndEngine);
+        col.b = uniformDist(rndEngine);
+    }
+    while ((col.r + col.g + col.b) < 1.5f);
+    return col;
 }
 
 // Just a dummy struct to hold Vertex and 32-bit Index Buffers.
@@ -339,8 +357,28 @@ int main(int argc, char argv[])
     oGFX::BV::BoundingAABB(bunny->aabb, vertPositions);
     Sphere ms;
     oGFX::BV::EigenSphere(ms, vertPositions);
-    
-    
+
+    OctTree oct(vertPositions, bunny->indices);
+    auto [octVerts, octIndices, octDepth] = oct.GetTriangleList();
+    auto numTri = octIndices.size() / 3;
+    std::unordered_map<uint32_t, oGFX::Color> colMap;
+    for (size_t i = 0; i < numTri; i++)
+    {
+        auto id0 = octIndices[i*3 + 0];
+        auto id1 = octIndices[i*3 + 1];
+        auto id2 = octIndices[i*3 + 2];
+        auto depth = octDepth[i];
+        Triangle tri(octVerts[id0],
+            octVerts[id1],
+            octVerts[id2]
+        );
+        oGFX::Color& col = colMap[depth];
+        if (col.a == 0.0f) col = generateRandomColor();
+        //depth %= oGFX::Colors::c.size();
+        renderer.AddDebugTriangle(tri, col, renderer.g_octTree_tris);
+    }
+    renderer.g_DebugDraws[renderer.g_octTree_tris].dirty = true;
+   
 
     vertPositions.resize(icoSphere->vertices.size());
     std::transform(icoSphere->vertices.begin(), icoSphere->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
@@ -358,6 +396,8 @@ int main(int argc, char argv[])
     std::transform(lucy->vertices.begin(), lucy->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
     oGFX::BV::RitterSphere(lucy->s, vertPositions);
     oGFX::BV::BoundingAABB(lucy->aabb, vertPositions);
+
+    
 
     std::unique_ptr<Model> starWars { renderer.LoadMeshFromFile("Models/starwars1.obj") };
     vertPositions.resize(starWars->vertices.size());
@@ -942,6 +982,7 @@ int main(int argc, char argv[])
             ImGui::Checkbox("Bottom Up AABB", &renderer.debug_topDown_aabb);
             ImGui::Checkbox("Top down Sphere", &renderer.debug_topDown_sphere);
             ImGui::Checkbox("Bottom Up Sphere", &renderer.debug_btmUp_sphere);
+            ImGui::Checkbox("OctTree tris", &renderer.debug_octTree_tris);
             ImGui::End();
 
             renderer.DrawGUI();

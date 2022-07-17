@@ -11,6 +11,7 @@ struct Plane
 {
 	Plane();
 	Plane(const Point3D& n, const Point3D& p);
+	Plane(const Point3D& n, float d);
 	glm::vec4 normal;
 	std::pair<glm::vec3, glm::vec3> ToPointNormal() const;
 };
