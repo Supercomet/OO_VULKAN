@@ -357,7 +357,9 @@ int main(int argc, char argv[])
     oGFX::BV::BoundingAABB(bunny->aabb, vertPositions);
     Sphere ms;
     oGFX::BV::EigenSphere(ms, vertPositions);
-
+    
+    //quicky dirty scaling
+    std::for_each(vertPositions.begin(), vertPositions.end(), [](Point3D& v) { return v *= 50.0f; });
     OctTree oct(vertPositions, bunny->indices);
     auto [octVerts, octIndices, octDepth] = oct.GetTriangleList();
     auto numTri = octIndices.size() / 3;
@@ -377,8 +379,14 @@ int main(int argc, char argv[])
         //depth %= oGFX::Colors::c.size();
         renderer.AddDebugTriangle(tri, col, renderer.g_octTree_tris);
     }
+    auto [octBox, boxDepth] =oct.GetActiveBoxList();
+    for (size_t i = 0; i < octBox.size(); i++)
+    {
+        oGFX::Color& col = colMap[boxDepth[i]];
+        renderer.AddDebugBox (octBox[i], oGFX::Colors::INDIGO, renderer.g_octTree_tris);
+    }
+    std::cout << "Oct box size:" << octBox.size() << " and total nodes: " << oct.size();
     renderer.g_DebugDraws[renderer.g_octTree_tris].dirty = true;
-   
 
     vertPositions.resize(icoSphere->vertices.size());
     std::transform(icoSphere->vertices.begin(), icoSphere->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
@@ -397,7 +405,8 @@ int main(int argc, char argv[])
     oGFX::BV::RitterSphere(lucy->s, vertPositions);
     oGFX::BV::BoundingAABB(lucy->aabb, vertPositions);
 
-    
+   
+
 
     std::unique_ptr<Model> starWars { renderer.LoadMeshFromFile("Models/starwars1.obj") };
     vertPositions.resize(starWars->vertices.size());
@@ -411,6 +420,7 @@ int main(int argc, char argv[])
     oGFX::BV::RitterSphere(fourSphere->s, vertPositions);
     oGFX::BV::BoundingAABB(fourSphere->aabb, vertPositions);
 
+   
     //std::unique_ptr<Model> ball;
     //ball.reset(renderer.LoadMeshFromFile("Models/sphere.obj"));
     

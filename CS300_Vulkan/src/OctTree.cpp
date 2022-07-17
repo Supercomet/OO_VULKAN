@@ -27,6 +27,22 @@ std::tuple< std::vector<Point3D>, std::vector<uint32_t>,std::vector<uint32_t> > 
 	return std::tuple< std::vector<Point3D>, std::vector<uint32_t>,std::vector<uint32_t> >(vertices,indices,depth);
 }
 
+std::tuple<std::vector<AABB>, std::vector<uint32_t>> OctTree::GetActiveBoxList()
+{
+	std::vector<AABB> boxes; std::vector<uint32_t> depth;
+
+	boxes.push_back(m_root->box);
+	depth.push_back(0);
+	GatherBox(m_root.get(), boxes, depth);
+
+	return std::tuple< std::vector<AABB>, std::vector<uint32_t> >(boxes,depth);
+}
+
+uint32_t OctTree::size() const
+{
+	return m_nodes;
+}
+
 void OctTree::SplitNode(OctNode* node, AABB box, const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices)
 {
 	const uint32_t currDepth = node->depth + 1;
@@ -35,15 +51,18 @@ void OctTree::SplitNode(OctNode* node, AABB box, const std::vector<Point3D>& ver
 	if (currDepth > s_stop_depth
 		|| (numTriangles < s_stop_triangles))
 	{
-		node->type = OctNode::LEAF;
+		if (numTriangles)
+		{
+			node->type = OctNode::LEAF;
+			node->nodeID = ++m_nodes;
+		}
 		m_trianglesSaved += numTriangles;
-		node->vertices = vertices;
-		node->indices = indices;
+		node->vertices = std::move(const_cast<std::vector<Point3D>&>(vertices));
+		node->indices = std::move(const_cast<std::vector<uint32_t>&>(indices));
 	}
 	else
 	{
 		node->type = OctNode::INTERNAL;
-
 		const Plane xPlane({ 1.0f,0.0f,0.0f }, box.center.x);
 		const Plane yPlane({ 0.0f,1.0f,0.0f }, box.center.y);
 		const Plane zPlane({ 0.0f,0.0f,1.0f }, box.center.z);
@@ -71,10 +90,10 @@ void OctTree::SplitNode(OctNode* node, AABB box, const std::vector<Point3D>& ver
 		// zsplit
 		std::vector<Point3D> octantVerts[s_num_children];
 		std::vector<uint32_t> octantInds[s_num_children];
-		SplitTrianglesAlongPlane(lowerPositiveVerts, lowerPositiveIndices, yPlane, octantVerts[0], octantInds[0], octantVerts[1], octantInds[1]);
-		SplitTrianglesAlongPlane(upperPositiveVerts, upperPositiveIndices, yPlane, octantVerts[2], octantInds[2], octantVerts[3], octantInds[3]);
-		SplitTrianglesAlongPlane(lowerNegativeVerts, lowerNegativeIndices, yPlane, octantVerts[4], octantInds[4], octantVerts[5], octantInds[5]);
-		SplitTrianglesAlongPlane(upperNegativeVerts, upperNegativeIndices, yPlane, octantVerts[6], octantInds[6], octantVerts[7], octantInds[7]);
+		SplitTrianglesAlongPlane(lowerPositiveVerts, lowerPositiveIndices, zPlane, octantVerts[5], octantInds[5], octantVerts[1], octantInds[1]);
+		SplitTrianglesAlongPlane(upperPositiveVerts, upperPositiveIndices, zPlane, octantVerts[7], octantInds[7], octantVerts[3], octantInds[3]);
+		SplitTrianglesAlongPlane(lowerNegativeVerts, lowerNegativeIndices, zPlane, octantVerts[4], octantInds[4], octantVerts[0], octantInds[0]);
+		SplitTrianglesAlongPlane(upperNegativeVerts, upperNegativeIndices, zPlane, octantVerts[6], octantInds[6], octantVerts[2], octantInds[2]);
 
 		Point3D position;
 		float step = box.halfExt.x * 0.5f;
@@ -85,10 +104,12 @@ void OctTree::SplitNode(OctNode* node, AABB box, const std::vector<Point3D>& ver
 			position.z = ((i & 4) ? step : -step);
 			AABB childBox;
 			childBox.center = box.center + position;
+			childBox.halfExt = Point3D{ step,step,step };
 
 			node->children[i] = std::make_unique<OctNode>();
 			node->children[i]->depth = currDepth;
-			node->children[i]->nodeID = ++m_nodes;
+			//node->children[i]->nodeID = ++m_nodes;
+			node->children[i]->box = childBox;
 			SplitNode(node->children[i].get(),childBox, octantVerts[i], octantInds[i]);
 		}
 	}
@@ -183,7 +204,22 @@ void OctTree::GatherTriangles(OctNode* node, std::vector<Point3D>& vertices, std
 				GatherTriangles(node->children[i].get(),vertices,indices,depth);
 			}
 		}
+	}	
+
+}
+
+void OctTree::GatherBox(OctNode* node, std::vector<AABB>& boxes, std::vector<uint32_t>& depth)
+{
+	if (node == nullptr) return;
+
+	if (node->type == OctNode::LEAF)
+	{
+		boxes.push_back(node->box);
+		depth.push_back(node->depth);
 	}
-	
+	for (size_t i = 0; i < s_num_children; i++)
+	{
+		GatherBox(node->children[i].get(), boxes, depth);
+	}
 
 }
