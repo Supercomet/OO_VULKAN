@@ -79,6 +79,7 @@ struct gfxModel
 		,std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);
 
 	std::vector<Node*> nodes;
+	uint32_t meshCount;
 private:
 	oGFX::Mesh* processMesh(aiMesh* mesh, const aiScene* scene, std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);
 

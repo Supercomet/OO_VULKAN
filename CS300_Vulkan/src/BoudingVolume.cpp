@@ -132,19 +132,14 @@ namespace  oGFX::BV
 			float val = glm::dot(axis, points[p]);
 			if (val == t_max) // degenerate exactly the same dist
 			{
-				float smallDist = glm::dot(points[p], points[max]);
-				for (size_t i = max; i < points.size(); i++)
+				auto pointdiff = points[max] - points[min];
+				float smallDist = glm::dot(pointdiff, pointdiff);
+				auto nPtDif = points[p] - points[min];
+				float dist = glm::dot(nPtDif, nPtDif);
+				if (dist > smallDist)
 				{
-					if (i != p)
-					{
-						float dist = glm::dot(points[p], points[i]);
-						if (dist > smallDist)
-						{
-							t_max = val;
-							max = i;
-						}
-					}
-
+					t_max = val;
+					max = p;
 				}
 			}
 			else if (val > t_max)
@@ -153,7 +148,19 @@ namespace  oGFX::BV
 				max = p;
 			}
 
-			if (val < t_min)
+			if (val == t_min)
+			{
+				auto pointdiff = points[min] - points[max];
+				float smallDist = glm::dot(pointdiff, pointdiff);
+				auto nPtDif = points[p] - points[max];
+				float dist = glm::dot(nPtDif, nPtDif);
+				if (dist > smallDist)
+				{
+					t_min = val;
+					min = p;
+				}
+			}
+			else if (val < t_min)
 			{
 				t_min = val;
 				min = p;
@@ -286,6 +293,7 @@ namespace  oGFX::BV
 
 	void SymSchur2(const Mat3& a, int32_t p, int32_t q, float& c, float& s)
 	{
+		const static float EPSILON = 0.000001f; // high res epsilon
 		if (std::abs(a[p][q]) > EPSILON)
 		{
 			float r = (a[q][q] - a[p][p]) / (2.0f * a[p][q]);
@@ -380,6 +388,12 @@ namespace  oGFX::BV
 		float dist = std::sqrt(glm::dot(maxpt - minpt, maxpt - minpt));
 		s.radius = dist * 0.5f;
 		s.center = (minpt + maxpt) * 0.5f;
+
+		//Grow sphere to include all points
+		for (size_t i = 0; i < points.size(); ++i)
+		{
+			ExpandSphereAboutPoint(s, points[i]);
+		}
 	}
 
 	void RittersEigenSphere(Sphere& s, const std::vector<Point3D>& points)

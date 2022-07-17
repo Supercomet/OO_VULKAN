@@ -1312,6 +1312,37 @@ void VulkanRenderer::AddDebugSphere(const Sphere& sphere, const oGFX::Color& col
 	
 }
 
+void IndirectCommandsHelper(Node* node, std::vector<VkDrawIndexedIndirectCommand>& m_DrawIndirectCommandsCPU,
+	std::vector<VkDrawIndexedIndirectCommand>& indirectDebugCommandsCPU, uint32_t& m)
+{
+	if (node->meshes.size())
+	{
+		//for (size_t i = 0; i < OBJECT_INSTANCE_COUNT; i++)
+		{
+			VkDrawIndexedIndirectCommand indirectCmd{};
+			indirectCmd.instanceCount = 1;
+			indirectCmd.firstInstance = static_cast<uint32_t>(m /* *OBJECT_INSTANCE_COUNT + i*/);
+
+			// @todo: Multiple primitives
+			// A glTF node may consist of multiple primitives, so we may have to do multiple commands per mesh
+			indirectCmd.firstIndex = node->meshes[0]->indicesOffset;
+			indirectCmd.indexCount = node->meshes[0]->indicesCount;
+			indirectCmd.vertexOffset = node->meshes[0]->vertexOffset;
+
+			// for counting
+			//vertexCount += node->meshes[0]->vertexCount;
+			m_DrawIndirectCommandsCPU.emplace_back(indirectCmd);
+
+			indirectDebugCommandsCPU.emplace_back(indirectCmd);
+		}
+		m++;
+	}
+	for (auto& child: node->children)
+	{
+		IndirectCommandsHelper(child,m_DrawIndirectCommandsCPU,indirectDebugCommandsCPU,m);
+	}
+}
+
 void VulkanRenderer::UpdateIndirectCommands()
 {
 	m_DrawIndirectCommandsCPU.clear();
@@ -1324,28 +1355,7 @@ void VulkanRenderer::UpdateIndirectCommands()
 		auto& model = models[e.modelID];
 		for (auto& node :model.nodes)
 		{
-			if (node->meshes.size())
-			{
-				//for (size_t i = 0; i < OBJECT_INSTANCE_COUNT; i++)
-				{
-					VkDrawIndexedIndirectCommand indirectCmd{};
-					indirectCmd.instanceCount = 1;
-					indirectCmd.firstInstance = static_cast<uint32_t>(m /* *OBJECT_INSTANCE_COUNT + i*/);
-
-					// @todo: Multiple primitives
-					// A glTF node may consist of multiple primitives, so we may have to do multiple commands per mesh
-					indirectCmd.firstIndex = node->meshes[0]->indicesOffset;
-					indirectCmd.indexCount = node->meshes[0]->indicesCount;
-					indirectCmd.vertexOffset = node->meshes[0]->vertexOffset;
-
-					// for counting
-					//vertexCount += node->meshes[0]->vertexCount;
-					m_DrawIndirectCommandsCPU.emplace_back(indirectCmd);
-
-					indirectDebugCommandsCPU.emplace_back(indirectCmd);
-				}
-				m++;
-			}
+			IndirectCommandsHelper(node, m_DrawIndirectCommandsCPU, indirectDebugCommandsCPU,m);			
 		}		
 	}
 
@@ -1390,30 +1400,45 @@ void VulkanRenderer::UpdateInstanceData()
 	static uint64_t curr = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 	static std::default_random_engine rndEngine(static_cast<uint32_t>(curr));
 	static std::uniform_real_distribution<float> uniformDist(0.0f, 1.0f);
-	std::vector<oGFX::InstanceData> instanceData;
-	instanceData.resize(objectCount);
+	
 
 	constexpr float radius = 10.0f;
 	constexpr float offset = 10.0f;
 
 	// update the transform positions
-	gpuTransform.resize(MAX_OBJECTS);
+	gpuTransform.clear();
+	gpuTransform.reserve(MAX_OBJECTS);
 	for (size_t i = 0; i < entities.size(); i++)
 	{
+		// TODO: This needs urgent fixing..
+		size_t x = gpuTransform.size();
+		size_t len = x + models[entities[i].modelID].meshCount;
 		mat4 xform(1.0f);
 		xform = glm::translate(xform, entities[i].pos);
 		xform = glm::rotate(xform,glm::radians(entities[i].rot), entities[i].rotVec);
 		xform = glm::scale(xform, entities[i].scale);
-		gpuTransform[i].row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
-		gpuTransform[i].row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
-		gpuTransform[i].row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
-		
+		for (; x < len; x++)
+		{
+			GPUTransform gpt;
+			gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
+			gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
+			gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
+			gpuTransform.push_back(gpt);
+		}		
 	}
 	gpuTransformBuffer.writeTo(gpuTransform.size(), gpuTransform.data());
 
+	std::vector<oGFX::InstanceData> instanceData;
+	instanceData.reserve(objectCount);
 	for (size_t i = 0; i < entities.size(); i++)
 	{
-		instanceData[i].instanceAttributes = uvec4(i, 1, 0, 0);
+		oGFX::InstanceData id;
+		size_t sz = instanceData.size();
+		for (size_t x = 0; x < models[entities[i].modelID].meshCount; x++)
+		{
+			id.instanceAttributes = uvec4(sz+x, 1, 0, 0);
+			instanceData.push_back(id);
+		}
 	}
 
 	vk::Buffer stagingBuffer;
@@ -1647,14 +1672,24 @@ Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	model.cpuModel = m;
 	//std::vector<oGFX::Vertex> verticeBuffer;
 	//std::vector<uint32_t> indexBuffer;
-
+	model.meshCount= 0 ;
 	model.loadNode(nullptr, scene, *scene->mRootNode,0,m->vertices, m->indices);
 	for (auto& node:model.nodes)
 	{
 		for (auto& mesh : node->meshes)
 		{
+			model.meshCount += 1;
 			mesh->indicesOffset += static_cast<uint32_t>(g_MeshBuffers.IdxOffset);
 			mesh->vertexOffset += static_cast<uint32_t>(g_MeshBuffers.VtxOffset);
+		}
+		for (auto& child: node->children)
+		{
+			for (auto& mesh : child->meshes)
+			{
+				model.meshCount += 1;
+				mesh->indicesOffset += static_cast<uint32_t>(g_MeshBuffers.IdxOffset);
+				mesh->vertexOffset += static_cast<uint32_t>(g_MeshBuffers.VtxOffset);
+			}
 		}
 
 	}
@@ -1679,7 +1714,8 @@ Model* VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, st
 		msh->indicesOffset = static_cast<uint32_t>(g_MeshBuffers.IdxOffset);
 		msh->vertexOffset = static_cast<uint32_t>(g_MeshBuffers.VtxOffset);
 		msh->indicesCount = static_cast<uint32_t>(indices.size());
-		msh->vertexCount = static_cast<uint32_t>(vertex.size());;
+		msh->vertexCount = static_cast<uint32_t>(vertex.size());
+		model->meshCount= 1;
 		n->meshes.push_back(msh);
 		model->nodes.push_back(n);
 

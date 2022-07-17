@@ -182,6 +182,49 @@ DefaultMesh CreateDefaultPlaneXZMesh()
     return mesh;
 }
 
+
+void UpdateBV(Model* model, VulkanRenderer::EntityDetails& entity, int i = 0)
+{
+    std::vector<Point3D> vertPositions;
+    vertPositions.resize(model->vertices.size());
+    glm::mat4 xform(1.0f);
+    xform = glm::translate(xform, entity.pos);
+    xform = glm::rotate(xform,glm::radians(entity.rot), entity.rotVec);
+    xform = glm::scale(xform, entity.scale);
+    std::transform(model->vertices.begin(), model->vertices.end(), vertPositions.begin(), [&](const oGFX::Vertex& v) {
+        glm::vec4 pos{ v.pos,1.0f };
+        pos = xform * pos;
+        return pos; 
+        }
+    );
+    switch (i)
+    {
+    case 0:
+    oGFX::BV::RitterSphere(entity.sphere, vertPositions);
+    break;
+    case 1:
+    oGFX::BV::LarsonSphere(entity.sphere, vertPositions, oGFX::BV::EPOS::_6);
+    break;
+    case 2:
+    oGFX::BV::LarsonSphere(entity.sphere, vertPositions, oGFX::BV::EPOS::_14);
+    break;
+    case 3:
+    oGFX::BV::LarsonSphere(entity.sphere, vertPositions, oGFX::BV::EPOS::_26);
+    break;
+    case 4:
+    oGFX::BV::LarsonSphere(entity.sphere, vertPositions, oGFX::BV::EPOS::_98);
+    break;
+    case 5:
+    oGFX::BV::EigenSphere(entity.sphere, vertPositions);
+    break;
+    default:
+    oGFX::BV::RitterSphere(entity.sphere, vertPositions);
+    break;
+    }
+    
+    oGFX::BV::BoundingAABB(entity.aabb, vertPositions);
+}
+
 int main(int argc, char argv[])
 {
     (void)argc;
@@ -285,14 +328,17 @@ int main(int argc, char argv[])
         icoSphere.reset( renderer.LoadMeshFromBuffers(vertices, indices, nullptr));
     }
 
-    std::vector<Point3D> vertPositions;
+   
     std::unique_ptr<Model> bunny { renderer.LoadMeshFromFile("Models/bunny.ply") };
+    std::vector<Point3D> vertPositions;
     vertPositions.resize(bunny->vertices.size());
     std::transform(bunny->vertices.begin(), bunny->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
     oGFX::BV::RitterSphere(bunny->s, vertPositions);
     oGFX::BV::BoundingAABB(bunny->aabb, vertPositions);
     Sphere ms;
-    //oGFX::BV::RittersEigenSphere(bunny->s, vertPositions);
+    oGFX::BV::EigenSphere(ms, vertPositions);
+    
+    
 
     vertPositions.resize(icoSphere->vertices.size());
     std::transform(icoSphere->vertices.begin(), icoSphere->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
@@ -302,8 +348,26 @@ int main(int argc, char argv[])
     std::unique_ptr<Model> box{ renderer.LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
     vertPositions.resize(box->vertices.size());
     std::transform(box->vertices.begin(), box->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
-    oGFX::BV::RitterSphere(box->s, vertPositions);
+    oGFX::BV::LarsonSphere(ms, vertPositions,oGFX::BV::EPOS::_98);
     oGFX::BV::BoundingAABB(box->aabb, vertPositions);
+
+    std::unique_ptr<Model> lucy { renderer.LoadMeshFromFile("Models/lucy_princeton.obj") };
+    vertPositions.resize(lucy->vertices.size());
+    std::transform(lucy->vertices.begin(), lucy->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+    oGFX::BV::RitterSphere(lucy->s, vertPositions);
+    oGFX::BV::BoundingAABB(lucy->aabb, vertPositions);
+
+    std::unique_ptr<Model> starWars { renderer.LoadMeshFromFile("Models/starwars1.obj") };
+    vertPositions.resize(starWars->vertices.size());
+    std::transform(starWars->vertices.begin(), starWars->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+    oGFX::BV::RitterSphere(starWars->s, vertPositions);
+    oGFX::BV::BoundingAABB(starWars->aabb, vertPositions);
+
+    std::unique_ptr<Model> fourSphere { renderer.LoadMeshFromFile("Models/4Sphere.obj") };
+    vertPositions.resize(fourSphere->vertices.size());
+    std::transform(fourSphere->vertices.begin(), fourSphere->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+    oGFX::BV::RitterSphere(fourSphere->s, vertPositions);
+    oGFX::BV::BoundingAABB(fourSphere->aabb, vertPositions);
 
     //std::unique_ptr<Model> ball;
     //ball.reset(renderer.LoadMeshFromFile("Models/sphere.obj"));
@@ -362,7 +426,7 @@ int main(int argc, char argv[])
     ed.modelID = plane->gfxIndex;
     ed.pos = { 0.0f,-2.0f,0.0f };
     ed.scale = { 30.0f,1.0f,30.0f };
-    //renderer.entities.push_back(ed);
+
     ed.name = "Sphere";
     ed.entityID = FastRandomMagic();
     ed.modelID = icoSphere->gfxIndex;
@@ -374,7 +438,7 @@ int main(int argc, char argv[])
     ed.name = "Bunny";
     ed.entityID = FastRandomMagic();
     ed.pos = { -3.0f,2.0f,-3.0f };
-    ed.scale = { 2.0f,1.0f,2.0f };
+    ed.scale = { 5.0f,5.0f,5.0f };
     renderer.entities.push_back(ed);
     //ed.modelID = triangle;
     //ed.entityID = FastRandomMagic();
@@ -383,24 +447,40 @@ int main(int argc, char argv[])
     ed.modelID = box->gfxIndex;
     ed.name = "Box";
     ed.entityID = FastRandomMagic();
-    ed.pos = { 2.0f,0.0f,2.0f };
+    ed.pos = { 2.0f,1.0f,2.0f };
     ed.scale = { 2.0f,3.0f,1.0f };
+    ed.rot = { 45.0f };
     renderer.entities.push_back(ed);
+    
+    ed.modelID = lucy->gfxIndex;
+    ed.name = "lucy";
     ed.entityID = FastRandomMagic();
-    ed.pos = { 5.0f,-1.0f,2.0f };
-    ed.scale = { 1.0f,3.0f,3.0f };
+    ed.pos = { -1.0f,1.0f,2.0f };
+    ed.scale = { 0.005f,0.005f,0.005f };
+    ed.rotVec= { 1.0f,1.0f,0.0f };
+    ed.rot = { -180.0f };
     renderer.entities.push_back(ed);
+
+    //ed.modelID = cup->gfxIndex;
+    //ed.name = "cup";
     ed.entityID = FastRandomMagic();
-    ed.pos = { 5.0f,0.0f,-5.0f };
-    ed.scale = { 2.0f,1.2f,2.0f };
-    renderer.entities.push_back(ed);
+    ed.pos = { 3.0f,0.0f,-3.0f };
+    ed.scale = { 0.01f,0.01f,0.01f };
+    ed.rotVec= { 0.0f,1.0f,0.0f };
+    ed.rot = { 0.0f };
+    //renderer.entities.push_back(ed);
+
+    ed.modelID = starWars->gfxIndex;
+    ed.name = "Starwars1";
     ed.entityID = FastRandomMagic();
     ed.pos = { 3.0f,-2.0f,-5.0f };
-    ed.scale = { 1.0f,1.2f,2.0f };
+    //ed.scale = { 0.001f,0.001f,0.001f };
     renderer.entities.push_back(ed);
+
+    ed.modelID = fourSphere->gfxIndex;
+    ed.name = "fourSphere";
     ed.entityID = FastRandomMagic();
     ed.pos = { 1.0f,-2.0f,5.0f };
-    ed.scale = { 1.0f,1.0f,1.0f };
     renderer.entities.push_back(ed);
 
     //renderer.entities.resize(2);
@@ -409,21 +489,8 @@ int main(int argc, char argv[])
     {
         AABB ab;
         auto& model = renderer.models[e.modelID];
-        ab.center = e.pos;
-        ab.halfExt = e.scale * 0.5f;
-        e.aabb = model.cpuModel->aabb;
-        e.aabb.center += e.pos;
-        e.aabb.halfExt *= e.scale;
-
-
-        e.sphere = model.cpuModel->s;
-        e.sphere.center += e.pos;
-        e.sphere.radius *= std::max({ 
-            e.scale[0],
-            e.scale[1],
-            e.scale[2]}) ;
         
-        //renderer.AddDebugBox(ab, {(iter+1)%3,(iter+2%3),(iter%3),1});
+        UpdateBV(renderer.models[e.modelID].cpuModel, e);
     }
 
     std::vector<uint32_t> ids(renderer.entities.size());
@@ -453,7 +520,6 @@ int main(int argc, char argv[])
         renderer.AddDebugBox(box, oGFX::Colors::c[depth],renderer.g_topDwn_AABB);
     }
 
-
     std::iota(ids.begin(), ids.end(), 0);
     Tree<VulkanRenderer::EntityDetails,AABB> btmTree;
     btmTree.BottomUpTree(renderer.entities, btmTree.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
@@ -464,7 +530,6 @@ int main(int argc, char argv[])
     {
         renderer.AddDebugBox(box, oGFX::Colors::c[depth],renderer.g_btmUp_AABB);
     }
-
 
     std::iota(ids.begin(), ids.end(), 0);
     Tree<VulkanRenderer::EntityDetails,Sphere> btmSphereTree;
@@ -488,8 +553,7 @@ int main(int argc, char argv[])
    auto norm =renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
    auto occlu =renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
    auto rough =renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");   
-
-
+   
    //create a hundred random textures because why not
    std::default_random_engine rndEngine(123456);
    std::uniform_int_distribution<uint32_t> uniformDist( 0xFF000000, 0xFFFFFFFF );
@@ -507,11 +571,6 @@ int main(int argc, char argv[])
        renderer.CreateTexture(dims, dims, reinterpret_cast<unsigned char*>(bitmap.data()));
    }
 
-   glm::mat4 xform{ 1.0f };
-   xform = glm::translate(xform, glm::vec3(-3.0f, 0.0f, -3.0f));
-   xform = glm::scale(xform, glm::vec3{ 4.0f,4.0f,4.0f });
-
-    float angle = 0.0f;
     auto lastTime = std::chrono::high_resolution_clock::now();
 
     renderer.camera.type = Camera::CameraType::lookat;
@@ -520,11 +579,15 @@ int main(int argc, char argv[])
     renderer.camera.SetRotationSpeed(0.5f);
     renderer.camera.SetPosition(glm::vec3(0.1f, 2.0f, 10.5f));
     renderer.camera.movementSpeed = 5.0f;
+    renderer.camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
+    renderer.camera.Rotate(glm::vec3(1 * renderer.camera.rotationSpeed, 1 * renderer.camera.rotationSpeed, 0.0f));
+    renderer.camera.type = Camera::CameraType::firstperson;
 
     static bool freezeLight = false;
 
     //renderer.UpdateDebugBuffers();
 
+    int currSphereType{ 0 };
     bool geomChanged = false;
     glm::vec3 pos{0.1f, 1.1f, -3.5f};
     // handling winOS messages
@@ -585,16 +648,11 @@ int main(int argc, char argv[])
                 auto& model = renderer.models[e.modelID];
                 ab.center = e.pos;
                 ab.halfExt = e.scale * 0.5f;
-                e.aabb = model.cpuModel->aabb;
-                e.aabb.center += e.pos;
-                e.aabb.halfExt *= e.scale ;
-
-                e.sphere = model.cpuModel->s;
-                e.sphere.center += e.pos;
-                e.sphere.radius *= std::max({ 
-                    e.scale[0],
-                    e.scale[1],
-                    e.scale[2]});
+                if (e.name == std::string("Bunny"))
+                {
+                    std::cout << "nice\n";
+                }
+                UpdateBV(renderer.models[e.modelID].cpuModel, e, currSphereType);
                 
             }
 
@@ -671,20 +729,6 @@ int main(int argc, char argv[])
                 }
             }
 
-           //std::iota(ids.begin(), ids.end(), 0);
-           //btmTree.Clear();
-           //renderer.g_debugDrawVerts.clear();
-           //renderer.g_debugDrawIndices.clear();
-           //btmTree.BottomUpTree(renderer.entities, btmTree.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
-           //
-           //std::vector<std::pair<uint32_t,AABB>> btmDebugs;
-           //btmTree.getDrawList<VulkanRenderer::EntityDetails, AABB>(btmDebugs, btmTree.root.get());
-           //for (auto& [depth,box] : btmDebugs)
-           //{
-           //    renderer.AddDebugBox(box, oGFX::Colors::c[depth]);
-           //}           
-
-            //renderer.UpdateDebugBuffers();
             geomChanged = false;
         }
 
@@ -839,10 +883,14 @@ int main(int argc, char argv[])
 
             static const char* sphereTypes[]
             {
-                "Hello"
+                "Ritter",
+                "EPOS_6",
+                "EPOS_14",
+                "EPOS_26",
+                "EPOS_98",
+                "Eigen",
             };
-
-            //ImGui::ListBox()
+            geomChanged |= ImGui::ListBox("SphereType", &currSphereType, sphereTypes, 6);
             ImGui::Checkbox("Top down AABB", &renderer.debug_btmUp_aabb);
             ImGui::Checkbox("Bottom Up AABB", &renderer.debug_topDown_aabb);
             ImGui::Checkbox("Top down Sphere", &renderer.debug_topDown_sphere);
