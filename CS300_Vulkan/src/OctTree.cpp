@@ -72,28 +72,28 @@ void OctTree::SplitNode(OctNode* node, AABB box, const std::vector<Point3D>& ver
 		std::vector<uint32_t> positiveIndices;
 		std::vector<Point3D> negativeVerts;
 		std::vector<uint32_t> negativeIndices;
-		SplitTrianglesAlongPlane(vertices, indices, xPlane,positiveVerts,positiveIndices,negativeVerts,negativeIndices);
+		PartitionTrianglesAlongPlane(vertices, indices, xPlane,positiveVerts,positiveIndices,negativeVerts,negativeIndices);
 
 		// ysplit
 		std::vector<Point3D> lowerPositiveVerts;
 		std::vector<uint32_t> lowerPositiveIndices;
 		std::vector<Point3D> upperPositiveVerts;
 		std::vector<uint32_t> upperPositiveIndices;
-		SplitTrianglesAlongPlane(positiveVerts, positiveIndices, yPlane,upperPositiveVerts,upperPositiveIndices,lowerPositiveVerts,lowerPositiveIndices);
+		PartitionTrianglesAlongPlane(positiveVerts, positiveIndices, yPlane,upperPositiveVerts,upperPositiveIndices,lowerPositiveVerts,lowerPositiveIndices);
 
 		std::vector<Point3D> lowerNegativeVerts;
 		std::vector<uint32_t> lowerNegativeIndices;
 		std::vector<Point3D> upperNegativeVerts;
 		std::vector<uint32_t> upperNegativeIndices;
-		SplitTrianglesAlongPlane(negativeVerts, negativeIndices, yPlane,upperNegativeVerts,upperNegativeIndices,lowerNegativeVerts,lowerNegativeIndices);
+		PartitionTrianglesAlongPlane(negativeVerts, negativeIndices, yPlane,upperNegativeVerts,upperNegativeIndices,lowerNegativeVerts,lowerNegativeIndices);
 
 		// zsplit
 		std::vector<Point3D> octantVerts[s_num_children];
 		std::vector<uint32_t> octantInds[s_num_children];
-		SplitTrianglesAlongPlane(lowerPositiveVerts, lowerPositiveIndices, zPlane, octantVerts[5], octantInds[5], octantVerts[1], octantInds[1]);
-		SplitTrianglesAlongPlane(upperPositiveVerts, upperPositiveIndices, zPlane, octantVerts[7], octantInds[7], octantVerts[3], octantInds[3]);
-		SplitTrianglesAlongPlane(lowerNegativeVerts, lowerNegativeIndices, zPlane, octantVerts[4], octantInds[4], octantVerts[0], octantInds[0]);
-		SplitTrianglesAlongPlane(upperNegativeVerts, upperNegativeIndices, zPlane, octantVerts[6], octantInds[6], octantVerts[2], octantInds[2]);
+		PartitionTrianglesAlongPlane(lowerPositiveVerts, lowerPositiveIndices, zPlane, octantVerts[5], octantInds[5], octantVerts[1], octantInds[1]);
+		PartitionTrianglesAlongPlane(upperPositiveVerts, upperPositiveIndices, zPlane, octantVerts[7], octantInds[7], octantVerts[3], octantInds[3]);
+		PartitionTrianglesAlongPlane(lowerNegativeVerts, lowerNegativeIndices, zPlane, octantVerts[4], octantInds[4], octantVerts[0], octantInds[0]);
+		PartitionTrianglesAlongPlane(upperNegativeVerts, upperNegativeIndices, zPlane, octantVerts[6], octantInds[6], octantVerts[2], octantInds[2]);
 
 		Point3D position;
 		float step = box.halfExt.x * 0.5f;
@@ -116,7 +116,7 @@ void OctTree::SplitNode(OctNode* node, AABB box, const std::vector<Point3D>& ver
 
 }
 
-void OctTree::SplitTrianglesAlongPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, const Plane& plane,
+void OctTree::PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, const Plane& plane,
 	std::vector<Point3D>& positiveVerts, std::vector<uint32_t>& positiveIndices,
 	std::vector<Point3D>& negativeVerts, std::vector<uint32_t>& negativeIndices)
 {

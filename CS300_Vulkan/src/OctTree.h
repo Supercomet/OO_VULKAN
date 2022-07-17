@@ -41,7 +41,7 @@ private:
 	uint32_t m_nodes{};
 
 	void SplitNode(OctNode* node, AABB box,const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
-	void SplitTrianglesAlongPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices,const Plane& plane,
+	void PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices,const Plane& plane,
 		std::vector<Point3D>& positiveVerts, std::vector<uint32_t>& positiveIndices,
 		std::vector<Point3D>& negativeVerts, std::vector<uint32_t>& negativeIndices
 	);

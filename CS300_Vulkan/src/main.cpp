@@ -308,6 +308,17 @@ int main(int argc, char argv[])
         glm::vec3{8.0f,-3.0f,5.0f},
     };
 
+    // triangle splitting test
+    //Triangle t;
+    //t.v0 = Point3D(-4.0f, -8.0f, 0.0f);
+    //t.v1 = Point3D(-2.0f,  6.0f, 0.0f);
+    //t.v2 = Point3D( 2.0f, -2.0f, 0.0f);
+    //Plane p;
+    //p.normal = vec4{ -1.0f,0.0f,0.0f, 1.0f };
+    //std::vector<Point3D> pV; std::vector<uint32_t> pI;
+    //std::vector<Point3D> nV; std::vector<uint32_t> nI;
+    //oGFX::BV::SliceTriangleAgainstPlane(t, p, pV, pI, nV, nI);
+
     //uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
     //uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
    

@@ -1,4 +1,5 @@
 #include "BoudingVolume.h"
+#include "Collision.h"
 #include <algorithm>
 
 namespace  oGFX::BV
@@ -407,6 +408,108 @@ namespace  oGFX::BV
 		}
 
 	}
+	bool SlideEdgeAgainstPlane(const Point3D& v0, const Point3D& v1, const Plane& p, Point3D& newPoint)
+	{
+		glm::vec3 planeNorm = p.normal;
+		Point3D pointOnPlane = planeNorm * p.normal.w;
 
+		float t0 = glm::dot(v0 - pointOnPlane, planeNorm);
+		float t1 = glm::dot(v1 - pointOnPlane, planeNorm);
+		
+		int comp = -1;
+		comp += t0 < 0.0f;
+		comp += t1 < 0.0f;
+
+		if (comp == 0)
+		{
+			Ray r;
+			r.start = v0;
+			r.direction = v1 - v0;
+			float t;
+			assert(coll::RayPlane(r, p, t));
+			newPoint = r.start + r.direction * t;
+
+			return true;
+		}
+		
+		return false;
+	}
+
+	void SliceTriangleAgainstPlane(const Triangle& t, const Plane& p,
+		std::vector<Point3D>& positiveVerts, std::vector<uint32_t>& positiveIndices,
+		std::vector<Point3D>& negativeVerts, std::vector<uint32_t>& negativeIndices)
+	{
+		Point3D v[3];
+		v[0] = t.v0;
+		v[1] = t.v1;
+		v[2] = t.v2;
+
+		glm::vec3 planeNorm = p.normal;
+		Point3D pointOnPlane = planeNorm * p.normal.w;
+		bool positiveSide = glm::dot(v[0] - pointOnPlane, planeNorm) > 0.0f;
+
+		Point3D pt;
+		std::vector <Point3D> frontList;
+		std::vector <Point3D> backList;
+		for (size_t i = 0; i < 3; i++)
+		{
+			int nextIndx = (i + 1) % 3;
+			if (SlideEdgeAgainstPlane(v[i], v[nextIndx], p, pt))
+			{
+				if (positiveSide) // originating from frontside
+				{
+					frontList.push_back(pt);
+
+					backList.push_back(pt);
+					backList.push_back(v[nextIndx]);
+				}
+				else
+				{
+					backList.push_back(pt);
+
+					frontList.push_back(pt);
+					frontList.push_back(v[nextIndx]);
+				}
+				positiveSide = !positiveSide;
+				
+			}
+			else
+			{
+				if (positiveSide)
+				{					
+					frontList.push_back(v[nextIndx]);
+				}
+				else
+				{
+					backList.push_back(v[nextIndx]);
+				}
+			}
+		}
+		// triangulate and add to list
+		auto pSz = positiveVerts.size();
+		for (size_t i = 0; i < frontList.size()-2; ++i)
+		{
+			positiveVerts.push_back(frontList[i+0]);
+			positiveVerts.push_back(frontList[i+1]);
+			positiveVerts.push_back(frontList[i+2]);
+
+			positiveIndices.push_back(i*3 +0 + pSz);
+			positiveIndices.push_back(i*3 +1 + pSz);
+			positiveIndices.push_back(i*3 +2 + pSz);
+		}
+
+		auto nSz = negativeVerts.size();
+		for (size_t i = 0; i < backList.size()-2; ++i)
+		{
+			negativeVerts.push_back(backList[i+0]);
+			negativeVerts.push_back(backList[i+1]);
+			negativeVerts.push_back(backList[i+2]);
+
+			negativeIndices.push_back(i*3 +0 + nSz);
+			negativeIndices.push_back(i*3 +1 + nSz);
+			negativeIndices.push_back(i*3 +2 + nSz);
+		}
+
+	}
 
 } // end namespace oGFX::BV
