@@ -55,7 +55,7 @@ uint32_t vertex_for_edge(Lookup& lookup, VertexList& vertices, Index first, Inde
 		if (key.first>key.second)
 			std::swap(key.first, key.second);
 
-		auto inserted=lookup.insert({key, vertices.size()});
+		auto inserted=lookup.insert({key, (uint32_t)vertices.size()});
 		if (inserted.second)
 		{
 			auto& edge0 = vertices[first];

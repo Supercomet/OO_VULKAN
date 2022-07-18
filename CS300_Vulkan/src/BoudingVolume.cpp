@@ -1,6 +1,7 @@
 #include "BoudingVolume.h"
 #include "Collision.h"
 #include <algorithm>
+#include <iostream>
 
 namespace  oGFX::BV
 {
@@ -140,13 +141,13 @@ namespace  oGFX::BV
 				if (dist > smallDist)
 				{
 					t_max = val;
-					max = p;
+					max = static_cast<uint32_t>(p);
 				}
 			}
 			else if (val > t_max)
 			{
 				t_max = val;
-				max = p;
+				max = static_cast<uint32_t>(p);
 			}
 
 			if (val == t_min)
@@ -158,13 +159,13 @@ namespace  oGFX::BV
 				if (dist > smallDist)
 				{
 					t_min = val;
-					min = p;
+					min = static_cast<uint32_t>(p);
 				}
 			}
 			else if (val < t_min)
 			{
 				t_min = val;
-				min = p;
+				min = static_cast<uint32_t>(p);
 			}
 			
 		}		
@@ -408,25 +409,75 @@ namespace  oGFX::BV
 		}
 
 	}
-	bool SlideEdgeAgainstPlane(const Point3D& v0, const Point3D& v1, const Plane& p, Point3D& newPoint)
+
+	PlaneOrientation ClassifyPointToPlane(const Point3D& q, const Plane& p)
 	{
-		glm::vec3 planeNorm = p.normal;
-		Point3D pointOnPlane = planeNorm * p.normal.w;
+		float dist = glm::dot(glm::vec3(p.normal), q) - p.normal.w;
 
-		float t0 = glm::dot(v0 - pointOnPlane, planeNorm);
-		float t1 = glm::dot(v1 - pointOnPlane, planeNorm);
-		
+		if (dist > EPSILON)
+		{
+			return PlaneOrientation::POSITIVE;
+		}
+		else if(dist < -EPSILON)
+		{
+			return PlaneOrientation::NEGATIVE;
+		}
+
+		return PlaneOrientation::COPLANAR;
+	}
+
+	TriangleOrientation ClassifyTriangleToPlane(const Triangle & t, const Plane & p)
+	{
+		// Loop over all polygon vertices and count how many vertices
+		// lie in front of and how many lie behind of the thickened plane
+		int numInFront = 0, numBehind = 0;
+
+		Point3D v[3];
+		v[0] = t.v0;
+		v[1] = t.v1;
+		v[2] = t.v2;
+
+		int numVerts = 3;
+		for (int i = 0; i < numVerts; i++) {
+			switch (ClassifyPointToPlane(v[i], p)) {
+			case PlaneOrientation::POSITIVE:
+			numInFront++;
+			break;
+			case PlaneOrientation::NEGATIVE:
+			numBehind++;
+			break;
+			}
+		}
+		// If vertices on both sides of the plane, the polygon is straddling
+		if (numBehind != 0 && numInFront != 0)
+			return TriangleOrientation::STRADDLE;
+		// If one or more vertices in front of the plane and no vertices behind
+		// the plane, the polygon lies in front of the plane
+		if (numInFront != 0)
+			return TriangleOrientation::POSITIVE;
+		// Ditto, the polygon lies behind the plane if no vertices in front of
+		// the plane, and one or more vertices behind the plane
+		if (numBehind != 0)
+			return TriangleOrientation::NEGATIVE;
+		// All vertices lie on the plane so the polygon is coplanar with the plane
+		return TriangleOrientation::COPLANAR;
+	}
+
+	bool SliceEdgeAgainstPlane(const Point3D& v0, const Point3D& v1, const Plane& p, Point3D& newPoint)
+	{		
 		int comp = -1;
-		comp += (t0+EPSILON) < 0.0f;
-		comp += (t1+EPSILON) < 0.0f;
 
-		if (comp == 0)
+		PlaneOrientation  t0 = ClassifyPointToPlane(v0, p);
+		PlaneOrientation  t1 = ClassifyPointToPlane(v1, p);
+		PlaneOrientation chk = PlaneOrientation(t0 | t1);
+
+		if (chk == (PlaneOrientation::POSITIVE | PlaneOrientation::NEGATIVE) )
 		{
 			Ray r;
 			r.start = v0;
 			r.direction = v1 - v0;
-			float t;
-			if (coll::RayPlane(r, p, t, newPoint))
+			float t{0.0f};
+			coll::RayPlane(r, p, t, newPoint);
 			{
 				return true;
 			}
@@ -444,9 +495,8 @@ namespace  oGFX::BV
 		v[1] = t.v1;
 		v[2] = t.v2;
 
-		glm::vec3 planeNorm = p.normal;
-		Point3D pointOnPlane = planeNorm * p.normal.w;
-		bool positiveSide = glm::dot(v[0] - pointOnPlane, planeNorm) > 0.0f;
+
+		bool positiveSide = (oGFX::BV::ClassifyPointToPlane(t.v0,p) == PlaneOrientation::POSITIVE);
 
 		Point3D pt;
 		std::vector <Point3D> frontList;
@@ -454,7 +504,7 @@ namespace  oGFX::BV
 		for (size_t i = 0; i < 3; i++)
 		{
 			int nextIndx = (i + 1) % 3;
-			if (SlideEdgeAgainstPlane(v[i], v[nextIndx], p, pt))
+			if (SliceEdgeAgainstPlane(v[i], v[nextIndx], p, pt))
 			{
 				if (positiveSide) // originating from frontside
 				{
@@ -486,10 +536,10 @@ namespace  oGFX::BV
 			}
 		}
 		// triangulate and add to list
-		auto pSz = positiveVerts.size();
-		for (size_t j = 2; j < frontList.size(); ++j)
+		auto pSz = static_cast<uint32_t>(positiveVerts.size());
+		for (uint32_t j = 2; j < frontList.size(); ++j)
 		{
-			size_t i = j - 2;
+			uint32_t i = j - 2;
 			positiveVerts.push_back(frontList[i+0]);
 			positiveVerts.push_back(frontList[i+1]);
 			positiveVerts.push_back(frontList[i+2]);
@@ -499,10 +549,10 @@ namespace  oGFX::BV
 			positiveIndices.push_back(i*3 +2 + pSz);
 		}
 
-		auto nSz = negativeVerts.size();
-		for (size_t j = 2; j < backList.size(); ++j)
+		auto nSz = static_cast<uint32_t>(negativeVerts.size());
+		for (uint32_t j = 2; j < backList.size(); ++j)
 		{
-			size_t i = j - 2;
+			uint32_t i = j - 2;
 			negativeVerts.push_back(backList[i+0]);
 			negativeVerts.push_back(backList[i+1]);
 			negativeVerts.push_back(backList[i+2]);
@@ -511,7 +561,6 @@ namespace  oGFX::BV
 			negativeIndices.push_back(i*3 +1 + nSz);
 			negativeIndices.push_back(i*3 +2 + nSz);
 		}
-
 	}
 
 } // end namespace oGFX::BV

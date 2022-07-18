@@ -61,7 +61,7 @@ bool BoolQueryUser(const char * str)
 
 oGFX::Color generateRandomColor()
 {
-    static std::default_random_engine rndEngine(123456);
+    static std::default_random_engine rndEngine(3456);
     static std::uniform_real<float> uniformDist( 0.0f,1.0f);
    
     oGFX::Color col; 
@@ -73,7 +73,7 @@ oGFX::Color generateRandomColor()
         col.g = uniformDist(rndEngine);
         col.b = uniformDist(rndEngine);
          sum = (col.r + col.g + col.b);
-    }while (sum < 1.5f && sum > 2.3f );
+    }while (sum < 2.0f && sum > 2.8f );
     return col;
 }
 
@@ -328,7 +328,7 @@ int main(int argc, char argv[])
 
     std::unique_ptr<Model> icoSphere{};
     {
-        auto [pos,triangleList] = icosahedron::make_icosphere(1);
+        auto [pos,triangleList] = icosahedron::make_icosphere(2);
 
         std::vector<oGFX::Vertex> vertices;
         vertices.reserve(pos.size());
@@ -361,7 +361,7 @@ int main(int argc, char argv[])
     }
 
    
-    std::unique_ptr<Model> bunny { renderer.LoadMeshFromFile("Models/bunny.ply") };
+    std::unique_ptr<Model> bunny { renderer.LoadMeshFromFile("Models/bunny.obj") };
     std::vector<Point3D> vertPositions;
     vertPositions.resize(bunny->vertices.size());
     std::transform(bunny->vertices.begin(), bunny->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
@@ -371,7 +371,10 @@ int main(int argc, char argv[])
     oGFX::BV::EigenSphere(ms, vertPositions);
     
     //quicky dirty scaling
-    std::for_each(vertPositions.begin(), vertPositions.end(), [](Point3D& v) { return v *= 50.0f; });
+    uint32_t bunnyTris = static_cast<uint32_t>(bunny->indices.size()) / 3;
+    std::cout <<"bunny model: " << bunnyTris << std::endl;
+    std::for_each(vertPositions.begin(), vertPositions.end(), [](Point3D& v) { v *= 20.0f; });
+   
     OctTree oct(vertPositions, bunny->indices);
     auto [octVerts, octIndices, octDepth] = oct.GetTriangleList();
     auto numTri = octIndices.size() / 3;
@@ -392,10 +395,13 @@ int main(int argc, char argv[])
         renderer.AddDebugTriangle(tri, col, renderer.g_octTree_tris);
     }
     auto [octBox, boxDepth] =oct.GetActiveBoxList();
+    std::unordered_map<uint32_t, oGFX::Color> depthMap;
     for (size_t i = 0; i < octBox.size(); i++)
     {
-        oGFX::Color& col = colMap[boxDepth[i]];
-        renderer.AddDebugBox (octBox[i], oGFX::Colors::WHITE, renderer.g_octTree_box);
+        oGFX::Color& col = depthMap[boxDepth[i]];
+        if (col.a == 0.0f) col = generateRandomColor();
+        octBox[i].halfExt -= (float)boxDepth[i] * vec3(EPSILON, EPSILON, EPSILON);
+        renderer.AddDebugBox (octBox[i], col, renderer.g_octTree_box);
     }
     std::cout << "Oct box size:" << octBox.size() << " and total nodes: " << oct.size();
     renderer.g_DebugDraws[renderer.g_octTree_tris].dirty = true;
@@ -404,6 +410,7 @@ int main(int argc, char argv[])
     std::transform(icoSphere->vertices.begin(), icoSphere->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
     oGFX::BV::RitterSphere(icoSphere->s, vertPositions);
     oGFX::BV::BoundingAABB(icoSphere->aabb, vertPositions);
+
 
     std::unique_ptr<Model> box{ renderer.LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
     vertPositions.resize(box->vertices.size());
@@ -417,9 +424,7 @@ int main(int argc, char argv[])
     oGFX::BV::RitterSphere(lucy->s, vertPositions);
     oGFX::BV::BoundingAABB(lucy->aabb, vertPositions);
 
-   
-
-
+    
     std::unique_ptr<Model> starWars { renderer.LoadMeshFromFile("Models/starwars1.obj") };
     vertPositions.resize(starWars->vertices.size());
     std::transform(starWars->vertices.begin(), starWars->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });

@@ -6,8 +6,8 @@
 #include <memory>
 
 static constexpr uint32_t s_num_children = 8;
-static constexpr uint32_t s_stop_depth = 1000;
-static constexpr uint32_t s_stop_triangles = 1000;
+static constexpr uint32_t s_stop_depth = 8;
+static constexpr uint32_t s_stop_triangles = 30;
 
 struct OctNode
 {
@@ -15,9 +15,9 @@ struct OctNode
 	{
 		INTERNAL,
 		LEAF,
-	}type;
+	}type{ Type::INTERNAL };
 
-	AABB box;
+	AABB box{};
 	uint32_t depth{};
 	uint32_t nodeID{};
 
@@ -39,8 +39,9 @@ private:
 	std::unique_ptr<OctNode> m_root{};
 	uint32_t m_trianglesSaved{};
 	uint32_t m_nodes{};
+	uint32_t m_TrianglesSliced{};
 
-	void SplitNode(OctNode* node, AABB box,const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
+	void SplitNode(OctNode* node,const AABB& box,const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
 	void PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices,const Plane& plane,
 		std::vector<Point3D>& positiveVerts, std::vector<uint32_t>& positiveIndices,
 		std::vector<Point3D>& negativeVerts, std::vector<uint32_t>& negativeIndices
