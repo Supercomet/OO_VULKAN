@@ -278,6 +278,7 @@ int main(int argc, char argv[])
     catch (std::runtime_error e)
     {
         std::cout << "Cannot create vulkan instance! " << e.what() << std::endl;
+        getchar();
         return 0;
     }
     catch (...)

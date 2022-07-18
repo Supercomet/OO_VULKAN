@@ -91,7 +91,9 @@ void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
 
     std::vector<const char*>deviceExtensions{
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+#ifdef DEBUG
         VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
+#endif // DEBUG
     };
 
     //information to create logical device (somtimes called only "device")
@@ -133,7 +135,7 @@ void VulkanDevice::InitLogicalDevice(VulkanInstance& instance)
     VkResult result = vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &logicalDevice);
     if (result != VK_SUCCESS)
     {
-        throw std::runtime_error("VK Renderer Failed to create a logical device!");
+        throw std::runtime_error("VK Renderer Failed to create a logical device!\n" + oGFX::vk::tools::VkResultString(result));
     }
     VK_NAME(logicalDevice, "logicalDevice", logicalDevice);
 
@@ -199,7 +201,9 @@ bool VulkanDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device)
     { 
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+#ifdef DEBUG
         VK_EXT_DEBUG_MARKER_EXTENSION_NAME,
+#endif // DEBUG
         //        ,   VK_NV_GLSL_SHADER_EXTENSION_NAME  // nVidia useful extension to be able to load GLSL shaders
     };
     // TODO BETTER

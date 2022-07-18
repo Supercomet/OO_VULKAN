@@ -39,6 +39,10 @@ namespace oGFX
 
 #ifndef VK_NAME
 
+#ifdef DEBUG
+
+
+
 #define VK_NAME(DEVICE, NAME, OBJ) do{\
 VkDebugMarkerObjectNameInfoEXT nameInfo = {};\
 nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;\
@@ -49,6 +53,9 @@ nameInfo.object = (uint64_t)OBJ;\
 nameInfo.pObjectName = NAME;\
 oGFX::SetVulkanObjectName(DEVICE,nameInfo);\
 }while(0)
+#else
+#define VK_NAME(DEVICE, NAME, OBJ)   
+#endif // DEBUG
 
 #endif
 

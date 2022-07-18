@@ -1,5 +1,6 @@
 #include "VulkanInstance.h"
 
+#include "VulkanUtils.h"
 #include "Window.h"
 #include <memory>
 #include <stdexcept>
@@ -40,7 +41,9 @@ std::vector<const char*> getSupportedValidationLayers(VulkanInstance& vkinstance
 {
 	static auto s_ValidationLayerNames_Alt1 = std::vector<const char*>
 	{
+#ifdef DEBUG
 		"VK_LAYER_KHRONOS_validation"
+#endif // DEBUG
 	};
 
 	static auto s_ValidationLayerNames_Alt2 = std::vector<const char*>
@@ -167,17 +170,21 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 		if( validationLayers.size() ) 
 		{
 			requiredExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+#ifdef DEBUG
 			requiredExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+#endif // DEBUG
 		}
 	}
 
 	//
 	// Enable render doc if requested by the user
 	//
+#ifdef DEBUG
 	if( setupSpecs.renderDoc == true)
 	{
 		validationLayers.emplace_back( "VK_LAYER_RENDERDOC_Capture" );
 	}
+#endif // DEBUG
 
 
 	//check if instance extensions are supported
@@ -211,7 +218,7 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to create a runtime instance!\n");
+		throw std::runtime_error("Failed to create a runtime instance!\n" + oGFX::vk::tools::VkResultString(result));
 	}
 
 	return true;
