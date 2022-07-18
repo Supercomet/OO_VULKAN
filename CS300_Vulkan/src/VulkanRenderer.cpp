@@ -1999,62 +1999,20 @@ void VulkanRenderer::UpdateDebugBuffers()
 
 void VulkanRenderer::UpdateTreeBuffers()
 {
-	if (debug_btmUp_aabb && g_DebugDraws[g_btmUp_AABB].dirty)
+	for (size_t i = 0; i < debugDrawBufferCnt; i++)
 	{
-		auto& debug = g_DebugDraws[g_btmUp_AABB];
+		if (g_b_drawDebug[i] && g_DebugDraws[i].dirty)
+		{
+			auto& debug = g_DebugDraws[i];
 
-		debug.vbo.reserve(debug.vertex.size());
-		debug.ibo.reserve(debug.indices.size());
+			debug.vbo.reserve(debug.vertex.size());
+			debug.ibo.reserve(debug.indices.size());
 
-		debug.vbo.writeTo(debug.vertex.size() , debug.vertex.data());
-		debug.ibo.writeTo(debug.indices.size() , debug.indices.data());
-		
-		debug.dirty = false;
-	}
-	if (debug_topDown_aabb && g_DebugDraws[g_topDwn_AABB].dirty)
-	{
-		auto& debug = g_DebugDraws[g_topDwn_AABB];
-		debug.vbo.reserve(debug.vertex.size());
-		debug.ibo.reserve(debug.indices.size());
+			debug.vbo.writeTo(debug.vertex.size() , debug.vertex.data());
+			debug.ibo.writeTo(debug.indices.size() , debug.indices.data());
 
-		debug.vbo.writeTo(debug.vertex.size() , debug.vertex.data());
-		debug.ibo.writeTo(debug.indices.size() , debug.indices.data());
-
-		debug.dirty = false;
-
-	}
-	if (debug_btmUp_sphere && g_DebugDraws[g_btmUp_Sphere].dirty)
-	{
-		auto& debug = g_DebugDraws[g_btmUp_Sphere];
-		debug.vbo.reserve(debug.vertex.size());
-		debug.ibo.reserve(debug.indices.size());
-
-		debug.vbo.writeTo(debug.vertex.size() , debug.vertex.data());
-		debug.ibo.writeTo(debug.indices.size() , debug.indices.data());
-
-		debug.dirty = false;
-	}
-	if (debug_topDown_sphere && g_DebugDraws[g_topDwn_Sphere].dirty)
-	{
-		auto& debug = g_DebugDraws[g_topDwn_Sphere];
-		debug.vbo.reserve(debug.vertex.size());
-		debug.ibo.reserve(debug.indices.size());
-
-		debug.vbo.writeTo(debug.vertex.size() , debug.vertex.data());
-		debug.ibo.writeTo(debug.indices.size() , debug.indices.data());
-
-		debug.dirty = false;
-	}
-	if (debug_octTree_tris && g_DebugDraws[g_octTree_tris].dirty)
-	{
-		auto& debug = g_DebugDraws[g_octTree_tris];
-		debug.vbo.reserve(debug.vertex.size());
-		debug.ibo.reserve(debug.indices.size());
-
-		debug.vbo.writeTo(debug.vertex.size() , debug.vertex.data());
-		debug.ibo.writeTo(debug.indices.size() , debug.indices.data());
-
-		debug.dirty = false;
+			debug.dirty = false;
+		}
 	}
 
 }

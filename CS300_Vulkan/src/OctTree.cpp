@@ -106,11 +106,14 @@ void OctTree::SplitNode(OctNode* node, AABB box, const std::vector<Point3D>& ver
 			childBox.center = box.center + position;
 			childBox.halfExt = Point3D{ step,step,step };
 
-			node->children[i] = std::make_unique<OctNode>();
-			node->children[i]->depth = currDepth;
-			//node->children[i]->nodeID = ++m_nodes;
-			node->children[i]->box = childBox;
-			SplitNode(node->children[i].get(),childBox, octantVerts[i], octantInds[i]);
+			if (octantVerts[i].size())
+			{
+				node->children[i] = std::make_unique<OctNode>();
+				node->children[i]->depth = currDepth;
+				//node->children[i]->nodeID = ++m_nodes;
+				node->children[i]->box = childBox;
+				SplitNode(node->children[i].get(),childBox, octantVerts[i], octantInds[i]);
+			}
 		}
 	}
 
@@ -160,12 +163,15 @@ void OctTree::PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices,
 		else
 		{
 			//for now put at inside
-			auto index = positiveVerts.size();
-			for (size_t i = 0; i < 3; i++)
-			{
-				positiveVerts.push_back(v[i]);
-				positiveIndices.push_back(index + i);
-			}
+			//auto index = positiveVerts.size();
+			//for (size_t i = 0; i < 3; i++)
+			//{
+			//	positiveVerts.push_back(v[i]);
+			//	positiveIndices.push_back(index + i);
+			//}
+			oGFX::BV::SliceTriangleAgainstPlane(t, plane,
+				positiveVerts, positiveIndices,
+				negativeVerts,negativeIndices);
 		}
 		
 	}

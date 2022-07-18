@@ -192,23 +192,20 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 		bool dirty = true;
 	};
 
-	inline static bool debug_btmUp_aabb = false;
-	inline static bool debug_topDown_aabb = false;
-	inline static bool debug_btmUp_sphere = false;
-	inline static bool debug_topDown_sphere = false;
-	inline static bool debug_octTree_tris = false;
+	
 	static constexpr size_t g_btmUp_AABB =0;
 	static constexpr size_t g_topDwn_AABB =1;
 	static constexpr size_t g_btmUp_Sphere=2;
 	static constexpr size_t g_topDwn_Sphere=3;
 	static constexpr size_t g_octTree_tris=4;
+	static constexpr size_t g_octTree_box=5;
 
-	static constexpr size_t debugDrawBufferCnt = 5;
+	static constexpr size_t debugDrawBufferCnt = 6;
 
+	inline static bool g_b_drawDebug[debugDrawBufferCnt];
 	inline static DebugDraw g_DebugDraws[debugDrawBufferCnt];
 	void InitTreeDebugDraws();
 	void ShutdownTreeDebug();
-
 
 
 	Model* LoadMeshFromFile(const std::string& file);

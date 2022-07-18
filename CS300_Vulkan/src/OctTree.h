@@ -7,7 +7,7 @@
 
 static constexpr uint32_t s_num_children = 8;
 static constexpr uint32_t s_stop_depth = 1000;
-static constexpr uint32_t s_stop_triangles = 30;
+static constexpr uint32_t s_stop_triangles = 1000;
 
 struct OctNode
 {

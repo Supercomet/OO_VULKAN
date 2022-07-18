@@ -66,13 +66,14 @@ oGFX::Color generateRandomColor()
    
     oGFX::Color col; 
     col.a = 1.0f;
+    float sum;
     do
     {
         col.r = uniformDist(rndEngine);
         col.g = uniformDist(rndEngine);
         col.b = uniformDist(rndEngine);
-    }
-    while ((col.r + col.g + col.b) < 1.5f);
+         sum = (col.r + col.g + col.b);
+    }while (sum < 1.5f && sum > 2.3f );
     return col;
 }
 
@@ -309,15 +310,15 @@ int main(int argc, char argv[])
     };
 
     // triangle splitting test
-    //Triangle t;
-    //t.v0 = Point3D(-4.0f, -8.0f, 0.0f);
-    //t.v1 = Point3D(-2.0f,  6.0f, 0.0f);
-    //t.v2 = Point3D( 2.0f, -2.0f, 0.0f);
-    //Plane p;
-    //p.normal = vec4{ -1.0f,0.0f,0.0f, 1.0f };
-    //std::vector<Point3D> pV; std::vector<uint32_t> pI;
-    //std::vector<Point3D> nV; std::vector<uint32_t> nI;
-    //oGFX::BV::SliceTriangleAgainstPlane(t, p, pV, pI, nV, nI);
+    Triangle t;
+    t.v0 = Point3D(-4.0f, -8.0f, 0.0f);
+    t.v1 = Point3D(-2.0f,  6.0f, 0.0f);
+    t.v2 = Point3D( 2.0f, -2.0f, 0.0f);
+    Plane p;
+    p.normal = vec4{ -1.0f,0.0f,0.0f, 1.0f };
+    std::vector<Point3D> pV; std::vector<uint32_t> pI;
+    std::vector<Point3D> nV; std::vector<uint32_t> nI;
+    oGFX::BV::SliceTriangleAgainstPlane(t, p, pV, pI, nV, nI);
 
     //uint32_t yes = renderer.LoadMeshFromFile("Models/TextObj.obj");
     //uint32_t yes = renderer.LoadMeshFromFile("Models/Skull_textured.fbx");
@@ -394,7 +395,7 @@ int main(int argc, char argv[])
     for (size_t i = 0; i < octBox.size(); i++)
     {
         oGFX::Color& col = colMap[boxDepth[i]];
-        renderer.AddDebugBox (octBox[i], oGFX::Colors::INDIGO, renderer.g_octTree_tris);
+        renderer.AddDebugBox (octBox[i], oGFX::Colors::WHITE, renderer.g_octTree_box);
     }
     std::cout << "Oct box size:" << octBox.size() << " and total nodes: " << oct.size();
     renderer.g_DebugDraws[renderer.g_octTree_tris].dirty = true;
@@ -999,11 +1000,12 @@ int main(int argc, char argv[])
                 "Eigen",
             };
             geomChanged |= ImGui::ListBox("SphereType", &currSphereType, sphereTypes, 6);
-            ImGui::Checkbox("Top down AABB", &renderer.debug_btmUp_aabb);
-            ImGui::Checkbox("Bottom Up AABB", &renderer.debug_topDown_aabb);
-            ImGui::Checkbox("Top down Sphere", &renderer.debug_topDown_sphere);
-            ImGui::Checkbox("Bottom Up Sphere", &renderer.debug_btmUp_sphere);
-            ImGui::Checkbox("OctTree tris", &renderer.debug_octTree_tris);
+            ImGui::Checkbox("Top down AABB", &renderer.g_b_drawDebug[renderer.g_topDwn_AABB]);
+            ImGui::Checkbox("Bottom Up AABB", &renderer.g_b_drawDebug[renderer.g_btmUp_AABB]);
+            ImGui::Checkbox("Top down Sphere", &renderer.g_b_drawDebug[renderer.g_topDwn_Sphere]);
+            ImGui::Checkbox("Bottom Up Sphere", &renderer.g_b_drawDebug[renderer.g_btmUp_Sphere]);
+            ImGui::Checkbox("OctTree box", &renderer.g_b_drawDebug[renderer.g_octTree_box]);
+            ImGui::Checkbox("OctTree tris", &renderer.g_b_drawDebug[renderer.g_octTree_tris]);
             ImGui::End();
 
             renderer.DrawGUI();

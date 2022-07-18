@@ -16,6 +16,7 @@ namespace Colors
 	constexpr glm::vec4 YELLOW	= { 1,1,0,1 };
 	constexpr glm::vec4 ORANGE	= { 1,0.498039215686275,0,1 };
 	constexpr glm::vec4 RED		= { 1,0,0,1 };
+	constexpr glm::vec4 WHITE	= { 1,1,1,1 };
 
 	inline static std::vector<Color>c{
 		{ 0,1,0,1 },								// GREEN	

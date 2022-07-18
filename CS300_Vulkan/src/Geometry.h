@@ -5,7 +5,7 @@
 
 using Point3D = glm::vec3;
 using Mat3 = glm::mat3;
-constexpr static float EPSILON = { 0.001f };
+constexpr static float EPSILON = { 0.0001f };
 
 struct Plane
 {

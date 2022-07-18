@@ -417,8 +417,8 @@ namespace  oGFX::BV
 		float t1 = glm::dot(v1 - pointOnPlane, planeNorm);
 		
 		int comp = -1;
-		comp += t0 < 0.0f;
-		comp += t1 < 0.0f;
+		comp += (t0+EPSILON) < 0.0f;
+		comp += (t1+EPSILON) < 0.0f;
 
 		if (comp == 0)
 		{
@@ -426,10 +426,10 @@ namespace  oGFX::BV
 			r.start = v0;
 			r.direction = v1 - v0;
 			float t;
-			assert(coll::RayPlane(r, p, t));
-			newPoint = r.start + r.direction * t;
-
-			return true;
+			if (coll::RayPlane(r, p, t, newPoint))
+			{
+				return true;
+			}
 		}
 		
 		return false;
@@ -487,8 +487,9 @@ namespace  oGFX::BV
 		}
 		// triangulate and add to list
 		auto pSz = positiveVerts.size();
-		for (size_t i = 0; i < frontList.size()-2; ++i)
+		for (size_t j = 2; j < frontList.size(); ++j)
 		{
+			size_t i = j - 2;
 			positiveVerts.push_back(frontList[i+0]);
 			positiveVerts.push_back(frontList[i+1]);
 			positiveVerts.push_back(frontList[i+2]);
@@ -499,8 +500,9 @@ namespace  oGFX::BV
 		}
 
 		auto nSz = negativeVerts.size();
-		for (size_t i = 0; i < backList.size()-2; ++i)
+		for (size_t j = 2; j < backList.size(); ++j)
 		{
+			size_t i = j - 2;
 			negativeVerts.push_back(backList[i+0]);
 			negativeVerts.push_back(backList[i+1]);
 			negativeVerts.push_back(backList[i+2]);

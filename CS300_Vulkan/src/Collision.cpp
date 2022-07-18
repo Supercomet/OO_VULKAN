@@ -187,6 +187,7 @@ bool RayPlane(const Ray& r, const Plane& p, float& t, Point3D& pt)
 		t = (d-glm::dot(pNorm, r.start)) / divs;
 		if (t >= EPSILON)
 		{
+			pt = r.start + r.direction * t;
 			return true;
 		}
 	}
