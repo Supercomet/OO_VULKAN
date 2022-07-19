@@ -562,4 +562,14 @@ namespace  oGFX::BV
 		}
 	}
 
+	Plane PlaneFromTriangle(const Triangle & t)
+	{
+		Plane p;
+		glm::vec3 normal = glm::normalize(glm::cross(t.v1 - t.v0, t.v2 - t.v0));
+		float d = std::sqrtf(glm::dot(t.v0 * normal,t.v0 * normal));
+		p.normal = glm::vec4{ normal,d };
+
+		return p;
+	}
+
 } // end namespace oGFX::BV

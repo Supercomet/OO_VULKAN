@@ -31,6 +31,7 @@
 #include "IcoSphereCreator.h"
 #include "Tree.h"
 #include "OctTree.h"
+#include "BSPTree.h"
 
 #include <numeric>
 //#include <algorithm>
@@ -405,12 +406,13 @@ int main(int argc, char argv[])
         }
         auto [octBox, boxDepth] = oct.GetActiveBoxList();
         std::unordered_map<uint32_t, oGFX::Color> depthMap;
+        depthMap[0] = oGFX::Colors::WHITE;
         for (size_t i = 0; i < octBox.size(); i++)
         {
             oGFX::Color& col = depthMap[boxDepth[i]];
             if (col.a == 0.0f) col = generateRandomColor();
-            //octBox[i].halfExt -= (float)boxDepth[i] * vec3(EPSILON, EPSILON, EPSILON);
-            renderer.AddDebugBox(octBox[i], oGFX::Colors::WHITE, renderer.g_octTree_box);
+            octBox[i].halfExt -= (float)boxDepth[i] * vec3(EPSILON, EPSILON, EPSILON);
+            renderer.AddDebugBox(octBox[i], col, renderer.g_octTree_box);
         }
         std::cout << "Oct box size:" << octBox.size() << " and total nodes: " << oct.size() << std::endl;
         renderer.g_DebugDraws[renderer.g_octTree_tris].dirty = true;
@@ -418,6 +420,39 @@ int main(int argc, char argv[])
     };
     lambda_update_octdebugDraws();
     
+    int local_BSPmaxTriangles = 400;
+    BspTree bspTree(vertPositions, bunny->indices, local_maxTriangles);
+    auto lambda_update_BSPdebugDraws = [&]()
+    {
+        renderer.g_DebugDraws[renderer.g_BSP_tris].vertex.clear();
+        renderer.g_DebugDraws[renderer.g_BSP_tris].indices.clear();
+        renderer.g_DebugDraws[renderer.g_BSP_tris].dirty = true;
+
+        auto [bspTreeVerts, bspTreeIndices, bspTreeDepth] = bspTree.GetTriangleList();
+        auto numTri = bspTreeIndices.size() / 3;
+        std::cout << "BSP num tri " << numTri << std::endl;
+        std::unordered_map<uint32_t, oGFX::Color> colMap;
+        for (size_t i = 0; i < numTri; i++)
+        {
+            auto id0 = bspTreeIndices[i * 3 + 0];
+            auto id1 = bspTreeIndices[i * 3 + 1];
+            auto id2 = bspTreeIndices[i * 3 + 2];
+            auto depth = bspTreeDepth[i];
+            Triangle tri(bspTreeVerts[id0],
+                bspTreeVerts[id1],
+                bspTreeVerts[id2]
+            );
+            oGFX::Color& col = colMap[depth];
+            if (col.a == 0.0f) col = generateRandomColor();
+            //depth %= oGFX::Colors::c.size();
+            renderer.AddDebugTriangle(tri, col, renderer.g_BSP_tris);
+        }
+        
+        std::cout << "bspTree node size:" << bspTree.size() << " and total nodes: " << bspTree.size() << std::endl;
+
+    };
+    lambda_update_BSPdebugDraws();
+
 
     vertPositions.resize(icoSphere->vertices.size());
     std::transform(icoSphere->vertices.begin(), icoSphere->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
@@ -1017,6 +1052,7 @@ int main(int argc, char argv[])
                 "EPOS_98",
                 "Eigen",
             };
+
             if (ImGui::DragInt("OctTree max tri", &local_maxTriangles, 10.0f))
             {
                 oct.SetTriangles(local_maxTriangles);
@@ -1029,6 +1065,14 @@ int main(int argc, char argv[])
             }
             ImGui::Checkbox("OctTree box", &renderer.g_b_drawDebug[renderer.g_octTree_box]);
             ImGui::Checkbox("OctTree tris", &renderer.g_b_drawDebug[renderer.g_octTree_tris]);
+
+            ImGui::Checkbox("BSP Tree tris", &renderer.g_b_drawDebug[renderer.g_BSP_tris]);
+            if (ImGui::SmallButton("Build BSP"))
+            {
+                bspTree.Rebuild();
+                lambda_update_BSPdebugDraws();
+            }
+
             geomChanged |= ImGui::ListBox("SphereType", &currSphereType, sphereTypes, 6);
             ImGui::Checkbox("Top down AABB", &renderer.g_b_drawDebug[renderer.g_topDwn_AABB]);
             ImGui::Checkbox("Bottom Up AABB", &renderer.g_b_drawDebug[renderer.g_btmUp_AABB]);

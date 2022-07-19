@@ -48,15 +48,6 @@ void OctTree::Rebuild()
 	float max = std::max({ box.halfExt.x,box.halfExt.y,box.halfExt.z });
 	box.halfExt = Point3D(max, max, max);
 
-	std::cout << "\tMainBox ["
-		<< box.center.x << ", "
-		<< box.center.y << ", "
-		<< box.center.z << "] ["
-		<< box.halfExt.x << ", "
-		<< box.halfExt.y << ", "
-		<< box.halfExt.z << "]"
-		<< std::endl;
-
 	SplitNode(m_root.get(), m_root->box, m_vertices, m_indices);
 
 	for (size_t i = 0; i < s_num_children; i++)
@@ -155,15 +146,6 @@ void OctTree::SplitNode(OctNode* node, const AABB& box, const std::vector<Point3
 			AABB childBox;
 			childBox.center = box.center + position;
 			childBox.halfExt = Point3D{ step,step,step };
-
-			std::cout << "Box ["
-				<< childBox.center.x << ", "
-				<< childBox.center.y << ", "
-				<< childBox.center.z << "] ["
-				<< childBox.halfExt.x << ", "
-				<< childBox.halfExt.y << ", "
-				<< childBox.halfExt.z << "]"
-				<< std::endl;
 
 			if(octantVerts->size())
 				++m_boxesInsertCnt[i];
@@ -282,7 +264,7 @@ void OctTree::GatherBox(OctNode* node, std::vector<AABB>& boxes, std::vector<uin
 {
 	if (node == nullptr) return;
 
-	//if (node->type == OctNode::LEAF)
+	if (node->type == OctNode::LEAF)
 	{
 		boxes.push_back(node->box);
 		depth.push_back(node->depth);

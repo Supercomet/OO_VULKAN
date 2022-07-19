@@ -199,8 +199,9 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	static constexpr size_t g_topDwn_Sphere=3;
 	static constexpr size_t g_octTree_tris=4;
 	static constexpr size_t g_octTree_box=5;
+	static constexpr size_t g_BSP_tris=6;
 
-	static constexpr size_t debugDrawBufferCnt = 6;
+	static constexpr size_t debugDrawBufferCnt = 7;
 
 	inline static bool g_b_drawDebug[debugDrawBufferCnt];
 	inline static DebugDraw g_DebugDraws[debugDrawBufferCnt];

@@ -5,20 +5,18 @@
 #include <tuple>
 #include <memory>
 
+struct BspNode;
 
-struct OctNode;
-
-class OctTree
+class BspTree
 {
 public:
-	inline static constexpr uint32_t s_num_children = 8;
+	inline static constexpr uint32_t s_num_children = 2;
 	inline static constexpr uint32_t s_stop_depth = 8;
-	inline static constexpr uint32_t s_stop_triangles = 100;
+	inline static constexpr uint32_t s_stop_triangles = 1000;
 public:
-	OctTree(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTrangles = s_stop_triangles);
+	BspTree(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTrangles = s_stop_triangles);
 
 	std::tuple< std::vector<Point3D>, std::vector<uint32_t>,std::vector<uint32_t> > GetTriangleList();
-	std::tuple< std::vector<AABB>,std::vector<uint32_t> > GetActiveBoxList();
 
 	void Rebuild();
 	void SetTriangles(int maxTrianges);
@@ -27,7 +25,7 @@ public:
 	uint32_t size() const;
 
 private:
-	std::unique_ptr<OctNode> m_root{};
+	std::unique_ptr<BspNode> m_root{};
 	uint32_t m_trianglesSaved{};
 	uint32_t m_nodes{};
 	uint32_t m_TrianglesSliced{};
@@ -35,20 +33,21 @@ private:
 	uint32_t m_maxNodesTriangles{ s_stop_triangles };
 	uint32_t m_maxDepth{ s_stop_depth };
 
-	uint32_t m_boxesInsertCnt[s_num_children];
+	uint32_t m_planePartitionCount[s_num_children];
 
-	void SplitNode(OctNode* node,const AABB& box,const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
+	void SplitNode(BspNode* node,const Plane& plane,const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
 	void PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices,const Plane& plane,
 		std::vector<Point3D>& positiveVerts, std::vector<uint32_t>& positiveIndices,
 		std::vector<Point3D>& negativeVerts, std::vector<uint32_t>& negativeIndices
 	);
 
+	Plane PickSplittingPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
 
-	void GatherTriangles(OctNode* node,std::vector<Point3D>& vertices, std::vector<uint32_t>& indices,std::vector<uint32_t>& depth);
-	void GatherBox(OctNode* node,std::vector<AABB>& boxes, std::vector<uint32_t>& depth);
+	void GatherTriangles(BspNode* node,std::vector<Point3D>& vertices, std::vector<uint32_t>& indices,std::vector<uint32_t>& depth);
+
 };
 
-struct OctNode
+struct BspNode
 {
 	enum Type
 	{
@@ -56,11 +55,12 @@ struct OctNode
 		LEAF,
 	}type{ Type::INTERNAL };
 
-	AABB box{};
+	Plane m_splitPlane{};
+
 	uint32_t depth{};
 	uint32_t nodeID{};
 
 	std::vector<Point3D> vertices;
 	std::vector<uint32_t> indices;
-	std::unique_ptr<OctNode> children[OctTree::s_num_children];
+	std::unique_ptr<BspNode> children[BspTree::s_num_children];
 };

@@ -46,5 +46,7 @@ namespace oGFX::BV
 		std::vector<Point3D>& negativeVerts, std::vector<uint32_t>& negativeIndices
 		);
 
+	Plane PlaneFromTriangle(const Triangle& t);
+
 };
 

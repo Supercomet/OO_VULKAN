@@ -71,7 +71,9 @@ Plane::Plane(const Point3D& n, float d)
 
 std::pair<glm::vec3, glm::vec3> Plane::ToPointNormal() const
 {
-	return std::pair<glm::vec3, glm::vec3>(glm::vec3{ normal }, glm::vec3{ 0.0,0.0,normal.w/normal.z });
+	float d = normal.w / normal.z;
+	assert(d != 0.0f);
+	return std::pair<glm::vec3, glm::vec3>(glm::vec3{ normal }, glm::vec3{ 0.0,0.0, d});
 }
 
 Triangle::Triangle():

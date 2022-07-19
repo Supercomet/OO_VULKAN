@@ -26,6 +26,7 @@
     <ClCompile Include="..\vendor\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="src\BspTree.cpp" />
     <ClCompile Include="src\GfxSampler.cpp" />
     <ClCompile Include="src\IcoSphereCreator.cpp" />
     <ClCompile Include="src\DebugRenderpass.cpp" />
@@ -61,6 +62,7 @@
     <ClCompile Include="src\tinyddsloader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\BspTree.h" />
     <ClInclude Include="src\GfxSampler.h" />
     <ClInclude Include="src\IcoSphereCreator.h" />
     <ClInclude Include="src\DebugRenderpass.h" />
