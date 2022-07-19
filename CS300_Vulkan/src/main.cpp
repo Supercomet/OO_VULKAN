@@ -376,36 +376,48 @@ int main(int argc, char argv[])
     std::cout <<"bunny model: " << bunnyTris << std::endl;
     std::for_each(vertPositions.begin(), vertPositions.end(), [](Point3D& v) { v *= 20.0f; });
    
-    OctTree oct(vertPositions, bunny->indices);
-    auto [octVerts, octIndices, octDepth] = oct.GetTriangleList();
-    auto numTri = octIndices.size() / 3;
-    std::unordered_map<uint32_t, oGFX::Color> colMap;
-    for (size_t i = 0; i < numTri; i++)
+    int local_maxTriangles = 400;
+    OctTree oct(vertPositions, bunny->indices, local_maxTriangles);
+    auto lambda_update_octdebugDraws = [&]()
     {
-        auto id0 = octIndices[i*3 + 0];
-        auto id1 = octIndices[i*3 + 1];
-        auto id2 = octIndices[i*3 + 2];
-        auto depth = octDepth[i];
-        Triangle tri(octVerts[id0],
-            octVerts[id1],
-            octVerts[id2]
-        );
-        oGFX::Color& col = colMap[depth];
-        if (col.a == 0.0f) col = generateRandomColor();
-        //depth %= oGFX::Colors::c.size();
-        renderer.AddDebugTriangle(tri, col, renderer.g_octTree_tris);
-    }
-    auto [octBox, boxDepth] =oct.GetActiveBoxList();
-    std::unordered_map<uint32_t, oGFX::Color> depthMap;
-    for (size_t i = 0; i < octBox.size(); i++)
-    {
-        oGFX::Color& col = depthMap[boxDepth[i]];
-        if (col.a == 0.0f) col = generateRandomColor();
-        octBox[i].halfExt -= (float)boxDepth[i] * vec3(EPSILON, EPSILON, EPSILON);
-        renderer.AddDebugBox (octBox[i], col, renderer.g_octTree_box);
-    }
-    std::cout << "Oct box size:" << octBox.size() << " and total nodes: " << oct.size();
-    renderer.g_DebugDraws[renderer.g_octTree_tris].dirty = true;
+        renderer.g_DebugDraws[renderer.g_octTree_tris].vertex.clear();
+        renderer.g_DebugDraws[renderer.g_octTree_tris].indices.clear();
+        renderer.g_DebugDraws[renderer.g_octTree_box].vertex.clear();
+        renderer.g_DebugDraws[renderer.g_octTree_box].indices.clear();
+
+        auto [octVerts, octIndices, octDepth] = oct.GetTriangleList();
+        auto numTri = octIndices.size() / 3;
+        std::unordered_map<uint32_t, oGFX::Color> colMap;
+        for (size_t i = 0; i < numTri; i++)
+        {
+            auto id0 = octIndices[i * 3 + 0];
+            auto id1 = octIndices[i * 3 + 1];
+            auto id2 = octIndices[i * 3 + 2];
+            auto depth = octDepth[i];
+            Triangle tri(octVerts[id0],
+                octVerts[id1],
+                octVerts[id2]
+            );
+            oGFX::Color& col = colMap[depth];
+            if (col.a == 0.0f) col = generateRandomColor();
+            //depth %= oGFX::Colors::c.size();
+            renderer.AddDebugTriangle(tri, col, renderer.g_octTree_tris);
+        }
+        auto [octBox, boxDepth] = oct.GetActiveBoxList();
+        std::unordered_map<uint32_t, oGFX::Color> depthMap;
+        for (size_t i = 0; i < octBox.size(); i++)
+        {
+            oGFX::Color& col = depthMap[boxDepth[i]];
+            if (col.a == 0.0f) col = generateRandomColor();
+            //octBox[i].halfExt -= (float)boxDepth[i] * vec3(EPSILON, EPSILON, EPSILON);
+            renderer.AddDebugBox(octBox[i], oGFX::Colors::WHITE, renderer.g_octTree_box);
+        }
+        std::cout << "Oct box size:" << octBox.size() << " and total nodes: " << oct.size() << std::endl;
+        renderer.g_DebugDraws[renderer.g_octTree_tris].dirty = true;
+        renderer.g_DebugDraws[renderer.g_octTree_box].dirty = true;
+    };
+    lambda_update_octdebugDraws();
+    
 
     vertPositions.resize(icoSphere->vertices.size());
     std::transform(icoSphere->vertices.begin(), icoSphere->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
@@ -1005,13 +1017,23 @@ int main(int argc, char argv[])
                 "EPOS_98",
                 "Eigen",
             };
+            if (ImGui::DragInt("OctTree max tri", &local_maxTriangles, 10.0f))
+            {
+                oct.SetTriangles(local_maxTriangles);
+                local_maxTriangles = oct.GetTriangles();
+            }
+            if (ImGui::SmallButton("Build OctTree"))
+            {
+                oct.Rebuild();
+                lambda_update_octdebugDraws();
+            }
+            ImGui::Checkbox("OctTree box", &renderer.g_b_drawDebug[renderer.g_octTree_box]);
+            ImGui::Checkbox("OctTree tris", &renderer.g_b_drawDebug[renderer.g_octTree_tris]);
             geomChanged |= ImGui::ListBox("SphereType", &currSphereType, sphereTypes, 6);
             ImGui::Checkbox("Top down AABB", &renderer.g_b_drawDebug[renderer.g_topDwn_AABB]);
             ImGui::Checkbox("Bottom Up AABB", &renderer.g_b_drawDebug[renderer.g_btmUp_AABB]);
             ImGui::Checkbox("Top down Sphere", &renderer.g_b_drawDebug[renderer.g_topDwn_Sphere]);
             ImGui::Checkbox("Bottom Up Sphere", &renderer.g_b_drawDebug[renderer.g_btmUp_Sphere]);
-            ImGui::Checkbox("OctTree box", &renderer.g_b_drawDebug[renderer.g_octTree_box]);
-            ImGui::Checkbox("OctTree tris", &renderer.g_b_drawDebug[renderer.g_octTree_tris]);
             ImGui::End();
 
             renderer.DrawGUI();

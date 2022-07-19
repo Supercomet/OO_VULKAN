@@ -481,8 +481,7 @@ namespace  oGFX::BV
 			{
 				return true;
 			}
-		}
-		
+		}		
 		return false;
 	}
 

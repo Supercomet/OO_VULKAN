@@ -41,7 +41,7 @@ std::vector<const char*> getSupportedValidationLayers(VulkanInstance& vkinstance
 {
 	static auto s_ValidationLayerNames_Alt1 = std::vector<const char*>
 	{
-#ifdef DEBUG
+#ifdef _DEBUG
 		"VK_LAYER_KHRONOS_validation"
 #endif // DEBUG
 	};
@@ -170,7 +170,7 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 		if( validationLayers.size() ) 
 		{
 			requiredExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-#ifdef DEBUG
+#ifdef _DEBUG
 			requiredExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 #endif // DEBUG
 		}
@@ -179,7 +179,7 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 	//
 	// Enable render doc if requested by the user
 	//
-#ifdef DEBUG
+#ifdef _DEBUG
 	if( setupSpecs.renderDoc == true)
 	{
 		validationLayers.emplace_back( "VK_LAYER_RENDERDOC_Capture" );

@@ -39,7 +39,7 @@ namespace oGFX
 
 #ifndef VK_NAME
 
-#ifdef DEBUG
+#ifdef _DEBUG
 
 
 

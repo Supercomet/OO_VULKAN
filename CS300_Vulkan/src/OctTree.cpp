@@ -3,17 +3,13 @@
 #include <algorithm>
 #include <iostream>
 
-OctTree::OctTree(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices)
+OctTree::OctTree(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTriangles)
 {
-	m_root = std::make_unique<OctNode>();
-	
-	oGFX::BV::BoundingAABB(m_root->box, vertices);
-	AABB& box = m_root->box;
-	float max = std::max({ box.halfExt.x,box.halfExt.y,box.halfExt.z });
-	box.halfExt = Point3D(max, max, max);
+	m_vertices = vertices;
+	m_indices = indices;
+	m_maxNodesTriangles = maxTriangles;
 
-	SplitNode(m_root.get(), m_root->box, vertices, indices);
-
+	Rebuild();
 }
 
 
@@ -39,6 +35,45 @@ std::tuple<std::vector<AABB>, std::vector<uint32_t>> OctTree::GetActiveBoxList()
 	return std::tuple< std::vector<AABB>, std::vector<uint32_t> >(boxes,depth);
 }
 
+void OctTree::Rebuild()
+{
+	for (size_t i = 0; i < s_num_children; i++) m_boxesInsertCnt[i] = 0;
+	
+	m_root.reset(nullptr);
+
+	m_root = std::make_unique<OctNode>();
+
+	oGFX::BV::BoundingAABB(m_root->box, m_vertices);
+	AABB& box = m_root->box;
+	float max = std::max({ box.halfExt.x,box.halfExt.y,box.halfExt.z });
+	box.halfExt = Point3D(max, max, max);
+
+	std::cout << "\tMainBox ["
+		<< box.center.x << ", "
+		<< box.center.y << ", "
+		<< box.center.z << "] ["
+		<< box.halfExt.x << ", "
+		<< box.halfExt.y << ", "
+		<< box.halfExt.z << "]"
+		<< std::endl;
+
+	SplitNode(m_root.get(), m_root->box, m_vertices, m_indices);
+
+	for (size_t i = 0; i < s_num_children; i++)
+		std::cout << "Inserted into box [" << i << "] - " << m_boxesInsertCnt[i] << " times\n";
+}
+
+void OctTree::SetTriangles(int maxTrianges)
+{
+	m_maxNodesTriangles = maxTrianges;
+	m_maxNodesTriangles = std::max(static_cast<uint32_t>(m_maxNodesTriangles) , s_stop_triangles);
+}
+
+int OctTree::GetTriangles()
+{
+	return m_maxNodesTriangles;
+}
+
 uint32_t OctTree::size() const
 {
 	return m_nodes;
@@ -49,15 +84,11 @@ void OctTree::SplitNode(OctNode* node, const AABB& box, const std::vector<Point3
 	const uint32_t currDepth = node->depth + 1;
 	const uint32_t numTriangles = static_cast<uint32_t>(indices.size()) / 3;
 
-	
-	if (currDepth > s_stop_depth
-		|| (numTriangles <= s_stop_triangles))
+	if (currDepth > m_maxDepth
+		|| (numTriangles <= m_maxNodesTriangles))
 	{
-		if (numTriangles)
-		{
-			node->type = OctNode::LEAF;
-			node->nodeID = ++m_nodes;
-		}
+		node->type = OctNode::LEAF;
+		node->nodeID = ++m_nodes;
 		if (currDepth > s_stop_depth)
 		{
 			//std::cout << "Depth limit reached!" << std::endl;
@@ -101,17 +132,17 @@ void OctTree::SplitNode(OctNode* node, const AABB& box, const std::vector<Point3
 		PartitionTrianglesAlongPlane(lowerNegativeVerts, lowerNegativeIndices, zPlane, octantVerts[4], octantInds[4], octantVerts[0], octantInds[0]);
 		PartitionTrianglesAlongPlane(upperNegativeVerts, upperNegativeIndices, zPlane, octantVerts[6], octantInds[6], octantVerts[2], octantInds[2]);
 
-		if (currDepth < 3)
-		{
-			std::cout << currDepth << "- start tris[" << numTriangles << "] " << std::endl;
-			size_t thisTotalTri{};
-			for (size_t i = 0; i < s_num_children; i++)
-			{
-				thisTotalTri += static_cast<size_t>(octantInds[i].size()) / 3;
-				std::cout << "oct_" << i << " tris[" << octantInds[i].size() / 3<< "] " << std::endl;
-			}
-			std::cout << "\ttotal:" << thisTotalTri << std::endl;
-		}
+		//if (currDepth < 3)
+		//{
+		//	std::cout << currDepth << "- start tris[" << numTriangles << "] " << std::endl;
+		//	size_t thisTotalTri{};
+		//	for (size_t i = 0; i < s_num_children; i++)
+		//	{
+		//		thisTotalTri += static_cast<size_t>(octantInds[i].size()) / 3;
+		//		std::cout << "oct_" << i << " tris[" << octantInds[i].size() / 3<< "] " << std::endl;
+		//	}
+		//	std::cout << "\ttotal:" << thisTotalTri << std::endl;
+		//}
 
 		Point3D position;
 		float step = box.halfExt.x * 0.5f;
@@ -125,14 +156,26 @@ void OctTree::SplitNode(OctNode* node, const AABB& box, const std::vector<Point3
 			childBox.center = box.center + position;
 			childBox.halfExt = Point3D{ step,step,step };
 
-			if (octantVerts[i].size())
-			{
-				node->children[i] = std::make_unique<OctNode>();
-				node->children[i]->depth = currDepth;
-				//node->children[i]->nodeID = ++m_nodes;
-				node->children[i]->box = childBox;
-				SplitNode(node->children[i].get(),childBox, octantVerts[i], octantInds[i]);
-			}
+			std::cout << "Box ["
+				<< childBox.center.x << ", "
+				<< childBox.center.y << ", "
+				<< childBox.center.z << "] ["
+				<< childBox.halfExt.x << ", "
+				<< childBox.halfExt.y << ", "
+				<< childBox.halfExt.z << "]"
+				<< std::endl;
+
+			if(octantVerts->size())
+				++m_boxesInsertCnt[i];
+			node->children[i] = std::make_unique<OctNode>();
+			node->children[i]->depth = currDepth;
+			//node->children[i]->nodeID = ++m_nodes;
+			node->children[i]->box = childBox;
+			SplitNode(node->children[i].get(),childBox, octantVerts[i], octantInds[i]);
+			//if (octantVerts[i].size())
+			//{
+			//	
+			//}
 		}
 	}
 	//std::cout << "Depth:" << currDepth << " Tris:" << numTriangles << std::endl;
@@ -159,15 +202,6 @@ void OctTree::PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices,
 		switch (orientation)
 		{
 		case TriangleOrientation::COPLANAR:
-		{
-			auto index = static_cast<uint32_t>(positiveVerts.size());
-			for (uint32_t i = 0; i < 3; i++)
-			{
-				positiveVerts.push_back(v[i]);
-				positiveIndices.push_back(index + i);
-			}
-		}
-		break;
 		case TriangleOrientation::POSITIVE:
 		{
 			auto index = static_cast<uint32_t>(positiveVerts.size());
@@ -190,6 +224,12 @@ void OctTree::PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices,
 		break;
 		case TriangleOrientation::STRADDLE:
 		{
+			//auto index = static_cast<uint32_t>(positiveVerts.size());
+			//for (uint32_t i = 0; i < 3; i++)
+			//{
+			//	positiveVerts.push_back(v[i]);
+			//	positiveIndices.push_back(index + i);
+			//}
 			++m_TrianglesSliced;
 			oGFX::BV::SliceTriangleAgainstPlane(t, plane,
 				positiveVerts, positiveIndices,
