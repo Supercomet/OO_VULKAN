@@ -4,6 +4,7 @@
 #include <vector>
 #include <tuple>
 #include <memory>
+#include <filesystem>
 
 struct BspNode;
 
@@ -12,7 +13,13 @@ class BspTree
 public:
 	inline static constexpr uint32_t s_num_children = 2;
 	inline static constexpr uint32_t s_stop_depth = 8;
-	inline static constexpr uint32_t s_stop_triangles = 1000;
+	inline static constexpr uint32_t s_stop_triangles = 30;
+
+	enum class PartitionType
+	{
+		AUTOPARTITION=0,
+		MEAN=1,
+	};
 public:
 	BspTree(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTrangles = s_stop_triangles);
 
@@ -22,11 +29,25 @@ public:
 	void SetTriangles(int maxTrianges);
 	int GetTriangles();
 
+	bool BuildSerialized(const std::string& path);
+	
+	float progress();
 	uint32_t size() const;
+
+	void SerializeTree();
+
+	void SetPartitionType(PartitionType type);
+	PartitionType GetPartitionType();
+
+	uint32_t m_trianglesSaved{};
+	uint32_t m_trianglesRemaining{};
+	uint32_t m_classificationScale{};
+	uint32_t m_trianglesClassified{};
 
 private:
 	std::unique_ptr<BspNode> m_root{};
-	uint32_t m_trianglesSaved{};
+
+	PartitionType m_type{PartitionType :: AUTOPARTITION};
 	uint32_t m_nodes{};
 	uint32_t m_TrianglesSliced{};
 	std::vector<Point3D> m_vertices; std::vector<uint32_t> m_indices;
@@ -34,6 +55,7 @@ private:
 	uint32_t m_maxDepth{ s_stop_depth };
 
 	uint32_t m_planePartitionCount[s_num_children];
+	bool LoadTree(const std::filesystem::path& path);
 
 	void SplitNode(BspNode* node,const Plane& plane,const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
 	void PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices,const Plane& plane,
@@ -41,10 +63,14 @@ private:
 		std::vector<Point3D>& negativeVerts, std::vector<uint32_t>& negativeIndices
 	);
 
+	void LoadNode(BspNode* node,const std::vector<Plane>& planes, uint32_t& index,const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
 	Plane PickSplittingPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
 
-	void GatherTriangles(BspNode* node,std::vector<Point3D>& vertices, std::vector<uint32_t>& indices,std::vector<uint32_t>& depth);
+	Plane AutoPartition(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
+	Plane MeanPartition(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
 
+	void GatherPlanes(BspNode* node, std::vector<Plane>& planes);
+	void GatherTriangles(BspNode* node,std::vector<Point3D>& vertices, std::vector<uint32_t>& indices,std::vector<uint32_t>& depth);
 };
 
 struct BspNode

@@ -450,6 +450,7 @@ namespace oGFX
 		result = vkAllocateMemory(device, &memoryAllocInfo, nullptr, bufferMemory);
 		if (result != VK_SUCCESS)
 		{
+			std::cout << oGFX::vk::tools::VkResultString(result) << std::endl;
 			throw std::runtime_error("Failed to allocate Vertex Buffer Memory!");
 		}
 

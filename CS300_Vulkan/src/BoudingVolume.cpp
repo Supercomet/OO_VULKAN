@@ -485,10 +485,12 @@ namespace  oGFX::BV
 		return false;
 	}
 
-	void SliceTriangleAgainstPlane(const Triangle& t, const Plane& p,
+	int SliceTriangleAgainstPlane(const Triangle& t, const Plane& p,
 		std::vector<Point3D>& positiveVerts, std::vector<uint32_t>& positiveIndices,
 		std::vector<Point3D>& negativeVerts, std::vector<uint32_t>& negativeIndices)
 	{
+		int count = 0;
+
 		Point3D v[3];
 		v[0] = t.v0;
 		v[1] = t.v1;
@@ -538,6 +540,7 @@ namespace  oGFX::BV
 		auto pSz = static_cast<uint32_t>(positiveVerts.size());
 		for (uint32_t j = 2; j < frontList.size(); ++j)
 		{
+			++count;
 			uint32_t i = j - 2;
 			positiveVerts.push_back(frontList[i+0]);
 			positiveVerts.push_back(frontList[i+1]);
@@ -551,6 +554,7 @@ namespace  oGFX::BV
 		auto nSz = static_cast<uint32_t>(negativeVerts.size());
 		for (uint32_t j = 2; j < backList.size(); ++j)
 		{
+			++count;
 			uint32_t i = j - 2;
 			negativeVerts.push_back(backList[i+0]);
 			negativeVerts.push_back(backList[i+1]);
@@ -560,6 +564,8 @@ namespace  oGFX::BV
 			negativeIndices.push_back(i*3 +1 + nSz);
 			negativeIndices.push_back(i*3 +2 + nSz);
 		}
+
+		return count;
 	}
 
 	Plane PlaneFromTriangle(const Triangle & t)

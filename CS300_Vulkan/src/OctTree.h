@@ -13,7 +13,7 @@ class OctTree
 public:
 	inline static constexpr uint32_t s_num_children = 8;
 	inline static constexpr uint32_t s_stop_depth = 8;
-	inline static constexpr uint32_t s_stop_triangles = 100;
+	inline static constexpr uint32_t s_stop_triangles = 50;
 public:
 	OctTree(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTrangles = s_stop_triangles);
 
@@ -23,12 +23,14 @@ public:
 	void Rebuild();
 	void SetTriangles(int maxTrianges);
 	int GetTriangles();
+	float progress();
 
 	uint32_t size() const;
 
 private:
 	std::unique_ptr<OctNode> m_root{};
 	uint32_t m_trianglesSaved{};
+	uint32_t m_trianglesRemaining{};
 	uint32_t m_nodes{};
 	uint32_t m_TrianglesSliced{};
 	std::vector<Point3D> m_vertices; std::vector<uint32_t> m_indices;

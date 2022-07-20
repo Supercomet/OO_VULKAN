@@ -9,7 +9,6 @@ OctTree::OctTree(const std::vector<Point3D>& vertices, const std::vector<uint32_
 	m_indices = indices;
 	m_maxNodesTriangles = maxTriangles;
 
-	Rebuild();
 }
 
 
@@ -40,6 +39,8 @@ void OctTree::Rebuild()
 	for (size_t i = 0; i < s_num_children; i++) m_boxesInsertCnt[i] = 0;
 	
 	m_root.reset(nullptr);
+	m_trianglesSaved = 0;
+	m_trianglesRemaining = m_indices.size() / 3;
 
 	m_root = std::make_unique<OctNode>();
 
@@ -50,8 +51,8 @@ void OctTree::Rebuild()
 
 	SplitNode(m_root.get(), m_root->box, m_vertices, m_indices);
 
-	for (size_t i = 0; i < s_num_children; i++)
-		std::cout << "Inserted into box [" << i << "] - " << m_boxesInsertCnt[i] << " times\n";
+	//for (size_t i = 0; i < s_num_children; i++)
+	//	std::cout << "Inserted into box [" << i << "] - " << m_boxesInsertCnt[i] << " times\n";
 }
 
 void OctTree::SetTriangles(int maxTrianges)
@@ -63,6 +64,11 @@ void OctTree::SetTriangles(int maxTrianges)
 int OctTree::GetTriangles()
 {
 	return m_maxNodesTriangles;
+}
+
+float OctTree::progress()
+{
+	return static_cast<float>(m_trianglesSaved)/m_trianglesRemaining;
 }
 
 uint32_t OctTree::size() const
@@ -213,9 +219,10 @@ void OctTree::PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices,
 			//	positiveIndices.push_back(index + i);
 			//}
 			++m_TrianglesSliced;
-			oGFX::BV::SliceTriangleAgainstPlane(t, plane,
+			m_trianglesRemaining += oGFX::BV::SliceTriangleAgainstPlane(t, plane,
 				positiveVerts, positiveIndices,
 				negativeVerts,negativeIndices);
+			m_trianglesRemaining-=1;
 		}
 		break;
 		}

@@ -41,7 +41,7 @@ namespace oGFX::BV
 	TriangleOrientation ClassifyTriangleToPlane(const Triangle& t, const Plane& p);
 
 	bool SliceEdgeAgainstPlane(const Point3D& v0, const Point3D& v1, const Plane& p, Point3D& newPoint);
-	void SliceTriangleAgainstPlane(const Triangle& t, const Plane& p,
+	int SliceTriangleAgainstPlane(const Triangle& t, const Plane& p,
 		std::vector<Point3D>& positiveVerts, std::vector<uint32_t>& positiveIndices,
 		std::vector<Point3D>& negativeVerts, std::vector<uint32_t>& negativeIndices
 		);

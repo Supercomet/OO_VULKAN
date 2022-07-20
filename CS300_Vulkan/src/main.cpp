@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cctype>
 #include <thread>
+#include <functional>
 #include <random>
 
 #include "window.h"
@@ -377,83 +378,7 @@ int main(int argc, char argv[])
     std::cout <<"bunny model: " << bunnyTris << std::endl;
     std::for_each(vertPositions.begin(), vertPositions.end(), [](Point3D& v) { v *= 20.0f; });
    
-    int local_maxTriangles = 400;
-    OctTree oct(vertPositions, bunny->indices, local_maxTriangles);
-    auto lambda_update_octdebugDraws = [&]()
-    {
-        renderer.g_DebugDraws[renderer.g_octTree_tris].vertex.clear();
-        renderer.g_DebugDraws[renderer.g_octTree_tris].indices.clear();
-        renderer.g_DebugDraws[renderer.g_octTree_box].vertex.clear();
-        renderer.g_DebugDraws[renderer.g_octTree_box].indices.clear();
-
-        auto [octVerts, octIndices, octDepth] = oct.GetTriangleList();
-        auto numTri = octIndices.size() / 3;
-        std::unordered_map<uint32_t, oGFX::Color> colMap;
-        for (size_t i = 0; i < numTri; i++)
-        {
-            auto id0 = octIndices[i * 3 + 0];
-            auto id1 = octIndices[i * 3 + 1];
-            auto id2 = octIndices[i * 3 + 2];
-            auto depth = octDepth[i];
-            Triangle tri(octVerts[id0],
-                octVerts[id1],
-                octVerts[id2]
-            );
-            oGFX::Color& col = colMap[depth];
-            if (col.a == 0.0f) col = generateRandomColor();
-            //depth %= oGFX::Colors::c.size();
-            renderer.AddDebugTriangle(tri, col, renderer.g_octTree_tris);
-        }
-        auto [octBox, boxDepth] = oct.GetActiveBoxList();
-        std::unordered_map<uint32_t, oGFX::Color> depthMap;
-        depthMap[0] = oGFX::Colors::WHITE;
-        for (size_t i = 0; i < octBox.size(); i++)
-        {
-            oGFX::Color& col = depthMap[boxDepth[i]];
-            if (col.a == 0.0f) col = generateRandomColor();
-            octBox[i].halfExt -= (float)boxDepth[i] * vec3(EPSILON, EPSILON, EPSILON);
-            renderer.AddDebugBox(octBox[i], col, renderer.g_octTree_box);
-        }
-        std::cout << "Oct box size:" << octBox.size() << " and total nodes: " << oct.size() << std::endl;
-        renderer.g_DebugDraws[renderer.g_octTree_tris].dirty = true;
-        renderer.g_DebugDraws[renderer.g_octTree_box].dirty = true;
-    };
-    lambda_update_octdebugDraws();
-    
-    int local_BSPmaxTriangles = 400;
-    BspTree bspTree(vertPositions, bunny->indices, local_maxTriangles);
-    auto lambda_update_BSPdebugDraws = [&]()
-    {
-        renderer.g_DebugDraws[renderer.g_BSP_tris].vertex.clear();
-        renderer.g_DebugDraws[renderer.g_BSP_tris].indices.clear();
-        renderer.g_DebugDraws[renderer.g_BSP_tris].dirty = true;
-
-        auto [bspTreeVerts, bspTreeIndices, bspTreeDepth] = bspTree.GetTriangleList();
-        auto numTri = bspTreeIndices.size() / 3;
-        std::cout << "BSP num tri " << numTri << std::endl;
-        std::unordered_map<uint32_t, oGFX::Color> colMap;
-        for (size_t i = 0; i < numTri; i++)
-        {
-            auto id0 = bspTreeIndices[i * 3 + 0];
-            auto id1 = bspTreeIndices[i * 3 + 1];
-            auto id2 = bspTreeIndices[i * 3 + 2];
-            auto depth = bspTreeDepth[i];
-            Triangle tri(bspTreeVerts[id0],
-                bspTreeVerts[id1],
-                bspTreeVerts[id2]
-            );
-            oGFX::Color& col = colMap[depth];
-            if (col.a == 0.0f) col = generateRandomColor();
-            //depth %= oGFX::Colors::c.size();
-            renderer.AddDebugTriangle(tri, col, renderer.g_BSP_tris);
-        }
-        
-        std::cout << "bspTree node size:" << bspTree.size() << " and total nodes: " << bspTree.size() << std::endl;
-
-    };
-    lambda_update_BSPdebugDraws();
-
-
+   
     vertPositions.resize(icoSphere->vertices.size());
     std::transform(icoSphere->vertices.begin(), icoSphere->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
     oGFX::BV::RitterSphere(icoSphere->s, vertPositions);
@@ -600,7 +525,160 @@ int main(int argc, char argv[])
     ed.pos = { 1.0f,-2.0f,5.0f };
     renderer.entities.push_back(ed);
 
-    //renderer.entities.resize(2);
+    std::vector<Point3D> sceneVertices;
+    std::vector<uint32_t> sceneIndices;
+    for (size_t i = 0; i < renderer.entities.size(); i++)
+    {
+        auto& ent = renderer.entities[i];
+        auto& model = renderer.models[renderer.entities[i].modelID];
+        auto& meshInfo = *model.cpuModel;
+        
+        auto chachedPos = sceneVertices.size();
+
+        glm::mat4 xform(1.0f);
+        xform = glm::translate(xform, ent.pos);
+        xform = glm::rotate(xform,glm::radians(ent.rot), ent.rotVec);
+        xform = glm::scale(xform, ent.scale);
+        std::transform(meshInfo.vertices.begin(), meshInfo.vertices.end(), std::back_inserter(sceneVertices), [&](const oGFX::Vertex& v)
+            {                
+                return xform * vec4{ v.pos ,1.0f};
+            });
+        for (auto ind: meshInfo.indices)
+        {
+            sceneIndices.push_back(chachedPos + ind);
+        }
+    }
+
+    int local_BSPmaxTriangles = 400;
+    BspTree bspTree(sceneVertices, sceneIndices, local_BSPmaxTriangles);
+    bool bspBuilding = false;
+    bspTree.Rebuild();
+    
+    std::vector<std::string> files;
+    int32_t selector{};
+    auto lambda_update_BSPdebugDraws = [&]()
+    {
+        renderer.g_DebugDraws[renderer.g_BSP_tris].vertex.clear();
+        renderer.g_DebugDraws[renderer.g_BSP_tris].indices.clear();
+        renderer.g_DebugDraws[renderer.g_BSP_tris].dirty = true;
+        renderer.g_b_drawDebug[renderer.g_BSP_tris] = false;
+
+        files.clear();
+        std::filesystem::directory_iterator di("tree/");
+        for (auto& path : di )
+        {
+            if (path.is_directory() == false)
+            {
+                files.push_back(path.path().u8string());
+            }
+        }
+        selector = files.size();
+        if (selector == 0)
+        {
+            files.push_back("None");
+            selector = -1;
+        }
+
+        auto [bspTreeVerts, bspTreeIndices, bspTreeDepth] = bspTree.GetTriangleList();
+        auto numTri = bspTreeIndices.size() / 3;
+        std::cout << "BSP num tri " << numTri << std::endl;
+        std::unordered_map<uint32_t, oGFX::Color> colMap;
+        for (size_t i = 0; i < numTri; i++)
+        {
+            auto id0 = bspTreeIndices[i * 3 + 0];
+            auto id1 = bspTreeIndices[i * 3 + 1];
+            auto id2 = bspTreeIndices[i * 3 + 2];
+            auto depth = bspTreeDepth[i];
+            Triangle tri(bspTreeVerts[id0],
+                bspTreeVerts[id1],
+                bspTreeVerts[id2]
+            );
+            oGFX::Color& col = colMap[depth];
+            if (col.a == 0.0f) col = generateRandomColor();
+            //depth %= oGFX::Colors::c.size();
+            renderer.AddDebugTriangle(tri, col, renderer.g_BSP_tris);
+        }
+
+        std::cout << "bspTree node size:" << bspTree.size() << " and total nodes: " << bspTree.size() << std::endl;
+
+    };
+    lambda_update_BSPdebugDraws();
+
+    auto lamda_rebuildBSP = [&]()
+    {
+        if (bspBuilding == true) { return; }
+        bspBuilding = true;
+        bspTree.Rebuild();
+        bspBuilding = false;
+        lambda_update_BSPdebugDraws();
+    }; 
+
+    auto lamda_loadBSP = [&](const std::string& str)
+    {
+        if (bspBuilding == true) { return; }
+        bspBuilding = true;
+        bspTree.BuildSerialized(str);
+        bspBuilding = false;
+        lambda_update_BSPdebugDraws();
+    };
+
+    int local_OctmaxTriangles = 400;
+    OctTree oct(sceneVertices, sceneIndices, local_OctmaxTriangles);
+    bool octBuilding = false;
+
+    auto lambda_update_octdebugDraws = [&]()
+    {
+        renderer.g_DebugDraws[renderer.g_octTree_tris].vertex.clear();
+        renderer.g_DebugDraws[renderer.g_octTree_tris].indices.clear();
+        renderer.g_DebugDraws[renderer.g_octTree_box].vertex.clear();
+        renderer.g_DebugDraws[renderer.g_octTree_box].indices.clear();
+
+        renderer.g_b_drawDebug[renderer.g_octTree_box] = false;
+        renderer.g_b_drawDebug[renderer.g_octTree_tris] = false;
+
+        auto [octVerts, octIndices, octDepth] = oct.GetTriangleList();
+        auto numTri = octIndices.size() / 3;
+        std::unordered_map<uint32_t, oGFX::Color> colMap;
+        for (size_t i = 0; i < numTri; i++)
+        {
+            auto id0 = octIndices[i * 3 + 0];
+            auto id1 = octIndices[i * 3 + 1];
+            auto id2 = octIndices[i * 3 + 2];
+            auto depth = octDepth[i];
+            Triangle tri(octVerts[id0],
+                octVerts[id1],
+                octVerts[id2]
+            );
+            oGFX::Color& col = colMap[depth];
+            if (col.a == 0.0f) col = generateRandomColor();
+            //depth %= oGFX::Colors::c.size();
+            renderer.AddDebugTriangle(tri, col, renderer.g_octTree_tris);
+        }
+        auto [octBox, boxDepth] = oct.GetActiveBoxList();
+        std::unordered_map<uint32_t, oGFX::Color> depthMap;
+        depthMap[0] = oGFX::Colors::WHITE;
+        for (size_t i = 0; i < octBox.size(); i++)
+        {
+            oGFX::Color& col = depthMap[boxDepth[i]];
+            if (col.a == 0.0f) col = generateRandomColor();
+            octBox[i].halfExt -= (float)boxDepth[i] * vec3(EPSILON, EPSILON, EPSILON);
+            renderer.AddDebugBox(octBox[i], col, renderer.g_octTree_box);
+        }
+        std::cout << "Oct box size:" << octBox.size() << " and total nodes: " << oct.size() << std::endl;
+        renderer.g_DebugDraws[renderer.g_octTree_tris].dirty = true;
+        renderer.g_DebugDraws[renderer.g_octTree_box].dirty = true;
+    };
+
+    auto lamda_rebuildOCT = [&]()
+    {
+        if (octBuilding == true) { return; }
+        octBuilding = true;
+        oct.Rebuild();
+        octBuilding = false;
+
+        lambda_update_octdebugDraws();
+    };
+    lamda_rebuildOCT();
 
     for (auto& e: renderer.entities)
     {
@@ -706,6 +784,8 @@ int main(int argc, char argv[])
 
     int currSphereType{ 0 };
     bool geomChanged = false;
+    bool warningMsg = false;
+
     glm::vec3 pos{0.1f, 1.1f, -3.5f};
     // handling winOS messages
     // This will handle inputs and pass it to our input callback
@@ -1032,14 +1112,37 @@ int main(int argc, char argv[])
                             ImGui::EndTabItem();
                         }//ImGui::BeginTabItem
 
+                        if (ImGui::BeginTabItem("Settings"))
+                        {
+                            // TODO?
+                            ImGui::EndTabItem();
+                        }
+
                         ImGui::EndTabBar();
                     }//ImGui::BeginTabBar
                 }//ImGui::Begin
-
                 
-
                 ImGui::End();
             }
+
+            ImGui::Begin("Building progress");
+            if (octBuilding || bspBuilding)
+            {
+                if (bspBuilding)
+                {
+                    ImGui::Text("Building BSP [%f]", bspTree.progress()*100.0f);
+                    ImGui::ProgressBar(bspTree.progress());
+                    ImGui::Text("Triangles confirmed [%d/%d]", bspTree.m_trianglesSaved,bspTree.m_trianglesRemaining);
+                }
+                if (octBuilding)
+                {
+                    ImGui::Text("Building OCT [%f]", oct.progress()*100.0f);
+                    ImGui::ProgressBar(oct.progress());
+                }
+                
+            }
+            ImGui::End();
+
 
             ImGui::Begin("Debug Draws");
 
@@ -1053,24 +1156,92 @@ int main(int argc, char argv[])
                 "Eigen",
             };
 
-            if (ImGui::DragInt("OctTree max tri", &local_maxTriangles, 10.0f))
+            if (ImGui::DragInt("OctTree max tri", &local_OctmaxTriangles, 10.0f))
             {
-                oct.SetTriangles(local_maxTriangles);
-                local_maxTriangles = oct.GetTriangles();
+                oct.SetTriangles(local_OctmaxTriangles);
+                local_OctmaxTriangles = oct.GetTriangles();
             }
             if (ImGui::SmallButton("Build OctTree"))
             {
-                oct.Rebuild();
-                lambda_update_octdebugDraws();
+                std::thread t(lamda_rebuildOCT);
+                t.detach();
             }
             ImGui::Checkbox("OctTree box", &renderer.g_b_drawDebug[renderer.g_octTree_box]);
             ImGui::Checkbox("OctTree tris", &renderer.g_b_drawDebug[renderer.g_octTree_tris]);
 
+            if (bspBuilding) ImGui::BeginDisabled();
+            if (ImGui::BeginListBox("PartitionType", {0,40.0f}))
+            {
+                int typeSelected = static_cast<int>(bspTree.GetPartitionType());
+                static const char* BSPLABELS[]{ "AutoPartition", "Mean" };
+                for (size_t i = 0; i < 2; i++)
+                {
+                    if(ImGui::Selectable(BSPLABELS[i], i == typeSelected ))
+                    {
+                        bspTree.SetPartitionType(static_cast<BspTree::PartitionType>(i));
+                    }
+                }
+                
+                ImGui::EndListBox();
+            }
+            if (bspBuilding) ImGui::EndDisabled();
+
+            if (ImGui::DragInt("BSP Tree max tri", &local_BSPmaxTriangles, 10.0f))
+            {
+                bspTree.SetTriangles(local_BSPmaxTriangles);
+                local_BSPmaxTriangles = bspTree.GetTriangles();
+            }
+            if (bspBuilding) ImGui::EndDisabled();
+
             ImGui::Checkbox("BSP Tree tris", &renderer.g_b_drawDebug[renderer.g_BSP_tris]);
             if (ImGui::SmallButton("Build BSP"))
             {
-                bspTree.Rebuild();
-                lambda_update_BSPdebugDraws();
+                warningMsg = true;
+                ImGui::SetNextWindowSize({ 200,200 });
+                ImGuiIO& io= ImGui::GetIO();
+                ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+            }
+            
+            {                  
+                
+                if (bspBuilding) ImGui::BeginDisabled();
+                if (bspBuilding) ImGui::Text("Building %c", "|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3]);
+                if (ImGui::BeginListBox("BSP files"))
+                {
+                    int i = 0;
+                    for (auto& file : files)
+                    {
+                        if(ImGui::Selectable(file.c_str(), selector == i))
+                        {
+                            auto fn = [&]() { lamda_loadBSP(file); };
+                            std::thread(fn).detach();
+                            selector = i;
+                        }
+                        ++i;
+                    }
+                    ImGui::EndListBox();            
+                }
+                if (bspBuilding) ImGui::EndDisabled();
+            }
+            
+            if (warningMsg)
+            {
+                ImGui::PushStyleColor(ImGuiCol_WindowBg, { 0.5f,0.0f,0.0f,1.0f });
+                ImGui::Begin("Warning");
+                ImGui::Text("Warning may take long time to generate!");
+                if (ImGui::Button("Ok"))
+                {
+                    std::thread trd(lamda_rebuildBSP);
+                    trd.detach();
+                    warningMsg = false;
+                }
+                ImGui::SameLine;                
+                if (ImGui::Button("Cancel"))
+                {
+                    warningMsg = false;
+                }
+                ImGui::End();
+                ImGui::PopStyleColor();
             }
 
             geomChanged |= ImGui::ListBox("SphereType", &currSphereType, sphereTypes, 6);

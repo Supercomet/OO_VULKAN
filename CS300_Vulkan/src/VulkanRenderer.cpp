@@ -1156,13 +1156,14 @@ void VulkanRenderer::DrawGUI()
 		{
 			auto sz = ImGui::GetContentRegionAvail();
 			auto gbuff = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
+			auto ar = float(windowPtr->m_width)/windowPtr->m_height	;
 			//auto gbuff = GBufferRenderPass::Get();
 			ImGui::BulletText("World Position");
-			ImGui::Image(gbuff->deferredImg[POSITION], { sz.x,sz.y/3 });
+			ImGui::Image(gbuff->deferredImg[POSITION], { sz.x,sz.y*ar });
 			ImGui::BulletText("World Normal");
-			ImGui::Image(gbuff->deferredImg[NORMAL], { sz.x,sz.y/3 });
+			ImGui::Image(gbuff->deferredImg[NORMAL], { sz.x,sz.y*ar });
 			ImGui::BulletText("Albedo");
-			ImGui::Image(gbuff->deferredImg[ALBEDO], { sz.x,sz.y/3 });
+			ImGui::Image(gbuff->deferredImg[ALBEDO], { sz.x,sz.y*ar });
 			ImGui::BulletText("Material (TODO)");
 			ImGui::BulletText("Depth (TODO)");
 			//ImGui::Image(gbuff->deferredImg[3], { sz.x,sz.y/4 });
