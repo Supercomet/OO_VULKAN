@@ -578,4 +578,17 @@ namespace  oGFX::BV
 		return p;
 	}
 
+	std::vector<glm::vec3> GetAxisFromDictionary(size_t range)
+	{
+		std::vector<glm::vec3> result;
+
+		for (size_t i = 0; i < range; i++)
+		{
+			auto& axes = g_axis[i];
+			result.insert(result.end(), axes.begin(), axes.end());
+		}
+
+		return result;
+	}
+
 } // end namespace oGFX::BV

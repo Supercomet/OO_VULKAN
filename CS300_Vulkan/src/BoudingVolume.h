@@ -48,5 +48,7 @@ namespace oGFX::BV
 
 	Plane PlaneFromTriangle(const Triangle& t);
 
+	std::vector<glm::vec3> GetAxisFromDictionary(size_t range = 3);
+
 };
 

@@ -549,6 +549,8 @@ int main(int argc, char argv[])
         }
     }
 
+    std::cout << "Total triangles : " << sceneIndices.size() / 3 << std::endl;
+
     int local_BSPmaxTriangles = 400;
     BspTree bspTree(sceneVertices, sceneIndices, local_BSPmaxTriangles);
     bool bspBuilding = false;
@@ -968,11 +970,10 @@ int main(int argc, char argv[])
 
                 //renderer.RecordCommands(renderer.swapchainImageIndex);
 
-                if (renderer.deferredRendering)
-                {
+                
                     renderer.DeferredPass();
                     renderer.DeferredComposition();
-                }
+
                 renderer.DebugPass();
             }
 
@@ -1173,8 +1174,8 @@ int main(int argc, char argv[])
             if (ImGui::BeginListBox("PartitionType", {0,40.0f}))
             {
                 int typeSelected = static_cast<int>(bspTree.GetPartitionType());
-                static const char* BSPLABELS[]{ "AutoPartition", "Mean" };
-                for (size_t i = 0; i < 2; i++)
+                static const char* BSPLABELS[]{ "AutoPartition", "Mean" , "Axis Dictionary"};
+                for (size_t i = 0; i < 3; i++)
                 {
                     if(ImGui::Selectable(BSPLABELS[i], i == typeSelected ))
                     {

@@ -19,6 +19,7 @@ public:
 	{
 		AUTOPARTITION=0,
 		MEAN=1,
+		AXIS_DICT=2,
 	};
 public:
 	BspTree(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTrangles = s_stop_triangles);
@@ -54,6 +55,8 @@ private:
 	uint32_t m_maxNodesTriangles{ s_stop_triangles };
 	uint32_t m_maxDepth{ s_stop_depth };
 
+	bool m_swapToAutoPartition = false;
+
 	uint32_t m_planePartitionCount[s_num_children];
 	bool LoadTree(const std::filesystem::path& path);
 
@@ -68,9 +71,12 @@ private:
 
 	Plane AutoPartition(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
 	Plane MeanPartition(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
+	Plane AxisPartition(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
 
 	void GatherPlanes(BspNode* node, std::vector<Plane>& planes);
 	void GatherTriangles(BspNode* node,std::vector<Point3D>& vertices, std::vector<uint32_t>& indices,std::vector<uint32_t>& depth);
+
+	std::string GetPartitionTypeString();
 };
 
 struct BspNode

@@ -99,7 +99,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	} lightUBO{};
 	float timer{};
 
-	bool deferredRendering = true;
+	inline static bool deferredRendering = true;
 
 	inline static vk::Buffer lightsBuffer;
 	void CreateCompositionBuffers(); 

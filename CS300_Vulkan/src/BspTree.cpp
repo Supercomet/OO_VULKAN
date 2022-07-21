@@ -1,6 +1,7 @@
 #include "BspTree.h"
 #include "BoudingVolume.h"
 #include <algorithm>
+#include <numeric>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -31,6 +32,7 @@ void BspTree::Rebuild()
 
 	m_root.reset(nullptr);
 	m_root = std::make_unique<BspNode>();
+	m_swapToAutoPartition = false;
 
 	uint32_t expectedTriangles = m_indices.size() / 3;
 	m_classificationScale = 0;
@@ -46,8 +48,9 @@ void BspTree::Rebuild()
 	m_trianglesRemaining = m_indices.size() / 3;
 
 	std::filesystem::path fileName = "tree/bsptree_" + std::to_string(m_maxNodesTriangles) + "_"
-		+ (m_type == PartitionType::AUTOPARTITION? "auto" : "mean")		
+		+ GetPartitionTypeString()		
 		+".txt";
+		std::cout << fileName << std::endl;
 	if (std::filesystem::exists(fileName))
 	{
 		std::cout << "Found matching tree file.. attempting to load" << std::endl;
@@ -61,6 +64,7 @@ void BspTree::Rebuild()
 	}
 	else
 	{
+		std::cout << "no matching file.. building" << std::endl;
 		SplitNode(m_root.get(), m_root->m_splitPlane, m_vertices, m_indices);
 		SerializeTree();
 	}
@@ -71,6 +75,7 @@ void BspTree::Rebuild()
 
 bool BspTree::LoadTree(const std::filesystem::path& path)
 {
+	m_swapToAutoPartition = false;
 	auto fs = std::ifstream(path);
 
 	uint32_t maxTriangles{};
@@ -107,8 +112,11 @@ bool BspTree::LoadTree(const std::filesystem::path& path)
 
 	uint32_t index{};
 	LoadNode(m_root.get(), planes, index, m_vertices, m_indices);
-
 	std::cout << "Tree loaded" << std::endl;
+
+	for (size_t i = 0; i < s_num_children; i++)
+		std::cout << "Inserted into plane [" << (i?"positive" :"negative") << "] - " << m_planePartitionCount[i] << " times\n";
+
 	return true;
 }
 
@@ -158,7 +166,7 @@ uint32_t BspTree::size() const
 void BspTree::SerializeTree()
 {
 	std::filesystem::path fileName = "tree/bsptree_" + std::to_string(m_maxNodesTriangles) + "_"
-		+ (m_type == PartitionType::AUTOPARTITION? "auto" : "mean")		
+		+ GetPartitionTypeString()
 		+".txt";
 	if (std::filesystem::exists(fileName) == false)
 	{
@@ -230,8 +238,8 @@ void BspTree::SplitNode(BspNode* node, const Plane& plane, const std::vector<Poi
 		// Split and recurse
 		for (size_t i = 0; i < s_num_children; i++)
 		{
-			if(splitVerts->size())
-				m_planePartitionCount[i] += splitVerts->size();
+			if(splitVerts[i].size())
+				m_planePartitionCount[i] += splitVerts->size()/3;
 
 			node->children[i] = std::make_unique<BspNode>();
 			node->children[i]->depth = currDepth;
@@ -327,8 +335,8 @@ void BspTree::LoadNode(BspNode* node, const std::vector<Plane>& planes, uint32_t
 		// Split and recurse
 		for (size_t i = 0; i < s_num_children; i++)
 		{
-			if(splitVerts->size())
-				m_planePartitionCount[i] += splitVerts->size();
+			if(splitVerts[i].size())
+				m_planePartitionCount[i] += splitVerts->size()/3;
 
 			node->children[i] = std::make_unique<BspNode>();
 			node->children[i]->depth = currDepth;
@@ -341,13 +349,32 @@ void BspTree::LoadNode(BspNode* node, const std::vector<Plane>& planes, uint32_t
 
 Plane BspTree::PickSplittingPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices)
 {	
-	if (m_type == PartitionType::AUTOPARTITION)
+	if (m_type != BspTree::PartitionType::AUTOPARTITION && m_swapToAutoPartition)
 	{
+		//swap each iteration
+		m_swapToAutoPartition = false;
 		return AutoPartition(vertices,indices);
 	}
 	else
 	{
-		return MeanPartition(vertices, indices);
+		m_swapToAutoPartition = true;
+	}
+
+	switch (m_type)
+	{
+	case BspTree::PartitionType::AUTOPARTITION:
+	return AutoPartition(vertices,indices);
+	break;
+	case BspTree::PartitionType::MEAN:
+	return MeanPartition(vertices, indices);
+	break;
+	case BspTree::PartitionType::AXIS_DICT:
+	return AxisPartition(vertices, indices);
+	break;
+	default:
+	std::cout << "Unable to find partition type.. using Autopartition\n";
+	return AutoPartition(vertices,indices);
+	break;
 	}
 
 }
@@ -412,7 +439,7 @@ Plane BspTree::AutoPartition(const std::vector<Point3D>& vertices, const std::ve
 			bestPlane = plane;
 		}
 	}
-	std::cout << "return split\n";
+	//std::cout << "return split\n";
 	return bestPlane;
 }
 
@@ -500,6 +527,48 @@ Plane BspTree::MeanPartition(const std::vector<Point3D>& vertices, const std::ve
 	return p[0];
 }
 
+Plane BspTree::AxisPartition(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices)
+{
+	static std::vector<glm::vec3> axes;
+	static auto once = [&]() { axes = oGFX::BV::GetAxisFromDictionary(3);
+								std::for_each(axes.begin(), axes.end(), [](glm::vec3& v) { glm::normalize(v); });
+								return true; 
+							}();
+	Plane bestPlane;
+	glm::vec3 mean = std::accumulate(vertices.begin(), vertices.end(), glm::vec3{}) / (float)vertices.size();
+
+	uint32_t numTris = indices.size() / 3;
+	uint32_t best = 0;
+	int numInfront = 0, numBehind = 0;
+	Plane currPlane;
+	for (size_t i = 0; i < axes.size(); i++)
+	{
+		currPlane = { axes[i], glm::length(glm::dot(axes[i],mean)) };
+		int ni = 0, nb = 0;
+		for (size_t v = 0; v < vertices.size(); v++)
+		{			
+			switch (oGFX::BV::ClassifyPointToPlane(vertices[i], currPlane))
+			{
+			case COPLANAR:
+			case POSITIVE:
+			++ni;
+			break;
+			case NEGATIVE:
+			++nb;
+			break;
+				
+			}		
+		}
+		if (ni * nb > numInfront * numBehind)
+		{
+			bestPlane = currPlane;
+		}
+	}
+
+	return bestPlane;
+
+}
+
 void BspTree::GatherPlanes(BspNode* node, std::vector<Plane>& planes)
 {
 	if (node == nullptr) return;
@@ -547,4 +616,23 @@ void BspTree::GatherTriangles(BspNode* node, std::vector<Point3D>& outVertices, 
 		}
 	}	
 
+}
+
+std::string BspTree::GetPartitionTypeString()
+{
+	switch (m_type)
+	{
+	case BspTree::PartitionType::AUTOPARTITION:
+	return "auto";
+	break;
+	case BspTree::PartitionType::MEAN:
+	return "mean";
+	break;
+	case BspTree::PartitionType::AXIS_DICT:
+	return "dict";
+	break;
+	default:
+	return "Error";
+	break;
+	}
 }
