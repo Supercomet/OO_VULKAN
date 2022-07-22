@@ -6,12 +6,21 @@
 #include <fstream>
 #include <string>
 
+BspTree::BspTree()
+{
+	m_maxNodesTriangles = 400;
+}
+
 BspTree::BspTree(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTriangles)
+{
+	Init(vertices, indices, maxTriangles);
+}
+
+void BspTree::Init(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTriangles)
 {
 	m_vertices = vertices;
 	m_indices = indices;
 	m_maxNodesTriangles = maxTriangles;
-
 }
 
 std::tuple< std::vector<Point3D>, std::vector<uint32_t>,std::vector<uint32_t> > BspTree::GetTriangleList()
@@ -27,7 +36,7 @@ std::tuple< std::vector<Point3D>, std::vector<uint32_t>,std::vector<uint32_t> > 
 
 void BspTree::Rebuild()
 {
-	std::cout << "building using " << (m_type == PartitionType::MEAN ? "Mean" : "Autopart") << std::endl;
+	std::cout << "building using " << GetPartitionTypeString() << std::endl;
 	for (size_t i = 0; i < s_num_children; i++) m_planePartitionCount[i] = 0;
 
 	m_root.reset(nullptr);

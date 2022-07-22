@@ -12,7 +12,7 @@ class BspTree
 {
 public:
 	inline static constexpr uint32_t s_num_children = 2;
-	inline static constexpr uint32_t s_stop_depth = 8;
+	inline static constexpr uint32_t s_stop_depth = 15;
 	inline static constexpr uint32_t s_stop_triangles = 30;
 
 	enum class PartitionType
@@ -22,7 +22,9 @@ public:
 		AXIS_DICT=2,
 	};
 public:
+	BspTree();
 	BspTree(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTrangles = s_stop_triangles);
+	void Init(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTrangles = s_stop_triangles);
 
 	std::tuple< std::vector<Point3D>, std::vector<uint32_t>,std::vector<uint32_t> > GetTriangleList();
 
@@ -39,11 +41,13 @@ public:
 
 	void SetPartitionType(PartitionType type);
 	PartitionType GetPartitionType();
+	std::string GetPartitionTypeString();
 
 	uint32_t m_trianglesSaved{};
 	uint32_t m_trianglesRemaining{};
 	uint32_t m_classificationScale{};
 	uint32_t m_trianglesClassified{};
+	uint32_t m_maxNodesTriangles{ s_stop_triangles };
 
 private:
 	std::unique_ptr<BspNode> m_root{};
@@ -52,7 +56,6 @@ private:
 	uint32_t m_nodes{};
 	uint32_t m_TrianglesSliced{};
 	std::vector<Point3D> m_vertices; std::vector<uint32_t> m_indices;
-	uint32_t m_maxNodesTriangles{ s_stop_triangles };
 	uint32_t m_maxDepth{ s_stop_depth };
 
 	bool m_swapToAutoPartition = false;
@@ -76,7 +79,6 @@ private:
 	void GatherPlanes(BspNode* node, std::vector<Plane>& planes);
 	void GatherTriangles(BspNode* node,std::vector<Point3D>& vertices, std::vector<uint32_t>& indices,std::vector<uint32_t>& depth);
 
-	std::string GetPartitionTypeString();
 };
 
 struct BspNode

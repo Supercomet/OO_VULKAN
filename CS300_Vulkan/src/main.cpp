@@ -554,7 +554,7 @@ int main(int argc, char argv[])
     int local_BSPmaxTriangles = 400;
     BspTree bspTree(sceneVertices, sceneIndices, local_BSPmaxTriangles);
     bool bspBuilding = false;
-    bspTree.Rebuild();
+    //bspTree.Rebuild();
     
     std::vector<std::string> files;
     int32_t selector{};
@@ -604,7 +604,7 @@ int main(int argc, char argv[])
         std::cout << "bspTree node size:" << bspTree.size() << " and total nodes: " << bspTree.size() << std::endl;
 
     };
-    lambda_update_BSPdebugDraws();
+    //lambda_update_BSPdebugDraws();
 
     auto lamda_rebuildBSP = [&]()
     {
@@ -623,6 +623,7 @@ int main(int argc, char argv[])
         bspBuilding = false;
         lambda_update_BSPdebugDraws();
     };
+    lamda_rebuildBSP();
 
     int local_OctmaxTriangles = 400;
     OctTree oct(sceneVertices, sceneIndices, local_OctmaxTriangles);
@@ -1126,24 +1127,24 @@ int main(int argc, char argv[])
                 ImGui::End();
             }
 
-            ImGui::Begin("Building progress");
-            if (octBuilding || bspBuilding)
+            if (ImGui::Begin("Building progress"))
             {
-                if (bspBuilding)
+                if (octBuilding || bspBuilding)
                 {
-                    ImGui::Text("Building BSP [%f]", bspTree.progress()*100.0f);
-                    ImGui::ProgressBar(bspTree.progress());
-                    ImGui::Text("Triangles confirmed [%d/%d]", bspTree.m_trianglesSaved,bspTree.m_trianglesRemaining);
+                    if (bspBuilding)
+                    {
+                        ImGui::Text("Building BSP [%f]  %c", bspTree.progress()*100.0f,"|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3]);
+                        ImGui::ProgressBar(bspTree.progress());
+                        ImGui::Text("Triangles confirmed [%d/%d]", bspTree.m_trianglesSaved,bspTree.m_trianglesRemaining);
+                    }
+                    if (octBuilding)
+                    {
+                        ImGui::Text("Building OCT [%f] %c", oct.progress()*100.0f,"|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3]);
+                        ImGui::ProgressBar(oct.progress());
+                    }                    
                 }
-                if (octBuilding)
-                {
-                    ImGui::Text("Building OCT [%f]", oct.progress()*100.0f);
-                    ImGui::ProgressBar(oct.progress());
-                }
-                
+                ImGui::End();
             }
-            ImGui::End();
-
 
             ImGui::Begin("Debug Draws");
 
