@@ -30,6 +30,7 @@ layout(location = 7) in struct
 layout (location = 0) out vec4 outPosition;
 layout (location = 1) out vec4 outNormal;
 layout (location = 2) out vec4 outAlbedo;
+layout (location = 3) out vec4 outMaterial;
 
 void main()
 {
@@ -42,6 +43,8 @@ void main()
 
 	outNormal = vec4(inLightData.btn[2],1.0);
 	outPosition = inPos;
+
+	outMaterial = vec4(0.3f, 0.6f, 0.9f, 1.0f);
 
 	return;
 

@@ -1154,17 +1154,23 @@ void VulkanRenderer::DrawGUI()
 		ImGui::Checkbox("Enable Deferred Rendering", &deferredRendering);
 		if (deferredRendering)
 		{
-			auto sz = ImGui::GetContentRegionAvail();
+			const auto sz = ImGui::GetContentRegionAvail();
 			auto gbuff = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
-			auto ar = float(windowPtr->m_width)/windowPtr->m_height	;
+
+			const float renderWidth = float(windowPtr->m_width);
+			const float renderHeight = float(windowPtr->m_height);
+			const float aspectRatio = renderHeight / renderWidth;
+			const ImVec2 imageSize = { sz.x, sz.y * aspectRatio };
+
 			//auto gbuff = GBufferRenderPass::Get();
 			ImGui::BulletText("World Position");
-			ImGui::Image(gbuff->deferredImg[POSITION], { sz.x,sz.y*ar });
+			ImGui::Image(gbuff->deferredImg[POSITION], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("World Normal");
-			ImGui::Image(gbuff->deferredImg[NORMAL], { sz.x,sz.y*ar });
+			ImGui::Image(gbuff->deferredImg[NORMAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("Albedo");
-			ImGui::Image(gbuff->deferredImg[ALBEDO], { sz.x,sz.y*ar });
-			ImGui::BulletText("Material (TODO)");
+			ImGui::Image(gbuff->deferredImg[ALBEDO], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::BulletText("Material");
+			ImGui::Image(gbuff->deferredImg[MATERIAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("Depth (TODO)");
 			//ImGui::Image(gbuff->deferredImg[3], { sz.x,sz.y/4 });
 		}

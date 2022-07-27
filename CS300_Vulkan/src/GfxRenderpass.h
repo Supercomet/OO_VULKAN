@@ -13,9 +13,11 @@ enum GBufferAttachmentIndex
     POSITION = 0,
     NORMAL = 1,
     ALBEDO = 2,
-    // MATERIAL, // TODO
-    DEPTH = 3,
-    MAX_ATTACHMENTS
+    MATERIAL = 3,
+    DEPTH = 4,
+
+    MAX_ATTACHMENTS,
+    TOTAL_COLOR_ATTACHMENTS = MAX_ATTACHMENTS - 1
 };
 
 class GfxRenderpass

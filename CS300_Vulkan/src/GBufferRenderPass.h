@@ -1,8 +1,11 @@
 #pragma once
+
 #include "GfxRenderpass.h"
 #include "vulkan/vulkan.h"
 #include "imgui.h"
 #include "VulkanFramebufferAttachment.h"
+
+#include <array>
 
 struct GBufferRenderPass : public GfxRenderpass
 {
@@ -17,10 +20,11 @@ struct GBufferRenderPass : public GfxRenderpass
 	VulkanFramebufferAttachment att_albedo;
 	VulkanFramebufferAttachment att_position;
 	VulkanFramebufferAttachment att_normal;
+	VulkanFramebufferAttachment att_material;
 	VulkanFramebufferAttachment att_depth;
 
 	// This is for ImGui
-	ImTextureID deferredImg[3]{};
+	std::array<ImTextureID, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> deferredImg;
 
 	VkRenderPass renderpass_GBuffer;
 	VkFramebuffer framebuffer_GBuffer;

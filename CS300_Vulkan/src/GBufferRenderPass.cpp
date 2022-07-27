@@ -31,6 +31,9 @@ void GBufferRenderPass::CreatePSO()
 
 void GBufferRenderPass::Draw()
 {
+	if (!VulkanRenderer::deferredRendering)
+		return;
+
 	auto& device = VulkanRenderer::m_device;
 	auto& swapchain = VulkanRenderer::m_swapchain;
 	auto& commandBuffers = VulkanRenderer::commandBuffers;
@@ -48,6 +51,7 @@ void GBufferRenderPass::Draw()
 	clearValues[GBufferAttachmentIndex::POSITION].color = zeroFloat4;
 	clearValues[GBufferAttachmentIndex::NORMAL]  .color = zeroFloat4;
 	clearValues[GBufferAttachmentIndex::ALBEDO]  .color = zeroFloat4;
+	clearValues[GBufferAttachmentIndex::MATERIAL].color = zeroFloat4;
 	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 1.0f, 0 };
 	
 	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
@@ -86,21 +90,18 @@ void GBufferRenderPass::Draw()
 	// TODO: Make this fallback generic...
 
 	// Temporary switch
-	if (VulkanRenderer::deferredRendering)
-	{
-		if (device.enabledFeatures.multiDrawIndirect)
-		{
-			vkCmdDrawIndexedIndirect(cmdlist, idcb, 0, count, sizeof(VkDrawIndexedIndirectCommand));
-		}
-		else
-		{
-			// If MDI not supported, still use IDCB but draw one by one per instance instead of one MDI for all instances
-			for (uint32_t i = 0; i < count; ++i)
-			{
-				vkCmdDrawIndexedIndirect(cmdlist, idcb, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
-			}
-		}
-	}
+    if (device.enabledFeatures.multiDrawIndirect)
+    {
+        vkCmdDrawIndexedIndirect(cmdlist, idcb, 0, count, sizeof(VkDrawIndexedIndirectCommand));
+    }
+    else
+    {
+        // If MDI not supported, still use IDCB but draw one by one per instance instead of one MDI for all instances
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            vkCmdDrawIndexedIndirect(cmdlist, idcb, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+        }
+    }
 
 	// Other draw calls that are not supported by MDI
     // TODO: Deprecate this, or handle it gracefully. Leaving this here.
@@ -139,6 +140,7 @@ void GBufferRenderPass::Shutdown()
 	att_albedo.destroy(m_device.logicalDevice);
 	att_position.destroy(m_device.logicalDevice);
 	att_normal.destroy(m_device.logicalDevice);
+	att_material.destroy(m_device.logicalDevice);
 	att_depth.destroy(m_device.logicalDevice);
 	vkDestroyFramebuffer(m_device.logicalDevice, framebuffer_GBuffer, nullptr);
 	vkDestroyRenderPass(m_device.logicalDevice,renderpass_GBuffer, nullptr);
@@ -157,6 +159,7 @@ void GBufferRenderPass::SetupRenderpass()
 	att_position.createAttachment(m_device, width, height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 	att_normal  .createAttachment(m_device, width, height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 	att_albedo  .createAttachment(m_device, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+	att_material.createAttachment(m_device, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 
 	// TODO: This is unnecessary... Just choose 1 format? Preferably VK_FORMAT_D32_SFLOAT_S8_UINT?
 	VkFormat depthFormat = oGFX::ChooseSupportedFormat(m_device,
@@ -166,7 +169,7 @@ void GBufferRenderPass::SetupRenderpass()
 	att_depth.createAttachment(m_device, width, height, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
 	// Set up separate renderpass with references to the color and depth attachments
-	std::array<VkAttachmentDescription, 4> attachmentDescs = {};
+	std::array<VkAttachmentDescription, GBufferAttachmentIndex::MAX_ATTACHMENTS> attachmentDescs = {};
 
 	// Init attachment properties
 	for (uint32_t i = 0; i < GBufferAttachmentIndex::MAX_ATTACHMENTS; ++i)
@@ -192,12 +195,14 @@ void GBufferRenderPass::SetupRenderpass()
 	attachmentDescs[GBufferAttachmentIndex::POSITION].format = att_position.format;
 	attachmentDescs[GBufferAttachmentIndex::NORMAL]  .format = att_normal.format;
 	attachmentDescs[GBufferAttachmentIndex::ALBEDO]  .format = att_albedo.format;
+	attachmentDescs[GBufferAttachmentIndex::MATERIAL].format = att_material.format;
 	attachmentDescs[GBufferAttachmentIndex::DEPTH]   .format = att_depth.format;
 
 	std::vector<VkAttachmentReference> colorReferences;
 	colorReferences.push_back({ GBufferAttachmentIndex::POSITION, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 	colorReferences.push_back({ GBufferAttachmentIndex::NORMAL,   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 	colorReferences.push_back({ GBufferAttachmentIndex::ALBEDO,   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	colorReferences.push_back({ GBufferAttachmentIndex::MATERIAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 
 	VkAttachmentReference depthReference = {};
 	depthReference.attachment = GBufferAttachmentIndex::DEPTH;
@@ -243,10 +248,11 @@ void GBufferRenderPass::SetupRenderpass()
 
 void GBufferRenderPass::SetupFramebuffer()
 {
-	std::array<VkImageView,4> attachments;
+	std::array<VkImageView, GBufferAttachmentIndex::MAX_ATTACHMENTS> attachments;
 	attachments[GBufferAttachmentIndex::POSITION] = att_position.view;
 	attachments[GBufferAttachmentIndex::NORMAL]   = att_normal.view;
 	attachments[GBufferAttachmentIndex::ALBEDO]   = att_albedo.view;
+	attachments[GBufferAttachmentIndex::MATERIAL] = att_material.view;
 	attachments[GBufferAttachmentIndex::DEPTH]    = VulkanRenderer::m_swapchain.depthAttachment.view;
 
 	VkFramebufferCreateInfo fbufCreateInfo = {};
@@ -264,6 +270,7 @@ void GBufferRenderPass::SetupFramebuffer()
 	deferredImg[GBufferAttachmentIndex::POSITION] = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	deferredImg[GBufferAttachmentIndex::NORMAL]   = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	deferredImg[GBufferAttachmentIndex::ALBEDO]   = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	deferredImg[GBufferAttachmentIndex::MATERIAL] = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_material.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	//deferredImg[GBufferAttachmentIndex::DEPTH]    = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
@@ -328,8 +335,9 @@ void GBufferRenderPass::CreatePipeline()
 	// Blend attachment states required for all color attachments
 	// This is important, as color write mask will otherwise be 0x0 and you
 	// won't see anything rendered to the attachment
-	std::array<VkPipelineColorBlendAttachmentState, 3> blendAttachmentStates = 
+	std::array<VkPipelineColorBlendAttachmentState, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> blendAttachmentStates =
 	{
+		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
 		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
 		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
 		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE)

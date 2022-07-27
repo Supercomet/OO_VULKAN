@@ -110,6 +110,11 @@ void DeferredCompositionRenderpass::CreateDescriptors()
 		gbuffer->att_albedo.view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+    VkDescriptorImageInfo texDescriptorMaterial = oGFX::vk::inits::descriptorImageInfo(
+        GfxSamplerManager::GetSampler_Deferred(),
+        gbuffer->att_material.view,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 	// TODO: Add GBuffer Material
 	// TODO: Proper light buffer
 	// TODO: How to handle shadow map sampling?
@@ -118,7 +123,8 @@ void DeferredCompositionRenderpass::CreateDescriptors()
         .BindImage(1, &texDescriptorPosition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .BindImage(2, &texDescriptorNormal, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .BindImage(3, &texDescriptorAlbedo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .BindBuffer(4, &VulkanRenderer::lightsBuffer.descriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .BindImage(4, &texDescriptorMaterial, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .BindBuffer(5, &VulkanRenderer::lightsBuffer.descriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .Build(VulkanRenderer::descriptorSet_Deferred, VulkanRenderer::descriptorSetLayout_Deferred);
 }
 
