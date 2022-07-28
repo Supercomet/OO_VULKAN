@@ -39,7 +39,7 @@ class VulkanRenderer
 public:
 
 static constexpr int MAX_FRAME_DRAWS = 2;
-static constexpr int MAX_OBJECTS = 1024;
+static constexpr int MAX_OBJECTS = 2048;
 
 #define OBJECT_INSTANCE_COUNT 128
 
@@ -297,11 +297,14 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 
 	uint64_t uboDynamicAlignment;
 	uint32_t numCameras;
+
 	struct UboViewProjection
 	{
 		glm::mat4 projection{ 1.0f };
 		glm::mat4 view{ 1.0f };
-		glm::vec4 cameraPos{ 1.0f };
+		glm::mat4 viewProjection{ 1.0f };
+		glm::vec4 cameraPosition{ 1.0f };
+		glm::vec4 renderTimer{ 0.0f, 0.0f, 0.0f, 0.0f };
 	} uboViewProjection;
 
 	bool resizeSwapchain = false;

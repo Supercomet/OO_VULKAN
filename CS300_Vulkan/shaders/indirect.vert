@@ -16,13 +16,11 @@ layout(location = 4) in vec2 inUV;
 //layout (location = 12) in int instanceRoughnessTexIndex;
 layout(location = 15) in uvec4 inInstanceData;
 
-// vulkan passes a whole Uniform Buffer Object.
-layout(set = 1,binding = 0) uniform UboViewProjection
+#include "frame.shader"
+layout(set = 1, binding = 0) uniform UboViewProjection
 {
-	mat4 projection;
-	mat4 view;
-	vec4 camPos;
-}uboViewProjection;
+	FrameContext uboViewProjection;
+};
 
 layout(push_constant)uniform PushLight
 {
@@ -58,7 +56,7 @@ void main()
 	mat4 instanceMatrix = mat4(1.0);
 	mat4 inverseMat = inverse(instanceMatrix);
 	
-	outLightData.localEyePos = vec3(inverseMat* vec4(vec3(uboViewProjection.camPos),1.0));
+	outLightData.localEyePos = vec3(inverseMat* vec4(vec3(uboViewProjection.cameraPosition),1.0));
 	
 	outLightData.localLightPos = vec3(inverseMat * vec4(pushLight.pos, 1.0));
 

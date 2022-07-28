@@ -39,6 +39,19 @@
 #include <chrono>
 #include <random>
 
+// Use this to catch potential problems, especially since default assert is ignored in Release mode.
+#define MESSAGE_BOX_ONCE(winhdl, msg, title) \
+    do                                       \
+    {                                        \
+        static bool once = false;            \
+        if (!once)                           \
+        {                                    \
+            MessageBoxW(winhdl, (LPCWSTR)msg, (LPCWSTR)title, MB_ICONWARNING | MB_OK); \
+            once = true;                     \
+        }                                    \
+    } while (0)
+
+
 VulkanRenderer::~VulkanRenderer()
 { 
 	//wait until no actions being run on device before destorying
@@ -362,7 +375,7 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 		vpBufferInfo.offset = 0;					// position of start of data
 		vpBufferInfo.range = sizeof(UboViewProjection);			// size of data
 		DescriptorBuilder::Begin(&DescLayoutCache, &DescAlloc)
-			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT)
+			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 			.Build(uniformDescriptorSets[i],descriptorSetLayout);
 	}
 	//UNIFORM VALUES DESCRIPTOR SET LAYOUT
@@ -1160,7 +1173,7 @@ void VulkanRenderer::DrawGUI()
 			const float renderWidth = float(windowPtr->m_width);
 			const float renderHeight = float(windowPtr->m_height);
 			const float aspectRatio = renderHeight / renderWidth;
-			const ImVec2 imageSize = { sz.x, sz.y * aspectRatio };
+			const ImVec2 imageSize = { sz.x, sz.x * aspectRatio };
 
 			//auto gbuff = GBufferRenderPass::Get();
 			ImGui::BulletText("World Position");
@@ -1430,12 +1443,7 @@ void VulkanRenderer::UpdateIndirectCommands()
 	// TODO: Fix this gracefully
 	if (m_DrawIndirectCommandsCPU.size() > MAX_OBJECTS)
 	{
-		static bool once = false;
-		if (!once)
-		{
-			MessageBoxW(windowPtr->GetRawHandle(), (LPCWSTR)L"You just busted the max size of indirect command buffer.", (LPCWSTR)L"BAD ERROR", MB_ICONWARNING | MB_OK);
-			once = true;
-		}
+		MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of indirect command buffer.", L"BAD ERROR");
 	}
 
 	// TODO: Initialize the buffer gracefully
@@ -1516,12 +1524,7 @@ void VulkanRenderer::UpdateInstanceData()
 	// TODO: Fix this gracefully
     if (instanceData.size() > MAX_OBJECTS)
     {
-        static bool once = false;
-        if (!once)
-        {
-            MessageBoxW(windowPtr->GetRawHandle(), (LPCWSTR)L"You just busted the max size of instance buffer.", (LPCWSTR)L"BAD ERROR", MB_ICONWARNING | MB_OK);
-            once = true;
-        }
+		MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of instance buffer.", L"BAD ERROR");
     }
 
 	// TODO: Initialize the buffer gracefully
@@ -2078,7 +2081,10 @@ void VulkanRenderer::PrePass()
 
 		uboViewProjection.projection = cam.matrices.perspective;
 		uboViewProjection.view = cam.matrices.view;
-		uboViewProjection.cameraPos = glm::vec4(cam.position,1.0);
+		uboViewProjection.viewProjection = uboViewProjection.projection * uboViewProjection.view;
+		uboViewProjection.cameraPosition = glm::vec4(cam.position, 1.0);
+		uboViewProjection.renderTimer.x += 1 / 60.0f; // Fake total time... (TODO: Fix me)
+
 		void *data;
 		vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx], uboDynamicAlignment, uboDynamicAlignment, 0, &data);
 		memcpy(data, &uboViewProjection, sizeof(UboViewProjection));
@@ -2275,7 +2281,9 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 
 	uboViewProjection.projection = camera.matrices.perspective;
 	uboViewProjection.view = camera.matrices.view;
-	uboViewProjection.cameraPos = glm::vec4(camera.position,1.0);
+	uboViewProjection.viewProjection = uboViewProjection.projection * uboViewProjection.view;
+	uboViewProjection.cameraPosition = glm::vec4(camera.position,1.0);
+	uboViewProjection.renderTimer.x += 1 / 60.0f; // Fake total time... (TODO: Fix me)
 
 	void *data;
 	vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx], 0, uboDynamicAlignment, 0, &data);

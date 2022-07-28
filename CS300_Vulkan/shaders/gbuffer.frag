@@ -9,6 +9,12 @@ layout(location = 2) in vec3 inCol;
 
 layout(location = 15) in flat uvec4 inInstanceData;
 
+#include "frame.shader"
+layout(set = 1, binding = 0) uniform UboViewProjection
+{
+	FrameContext uboViewProjection;
+};
+
 //layout(location = 1) in flat struct
 //{
 // ivec4 maps;
@@ -27,24 +33,46 @@ layout(location = 7) in struct
 	vec3 localEyePos;
 }inLightData;
 
-layout (location = 0) out vec4 outPosition;
+layout (location = 0) out vec4 outPosition; // TODO: Optimization for space, not necessary as position can be reconstructed from depth.
 layout (location = 1) out vec4 outNormal;
 layout (location = 2) out vec4 outAlbedo;
 layout (location = 3) out vec4 outMaterial;
 
+#include "shader_utility.shader"
+
+float RandomUnsignedNormalizedFloat(uint x)
+{
+    return wang_hash(x) / 4294967295.0;
+}
+
+void PackPBRMaterialOutputs(in float roughness, in float metallic) // TODO: Add other params as needed
+{
+	// Precision of 0.03921568627451 for UNORM format, typically should be enough. Try not to change the format.
+	const float todo_something = 1.0f;
+	outMaterial = vec4(roughness, metallic, todo_something, todo_something);
+}
+
 void main()
 {
-	outAlbedo = vec4(inCol,1.0);
+	outAlbedo = vec4(inCol, 1.0);
 
-	if(inInstanceData.y > uint(0))
+	const uint textureIndex = inInstanceData.y;
+
+	if(textureIndex > uint(0))
 	{
-		outAlbedo.rgb = texture(textureDesArr[inInstanceData.y],inUV.xy).rgb;	
+		outAlbedo.rgb = texture(textureDesArr[textureIndex], inUV.xy).rgb;	
 	}
 
-	outNormal = vec4(inLightData.btn[2],1.0);
+	outNormal = vec4(inLightData.btn[2], 1.0f);
 	outPosition = inPos;
 
-	outMaterial = vec4(0.3f, 0.6f, 0.9f, 1.0f);
+	// TODO: Fix this hardcoded value properly...
+	{
+		const uint seed = inInstanceData.x; // Generate random PBR params based on object ID or something.
+		const float roughness = RandomUnsignedNormalizedFloat(seed);
+		const float metallic  = RandomUnsignedNormalizedFloat(seed + 0xDEADDEAD);
+		PackPBRMaterialOutputs(roughness, metallic);
+	}
 
 	return;
 

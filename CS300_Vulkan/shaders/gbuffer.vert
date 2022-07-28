@@ -9,25 +9,22 @@ layout(location = 2) in vec3 inCol;
 layout(location = 3) in vec3 inTangent;
 layout(location = 4) in vec2 inUV;
 
-layout(location = 15) in uvec4 inInstanceData; // id, material
+layout(location = 15) in uvec4 inInstanceData; // (id, material, unused, unused)
+
+#include "frame.shader"
+layout(set = 1, binding = 0) uniform UboViewProjection
+{
+	FrameContext uboViewProjection;
+};
+
+//layout (set = 2, binding = 0) uniform sampler2D textureDesArr[];
 
 layout(std430, set = 0, binding = 3) readonly buffer GPUScene
 {
 	GPUTransform GPUScene_SSBO[];
 };
 
-// vulkan passes a whole Uniform Buffer Object.
-layout(set = 1,binding = 0) uniform UboViewProjection
-{
-	mat4 projection;
-	mat4 view;
-	vec4 camPos;
-}uboViewProjection;
-
-
-//layout (set = 2, binding = 0) uniform sampler2D textureDesArr[];
-
-layout(push_constant)uniform PushLight
+layout(push_constant) uniform PushLight
 {
 	mat4 instanceMatrix;
 	vec3 pos;
@@ -56,6 +53,8 @@ layout (location = 15)flat out uvec4 outInstanceData;
 // //int roughness;
 //}outTexIndex;
 
+// WR Note: Sending too much stuff from VS to FS can result in bottleneck...
+
 layout(location = 7) out struct 
 {
 	mat3 btn;
@@ -72,7 +71,7 @@ void main()
 	// inefficient
 	mat4 inverseMat = inverse(dInsMatrix);
 	
-	outLightData.localEyePos = vec3(inverseMat* vec4(vec3(uboViewProjection.camPos),1.0));
+	outLightData.localEyePos = vec3(inverseMat* vec4(vec3(uboViewProjection.cameraPosition),1.0));
 	
 	outLightData.localLightPos = vec3(inverseMat * vec4(pushLight.pos, 1.0));
 
@@ -84,7 +83,8 @@ void main()
 	outLightData.localVertexPos = inPos;
 
 	outPos = dInsMatrix * vec4(inPos,1.0);
-	gl_Position = uboViewProjection.projection * uboViewProjection.view * outPos;
+	gl_Position = uboViewProjection.viewProjection * outPos;
+
 	//outTexIndex.maps.x = instanceTexIndex;
 	//outTexIndex.maps.y = instanceNormalTexIndex;
 	//outTexIndex.maps.z = instanceOcclusionTexIndex;

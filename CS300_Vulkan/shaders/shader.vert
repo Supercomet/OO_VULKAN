@@ -3,12 +3,11 @@ layout(location = 1) in vec3 norm;
 layout(location = 2) in vec3 inCol;
 layout(location = 4) in vec2 tex;
 
-// vulkan passes a whole Uniform Buffer Object.
+#include "frame.shader"
 layout(set = 1,binding = 0) uniform UboViewProjection
 {
-	mat4 projection;
-	mat4 view;
-}uboViewProjection;
+	FrameContext uboViewProjection;
+};
 
 //
 //layout(set = 0,binding = 1) uniform UboModel{
