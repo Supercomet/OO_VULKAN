@@ -67,9 +67,9 @@ layout(location = 7) out struct
 void main()
 {
 	//decode the matrix into transform matrix
-	mat4 dInsMatrix = GPUTransformToMatrix4x4(GPUScene_SSBO[inInstanceData.x]);
+	const mat4 dInsMatrix = GPUTransformToMatrix4x4(GPUScene_SSBO[inInstanceData.x]);
 	// inefficient
-	mat4 inverseMat = inverse(dInsMatrix);
+	const mat4 inverseMat = inverse(dInsMatrix);
 	
 	outLightData.localEyePos = vec3(inverseMat* vec4(vec3(uboViewProjection.cameraPosition),1.0));
 	
