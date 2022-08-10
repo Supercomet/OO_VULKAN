@@ -31,8 +31,6 @@
 
 #include "IcoSphereCreator.h"
 #include "Tree.h"
-#include "OctTree.h"
-#include "BSPTree.h"
 
 #include <numeric>
 //#include <algorithm>
@@ -468,6 +466,7 @@ int main(int argc, char argv[])
     ed.modelID = plane->gfxIndex;
     ed.pos = { 0.0f,-2.0f,0.0f };
     ed.scale = { 30.0f,1.0f,30.0f };
+    renderer.entities.push_back(ed);
 
     ed.name = "Sphere";
     ed.entityID = FastRandomMagic();
@@ -498,9 +497,9 @@ int main(int argc, char argv[])
     ed.name = "lucy";
     ed.entityID = FastRandomMagic();
     ed.pos = { -1.0f,1.0f,2.0f };
-    ed.scale = { 0.005f,0.005f,0.005f };
+    ed.scale = { 0.002f,0.002f,0.002f };
     ed.rotVec= { 1.0f,1.0f,0.0f };
-    ed.rot = { -180.0f };
+    ed.rot = { 0.0f };
     renderer.entities.push_back(ed);
 
     //ed.modelID = cup->gfxIndex;
@@ -522,7 +521,7 @@ int main(int argc, char argv[])
     ed.modelID = fourSphere->gfxIndex;
     ed.name = "fourSphere";
     ed.entityID = FastRandomMagic();
-    ed.pos = { 1.0f,-2.0f,5.0f };
+    ed.pos = { 1.0f, 2.0f,5.0f };
     renderer.entities.push_back(ed);
 
     std::vector<Point3D> sceneVertices;
@@ -550,138 +549,6 @@ int main(int argc, char argv[])
     }
 
     std::cout << "Total triangles : " << sceneIndices.size() / 3 << std::endl;
-
-    int local_BSPmaxTriangles = 400;
-    BspTree bspTree(sceneVertices, sceneIndices, local_BSPmaxTriangles);
-    bool bspBuilding = false;
-    //bspTree.Rebuild();
-    
-    std::vector<std::string> files;
-    int32_t selector{};
-    auto lambda_update_BSPdebugDraws = [&]()
-    {
-        renderer.g_DebugDraws[renderer.g_BSP_tris].vertex.clear();
-        renderer.g_DebugDraws[renderer.g_BSP_tris].indices.clear();
-        renderer.g_DebugDraws[renderer.g_BSP_tris].dirty = true;
-        renderer.g_b_drawDebug[renderer.g_BSP_tris] = false;
-
-        files.clear();
-        std::filesystem::directory_iterator di("tree/");
-        for (auto& path : di )
-        {
-            if (path.is_directory() == false)
-            {
-                files.push_back(path.path().u8string());
-            }
-        }
-        selector = files.size();
-        if (selector == 0)
-        {
-            files.push_back("None");
-            selector = -1;
-        }
-
-        auto [bspTreeVerts, bspTreeIndices, bspTreeDepth] = bspTree.GetTriangleList();
-        auto numTri = bspTreeIndices.size() / 3;
-        std::cout << "BSP num tri " << numTri << std::endl;
-        std::unordered_map<uint32_t, oGFX::Color> colMap;
-        for (size_t i = 0; i < numTri; i++)
-        {
-            auto id0 = bspTreeIndices[i * 3 + 0];
-            auto id1 = bspTreeIndices[i * 3 + 1];
-            auto id2 = bspTreeIndices[i * 3 + 2];
-            auto depth = bspTreeDepth[i];
-            Triangle tri(bspTreeVerts[id0],
-                bspTreeVerts[id1],
-                bspTreeVerts[id2]
-            );
-            oGFX::Color& col = colMap[depth];
-            if (col.a == 0.0f) col = generateRandomColor();
-            //depth %= oGFX::Colors::c.size();
-            renderer.AddDebugTriangle(tri, col, renderer.g_BSP_tris);
-        }
-
-        std::cout << "bspTree node size:" << bspTree.size() << " and total nodes: " << bspTree.size() << std::endl;
-
-    };
-    //lambda_update_BSPdebugDraws();
-
-    auto lamda_rebuildBSP = [&]()
-    {
-        if (bspBuilding == true) { return; }
-        bspBuilding = true;
-        bspTree.Rebuild();
-        bspBuilding = false;
-        lambda_update_BSPdebugDraws();
-    }; 
-
-    auto lamda_loadBSP = [&](const std::string& str)
-    {
-        if (bspBuilding == true) { return; }
-        bspBuilding = true;
-        bspTree.BuildSerialized(str);
-        bspBuilding = false;
-        lambda_update_BSPdebugDraws();
-    };
-    lamda_rebuildBSP();
-
-    int local_OctmaxTriangles = 400;
-    OctTree oct(sceneVertices, sceneIndices, local_OctmaxTriangles);
-    bool octBuilding = false;
-
-    auto lambda_update_octdebugDraws = [&]()
-    {
-        renderer.g_DebugDraws[renderer.g_octTree_tris].vertex.clear();
-        renderer.g_DebugDraws[renderer.g_octTree_tris].indices.clear();
-        renderer.g_DebugDraws[renderer.g_octTree_box].vertex.clear();
-        renderer.g_DebugDraws[renderer.g_octTree_box].indices.clear();
-
-        renderer.g_b_drawDebug[renderer.g_octTree_box] = false;
-        renderer.g_b_drawDebug[renderer.g_octTree_tris] = false;
-
-        auto [octVerts, octIndices, octDepth] = oct.GetTriangleList();
-        auto numTri = octIndices.size() / 3;
-        std::unordered_map<uint32_t, oGFX::Color> colMap;
-        for (size_t i = 0; i < numTri; i++)
-        {
-            auto id0 = octIndices[i * 3 + 0];
-            auto id1 = octIndices[i * 3 + 1];
-            auto id2 = octIndices[i * 3 + 2];
-            auto depth = octDepth[i];
-            Triangle tri(octVerts[id0],
-                octVerts[id1],
-                octVerts[id2]
-            );
-            oGFX::Color& col = colMap[depth];
-            if (col.a == 0.0f) col = generateRandomColor();
-            //depth %= oGFX::Colors::c.size();
-            renderer.AddDebugTriangle(tri, col, renderer.g_octTree_tris);
-        }
-        auto [octBox, boxDepth] = oct.GetActiveBoxList();
-        std::unordered_map<uint32_t, oGFX::Color> depthMap;
-        depthMap[0] = oGFX::Colors::WHITE;
-        for (size_t i = 0; i < octBox.size(); i++)
-        {
-            oGFX::Color& col = depthMap[boxDepth[i]];
-            if (col.a == 0.0f) col = generateRandomColor();
-            octBox[i].halfExt -= (float)boxDepth[i] * vec3(EPSILON, EPSILON, EPSILON);
-            renderer.AddDebugBox(octBox[i], col, renderer.g_octTree_box);
-        }
-        std::cout << "Oct box size:" << octBox.size() << " and total nodes: " << oct.size() << std::endl;
-        renderer.g_DebugDraws[renderer.g_octTree_tris].dirty = true;
-        renderer.g_DebugDraws[renderer.g_octTree_box].dirty = true;
-    };
-
-    auto lamda_rebuildOCT = [&]()
-    {
-        if (octBuilding == true) { return; }
-        octBuilding = true;
-        oct.Rebuild();
-        octBuilding = false;
-
-        lambda_update_octdebugDraws();
-    };
-    lamda_rebuildOCT();
 
     for (auto& e: renderer.entities)
     {
@@ -851,10 +718,6 @@ int main(int argc, char argv[])
                 auto& model = renderer.models[e.modelID];
                 ab.center = e.pos;
                 ab.halfExt = e.scale * 0.5f;
-                if (e.name == std::string("Bunny"))
-                {
-                    std::cout << "nice\n";
-                }
                 UpdateBV(renderer.models[e.modelID].cpuModel, e, currSphereType);
                 
             }
@@ -958,8 +821,13 @@ int main(int argc, char argv[])
         {
             PROFILE_SCOPED("renderer.PrepareFrame() == true");
 
-            renderer.timer += deltaTime * 0.25f;
-            renderer.UpdateLightBuffer();
+            renderer.timer += deltaTime;
+            if (freezeLight == false)
+            {
+                // TODO: turn into proper entities
+                renderer.UpdateLightBuffer(deltaTime);
+            }
+
             renderer.Draw();
             {
                 // This cmdlist is scoped
@@ -1060,7 +928,7 @@ int main(int argc, char argv[])
                             ImGui::BeginDisabled(); // TODO remove once implemented
                             if (ImGui::SmallButton("Create PointLight")) {} // TODO Implement me!
                             ImGui::EndDisabled(); // TODO remove once implemented
-
+                            
                             static bool debugDrawPosition = false;
                             ImGui::Checkbox("Freeze Lights", &freezeLight);
                             ImGui::Checkbox("Debug Draw Position", &debugDrawPosition);
@@ -1127,130 +995,26 @@ int main(int argc, char argv[])
                 ImGui::End();
             }
 
-            if (ImGui::Begin("Building progress"))
+          
+
+            if(ImGui::Begin("Debug Draws"))
             {
-                if (octBuilding || bspBuilding)
+                static const char* sphereTypes[]
                 {
-                    if (bspBuilding)
-                    {
-                        ImGui::Text("Building BSP [%f]  %c", bspTree.progress()*100.0f,"|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3]);
-                        ImGui::ProgressBar(bspTree.progress());
-                        ImGui::Text("Triangles confirmed [%d/%d]", bspTree.m_trianglesSaved,bspTree.m_trianglesRemaining);
-                    }
-                    if (octBuilding)
-                    {
-                        ImGui::Text("Building OCT [%f] %c", oct.progress()*100.0f,"|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3]);
-                        ImGui::ProgressBar(oct.progress());
-                    }                    
-                }
-                ImGui::End();
-            }
+                    "Ritter",
+                    "EPOS_6",
+                    "EPOS_14",
+                    "EPOS_26",
+                    "EPOS_98",
+                    "Eigen",
+                };
 
-            ImGui::Begin("Debug Draws");
-
-            static const char* sphereTypes[]
-            {
-                "Ritter",
-                "EPOS_6",
-                "EPOS_14",
-                "EPOS_26",
-                "EPOS_98",
-                "Eigen",
-            };
-
-            if (ImGui::DragInt("OctTree max tri", &local_OctmaxTriangles, 10.0f))
-            {
-                oct.SetTriangles(local_OctmaxTriangles);
-                local_OctmaxTriangles = oct.GetTriangles();
-            }
-            if (ImGui::SmallButton("Build OctTree"))
-            {
-                std::thread t(lamda_rebuildOCT);
-                t.detach();
-            }
-            ImGui::Checkbox("OctTree box", &renderer.g_b_drawDebug[renderer.g_octTree_box]);
-            ImGui::Checkbox("OctTree tris", &renderer.g_b_drawDebug[renderer.g_octTree_tris]);
-
-            if (bspBuilding) ImGui::BeginDisabled();
-            if (ImGui::BeginListBox("PartitionType", {0,40.0f}))
-            {
-                int typeSelected = static_cast<int>(bspTree.GetPartitionType());
-                static const char* BSPLABELS[]{ "AutoPartition", "Mean" , "Axis Dictionary"};
-                for (size_t i = 0; i < 3; i++)
-                {
-                    if(ImGui::Selectable(BSPLABELS[i], i == typeSelected ))
-                    {
-                        bspTree.SetPartitionType(static_cast<BspTree::PartitionType>(i));
-                    }
-                }
-                
-                ImGui::EndListBox();
-            }
-            if (bspBuilding) ImGui::EndDisabled();
-
-            if (ImGui::DragInt("BSP Tree max tri", &local_BSPmaxTriangles, 10.0f))
-            {
-                bspTree.SetTriangles(local_BSPmaxTriangles);
-                local_BSPmaxTriangles = bspTree.GetTriangles();
-            }
-            if (bspBuilding) ImGui::EndDisabled();
-
-            ImGui::Checkbox("BSP Tree tris", &renderer.g_b_drawDebug[renderer.g_BSP_tris]);
-            if (ImGui::SmallButton("Build BSP"))
-            {
-                warningMsg = true;
-                ImGui::SetNextWindowSize({ 200,200 });
-                ImGuiIO& io= ImGui::GetIO();
-                ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-            }
-            
-            {                  
-                
-                if (bspBuilding) ImGui::BeginDisabled();
-                if (bspBuilding) ImGui::Text("Building %c", "|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3]);
-                if (ImGui::BeginListBox("BSP files"))
-                {
-                    int i = 0;
-                    for (auto& file : files)
-                    {
-                        if(ImGui::Selectable(file.c_str(), selector == i))
-                        {
-                            auto fn = [&]() { lamda_loadBSP(file); };
-                            std::thread(fn).detach();
-                            selector = i;
-                        }
-                        ++i;
-                    }
-                    ImGui::EndListBox();            
-                }
-                if (bspBuilding) ImGui::EndDisabled();
-            }
-            
-            if (warningMsg)
-            {
-                ImGui::PushStyleColor(ImGuiCol_WindowBg, { 0.5f,0.0f,0.0f,1.0f });
-                ImGui::Begin("Warning");
-                ImGui::Text("Warning may take long time to generate!");
-                if (ImGui::Button("Ok"))
-                {
-                    std::thread trd(lamda_rebuildBSP);
-                    trd.detach();
-                    warningMsg = false;
-                }
-                ImGui::SameLine;                
-                if (ImGui::Button("Cancel"))
-                {
-                    warningMsg = false;
-                }
-                ImGui::End();
-                ImGui::PopStyleColor();
-            }
-
-            geomChanged |= ImGui::ListBox("SphereType", &currSphereType, sphereTypes, 6);
-            ImGui::Checkbox("Top down AABB", &renderer.g_b_drawDebug[renderer.g_topDwn_AABB]);
-            ImGui::Checkbox("Bottom Up AABB", &renderer.g_b_drawDebug[renderer.g_btmUp_AABB]);
-            ImGui::Checkbox("Top down Sphere", &renderer.g_b_drawDebug[renderer.g_topDwn_Sphere]);
-            ImGui::Checkbox("Bottom Up Sphere", &renderer.g_b_drawDebug[renderer.g_btmUp_Sphere]);
+                geomChanged |= ImGui::ListBox("SphereType", &currSphereType, sphereTypes, 6);
+                ImGui::Checkbox("Top down AABB", &renderer.g_b_drawDebug[renderer.g_topDwn_AABB]);
+                ImGui::Checkbox("Bottom Up AABB", &renderer.g_b_drawDebug[renderer.g_btmUp_AABB]);
+                ImGui::Checkbox("Top down Sphere", &renderer.g_b_drawDebug[renderer.g_topDwn_Sphere]);
+                ImGui::Checkbox("Bottom Up Sphere", &renderer.g_b_drawDebug[renderer.g_btmUp_Sphere]);
+            }           
             ImGui::End();
 
             renderer.DrawGUI();
