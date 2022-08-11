@@ -1725,7 +1725,8 @@ Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
 
 	if (!scene)
 	{
-		throw std::runtime_error("Failed to load model! (" + file + ")");
+		return nullptr; // Dont explode...
+		//throw std::runtime_error("Failed to load model! (" + file + ")");
 	}	
 	
 
@@ -2083,7 +2084,10 @@ void VulkanRenderer::PrePass()
 		uboViewProjection.view = cam.matrices.view;
 		uboViewProjection.viewProjection = uboViewProjection.projection * uboViewProjection.view;
 		uboViewProjection.cameraPosition = glm::vec4(cam.position, 1.0);
-		uboViewProjection.renderTimer.x += 1 / 60.0f; // Fake total time... (TODO: Fix me)
+        uboViewProjection.renderTimer.x += 1 / 60.0f; // Fake total time... (TODO: Fix me)
+        uboViewProjection.renderTimer.y = glm::sin(uboViewProjection.renderTimer.x * 0.5f * glm::pi<float>());
+        uboViewProjection.renderTimer.z = glm::cos(uboViewProjection.renderTimer.x * 0.5f * glm::pi<float>());
+        uboViewProjection.renderTimer.w = 0.0f; // unused
 
 		void *data;
 		vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx], uboDynamicAlignment, uboDynamicAlignment, 0, &data);
@@ -2284,6 +2288,9 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 	uboViewProjection.viewProjection = uboViewProjection.projection * uboViewProjection.view;
 	uboViewProjection.cameraPosition = glm::vec4(camera.position,1.0);
 	uboViewProjection.renderTimer.x += 1 / 60.0f; // Fake total time... (TODO: Fix me)
+	uboViewProjection.renderTimer.y = glm::sin(uboViewProjection.renderTimer.x * 0.5f * glm::pi<float>());
+	uboViewProjection.renderTimer.z = glm::cos(uboViewProjection.renderTimer.x * 0.5f * glm::pi<float>());
+	uboViewProjection.renderTimer.w = 0.0f; // unused
 
 	void *data;
 	vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx], 0, uboDynamicAlignment, 0, &data);

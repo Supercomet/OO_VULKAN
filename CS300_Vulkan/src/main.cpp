@@ -248,6 +248,8 @@ void UpdateBV(Model* model, VulkanRenderer::EntityDetails& entity, int i = 0)
     oGFX::BV::BoundingAABB(entity.aabb, vertPositions);
 }
 
+static bool gs_loadCustomModels = true;
+
 int main(int argc, char argv[])
 {
     (void)argc;
@@ -363,53 +365,60 @@ int main(int argc, char argv[])
         icoSphere.reset( renderer.LoadMeshFromBuffers(vertices, indices, nullptr));
     }
 
-   
-    std::unique_ptr<Model> bunny { renderer.LoadMeshFromFile("Models/bunny.obj") };
+    std::unique_ptr<Model> bunny{ renderer.LoadMeshFromFile("Models/bunny.obj") };
     std::vector<Point3D> vertPositions;
-    vertPositions.resize(bunny->vertices.size());
-    std::transform(bunny->vertices.begin(), bunny->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
-    oGFX::BV::RitterSphere(bunny->s, vertPositions);
-    oGFX::BV::BoundingAABB(bunny->aabb, vertPositions);
     Sphere ms;
-    oGFX::BV::EigenSphere(ms, vertPositions);
-    
-    //quicky dirty scaling
-    uint32_t bunnyTris = static_cast<uint32_t>(bunny->indices.size()) / 3;
-    std::cout <<"bunny model: " << bunnyTris << std::endl;
-    std::for_each(vertPositions.begin(), vertPositions.end(), [](Point3D& v) { v *= 20.0f; });
-   
-   
+    if (bunny)
+    {
+        vertPositions.resize(bunny->vertices.size());
+        std::transform(bunny->vertices.begin(), bunny->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+        oGFX::BV::RitterSphere(bunny->s, vertPositions);
+        oGFX::BV::BoundingAABB(bunny->aabb, vertPositions);
+        oGFX::BV::EigenSphere(ms, vertPositions);
+
+        //quicky dirty scaling
+        uint32_t bunnyTris = static_cast<uint32_t>(bunny->indices.size()) / 3;
+        std::cout << "bunny model: " << bunnyTris << std::endl;
+        std::for_each(vertPositions.begin(), vertPositions.end(), [](Point3D& v) { v *= 20.0f; });
+    }
+
     vertPositions.resize(icoSphere->vertices.size());
     std::transform(icoSphere->vertices.begin(), icoSphere->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
     oGFX::BV::RitterSphere(icoSphere->s, vertPositions);
     oGFX::BV::BoundingAABB(icoSphere->aabb, vertPositions);
 
-
     std::unique_ptr<Model> box{ renderer.LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
     vertPositions.resize(box->vertices.size());
     std::transform(box->vertices.begin(), box->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
-    oGFX::BV::LarsonSphere(ms, vertPositions,oGFX::BV::EPOS::_98);
+    oGFX::BV::LarsonSphere(ms, vertPositions, oGFX::BV::EPOS::_98);
     oGFX::BV::BoundingAABB(box->aabb, vertPositions);
 
-    std::unique_ptr<Model> lucy { renderer.LoadMeshFromFile("Models/lucy_princeton.obj") };
-    vertPositions.resize(lucy->vertices.size());
-    std::transform(lucy->vertices.begin(), lucy->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
-    oGFX::BV::RitterSphere(lucy->s, vertPositions);
-    oGFX::BV::BoundingAABB(lucy->aabb, vertPositions);
+    std::unique_ptr<Model> lucy{ renderer.LoadMeshFromFile("Models/lucy_princeton.obj") };
+    if (lucy)
+    {
+        vertPositions.resize(lucy->vertices.size());
+        std::transform(lucy->vertices.begin(), lucy->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+        oGFX::BV::RitterSphere(lucy->s, vertPositions);
+        oGFX::BV::BoundingAABB(lucy->aabb, vertPositions);
+    }
 
+    std::unique_ptr<Model> starWars{ renderer.LoadMeshFromFile("Models/starwars1.obj") };
+    if (starWars)
+    {
+        vertPositions.resize(starWars->vertices.size());
+        std::transform(starWars->vertices.begin(), starWars->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+        oGFX::BV::RitterSphere(starWars->s, vertPositions);
+        oGFX::BV::BoundingAABB(starWars->aabb, vertPositions);
+    }
     
-    std::unique_ptr<Model> starWars { renderer.LoadMeshFromFile("Models/starwars1.obj") };
-    vertPositions.resize(starWars->vertices.size());
-    std::transform(starWars->vertices.begin(), starWars->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
-    oGFX::BV::RitterSphere(starWars->s, vertPositions);
-    oGFX::BV::BoundingAABB(starWars->aabb, vertPositions);
-
-    std::unique_ptr<Model> fourSphere { renderer.LoadMeshFromFile("Models/4Sphere.obj") };
-    vertPositions.resize(fourSphere->vertices.size());
-    std::transform(fourSphere->vertices.begin(), fourSphere->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
-    oGFX::BV::RitterSphere(fourSphere->s, vertPositions);
-    oGFX::BV::BoundingAABB(fourSphere->aabb, vertPositions);
-
+    std::unique_ptr<Model> fourSphere{ renderer.LoadMeshFromFile("Models/4Sphere.obj") };
+    if (fourSphere)
+    {
+        vertPositions.resize(fourSphere->vertices.size());
+        std::transform(fourSphere->vertices.begin(), fourSphere->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
+        oGFX::BV::RitterSphere(fourSphere->s, vertPositions);
+        oGFX::BV::BoundingAABB(fourSphere->aabb, vertPositions);
+    }
    
     //std::unique_ptr<Model> ball;
     //ball.reset(renderer.LoadMeshFromFile("Models/sphere.obj"));
@@ -476,12 +485,15 @@ int main(int argc, char argv[])
     ed.scale = { 1.0f,1.0f,1.0f };
     renderer.entities.push_back(ed);
 
-    ed.modelID = bunny->gfxIndex;
-    ed.name = "Bunny";
-    ed.entityID = FastRandomMagic();
-    ed.pos = { -3.0f,2.0f,-3.0f };
-    ed.scale = { 5.0f,5.0f,5.0f };
-    renderer.entities.push_back(ed);
+    if (bunny)
+    {
+        ed.modelID = bunny->gfxIndex;
+        ed.name = "Bunny";
+        ed.entityID = FastRandomMagic();
+        ed.pos = { -3.0f,2.0f,-3.0f };
+        ed.scale = { 5.0f,5.0f,5.0f };
+        renderer.entities.push_back(ed);
+    }
     //ed.modelID = triangle;
     //ed.entityID = FastRandomMagic();
     //ed.pos = { 0.0f,0.0f,0.0f };  
@@ -494,14 +506,17 @@ int main(int argc, char argv[])
     ed.rot = { 45.0f };
     renderer.entities.push_back(ed);
     
-    ed.modelID = lucy->gfxIndex;
-    ed.name = "lucy";
-    ed.entityID = FastRandomMagic();
-    ed.pos = { -1.0f,1.0f,2.0f };
-    ed.scale = { 0.005f,0.005f,0.005f };
-    ed.rotVec= { 1.0f,1.0f,0.0f };
-    ed.rot = { -180.0f };
-    renderer.entities.push_back(ed);
+    if (lucy)
+    {
+        ed.modelID = lucy->gfxIndex;
+        ed.name = "lucy";
+        ed.entityID = FastRandomMagic();
+        ed.pos = { -1.0f,1.0f,2.0f };
+        ed.scale = { 0.005f,0.005f,0.005f };
+        ed.rotVec = { 1.0f,1.0f,0.0f };
+        ed.rot = { -180.0f };
+        renderer.entities.push_back(ed);
+    }
 
     //ed.modelID = cup->gfxIndex;
     //ed.name = "cup";
@@ -512,18 +527,24 @@ int main(int argc, char argv[])
     ed.rot = { 0.0f };
     //renderer.entities.push_back(ed);
 
-    ed.modelID = starWars->gfxIndex;
-    ed.name = "Starwars1";
-    ed.entityID = FastRandomMagic();
-    ed.pos = { 3.0f,-2.0f,-5.0f };
-    //ed.scale = { 0.001f,0.001f,0.001f };
-    renderer.entities.push_back(ed);
+    if (starWars)
+    {
+        ed.modelID = starWars->gfxIndex;
+        ed.name = "Starwars1";
+        ed.entityID = FastRandomMagic();
+        ed.pos = { 3.0f,-2.0f,-5.0f };
+        //ed.scale = { 0.001f,0.001f,0.001f };
+        renderer.entities.push_back(ed);
+    }
 
-    ed.modelID = fourSphere->gfxIndex;
-    ed.name = "fourSphere";
-    ed.entityID = FastRandomMagic();
-    ed.pos = { 1.0f,-2.0f,5.0f };
-    renderer.entities.push_back(ed);
+    if (fourSphere)
+    {
+        ed.modelID = fourSphere->gfxIndex;
+        ed.name = "fourSphere";
+        ed.entityID = FastRandomMagic();
+        ed.pos = { 1.0f,-2.0f,5.0f };
+        renderer.entities.push_back(ed);
+    }
 
     std::vector<Point3D> sceneVertices;
     std::vector<uint32_t> sceneIndices;
@@ -1013,6 +1034,8 @@ int main(int argc, char argv[])
                             if (ImGui::SmallButton("+50")) { addRandomEntityCount = 50; }
                             ImGui::SameLine();
                             if (ImGui::SmallButton("+100")) { addRandomEntityCount = 100; }
+                            ImGui::SameLine();
+                            if (ImGui::SmallButton("+250")) { addRandomEntityCount = 250; }
 
                             if (addRandomEntityCount)
                             {
