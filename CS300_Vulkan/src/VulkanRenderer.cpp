@@ -794,7 +794,7 @@ void VulkanRenderer::CreateCompositionBuffers()
 
 	VK_CHK(lightsBuffer.map());
 	
-	UpdateLightBuffer();
+	UpdateLightBuffer(0.0f);
 }
 
 void VulkanRenderer::DeferredComposition()
@@ -803,10 +803,11 @@ void VulkanRenderer::DeferredComposition()
 	//DeferredCompositionRenderpass::Get()->Draw();	
 }
 
-void VulkanRenderer::UpdateLightBuffer()
+void VulkanRenderer::UpdateLightBuffer(float delta)
 {
 	PROFILE_SCOPED();
-
+	static float lightTimer = 0.0f;
+	lightTimer += delta * 0.25f;
 	// White
 	lightUBO.lights[0].position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
 	lightUBO.lights[0].color = glm::vec3(1.5f);
@@ -832,20 +833,20 @@ void VulkanRenderer::UpdateLightBuffer()
 	lightUBO.lights[5].color = glm::vec3(1.0f, 0.7f, 0.3f);
 	lightUBO.lights[5].radius = 25.0f;
 	
-	lightUBO.lights[0].position.x = sin(glm::radians(360.0f * timer)) * 5.0f;
-	lightUBO.lights[0].position.z = cos(glm::radians(360.0f * timer)) * 5.0f;
+	lightUBO.lights[0].position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
+	lightUBO.lights[0].position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
 	
-	lightUBO.lights[1].position.x = -4.0f + sin(glm::radians(360.0f * timer) + 45.0f) * 2.0f;
-	lightUBO.lights[1].position.z =  0.0f + cos(glm::radians(360.0f * timer) + 45.0f) * 2.0f;
+	lightUBO.lights[1].position.x = -4.0f + sin(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
+	lightUBO.lights[1].position.z =  0.0f + cos(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
 	
-	lightUBO.lights[2].position.x = 4.0f + sin(glm::radians(360.0f * timer)) * 2.0f;
-	lightUBO.lights[2].position.z = 0.0f + cos(glm::radians(360.0f * timer)) * 2.0f;
+	lightUBO.lights[2].position.x = 4.0f + sin(glm::radians(360.0f * lightTimer)) * 2.0f;
+	lightUBO.lights[2].position.z = 0.0f + cos(glm::radians(360.0f * lightTimer)) * 2.0f;
 	
-	lightUBO.lights[4].position.x = 0.0f + sin(glm::radians(360.0f * timer + 90.0f)) * 5.0f;
-	lightUBO.lights[4].position.z = 0.0f - cos(glm::radians(360.0f * timer + 45.0f)) * 5.0f;
+	lightUBO.lights[4].position.x = 0.0f + sin(glm::radians(360.0f * lightTimer + 90.0f)) * 5.0f;
+	lightUBO.lights[4].position.z = 0.0f - cos(glm::radians(360.0f * lightTimer + 45.0f)) * 5.0f;
 	
-	lightUBO.lights[5].position.x = 0.0f + sin(glm::radians(-360.0f * timer + 135.0f)) * 10.0f;
-	lightUBO.lights[5].position.z = 0.0f - cos(glm::radians(-360.0f * timer - 45.0f)) * 10.0f;
+	lightUBO.lights[5].position.x = 0.0f + sin(glm::radians(-360.0f * lightTimer + 135.0f)) * 10.0f;
+	lightUBO.lights[5].position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
 
 	// Current view position
 	lightUBO.viewPos = glm::vec4(camera.position, 0.0f) * glm::vec4(-1.0f, 1.0f, -1.0f, 1.0f);
@@ -1153,7 +1154,7 @@ void VulkanRenderer::ResizeGUIBuffers()
 
 void VulkanRenderer::DrawGUI()
 {
-	ImGui::Begin("img");
+	if(ImGui::Begin("img"))
 	{
 		const char* views[]  = { "Lookat", "FirstPerson" };
 		ImGui::ListBox("Camera View", reinterpret_cast<int*>(&camera.type), views, 2);
@@ -1162,7 +1163,7 @@ void VulkanRenderer::DrawGUI()
 	}
 	ImGui::End();
 
-	ImGui::Begin("Deferred Rendering GBuffer");
+	if(ImGui::Begin("Deferred Rendering GBuffer"))
 	{
 		ImGui::Checkbox("Enable Deferred Rendering", &deferredRendering);
 		if (deferredRendering)
