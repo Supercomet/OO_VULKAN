@@ -108,6 +108,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	void CreateLightingBuffers(); 
 	void DeferredLightingComposition();
 	void UpdateLightBuffer(float delta);
+	void UploadLights();
 
 	void CreateSynchronisation();
 	void CreateUniformBuffers();

@@ -860,6 +860,9 @@ int main(int argc, char argv[])
                 renderer.UpdateLightBuffer(deltaTime);
             }
 
+            // Upload CPU light data to GPU. Ideally this should only contain lights that intersects the camera frustum.
+            renderer.UploadLights();
+
             renderer.Draw();
             {
                 // This cmdlist is scoped
@@ -965,12 +968,13 @@ int main(int argc, char argv[])
                             static bool debugDrawPosition = false;
                             ImGui::Checkbox("Freeze Lights", &freezeLight);
                             ImGui::Checkbox("Debug Draw Position", &debugDrawPosition);
-                            ImGui::DragFloat4("ViewPos", glm::value_ptr(renderer.lightUBO.viewPos));
+                            ImGui::DragFloat3("ViewPos", glm::value_ptr(renderer.lightUBO.viewPos));
+                            ImGui::Separator();
                             for (int i = 0; i < 6; ++i)
                             {
                                 ImGui::PushID(i);
                                 auto& light = renderer.lightUBO.lights[i];
-                                ImGui::DragFloat4("Position", glm::value_ptr(light.position));
+                                ImGui::DragFloat3("Position", glm::value_ptr(light.position));
                                 ImGui::DragFloat3("Color", glm::value_ptr(light.color));
                                 ImGui::DragFloat("Radius", &light.radius);
                                 ImGui::PopID();
