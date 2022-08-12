@@ -102,8 +102,8 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	inline static bool deferredRendering = true;
 
 	inline static vk::Buffer lightsBuffer;
-	void CreateCompositionBuffers(); 
-	void DeferredComposition();
+	void CreateLightingBuffers(); 
+	void DeferredLightingComposition();
 	void UpdateLightBuffer(float delta);
 
 	void CreateSynchronisation();
@@ -128,6 +128,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	void AddDebugSphere(const Sphere& sphere, const oGFX::Color& col,size_t loc = -1);
 	void AddDebugTriangle(const Triangle& tri, const oGFX::Color& col,size_t loc = -1);
 
+	void InitializeRenderBuffers();
 	void UpdateIndirectCommands();
 	void UpdateInstanceData();
 	uint32_t objectCount{};

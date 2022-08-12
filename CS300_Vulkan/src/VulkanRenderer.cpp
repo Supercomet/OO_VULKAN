@@ -153,7 +153,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		//
 		SetupSwapchain();
 
-		
+		InitializeRenderBuffers();
 
 		CreateRenderpass();
 		CreateUniformBuffers();
@@ -173,7 +173,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		InitImGUI();
 
-		CreateCompositionBuffers();
+		CreateLightingBuffers();
 
 		// Initialize all sampler objects
 		samplerManager.Init();
@@ -781,7 +781,7 @@ void VulkanRenderer::DeferredPass()
 	//GBufferRenderPass::Get()->Draw();
 }
 
-void VulkanRenderer::CreateCompositionBuffers()
+void VulkanRenderer::CreateLightingBuffers()
 {
 	oGFX::CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, sizeof(LightUBO), 
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -797,7 +797,7 @@ void VulkanRenderer::CreateCompositionBuffers()
 	UpdateLightBuffer(0.0f);
 }
 
-void VulkanRenderer::DeferredComposition()
+void VulkanRenderer::DeferredLightingComposition()
 {
 	RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
 	//DeferredCompositionRenderpass::Get()->Draw();	
@@ -1403,6 +1403,29 @@ void IndirectCommandsHelper(Node* node, std::vector<VkDrawIndexedIndirectCommand
 	}
 }
 
+void VulkanRenderer::InitializeRenderBuffers()
+{
+	// In this function, all global rendering related buffers should be initialized, ONCE.
+
+	// Note: Moved here from VulkanRenderer::UpdateIndirectCommands
+    m_device.CreateBuffer(
+        VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &indirectCommandsBuffer,
+        MAX_OBJECTS * sizeof(VkDrawIndexedIndirectCommand));
+    VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer.buffer);
+
+	// Note: Moved here from VulkanRenderer::UpdateInstanceData
+    m_device.CreateBuffer(
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &instanceBuffer,
+        MAX_OBJECTS * sizeof(oGFX::InstanceData));
+    VK_NAME(m_device.logicalDevice, "Instance Buffer", instanceBuffer.buffer);
+
+	// TODO: Move other global GPU buffer initialization here...
+}
+
 void VulkanRenderer::UpdateIndirectCommands()
 {
 	PROFILE_SCOPED();
@@ -1445,17 +1468,6 @@ void VulkanRenderer::UpdateIndirectCommands()
 	if (m_DrawIndirectCommandsCPU.size() > MAX_OBJECTS)
 	{
 		MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of indirect command buffer.", L"BAD ERROR");
-	}
-
-	// TODO: Initialize the buffer gracefully
-	if (indirectCommandsBuffer.size == 0)
-	{
-		m_device.CreateBuffer(
-			VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			&indirectCommandsBuffer,
-			MAX_OBJECTS * sizeof(VkDrawIndexedIndirectCommand));
-		VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer.buffer);
 	}
 
 	m_device.CopyBuffer(&stagingBuffer, &indirectCommandsBuffer, m_device.graphicsQueue);
@@ -1527,17 +1539,6 @@ void VulkanRenderer::UpdateInstanceData()
     {
 		MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of instance buffer.", L"BAD ERROR");
     }
-
-	// TODO: Initialize the buffer gracefully
-	if (instanceBuffer.size == 0)
-	{
-		m_device.CreateBuffer(
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			&instanceBuffer,
-			MAX_OBJECTS * sizeof(oGFX::InstanceData));
-		VK_NAME(m_device.logicalDevice, "Instance Buffer", instanceBuffer.buffer);
-	}
 
 	m_device.CopyBuffer(&stagingBuffer, &instanceBuffer, m_device.graphicsQueue);
 

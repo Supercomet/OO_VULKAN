@@ -246,7 +246,17 @@ void UpdateBV(Model* model, VulkanRenderer::EntityDetails& entity, int i = 0)
     oGFX::BV::BoundingAABB(entity.aabb, vertPositions);
 }
 
-static bool gs_loadCustomModels = true;
+enum class AppWindowSizeTypes : int
+{
+    HD_720P_16_9,
+    HD_900P_16_10
+};
+
+static glm::vec2 gs_AppWindowSizes[] =
+{
+    glm::vec2{ 1280, 720 },
+    glm::vec2{ 1440, 900 },
+};
 
 int main(int argc, char argv[])
 {
@@ -259,9 +269,10 @@ int main(int argc, char argv[])
 
     //RunAllTests();
 
-    Window mainWindow(1440,900);
+    AppWindowSizeTypes appWindowSizeType = AppWindowSizeTypes::HD_900P_16_10;
+    const glm::vec2 windowSize = gs_AppWindowSizes[(int)appWindowSizeType];
+    Window mainWindow(windowSize.x, windowSize.y);
     mainWindow.Init();
-
     
     oGFX::SetupInfo setupSpec;
 
@@ -862,7 +873,7 @@ int main(int argc, char argv[])
 
                 
                     renderer.DeferredPass();
-                    renderer.DeferredComposition();
+                    renderer.DeferredLightingComposition();
 
                 renderer.DebugPass();
             }
