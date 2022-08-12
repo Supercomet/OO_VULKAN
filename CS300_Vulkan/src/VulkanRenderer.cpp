@@ -1423,10 +1423,39 @@ void VulkanRenderer::InitializeRenderBuffers()
         MAX_OBJECTS * sizeof(oGFX::InstanceData));
     VK_NAME(m_device.logicalDevice, "Instance Buffer", instanceBuffer.buffer);
 
+	constexpr uint32_t MAX_LIGHTS = 512;
+	// TODO: Currently this is only for OmniLightInstance.
+	// You should also support various light types such as spot lights, etc...
+
+	m_device.CreateBuffer(
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		&globalLightBuffer,
+		MAX_LIGHTS * sizeof(OmniLightInstance));
+    VK_NAME(m_device.logicalDevice, "Light Buffer", globalLightBuffer.buffer);
+
+	constexpr uint32_t MAX_GLOBAL_BONES = 2048;
+	constexpr uint32_t MAX_SKINNING_VERTEX_BUFFER_SIZE = 4 * 1024 * 1024; // 4MB
+
+    m_device.CreateBuffer(
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &boneMatrixBuffer,
+		MAX_GLOBAL_BONES * sizeof(glm::mat4x4));
+    VK_NAME(m_device.logicalDevice, "Bone Matrix Buffer", boneMatrixBuffer.buffer);
+
+    m_device.CreateBuffer(
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &skinningVertexBuffer,
+		MAX_SKINNING_VERTEX_BUFFER_SIZE);
+    VK_NAME(m_device.logicalDevice, "Skinning Vertex Buffer", skinningVertexBuffer.buffer);
+
+
 	// TODO: Move other global GPU buffer initialization here...
 }
 
-void VulkanRenderer::UpdateIndirectCommands()
+void VulkanRenderer::UpdateIndirectDrawCommands()
 {
 	PROFILE_SCOPED();
 	m_DrawIndirectCommandsCPU.clear();
@@ -1442,7 +1471,6 @@ void VulkanRenderer::UpdateIndirectCommands()
 			IndirectCommandsHelper(node, m_DrawIndirectCommandsCPU, indirectDebugCommandsCPU,m);			
 		}		
 	}
-
 
 	//std::cout << "Triangles rendered : " << models[0].indices.count * OBJECT_INSTANCE_COUNT /3 << std::endl;
 	indirectDrawCount = static_cast<uint32_t>(m_DrawIndirectCommandsCPU.size());
@@ -1475,7 +1503,7 @@ void VulkanRenderer::UpdateIndirectCommands()
 	stagingBuffer.destroy();
 }
 
-void VulkanRenderer::UpdateInstanceData()
+void VulkanRenderer::UploadInstanceData()
 {
 	PROFILE_SCOPED();
 	//if (instanceBuffer.size != 0) return;
@@ -1497,7 +1525,7 @@ void VulkanRenderer::UpdateInstanceData()
 		// TODO: This needs urgent fixing..
 		size_t x = gpuTransform.size();
 		size_t len = x + models[entities[i].modelID].meshCount;
-		mat4 xform(1.0f);
+		mat4 xform{ 1.0f };
 		xform = glm::translate(xform, entities[i].pos);
 		xform = glm::rotate(xform,glm::radians(entities[i].rot), entities[i].rotVec);
 		xform = glm::scale(xform, entities[i].scale);
@@ -1507,7 +1535,7 @@ void VulkanRenderer::UpdateInstanceData()
 			gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
 			gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
 			gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
-			gpuTransform.push_back(gpt);
+			gpuTransform.emplace_back(gpt);
 		}		
 	}
 	gpuTransformBuffer.writeTo(gpuTransform.size(), gpuTransform.data());
@@ -1521,7 +1549,7 @@ void VulkanRenderer::UpdateInstanceData()
 		for (size_t x = 0; x < models[entities[i].modelID].meshCount; x++)
 		{
 			id.instanceAttributes = uvec4(sz+x, 1, 0, 0);
-			instanceData.push_back(id);
+			instanceData.emplace_back(id);
 		}
 	}
 
@@ -1549,7 +1577,8 @@ bool VulkanRenderer::PrepareFrame()
 {
 	if (resizeSwapchain || windowPtr->m_width == 0 ||windowPtr->m_height ==0)
 	{
-		if (ResizeSwapchain() == false) return false;
+		if (ResizeSwapchain() == false)
+			return false;
 		resizeSwapchain = false;
 	}
 
@@ -1569,8 +1598,8 @@ void VulkanRenderer::Draw()
 	if(camera.updated){}
 		UpdateUniformBuffers(swapchainIdx);
 
-	UpdateIndirectCommands();
-	UpdateInstanceData();	
+	UpdateIndirectDrawCommands();
+	UploadInstanceData();	
 
 	{
 		PROFILE_SCOPED("vkAcquireNextImageKHR");
@@ -1666,7 +1695,6 @@ void VulkanRenderer::Present()
 	//get next frame (use % MAX_FRAME_DRAWS to keep value below max frames)
 	currentFrame = (currentFrame + 1) % MAX_FRAME_DRAWS;
 }
-
 
 bool VulkanRenderer::ResizeSwapchain()
 {
@@ -2362,7 +2390,7 @@ VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(VulkanDevice& device,
 	return shaderStageCreateInfo;
 }
 
-uint32_t VulkanRenderer:: CreateTextureDescriptor(vk::Texture2D texture)
+uint32_t VulkanRenderer::CreateTextureDescriptor(vk::Texture2D texture)
 {
 	
 	std::vector<VkWriteDescriptorSet> writeSets{
@@ -2409,4 +2437,25 @@ void SetDefaultViewportAndScissor(VkCommandBuffer commandBuffer)
 void DrawFullScreenQuad(VkCommandBuffer commandBuffer)
 {
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+}
+
+void DrawIndexedIndirect(
+	VkCommandBuffer commandBuffer,
+	VkBuffer buffer,
+	VkDeviceSize offset,
+	uint32_t drawCount,
+	uint32_t stride)
+{
+    if (VulkanRenderer::m_device.enabledFeatures.multiDrawIndirect)
+    {
+        vkCmdDrawIndexedIndirect(commandBuffer, buffer, offset, drawCount, sizeof(VkDrawIndexedIndirectCommand));
+    }
+    else
+    {
+        // If MDI not supported, still use IDCB but draw one by one per instance instead of one MDI for all instances (ie count = 1)
+        for (uint32_t i = 0; i < drawCount; ++i)
+        {
+            vkCmdDrawIndexedIndirect(commandBuffer, buffer, offset + i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+        }
+    }
 }

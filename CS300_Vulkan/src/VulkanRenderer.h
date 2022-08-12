@@ -87,14 +87,17 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	void ResizeDeferredFB();
 	void DeferredPass();
 
-	struct Light {
+	// TODO: Move this structure to somewhere more sensible
+	struct OmniLightInstance
+	{
 		glm::vec4 position{};
-		glm::vec3 color{1.0f};
-		float radius{1.0f};
+		glm::vec3 color{ 1.0f };
+		float radius{ 1.0f };
 	};
 
-	struct LightUBO{
-		Light lights[6];
+	struct LightUBO
+	{
+		OmniLightInstance lights[6];
 		glm::vec4 viewPos;
 	} lightUBO{};
 	float timer{};
@@ -129,8 +132,8 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	void AddDebugTriangle(const Triangle& tri, const oGFX::Color& col,size_t loc = -1);
 
 	void InitializeRenderBuffers();
-	void UpdateIndirectCommands();
-	void UpdateInstanceData();
+	void UpdateIndirectDrawCommands();
+	void UploadInstanceData();
 	uint32_t objectCount{};
 	// Contains the instanced data
 	inline static vk::Buffer instanceBuffer;
@@ -242,6 +245,9 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	inline static VkPipelineLayout indirectPipeLayout{};
 	inline static uint32_t indirectDrawCount{};
 
+	inline static vk::Buffer boneMatrixBuffer{};
+	inline static vk::Buffer skinningVertexBuffer{};
+	inline static vk::Buffer globalLightBuffer{};
 
 	// - Descriptors
 	inline static VkDescriptorSetLayout descriptorSetLayout{};
@@ -359,3 +365,11 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 void SetDefaultViewportAndScissor(VkCommandBuffer commandBuffer);
 // Helper function to draw a Full Screen Quad, without binding vertex and index buffers.
 void DrawFullScreenQuad(VkCommandBuffer commandBuffer);
+
+// Helper function just in case MultiDrawIndirect is not supported... (seriously wtf it is 2022...)
+void DrawIndexedIndirect(
+	VkCommandBuffer commandBuffer,
+    VkBuffer buffer,
+    VkDeviceSize offset,
+    uint32_t drawCount,
+    uint32_t stride);

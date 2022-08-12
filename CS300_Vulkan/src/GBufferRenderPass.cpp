@@ -87,21 +87,7 @@ void GBufferRenderPass::Draw()
     const VkBuffer idcb = VulkanRenderer::indirectCommandsBuffer.buffer;
     const uint32_t count = (uint32_t)VulkanRenderer::m_DrawIndirectCommandsCPU.size();
 
-	// TODO: Make this fallback generic...
-
-	// Temporary switch
-    if (device.enabledFeatures.multiDrawIndirect)
-    {
-        vkCmdDrawIndexedIndirect(cmdlist, idcb, 0, count, sizeof(VkDrawIndexedIndirectCommand));
-    }
-    else
-    {
-        // If MDI not supported, still use IDCB but draw one by one per instance instead of one MDI for all instances
-        for (uint32_t i = 0; i < count; ++i)
-        {
-            vkCmdDrawIndexedIndirect(cmdlist, idcb, i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
-        }
-    }
+	DrawIndexedIndirect(cmdlist, idcb, 0, count, sizeof(VkDrawIndexedIndirectCommand));
 
 	// Other draw calls that are not supported by MDI
     // TODO: Deprecate this, or handle it gracefully. Leaving this here.

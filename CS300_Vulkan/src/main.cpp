@@ -866,14 +866,13 @@ int main(int argc, char argv[])
                 PROFILE_GPU_CONTEXT(renderer.commandBuffers[renderer.swapchainIdx]);
                 PROFILE_GPU_EVENT("CommandList");
 
-                renderer.PrePass();
+                //renderer.PrePass();
                 //renderer.SimplePass();
 
                 //renderer.RecordCommands(renderer.swapchainImageIndex);
-
                 
-                    renderer.DeferredPass();
-                    renderer.DeferredLightingComposition();
+                renderer.DeferredPass();
+                renderer.DeferredLightingComposition();
 
                 renderer.DebugPass();
             }
