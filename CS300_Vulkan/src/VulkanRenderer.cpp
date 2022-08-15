@@ -59,6 +59,8 @@ VulkanRenderer::~VulkanRenderer()
 
 	RenderPassDatabase::ShutdownAllRegisteredPasses();
 
+	DestroyRenderBuffers();
+
 	ShutdownTreeDebug();
 
 	samplerManager.Shutdown();
@@ -95,9 +97,6 @@ VulkanRenderer::~VulkanRenderer()
 	{
 		newTextures[i].destroy();
 	}
-
-	instanceBuffer.destroy();
-	indirectCommandsBuffer.destroy();
 
 	// global sampler pool
 	vkDestroyDescriptorPool(m_device.logicalDevice, samplerDescriptorPool, nullptr);
@@ -1456,6 +1455,21 @@ void VulkanRenderer::InitializeRenderBuffers()
 
 
 	// TODO: Move other global GPU buffer initialization here...
+}
+
+void VulkanRenderer::DestroyRenderBuffers()
+{
+
+	indirectCommandsBuffer.destroy();
+
+	instanceBuffer.destroy();
+
+	globalLightBuffer.destroy();
+
+	boneMatrixBuffer.destroy();
+
+	skinningVertexBuffer.destroy();
+
 }
 
 void VulkanRenderer::UpdateIndirectDrawCommands()
