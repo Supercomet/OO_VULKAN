@@ -819,6 +819,7 @@ int main(int argc, char argv[])
             //ImGui::ShowDemoWindow();
             
             // ImGuizmo
+            if (gizmoHijack)
             {
                 ImGuizmo::BeginFrame();
                 ImGuizmo::Enable(true);
@@ -842,7 +843,7 @@ int main(int argc, char argv[])
                 static glm::mat4x4 localToWorld{ 1.0f };
                 float* matrixPtr = glm::value_ptr(localToWorld);
                 
-                if (gizmoHijack)
+                //if (gizmoHijack) // Fix me!
                 {
                     glm::vec3 position = { gizmoHijack[0], gizmoHijack[1], gizmoHijack[2] };
                     localToWorld = glm::translate(glm::mat4{ 1.0f }, position);
