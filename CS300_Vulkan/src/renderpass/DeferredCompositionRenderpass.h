@@ -1,7 +1,8 @@
 #pragma once
+
 #include "GfxRenderpass.h"
 #include "vulkan/vulkan.h"
-#include "imgui.h"
+
 #include "VulkanFramebufferAttachment.h"
 
 struct DeferredCompositionRenderpass : public GfxRenderpass

@@ -1,7 +1,7 @@
 #include "DebugRenderpass.h"
 
 #include <array>
-#include  <typeindex>
+#include <typeindex>
 
 #include "Window.h"
 #include "VulkanRenderer.h"

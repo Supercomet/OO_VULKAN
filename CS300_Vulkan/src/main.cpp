@@ -28,6 +28,7 @@
 #include <imgui.h>
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_win32.h>
+#include "ImGuizmo.h"
 
 #include "IcoSphereCreator.h"
 #include "Tree.h"
@@ -209,7 +210,7 @@ void UpdateBV(Model* model, VulkanRenderer::EntityDetails& entity, int i = 0)
     std::vector<Point3D> vertPositions;
     vertPositions.resize(model->vertices.size());
     glm::mat4 xform(1.0f);
-    xform = glm::translate(xform, entity.pos);
+    xform = glm::translate(xform, entity.position);
     xform = glm::rotate(xform,glm::radians(entity.rot), entity.rotVec);
     xform = glm::scale(xform, entity.scale);
     std::transform(model->vertices.begin(), model->vertices.end(), vertPositions.begin(), [&](const oGFX::Vertex& v) {
@@ -257,6 +258,8 @@ static glm::vec2 gs_AppWindowSizes[] =
     glm::vec2{ 1280, 720 },
     glm::vec2{ 1440, 900 },
 };
+
+static float* gizmoHijack = nullptr; // TODO: Clean this up...
 
 int main(int argc, char argv[])
 {
@@ -484,14 +487,14 @@ int main(int argc, char argv[])
     ed.name = "Plane";
     ed.entityID = FastRandomMagic();
     ed.modelID = plane->gfxIndex;
-    ed.pos = { 0.0f,-2.0f,0.0f };
+    ed.position = { 0.0f,-2.0f,0.0f };
     ed.scale = { 30.0f,1.0f,30.0f };
     renderer.entities.push_back(ed);
 
     ed.name = "Sphere";
     ed.entityID = FastRandomMagic();
     ed.modelID = icoSphere->gfxIndex;
-    ed.pos = { -2.0f,0.0f,-2.0f };
+    ed.position = { -2.0f,0.0f,-2.0f };
     ed.scale = { 1.0f,1.0f,1.0f };
     renderer.entities.push_back(ed);
 
@@ -500,7 +503,7 @@ int main(int argc, char argv[])
         ed.modelID = bunny->gfxIndex;
         ed.name = "Bunny";
         ed.entityID = FastRandomMagic();
-        ed.pos = { -3.0f,2.0f,-3.0f };
+        ed.position = { -3.0f,2.0f,-3.0f };
         ed.scale = { 5.0f,5.0f,5.0f };
         renderer.entities.push_back(ed);
     }
@@ -511,7 +514,7 @@ int main(int argc, char argv[])
     ed.modelID = box->gfxIndex;
     ed.name = "Box";
     ed.entityID = FastRandomMagic();
-    ed.pos = { 2.0f,1.0f,2.0f };
+    ed.position = { 2.0f,1.0f,2.0f };
     ed.scale = { 2.0f,3.0f,1.0f };
     ed.rot = { 45.0f };
     renderer.entities.push_back(ed);
@@ -521,7 +524,7 @@ int main(int argc, char argv[])
         ed.modelID = lucy->gfxIndex;
         ed.name = "lucy";
         ed.entityID = FastRandomMagic();
-        ed.pos = { -1.0f,1.0f,2.0f };
+        ed.position = { -1.0f,1.0f,2.0f };
         ed.scale = { 0.002f,0.002f,0.002f };
         ed.rotVec= { 1.0f,1.0f,0.0f };
         ed.rot = { 0.0f };
@@ -531,7 +534,7 @@ int main(int argc, char argv[])
     //ed.modelID = cup->gfxIndex;
     //ed.name = "cup";
     ed.entityID = FastRandomMagic();
-    ed.pos = { 3.0f,0.0f,-3.0f };
+    ed.position = { 3.0f,0.0f,-3.0f };
     ed.scale = { 0.01f,0.01f,0.01f };
     ed.rotVec= { 0.0f,1.0f,0.0f };
     ed.rot = { 0.0f };
@@ -542,7 +545,7 @@ int main(int argc, char argv[])
         ed.modelID = starWars->gfxIndex;
         ed.name = "Starwars1";
         ed.entityID = FastRandomMagic();
-        ed.pos = { 3.0f,-2.0f,-5.0f };
+        ed.position = { 3.0f,-2.0f,-5.0f };
         //ed.scale = { 0.001f,0.001f,0.001f };
         renderer.entities.push_back(ed);
     }
@@ -552,7 +555,7 @@ int main(int argc, char argv[])
         ed.modelID = fourSphere->gfxIndex;
         ed.name = "fourSphere";
         ed.entityID = FastRandomMagic();
-        ed.pos = { 1.0f, 2.0f,5.0f };
+        ed.position = { 1.0f, 2.0f,5.0f };
         renderer.entities.push_back(ed);
     }
 
@@ -567,7 +570,7 @@ int main(int argc, char argv[])
         auto chachedPos = sceneVertices.size();
 
         glm::mat4 xform(1.0f);
-        xform = glm::translate(xform, ent.pos);
+        xform = glm::translate(xform, ent.position);
         xform = glm::rotate(xform,glm::radians(ent.rot), ent.rotVec);
         xform = glm::scale(xform, ent.scale);
         std::transform(meshInfo.vertices.begin(), meshInfo.vertices.end(), std::back_inserter(sceneVertices), [&](const oGFX::Vertex& v)
@@ -748,7 +751,7 @@ int main(int argc, char argv[])
             {
                 AABB ab;
                 auto& model = renderer.models[e.modelID];
-                ab.center = e.pos;
+                ab.center = e.position;
                 ab.halfExt = e.scale * 0.5f;
                 UpdateBV(renderer.models[e.modelID].cpuModel, e, currSphereType);
                 
@@ -888,6 +891,71 @@ int main(int argc, char argv[])
             
             //ImGui::ShowDemoWindow();
             
+            // ImGuizmo
+            {
+                ImGuizmo::BeginFrame();
+                ImGuizmo::Enable(true);
+                ImGuizmo::AllowAxisFlip(false);
+                ImGuizmo::SetGizmoSizeClipSpace(0.1f);
+
+                static bool prevFrameUsingGizmo = false;
+                static bool currFrameUsingGizmo = false;
+
+                // Save the state of the gizmos in the previous frame.
+                prevFrameUsingGizmo = currFrameUsingGizmo;
+                currFrameUsingGizmo = ImGuizmo::IsUsing();
+                const bool firstUseGizmo = currFrameUsingGizmo && !prevFrameUsingGizmo;
+                const bool justReleaseGizmo = prevFrameUsingGizmo && !currFrameUsingGizmo;
+
+                ImGuiIO& io = ImGui::GetIO();
+                ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+                const auto& viewMatrix = renderer.camera.matrices.view;
+                const auto& projMatrix = renderer.camera.matrices.perspective;
+                
+                static glm::mat4x4 localToWorld{ 1.0f };
+                float* matrixPtr = glm::value_ptr(localToWorld);
+                
+                if (gizmoHijack)
+                {
+                    glm::vec3 position = { gizmoHijack[0], gizmoHijack[1], gizmoHijack[2] };
+                    localToWorld = glm::translate(glm::mat4{ 1.0f }, position);
+                    matrixPtr = glm::value_ptr(localToWorld);
+                }
+
+                const ImGuizmo::OPERATION gizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
+                const ImGuizmo::MODE gizmoMode = ImGuizmo::MODE::WORLD;
+                const bool gizmoMoved = ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix), gizmoOperation, gizmoMode, matrixPtr);
+
+                if (firstUseGizmo)
+                {
+                    // TODO: What can you do here?
+                    // - Save the state of the transform? For undo/redo feature?
+                }
+                else if (justReleaseGizmo)
+                {
+                    // TODO: What can you do here?
+                    // - Save the state of the transform? For undo/redo feature?
+                }
+
+                if (currFrameUsingGizmo)
+                {
+                    if (gizmoMoved)
+                    {
+                        // TODO: What can you do here?
+                        // - Update transform because the gizmo have moved.
+
+                        glm::vec3 position, euler_deg, scale; // World Space.
+                        ImGuizmo::DecomposeMatrixToComponents(matrixPtr, glm::value_ptr(position), glm::value_ptr(euler_deg), glm::value_ptr(scale));
+                        glm::quat q = glm::quat(glm::radians(euler_deg));
+
+                        // Hacky and unsafe...
+                        gizmoHijack[0] = position[0];
+                        gizmoHijack[1] = position[1];
+                        gizmoHijack[2] = position[2];
+                    }
+                }
+            }
+
             // Display ImGui Window
             {
                 PROFILE_SCOPED("ImGuiSceneHelper");
@@ -900,7 +968,7 @@ int main(int argc, char argv[])
                             if (ImGui::SmallButton("Create Cube"))
                             {
                                 VulkanRenderer::EntityDetails entity;
-                                entity.pos = { 2.0f,2.0f,2.0f };
+                                entity.position = { 2.0f,2.0f,2.0f };
                                 entity.scale = { 1.0f,1.0f,1.0f };
                                 entity.modelID = box->gfxIndex;
                                 entity.entityID = FastRandomMagic();
@@ -925,7 +993,7 @@ int main(int argc, char argv[])
                                     const glm::vec3 pos = glm::sphericalRand(10.0f);
 
                                     VulkanRenderer::EntityDetails entity;
-                                    entity.pos = pos;
+                                    entity.position = pos;
                                     entity.scale = { 1.0f,1.0f,1.0f };
                                     entity.modelID = box->gfxIndex;
                                     entity.entityID = FastRandomMagic();
@@ -944,7 +1012,19 @@ int main(int argc, char argv[])
                                     ImGui::BulletText("[ID:%u] ", entity.entityID);
                                     ImGui::SameLine();
                                     ImGui::Text(entity.name.c_str());
-                                    geomChanged |= ImGui::DragFloat3("Position", glm::value_ptr(entity.pos), 0.01f);
+                                    geomChanged |= ImGui::DragFloat3("Position", glm::value_ptr(entity.position), 0.01f);
+                                    {
+                                        if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
+                                        {
+                                            if (ImGui::Selectable("Set ptr Gizmo"))
+                                            {
+                                                // Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
+                                                gizmoHijack = glm::value_ptr(entity.position);
+                                            }
+                                            ImGui::EndPopup();
+                                        }
+                                    }
+
                                     geomChanged |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
                                     geomChanged |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
                                     geomChanged |= ImGui::DragFloat("Theta", &entity.rot);
@@ -974,7 +1054,19 @@ int main(int argc, char argv[])
                             {
                                 ImGui::PushID(i);
                                 auto& light = renderer.lightUBO.lights[i];
-                                ImGui::DragFloat3("Position", glm::value_ptr(light.position));
+                                ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.01f);
+                                {
+                                    if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
+                                    {
+                                        if (ImGui::Selectable("Set ptr Gizmo"))
+                                        {
+                                            // Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
+                                            gizmoHijack = glm::value_ptr(light.position);
+                                        }
+                                        ImGui::EndPopup();
+                                    }
+                                }
+
                                 ImGui::DragFloat3("Color", glm::value_ptr(light.color));
                                 ImGui::DragFloat("Radius", &light.radius);
                                 ImGui::PopID();
@@ -987,14 +1079,14 @@ int main(int argc, char argv[])
                                 {
                                     auto WorldToScreen = [&](const glm::vec3& worldPosition) -> ImVec2
                                     {
-                                        const int screenWidth = 1440;
-                                            const int screenHeight = 900;
-                                            const glm::mat4& viewMatrix = renderer.camera.matrices.view;
-                                            const glm::mat4& projectionMatrix = renderer.camera.matrices.perspective;
-                                            // World Space to NDC Space
-                                            glm::vec4 ndcPosition = projectionMatrix * viewMatrix * glm::vec4{ worldPosition, 1.0f };
-                                            // Perspective Division
-                                            ndcPosition /= ndcPosition.w;
+                                        const int screenWidth = windowSize.x;
+                                        const int screenHeight = windowSize.y;
+                                        const glm::mat4& viewMatrix = renderer.camera.matrices.view;
+                                        const glm::mat4& projectionMatrix = renderer.camera.matrices.perspective;
+                                        // World Space to NDC Space
+                                        glm::vec4 ndcPosition = projectionMatrix * viewMatrix * glm::vec4{ worldPosition, 1.0f };
+                                        // Perspective Division
+                                        ndcPosition /= ndcPosition.w;
                                         // NDC Space to Viewport Space
                                         const float winX = glm::round(((ndcPosition.x + 1.0f) / 2.0f) * (float)screenWidth);
                                         const float winY = glm::round(((1.0f - ndcPosition.y) / 2.0f) * (float)screenHeight);

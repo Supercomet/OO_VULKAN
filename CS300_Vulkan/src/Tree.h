@@ -18,7 +18,7 @@ std::vector<uint32_t> PartitionObjects(const std::vector<dataT>& entities,uint32
 	//result.push_back(0);
 
 	std::sort(objs,objs+numObjects,[&](uint32_t a, uint32_t b) {		
-			return entities[a].pos.x > entities[b].pos.x;
+			return entities[a].position.x > entities[b].position.x;
 		});
 
 	for (uint32_t i = 0; i < numChilden; i++)

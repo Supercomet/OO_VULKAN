@@ -23,9 +23,9 @@
 #include "../shaders/shared_structs.h"
 
 #include "GfxRenderpass.h"
-#include "DeferredCompositionRenderpass.h"
-#include "GBufferRenderPass.h"
-#include "DebugRenderpass.h"
+#include "renderpass/DeferredCompositionRenderpass.h"
+#include "renderpass/GBufferRenderPass.h"
+#include "renderpass/DebugRenderpass.h"
 
 #include "IcoSphereCreator.h"
 
@@ -1529,7 +1529,7 @@ void VulkanRenderer::UploadInstanceData()
 		size_t x = gpuTransform.size();
 		size_t len = x + models[entities[i].modelID].meshCount;
 		mat4 xform{ 1.0f };
-		xform = glm::translate(xform, entities[i].pos);
+		xform = glm::translate(xform, entities[i].position);
 		xform = glm::rotate(xform,glm::radians(entities[i].rot), entities[i].rotVec);
 		xform = glm::scale(xform, entities[i].scale);
 		for (; x < len; x++)
@@ -2144,7 +2144,7 @@ void VulkanRenderer::PrePass()
 			auto& model = models[entity.modelID];
 
 			glm::mat4 xform(1.0f);
-			xform = glm::translate(xform, entity.pos);
+			xform = glm::translate(xform, entity.position);
 			xform = glm::rotate(xform, glm::radians(entity.rot), entity.rotVec);
 			xform = glm::scale(xform, entity.scale);
 
@@ -2204,7 +2204,7 @@ void VulkanRenderer::SimplePass()
 		auto& model = models[entity.modelID];
 
 		glm::mat4 xform(1.0f);
-		xform = glm::translate(xform, entity.pos);
+		xform = glm::translate(xform, entity.position);
 		xform = glm::rotate(xform,glm::radians(entity.rot), entity.rotVec);
 		xform = glm::scale(xform, entity.scale);
 
