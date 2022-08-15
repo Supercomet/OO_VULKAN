@@ -133,6 +133,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	void AddDebugTriangle(const Triangle& tri, const oGFX::Color& col,size_t loc = -1);
 
 	void InitializeRenderBuffers();
+	void DestroyRenderBuffers();
 	void UpdateIndirectDrawCommands();
 	void UploadInstanceData();
 	uint32_t objectCount{};

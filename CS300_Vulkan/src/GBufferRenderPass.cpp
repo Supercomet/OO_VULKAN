@@ -62,6 +62,8 @@ void GBufferRenderPass::Draw()
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassBeginInfo.pClearValues = clearValues.data();
 
+	// VulkanRenderer::ResizeSwapchain() destroys the depth attachment. This causes the renderpass to fail on resize
+	// TODO: handle all framebuffer resizes gracefully
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	
 	SetDefaultViewportAndScissor(cmdlist);

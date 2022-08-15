@@ -58,10 +58,6 @@ layout (location = 15)flat out uvec4 outInstanceData;
 layout(location = 7) out struct 
 {
 	mat3 btn;
-	vec3 vertCol;
-	vec3 localVertexPos;
-	vec3 localLightPos;
-	vec3 localEyePos;
 }outLightData;
 
 void main()
@@ -70,17 +66,10 @@ void main()
 	const mat4 dInsMatrix = GPUTransformToMatrix4x4(GPUScene_SSBO[inInstanceData.x]);
 	// inefficient
 	const mat4 inverseMat = inverse(dInsMatrix);
-	
-	outLightData.localEyePos = vec3(inverseMat* vec4(vec3(uboViewProjection.cameraPosition),1.0));
-	
-	outLightData.localLightPos = vec3(inverseMat * vec4(pushLight.pos, 1.0));
 
 	vec3 binormal = normalize(cross(inTangent, inNormal));
 	
 	outLightData.btn = mat3(inTangent, binormal, mat3(transpose(inverseMat))*inNormal);
-
-	//outViewVec = -vec3(uboViewProjection.view[3]);	
-	outLightData.localVertexPos = inPos;
 
 	outPos = dInsMatrix * vec4(inPos,1.0);
 	gl_Position = uboViewProjection.viewProjection * outPos;
