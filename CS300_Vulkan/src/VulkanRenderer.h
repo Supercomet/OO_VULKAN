@@ -40,6 +40,7 @@ public:
 
 static constexpr int MAX_FRAME_DRAWS = 2;
 static constexpr int MAX_OBJECTS = 2048;
+static constexpr VkFormat G_DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
 #define OBJECT_INSTANCE_COUNT 128
 

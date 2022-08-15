@@ -1,4 +1,4 @@
-#include "GBufferRenderPass.h"
+#include "ShadowPass.h"
 
 #include "imgui.h"
 #include "backends/imgui_impl_vulkan.h"
@@ -15,20 +15,20 @@
 
 #include <array>
 
-DECLARE_RENDERPASS(GBufferRenderPass);
+DECLARE_RENDERPASS(ShadowPass);
 
-void GBufferRenderPass::Init()
+void ShadowPass::Init()
 {
 	SetupRenderpass();
 	SetupFramebuffer();
 }
 
-void GBufferRenderPass::CreatePSO()
+void ShadowPass::CreatePSO()
 {
 	CreatePipeline();
 }
 
-void GBufferRenderPass::Draw()
+void ShadowPass::Draw()
 {
 	if (!VulkanRenderer::deferredRendering)
 		return;
@@ -41,33 +41,32 @@ void GBufferRenderPass::Draw()
 
     const VkCommandBuffer cmdlist = commandBuffers[swapchainIdx];
     PROFILE_GPU_CONTEXT(cmdlist);
-    PROFILE_GPU_EVENT("GBuffer");
+    PROFILE_GPU_EVENT("Shadow");
 
 	constexpr VkClearColorValue zeroFloat4 = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
 
 	// Clear values for all attachments written in the fragment shader
-	std::array<VkClearValue, GBufferAttachmentIndex::MAX_ATTACHMENTS> clearValues;
-	clearValues[GBufferAttachmentIndex::POSITION].color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::NORMAL]  .color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::ALBEDO]  .color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::MATERIAL].color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 1.0f, 0 };
+	VkClearValue clearValues;
+	clearValues.depthStencil = { 1.0f, 0 };
 	
 	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
-	renderPassBeginInfo.renderPass =  renderpass_GBuffer;
-	renderPassBeginInfo.framebuffer = framebuffer_GBuffer;
-	renderPassBeginInfo.renderArea.extent.width = swapchain.swapChainExtent.width;
-	renderPassBeginInfo.renderArea.extent.height = swapchain.swapChainExtent.height;
-	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-	renderPassBeginInfo.pClearValues = clearValues.data();
+	renderPassBeginInfo.renderPass =  renderpass_Shadow;
+	renderPassBeginInfo.framebuffer = framebuffer_Shadow;
+	renderPassBeginInfo.renderArea.extent.width = shadowmapSize.width;
+	renderPassBeginInfo.renderArea.extent.height = shadowmapSize.height;
+	renderPassBeginInfo.clearValueCount = 1;
+	renderPassBeginInfo.pClearValues = &clearValues;
 
-	// VulkanRenderer::ResizeSwapchain() destroys the depth attachment. This causes the renderpass to fail on resize
-	// TODO: handle all framebuffer resizes gracefully
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	
-	SetDefaultViewportAndScissor(cmdlist);
+	const float vpHeight = (float)shadowmapSize.height;
+	const float vpWidth = (float)shadowmapSize.width;
+	VkViewport viewport = { 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f };
+	VkRect2D scissor = { {0, 0}, {shadowmapSize.width , shadowmapSize.height } };
+	vkCmdSetViewport(cmdlist, 0, 1, &viewport);
+	vkCmdSetScissor(cmdlist, 0, 1, &scissor);
 
-	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, pso_GBufferDefault);
+	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, pso_ShadowDefault);
 	std::array<VkDescriptorSet, 3> descriptorSetGroup = 
 	{
 		VulkanRenderer::g0_descriptors,
@@ -89,7 +88,7 @@ void GBufferRenderPass::Draw()
     const uint32_t count = (uint32_t)VulkanRenderer::m_DrawIndirectCommandsCPU.size();
 
 	DrawIndexedIndirect(cmdlist, idcb, 0, count, sizeof(VkDrawIndexedIndirectCommand));
-
+  
 	// Other draw calls that are not supported by MDI
     // TODO: Deprecate this, or handle it gracefully. Leaving this here.
     if constexpr (false)
@@ -121,84 +120,48 @@ void GBufferRenderPass::Draw()
 	vkCmdEndRenderPass(cmdlist);
 }
 
-void GBufferRenderPass::Shutdown()
+void ShadowPass::Shutdown()
 {
 	auto& m_device = VulkanRenderer::m_device;
-	att_albedo.destroy(m_device.logicalDevice);
-	att_position.destroy(m_device.logicalDevice);
-	att_normal.destroy(m_device.logicalDevice);
-	att_material.destroy(m_device.logicalDevice);
+
 	att_depth.destroy(m_device.logicalDevice);
-	vkDestroyFramebuffer(m_device.logicalDevice, framebuffer_GBuffer, nullptr);
-	vkDestroyRenderPass(m_device.logicalDevice,renderpass_GBuffer, nullptr);
-	vkDestroyPipeline(m_device.logicalDevice, pso_GBufferDefault, nullptr);
+
+	vkDestroyFramebuffer(m_device.logicalDevice, framebuffer_Shadow, nullptr);
+	vkDestroyRenderPass(m_device.logicalDevice,renderpass_Shadow, nullptr);
+	vkDestroyPipeline(m_device.logicalDevice, pso_ShadowDefault, nullptr);
 }
 
-void GBufferRenderPass::SetupRenderpass()
+void ShadowPass::SetupRenderpass()
 {
 	auto& m_device = VulkanRenderer::m_device;
 	auto& m_swapchain = VulkanRenderer::m_swapchain;
 
-	const uint32_t width = m_swapchain.swapChainExtent.width;
-	const uint32_t height = m_swapchain.swapChainExtent.height;
+	const uint32_t width = shadowmapSize.width;
+	const uint32_t height = shadowmapSize.height;
 
-	// TODO: Texture format optimization/packing?
-	att_position.createAttachment(m_device, width, height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
-	att_normal  .createAttachment(m_device, width, height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
-	att_albedo  .createAttachment(m_device, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
-	att_material.createAttachment(m_device, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
-
-	// TODO: This is unnecessary... Just choose 1 format? Preferably VK_FORMAT_D32_SFLOAT_S8_UINT?
-	VkFormat depthFormat = oGFX::ChooseSupportedFormat(m_device,
-		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-	att_depth.createAttachment(m_device, width, height, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	att_depth.createAttachment(m_device, width, height, VulkanRenderer::G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
 	// Set up separate renderpass with references to the color and depth attachments
-	std::array<VkAttachmentDescription, GBufferAttachmentIndex::MAX_ATTACHMENTS> attachmentDescs = {};
+	VkAttachmentDescription attachmentDescs = {};
 
 	// Init attachment properties
-	for (uint32_t i = 0; i < GBufferAttachmentIndex::MAX_ATTACHMENTS; ++i)
-	{
-		attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
-		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		attachmentDescs[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		if (i == GBufferAttachmentIndex::DEPTH)
-		{
-			attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		}
-		else
-		{
-			attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		}
-	}
-
-	// Formats
-	attachmentDescs[GBufferAttachmentIndex::POSITION].format = att_position.format;
-	attachmentDescs[GBufferAttachmentIndex::NORMAL]  .format = att_normal.format;
-	attachmentDescs[GBufferAttachmentIndex::ALBEDO]  .format = att_albedo.format;
-	attachmentDescs[GBufferAttachmentIndex::MATERIAL].format = att_material.format;
-	attachmentDescs[GBufferAttachmentIndex::DEPTH]   .format = att_depth.format;
-
-	std::vector<VkAttachmentReference> colorReferences;
-	colorReferences.push_back({ GBufferAttachmentIndex::POSITION, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-	colorReferences.push_back({ GBufferAttachmentIndex::NORMAL,   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-	colorReferences.push_back({ GBufferAttachmentIndex::ALBEDO,   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-	colorReferences.push_back({ GBufferAttachmentIndex::MATERIAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	attachmentDescs.samples = VK_SAMPLE_COUNT_1_BIT;
+	attachmentDescs.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	attachmentDescs.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachmentDescs.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachmentDescs.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachmentDescs.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	attachmentDescs.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	attachmentDescs.format = att_depth.format;
 
 	VkAttachmentReference depthReference = {};
-	depthReference.attachment = GBufferAttachmentIndex::DEPTH;
+	depthReference.attachment = 0;
 	depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	VkSubpassDescription subpass = {};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.pColorAttachments = colorReferences.data();
-	subpass.colorAttachmentCount = static_cast<uint32_t>(colorReferences.size());
+	subpass.pColorAttachments = VK_NULL_HANDLE;
+	subpass.colorAttachmentCount = 0;
 	subpass.pDepthStencilAttachment = &depthReference;
 
 	// Use subpass dependencies for attachment layout transitions
@@ -222,47 +185,39 @@ void GBufferRenderPass::SetupRenderpass()
 
 	VkRenderPassCreateInfo renderPassInfo = {};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.pAttachments = attachmentDescs.data();
-	renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescs.size());
+	renderPassInfo.pAttachments = &attachmentDescs;
+	renderPassInfo.attachmentCount = 1;
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subpass;
 	renderPassInfo.dependencyCount = 2;
 	renderPassInfo.pDependencies = dependencies.data();
 
-	VK_CHK(vkCreateRenderPass(m_device.logicalDevice, &renderPassInfo, nullptr, &renderpass_GBuffer));
-	VK_NAME(m_device.logicalDevice, "deferredPass", renderpass_GBuffer);
+	VK_CHK(vkCreateRenderPass(m_device.logicalDevice, &renderPassInfo, nullptr, &renderpass_Shadow));
+	VK_NAME(m_device.logicalDevice, "ShadowPass", renderpass_Shadow);
 }
 
-void GBufferRenderPass::SetupFramebuffer()
+void ShadowPass::SetupFramebuffer()
 {
-	std::array<VkImageView, GBufferAttachmentIndex::MAX_ATTACHMENTS> attachments;
-	attachments[GBufferAttachmentIndex::POSITION] = att_position.view;
-	attachments[GBufferAttachmentIndex::NORMAL]   = att_normal.view;
-	attachments[GBufferAttachmentIndex::ALBEDO]   = att_albedo.view;
-	attachments[GBufferAttachmentIndex::MATERIAL] = att_material.view;
-	attachments[GBufferAttachmentIndex::DEPTH]    = VulkanRenderer::m_swapchain.depthAttachment.view;
+	VkImageView depthView = att_depth.view;
 
 	VkFramebufferCreateInfo fbufCreateInfo = {};
 	fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	fbufCreateInfo.pNext = NULL;
-	fbufCreateInfo.renderPass = renderpass_GBuffer;
-	fbufCreateInfo.pAttachments = attachments.data();
-	fbufCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-	fbufCreateInfo.width = VulkanRenderer::m_swapchain.swapChainExtent.width;
-	fbufCreateInfo.height = VulkanRenderer::m_swapchain.swapChainExtent.height;
+	fbufCreateInfo.renderPass = renderpass_Shadow;
+	fbufCreateInfo.pAttachments = &depthView;
+	fbufCreateInfo.attachmentCount = 1;
+	fbufCreateInfo.width = shadowmapSize.width;
+	fbufCreateInfo.height = shadowmapSize.height;
 	fbufCreateInfo.layers = 1;
-	VK_CHK(vkCreateFramebuffer(VulkanRenderer::m_device.logicalDevice, &fbufCreateInfo, nullptr, &framebuffer_GBuffer));
-	VK_NAME(VulkanRenderer::m_device.logicalDevice, "deferredFB", framebuffer_GBuffer);
+	VK_CHK(vkCreateFramebuffer(VulkanRenderer::m_device.logicalDevice, &fbufCreateInfo, nullptr, &framebuffer_Shadow));
+	VK_NAME(VulkanRenderer::m_device.logicalDevice, "ShadowFB", framebuffer_Shadow);
 
-	deferredImg[GBufferAttachmentIndex::POSITION] = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	deferredImg[GBufferAttachmentIndex::NORMAL]   = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	deferredImg[GBufferAttachmentIndex::ALBEDO]   = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	deferredImg[GBufferAttachmentIndex::MATERIAL] = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_material.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	// TODO: Fix imgui depth rendering
 	//deferredImg[GBufferAttachmentIndex::DEPTH]    = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	shadowImg = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_depth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
-
-void GBufferRenderPass::CreatePipeline()
+void ShadowPass::CreatePipeline()
 {
 	auto& m_device = VulkanRenderer::m_device;
 
@@ -308,28 +263,29 @@ void GBufferRenderPass::CreatePipeline()
 	pipelineCI.pVertexInputState = &vertexInputCreateInfo;
 
 	// Offscreen pipeline
-	shaderStages[0] = VulkanRenderer::LoadShader(m_device, "Shaders/bin/gbuffer.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = VulkanRenderer::LoadShader(m_device, "Shaders/bin/gbuffer.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[0] = VulkanRenderer::LoadShader(m_device, "Shaders/bin/shadow.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = VulkanRenderer::LoadShader(m_device, "Shaders/bin/shadow.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Separate render pass
-	pipelineCI.renderPass = renderpass_GBuffer;
+	pipelineCI.renderPass = renderpass_Shadow;
 
 	// Blend attachment states required for all color attachments
 	// This is important, as color write mask will otherwise be 0x0 and you
 	// won't see anything rendered to the attachment
-	std::array<VkPipelineColorBlendAttachmentState, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> blendAttachmentStates =
-	{
-		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
-		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
-		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
-		oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE)
-	};
+	
+	//std::array<VkPipelineColorBlendAttachmentState, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> blendAttachmentStates =
+	//{
+	//	oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
+	//	oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
+	//	oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
+	//	oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE)
+	//};
+	//
+	//colorBlendState.attachmentCount = static_cast<uint32_t>(blendAttachmentStates.size());
+	//colorBlendState.pAttachments = blendAttachmentStates.data();
 
-	colorBlendState.attachmentCount = static_cast<uint32_t>(blendAttachmentStates.size());
-	colorBlendState.pAttachments = blendAttachmentStates.data();
-
-	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_GBufferDefault));
-	VK_NAME(m_device.logicalDevice, "deferredPipe", pso_GBufferDefault);
+	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_ShadowDefault));
+	VK_NAME(m_device.logicalDevice, "ShadowPipline", pso_ShadowDefault);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
 

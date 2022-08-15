@@ -7,9 +7,9 @@
 
 #include <array>
 
-struct GBufferRenderPass : public GfxRenderpass
+struct ShadowPass : public GfxRenderpass
 {
-	//DECLARE_RENDERPASS_SINGLETON(GBufferRenderPass)
+	//DECLARE_RENDERPASS_SINGLETON(ShadowPass)
 
 	void Init() override;
 	void Draw() override;
@@ -17,24 +17,21 @@ struct GBufferRenderPass : public GfxRenderpass
 
 	void CreatePSO() override;
 	
-	VulkanFramebufferAttachment att_albedo;
-	VulkanFramebufferAttachment att_position;
-	VulkanFramebufferAttachment att_normal;
-	VulkanFramebufferAttachment att_material;
 	VulkanFramebufferAttachment att_depth;
 
 	// This is for ImGui
 	std::array<ImTextureID, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> deferredImg;
+	ImTextureID shadowImg;
 
-	VkRenderPass renderpass_GBuffer;
-	VkFramebuffer framebuffer_GBuffer;
+	VkExtent2D shadowmapSize = { 1024, 1024 };
 
-	//VkPushConstantRange pushConstantRange;
-	VkPipeline pso_GBufferDefault;
+	VkRenderPass renderpass_Shadow;
+	VkFramebuffer framebuffer_Shadow;
+
+	VkPipeline pso_ShadowDefault;
 
 private:
 	void SetupRenderpass();
 	void SetupFramebuffer();
 	void CreatePipeline();
-
 };
