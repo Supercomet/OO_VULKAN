@@ -399,7 +399,7 @@ namespace oGFX
 		//check if file stream success fully opened
 		if (!file.is_open())
 		{
-			throw std::runtime_error("Failed to open a file!");
+			throw std::runtime_error("Failed to open a file! : " + filename);
 		}
 
 		// get current read position and use to resize buffer

@@ -23,9 +23,11 @@
 #include "../shaders/shared_structs.h"
 
 #include "GfxRenderpass.h"
+
 #include "renderpass/DeferredCompositionRenderpass.h"
 #include "renderpass/GBufferRenderPass.h"
 #include "renderpass/DebugRenderpass.h"
+#include "ShadowPass.h"
 
 #include "IcoSphereCreator.h"
 
@@ -776,6 +778,7 @@ void VulkanRenderer::ResizeDeferredFB()
 
 void VulkanRenderer::DeferredPass()
 {
+	RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
 	RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
 	//GBufferRenderPass::Get()->Draw();
 }
@@ -793,21 +796,6 @@ void VulkanRenderer::CreateLightingBuffers()
 
 	VK_CHK(lightsBuffer.map());
 	
-	UpdateLightBuffer(0.0f);
-}
-
-void VulkanRenderer::DeferredLightingComposition()
-{
-	RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
-	//DeferredCompositionRenderpass::Get()->Draw();	
-}
-
-void VulkanRenderer::UpdateLightBuffer(float delta)
-{
-	PROFILE_SCOPED();
-	static float lightTimer = 0.0f;
-	lightTimer += delta * 0.25f;
-	// White
 	lightUBO.lights[0].position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
 	lightUBO.lights[0].color = glm::vec3(1.5f);
 	lightUBO.lights[0].radius = 15.0f;
@@ -831,6 +819,21 @@ void VulkanRenderer::UpdateLightBuffer(float delta)
 	lightUBO.lights[5].position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
 	lightUBO.lights[5].color = glm::vec3(1.0f, 0.7f, 0.3f);
 	lightUBO.lights[5].radius = 25.0f;
+
+	UpdateLightBuffer(0.0f);
+}
+
+void VulkanRenderer::DeferredLightingComposition()
+{
+	RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
+	//DeferredCompositionRenderpass::Get()->Draw();	
+}
+
+void VulkanRenderer::UpdateLightBuffer(float delta)
+{
+	PROFILE_SCOPED();
+	static float lightTimer = 0.0f;
+	lightTimer += delta * 0.25f;
 	
 	lightUBO.lights[0].position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
 	lightUBO.lights[0].position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
@@ -1172,6 +1175,7 @@ void VulkanRenderer::DrawGUI()
 		{
 			const auto sz = ImGui::GetContentRegionAvail();
 			auto gbuff = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
+			auto shadows = RenderPassDatabase::GetRenderPass<ShadowPass>();
 
 			const float renderWidth = float(windowPtr->m_width);
 			const float renderHeight = float(windowPtr->m_height);
@@ -1189,6 +1193,7 @@ void VulkanRenderer::DrawGUI()
 			ImGui::Image(gbuff->deferredImg[MATERIAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("Depth (TODO)");
 			//ImGui::Image(gbuff->deferredImg[3], { sz.x,sz.y/4 });
+			ImGui::Image(shadows->shadowImg ,imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 		}
 	}
 	ImGui::End();
