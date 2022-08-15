@@ -27,7 +27,7 @@
 #include "renderpass/DeferredCompositionRenderpass.h"
 #include "renderpass/GBufferRenderPass.h"
 #include "renderpass/DebugRenderpass.h"
-#include "ShadowPass.h"
+#include "renderpass/ShadowPass.h"
 
 #include "IcoSphereCreator.h"
 

@@ -57,7 +57,7 @@
     <ClCompile Include="src\optick\optick_miniz.cpp" />
     <ClCompile Include="src\optick\optick_serialization.cpp" />
     <ClCompile Include="src\optick\optick_server.cpp" />
-    <ClCompile Include="src\ShadowPass.cpp" />
+    <ClCompile Include="src\renderpass\ShadowPass.cpp" />
     <ClCompile Include="src\stbi_impl.cpp" />
     <ClCompile Include="src\Tests_Assignment1.cpp" />
     <ClCompile Include="src\VulkanFramebufferAttachment.cpp" />
@@ -108,7 +108,7 @@
     <ClInclude Include="src\optick\optick_serialization.h" />
     <ClInclude Include="src\optick\optick_server.h" />
     <ClInclude Include="src\Profiling.h" />
-    <ClInclude Include="src\ShadowPass.h" />
+    <ClInclude Include="src\renderpass\ShadowPass.h" />
     <ClInclude Include="src\Tree.h" />
     <ClInclude Include="src\VulkanFramebufferAttachment.h" />
     <ClInclude Include="src\Node.h" />

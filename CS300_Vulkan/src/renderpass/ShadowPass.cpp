@@ -11,7 +11,7 @@
 #include "../shaders/shared_structs.h"
 #include "MathCommon.h"
 
-#include "DeferredCompositionRenderpass.h"
+#include "renderpass/DeferredCompositionRenderpass.h"
 
 #include <array>
 
@@ -98,7 +98,7 @@ void ShadowPass::Draw()
             auto& model = VulkanRenderer::models[entity.modelID];
 
             glm::mat4 xform(1.0f);
-            xform = glm::translate(xform, entity.pos);
+            xform = glm::translate(xform, entity.position);
             xform = glm::rotate(xform, glm::radians(entity.rot), entity.rotVec);
             xform = glm::scale(xform, entity.scale);
 
