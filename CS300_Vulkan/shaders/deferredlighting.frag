@@ -6,7 +6,7 @@ layout (binding = 2) uniform sampler2D samplerNormal;
 layout (binding = 3) uniform sampler2D samplerAlbedo;
 layout (binding = 4) uniform sampler2D samplerMaterial;
 
-struct Light
+struct OmniLightInstance
 {
 	vec4 position;
 	vec3 color;
@@ -15,7 +15,7 @@ struct Light
 
 layout (binding = 5) uniform UBO
 {
-	Light lights[6];
+	OmniLightInstance lights[6];
 	vec4 viewPos;
 	int displayDebugTarget;
 } ubo;
@@ -52,8 +52,8 @@ vec3 CalculatePointLight_NonPBR(int lightIndex, in vec3 fragPos, in vec3 normal,
 		// Specular part
 		// Specular map values are stored in alpha of albedo mrt
 		vec3 R = reflect(-L, N);
-		float NdotR = max(0.0, dot(R, V));
-		vec3 spec = ubo.lights[lightIndex].color * specular * pow(NdotR, 16.0) * atten;
+		float RdotV = max(0.0, dot(R, V));
+		vec3 spec = ubo.lights[lightIndex].color * specular * pow(RdotV, 16.0) * atten;
 	
 		result = diff + spec;	
 	}

@@ -854,7 +854,7 @@ void VulkanRenderer::UpdateLightBuffer(float delta)
 void VulkanRenderer::UploadLights()
 {
     // Current view position
-    lightUBO.viewPos = glm::vec4(camera.position, 0.0f) * glm::vec4(-1.0f, 1.0f, -1.0f, 1.0f); // Why this???? TODO CHECK
+	lightUBO.viewPos = glm::vec4(camera.position, 0.0f);
 
 	memcpy(lightsBuffer.mapped, &lightUBO, sizeof(LightUBO));
 }
