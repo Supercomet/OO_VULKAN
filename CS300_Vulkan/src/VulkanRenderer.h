@@ -1,7 +1,6 @@
 #pragma once
 
-#include <vector>
-#include <string>
+
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
@@ -28,6 +27,12 @@
 #include "imgui.h"
 
 #include "GfxSampler.h"
+
+#include "GraphicsWorld.h"
+
+#include <vector>
+#include <array>
+#include <string>
 
 struct Window;
 
@@ -88,13 +93,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	void ResizeDeferredFB();
 	void DeferredPass();
 
-	// TODO: Move this structure to somewhere more sensible
-	struct OmniLightInstance
-	{
-		glm::vec4 position{};
-		glm::vec3 color{ 1.0f };
-		float radius{ 1.0f };
-	};
+	std::array<OmniLightInstance, 6> m_HardcodedOmniLights;
 
 	struct LightUBO
 	{
@@ -108,7 +107,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	inline static vk::Buffer lightsBuffer;
 	void CreateLightingBuffers(); 
 	void DeferredLightingComposition();
-	void UpdateLightBuffer(float delta);
+	void UpdateLights(float delta);
 	void UploadLights();
 
 	void CreateSynchronisation();

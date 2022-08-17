@@ -787,7 +787,7 @@ int main(int argc, char argv[])
             if (freezeLight == false)
             {
                 // TODO: turn into proper entities
-                renderer.UpdateLightBuffer(deltaTime);
+                renderer.UpdateLights(deltaTime);
             }
 
             // Upload CPU light data to GPU. Ideally this should only contain lights that intersects the camera frustum.
@@ -981,7 +981,7 @@ int main(int argc, char argv[])
                             for (int i = 0; i < 6; ++i)
                             {
                                 ImGui::PushID(i);
-                                auto& light = renderer.lightUBO.lights[i];
+                                auto& light = renderer.m_HardcodedOmniLights[i];
                                 ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.01f);
                                 {
                                     if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
@@ -1023,9 +1023,11 @@ int main(int argc, char argv[])
 
                                     for (int i = 0; i < 6; ++i)
                                     {
-                                        auto& light = renderer.lightUBO.lights[i];
+                                        auto& light = renderer.m_HardcodedOmniLights[i];
                                         auto& pos = light.position;
-                                        bgDrawList->AddCircle(WorldToScreen(pos), 10.0f, IM_COL32(light.color.r * 0xFF, light.color.g * 0xFF, light.color.b * 0xFF, 0xFF), 0, 2.0f);
+                                        const auto screenPosition = WorldToScreen(pos);
+                                        constexpr float circleSize = 10.0f;
+                                        bgDrawList->AddCircle(ImVec2(screenPosition.x - 0.5f * circleSize, screenPosition.y - 0.5f * circleSize), circleSize, IM_COL32(light.color.r * 0xFF, light.color.g * 0xFF, light.color.b * 0xFF, 0xFF), 0, 2.0f);
                                     }
                                 }
                             }

@@ -795,60 +795,60 @@ void VulkanRenderer::CreateLightingBuffers()
 	lightsBuffer.descriptor.range = sizeof(LightUBO);
 
 	VK_CHK(lightsBuffer.map());
-	
-	lightUBO.lights[0].position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
-	lightUBO.lights[0].color = glm::vec3(1.5f);
-	lightUBO.lights[0].radius = 15.0f;
-	// Red
-	lightUBO.lights[1].position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
-	lightUBO.lights[1].color = glm::vec3(1.0f, 0.0f, 0.0f);
-	lightUBO.lights[1].radius = 15.0f;
-	// Blue
-	lightUBO.lights[2].position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
-	lightUBO.lights[2].color = glm::vec3(0.0f, 0.0f, 2.5f);
-	lightUBO.lights[2].radius = 5.0f;
-	// Yellow
-	lightUBO.lights[3].position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
-	lightUBO.lights[3].color = glm::vec3(1.0f, 1.0f, 0.0f);
-	lightUBO.lights[3].radius = 2.0f;
-	// Green
-	lightUBO.lights[4].position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
-	lightUBO.lights[4].color = glm::vec3(0.0f, 1.0f, 0.2f);
-	lightUBO.lights[4].radius = 5.0f;
-	// Yellow
-	lightUBO.lights[5].position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
-	lightUBO.lights[5].color = glm::vec3(1.0f, 0.7f, 0.3f);
-	lightUBO.lights[5].radius = 25.0f;
 
-	UpdateLightBuffer(0.0f);
+	UpdateLights(0.0f);
 }
 
 void VulkanRenderer::DeferredLightingComposition()
 {
 	RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
-	//DeferredCompositionRenderpass::Get()->Draw();	
+	//DeferredCompositionRenderpass::Get()->Draw();
 }
 
-void VulkanRenderer::UpdateLightBuffer(float delta)
+void VulkanRenderer::UpdateLights(float delta)
 {
 	PROFILE_SCOPED();
 	static float lightTimer = 0.0f;
 	lightTimer += delta * 0.25f;
 	
-	lightUBO.lights[0].position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
-	lightUBO.lights[0].position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
+    m_HardcodedOmniLights[0].position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+    m_HardcodedOmniLights[0].color = glm::vec3(1.5f);
+    m_HardcodedOmniLights[0].radius = 15.0f;
+    // Red
+    m_HardcodedOmniLights[1].position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
+    m_HardcodedOmniLights[1].color = glm::vec3(1.0f, 0.0f, 0.0f);
+    m_HardcodedOmniLights[1].radius = 15.0f;
+    // Blue
+    m_HardcodedOmniLights[2].position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
+    m_HardcodedOmniLights[2].color = glm::vec3(0.0f, 0.0f, 2.5f);
+    m_HardcodedOmniLights[2].radius = 5.0f;
+    // Yellow
+    m_HardcodedOmniLights[3].position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
+    m_HardcodedOmniLights[3].color = glm::vec3(1.0f, 1.0f, 0.0f);
+    m_HardcodedOmniLights[3].radius = 2.0f;
+    // Green
+    m_HardcodedOmniLights[4].position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
+    m_HardcodedOmniLights[4].color = glm::vec3(0.0f, 1.0f, 0.2f);
+    m_HardcodedOmniLights[4].radius = 5.0f;
+    // Yellow
+    m_HardcodedOmniLights[5].position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
+    m_HardcodedOmniLights[5].color = glm::vec3(1.0f, 0.7f, 0.3f);
+    m_HardcodedOmniLights[5].radius = 25.0f;
+
+	m_HardcodedOmniLights[0].position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
+	m_HardcodedOmniLights[0].position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
+
+	m_HardcodedOmniLights[1].position.x = -4.0f + sin(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
+	m_HardcodedOmniLights[1].position.z =  0.0f + cos(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
 	
-	lightUBO.lights[1].position.x = -4.0f + sin(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
-	lightUBO.lights[1].position.z =  0.0f + cos(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
+	m_HardcodedOmniLights[2].position.x = 4.0f + sin(glm::radians(360.0f * lightTimer)) * 2.0f;
+	m_HardcodedOmniLights[2].position.z = 0.0f + cos(glm::radians(360.0f * lightTimer)) * 2.0f;
 	
-	lightUBO.lights[2].position.x = 4.0f + sin(glm::radians(360.0f * lightTimer)) * 2.0f;
-	lightUBO.lights[2].position.z = 0.0f + cos(glm::radians(360.0f * lightTimer)) * 2.0f;
+	m_HardcodedOmniLights[4].position.x = 0.0f + sin(glm::radians(360.0f * lightTimer + 90.0f)) * 5.0f;
+	m_HardcodedOmniLights[4].position.z = 0.0f - cos(glm::radians(360.0f * lightTimer + 45.0f)) * 5.0f;
 	
-	lightUBO.lights[4].position.x = 0.0f + sin(glm::radians(360.0f * lightTimer + 90.0f)) * 5.0f;
-	lightUBO.lights[4].position.z = 0.0f - cos(glm::radians(360.0f * lightTimer + 45.0f)) * 5.0f;
-	
-	lightUBO.lights[5].position.x = 0.0f + sin(glm::radians(-360.0f * lightTimer + 135.0f)) * 10.0f;
-	lightUBO.lights[5].position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
+	m_HardcodedOmniLights[5].position.x = 0.0f + sin(glm::radians(-360.0f * lightTimer + 135.0f)) * 10.0f;
+	m_HardcodedOmniLights[5].position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
 }
 
 void VulkanRenderer::UploadLights()
@@ -856,6 +856,14 @@ void VulkanRenderer::UploadLights()
     // Current view position
 	lightUBO.viewPos = glm::vec4(camera.position, 0.0f);
 
+	// Gather lights to be uploaded.
+	// TODO: Frustum culling for light bounding volume...
+	for (int i = 0; i < 6; ++i)
+	{
+		lightUBO.lights[i] = m_HardcodedOmniLights[i];
+	}
+
+	// Only lights that are inside/intersecting the camera frustum should be uploaded.
 	memcpy(lightsBuffer.mapped, &lightUBO, sizeof(LightUBO));
 }
 
