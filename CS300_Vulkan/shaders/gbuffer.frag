@@ -44,8 +44,8 @@ float RandomUnsignedNormalizedFloat(uint x)
 void PackPBRMaterialOutputs(in float roughness, in float metallic) // TODO: Add other params as needed
 {
 	// Precision of 0.03921568627451 for UNORM format, typically should be enough. Try not to change the format.
-	const float todo_something = 1.0f;
-	outMaterial = vec4(roughness, metallic, todo_something, todo_something);
+	const float todo_something = 0.0f;
+	outMaterial = vec4(roughness, metallic, todo_something, 1.0f);
 }
 
 void main()
@@ -56,7 +56,7 @@ void main()
 
 	if(textureIndex > uint(0))
 	{
-		outAlbedo.rgb = texture(textureDesArr[textureIndex], inUV.xy).rgb;	
+		outAlbedo.rgb = texture(textureDesArr[textureIndex], inUV.xy).rgb;
 	}
 
 	outNormal = vec4(inLightData.btn[2], 1.0f);
@@ -65,9 +65,14 @@ void main()
 	// TODO: Fix this hardcoded value properly...
 	{
 		const uint seed = inInstanceData.x; // Generate random PBR params based on object ID or something.
-		const float roughness = RandomUnsignedNormalizedFloat(seed);
-		const float metallic  = RandomUnsignedNormalizedFloat(seed + 0xDEADDEAD);
+		//const float roughness = RandomUnsignedNormalizedFloat(seed);
+		//const float metallic  = RandomUnsignedNormalizedFloat(seed + 0xDEADDEAD);
+
+		const float roughness = texture(textureDesArr[inInstanceData.w >> 16], inUV.xy).r;
+		const float metallic = texture(textureDesArr[inInstanceData.w & 0xFFFF], inUV.xy).r;
+
 		PackPBRMaterialOutputs(roughness, metallic);
 	}
 
+	outAlbedo.rgb = texture(textureDesArr[inInstanceData.z >> 16], inUV.xy).rgb;
 }

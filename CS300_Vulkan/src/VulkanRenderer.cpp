@@ -1558,7 +1558,25 @@ void VulkanRenderer::UploadInstanceData()
 		size_t sz = instanceData.size();
 		for (size_t x = 0; x < models[entities[i].modelID].meshCount; x++)
 		{
-			id.instanceAttributes = uvec4(sz+x, 1, 0, 0);
+			// This is per entity. Should be per material.
+			uint32_t albedo = entities[i].bindlessGlobalTextureIndex_Albedo;
+			uint32_t normal = entities[i].bindlessGlobalTextureIndex_Normal;
+			uint32_t roughness = entities[i].bindlessGlobalTextureIndex_Roughness;
+			uint32_t metallic = entities[i].bindlessGlobalTextureIndex_Metallic;
+			constexpr uint32_t invalidIndex = 0xFFFFFFFF;
+			if (albedo == invalidIndex)
+				albedo = 0;
+			if (normal == invalidIndex)
+				normal = 1;
+            if (roughness == invalidIndex)
+				roughness = 0;
+            if (metallic == invalidIndex)
+				metallic = 1;
+
+			uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF) ;
+			uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
+
+			id.instanceAttributes = uvec4(sz+x, i, albedo_normal, roughness_metallic);
 			instanceData.emplace_back(id);
 		}
 	}
@@ -1801,7 +1819,7 @@ Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
 		else
 		{
 			// otherwise create texture and set value to index of new texture
-			matToTex[i] =  CreateTexture(textureNames[i]);
+			matToTex[i] = CreateTexture(textureNames[i]);
 		}
 	}
 
@@ -2023,7 +2041,7 @@ uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned
 	//textureImageViews.push_back(imageView);
 
 	//create texture descriptor
-	 int descriptorLoc = CreateTextureDescriptor(newTextures[ind]);
+	int descriptorLoc = UpdateBindlessGlobalTexture(newTextures[ind]);
 
 	//return location of set with texture
 	return descriptorLoc;
@@ -2040,7 +2058,7 @@ uint32_t VulkanRenderer::CreateTexture(const std::string& file)
 	//textureImageViews.push_back(imageView);
 
 	//create texture descriptor
-	int descriptorLoc = CreateTextureDescriptor(newTextures[textureImageLoc]);
+	int descriptorLoc = UpdateBindlessGlobalTexture(newTextures[textureImageLoc]);
 
 	//return location of set with texture
 	return descriptorLoc;
@@ -2310,16 +2328,25 @@ VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(VulkanDevice& device,
 	assert(shaderStageCreateInfo.module != VK_NULL_HANDLE);
 	return shaderStageCreateInfo;
 }
+/*
+struct BindlessTextureDebugInfo
+{
+	uint32_t index{ 0xFFFFFFFF };
 
-uint32_t VulkanRenderer::CreateTextureDescriptor(vk::Texture2D texture)
+};
+
+static std::vector<BindlessTextureDebugInfo> gs_BindlessTextureDebugInfo;
+*/
+uint32_t VulkanRenderer::UpdateBindlessGlobalTexture(vk::Texture2D texture)
 {
 	std::vector<VkWriteDescriptorSet> writeSets
 	{
 		oGFX::vk::inits::writeDescriptorSet(globalSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &texture.descriptor),
 	};
 
-	auto index = static_cast<uint32_t>(samplerDescriptorSets.size());
-	samplerDescriptorSets.push_back(globalSamplers);
+	//auto index = static_cast<uint32_t>(samplerDescriptorSets.size());
+	//samplerDescriptorSets.push_back(globalSamplers); // Wtf???
+	uint32_t index = bindlessGlobalTexturesNextIndex++;
 	writeSets[0].dstArrayElement = index;
 
 	vkUpdateDescriptorSets(m_device.logicalDevice, static_cast<uint32_t>(writeSets.size()), writeSets.data(), 0, nullptr);

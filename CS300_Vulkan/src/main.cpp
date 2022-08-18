@@ -303,9 +303,7 @@ int main(int argc, char argv[])
         return 0;
     }
 
-    uint32_t colour = 0xFFFFFFFF; // ABGR
-    renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&colour));
-    renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&colour));
+    
 
     std::vector<oGFX::Vertex>triVerts{
             oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
@@ -473,6 +471,35 @@ int main(int argc, char argv[])
     //
     //glm::mat4 id(1.0f);
 
+    uint32_t whiteTexture = 0xFFFFFFFF; // ABGR
+    uint32_t blackTexture = 0xFF000000; // ABGR
+    uint32_t normalTexture = 0xFFFF8080; // ABGR
+    uint32_t pinkTexture = 0xFFA040A0; // ABGR
+    renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&whiteTexture));
+    renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
+    renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
+    renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
+
+    uint32_t diffuseTexture0 = renderer.CreateTexture("Textures/7/d.png");
+    uint32_t diffuseTexture1 = renderer.CreateTexture("Textures/8/d.png");
+    uint32_t diffuseTexture2 = renderer.CreateTexture("Textures/13/d.png");
+    uint32_t diffuseTexture3 = renderer.CreateTexture("Textures/23/d.png");
+
+    uint32_t roughnessTexture0 = renderer.CreateTexture("Textures/7/r.png");
+    uint32_t roughnessTexture1 = renderer.CreateTexture("Textures/8/r.png");
+    uint32_t roughnessTexture2 = renderer.CreateTexture("Textures/13/r.png");
+    uint32_t roughnessTexture3 = renderer.CreateTexture("Textures/23/r.png");
+
+    std::array<uint32_t, 4> diffuseBindlessTextureIndexes =
+    {
+        diffuseTexture0, diffuseTexture1, diffuseTexture2, diffuseTexture3
+    };
+
+    std::array<uint32_t, 4> roughnessBindlessTextureIndexes =
+    {
+        roughnessTexture0, roughnessTexture1, roughnessTexture2, roughnessTexture3
+    };
+
     // Temporary solution to assign random numbers... Shamelessly stolen from Intel.
     auto FastRandomMagic = []() -> uint32_t
     {
@@ -489,7 +516,7 @@ int main(int argc, char argv[])
         ed.entityID = FastRandomMagic();
         ed.modelID = plane->gfxIndex;
         ed.position = { 0.0f,0.0f,0.0f };
-        ed.scale = { 30.0f,1.0f,30.0f };
+        ed.scale = { 15.0f,1.0f,15.0f };
         renderer.entities.push_back(ed);
     }
 
@@ -518,7 +545,7 @@ int main(int argc, char argv[])
     {
         for (int i = 0; i < 8; ++i)
         {
-            constexpr float offset = 31.0f;
+            constexpr float offset = 16.0f;
             static std::array<glm::vec3, 8> positions =
             {
                 glm::vec3{  offset, 0.0f,   0.0f },
@@ -536,7 +563,9 @@ int main(int argc, char argv[])
             ed.entityID = FastRandomMagic();
             ed.modelID = plane->gfxIndex;
             ed.position = positions[i];
-            ed.scale = { 30.0f,1.0f,30.0f };
+            ed.scale = { 15.0f,1.0f,15.0f };
+            ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[i / 2];
+            ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[i / 2];
             renderer.entities.push_back(ed);
         }
     }
@@ -669,22 +698,7 @@ int main(int argc, char argv[])
         renderer.AddDebugSphere(sphere, oGFX::Colors::c[depth],renderer.g_btmUp_Sphere);
     }
 
-    //uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");
-    //uint32_t obj = renderer.CreateMeshModel(verts, indices);
-    //renderer.CreateTexture("Textures/TD_Checker_Base_Color.png");
-    //renderer.CreateTexture("TD_Checker_Mixed_AO.png");
-    //renderer.CreateTexture("TD_Checker_Normal_OpenGL.png");
-    //renderer.CreateTexture("TD_Checker_Roughness.png");
 
-    renderer.CreateTexture("Textures/7/d.png");
-    renderer.CreateTexture("Textures/8/d.png");
-    renderer.CreateTexture("Textures/13/d.png");
-    renderer.CreateTexture("Textures/23/d.png");
-
-    auto alb = renderer.CreateTexture("Textures/TD_Checker_Base_Color.dds");
-    auto norm = renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
-    auto occlu = renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
-    auto rough = renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
 
     //create a hundred random textures because why not
     std::default_random_engine rndEngine(123456);
@@ -1025,8 +1039,8 @@ int main(int argc, char argv[])
                                 {
                                     auto WorldToScreen = [&](const glm::vec3& worldPosition) -> ImVec2
                                     {
-                                        const int screenWidth = windowSize.x;
-                                        const int screenHeight = windowSize.y;
+                                        const int screenWidth = (int)windowSize.x;
+                                        const int screenHeight = (int)windowSize.y;
                                         const glm::mat4& viewMatrix = renderer.camera.matrices.view;
                                         const glm::mat4& projectionMatrix = renderer.camera.matrices.perspective;
                                         // World Space to NDC Space

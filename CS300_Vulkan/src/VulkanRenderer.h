@@ -69,7 +69,6 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	//void CreateDepthBufferImage();
 	void CreateFramebuffers(); 
 	void CreateCommandBuffers();
-	void CreateTextureSampler();
 
 	ImTextureID myImg;
 	VulkanFramebufferAttachment offscreenFB;
@@ -260,7 +259,8 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	VkDescriptorPool descriptorPool{};
 	VkDescriptorPool samplerDescriptorPool{};
 	inline static std::vector<VkDescriptorSet> uniformDescriptorSets;
-	std::vector<VkDescriptorSet> samplerDescriptorSets;
+	//std::vector<VkDescriptorSet> samplerDescriptorSets;
+	uint32_t bindlessGlobalTexturesNextIndex = 0;
 
 	// SSBO
 	std::vector<GPUTransform> gpuTransform;
@@ -273,7 +273,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	inline static VkDescriptorSet g0_descriptors;
 	inline static VkDescriptorSetLayout g0_descriptorsLayout;
 
-	inline static VkDescriptorSet globalSamplers; // big discriptor set of textures
+	inline static VkDescriptorSet globalSamplers; // big descriptor set of textures
 
 	std::vector<VkBuffer> vpUniformBuffer;
 	std::vector<VkDeviceMemory> vpUniformBufferMemory;
@@ -327,6 +327,14 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 
 		uint32_t modelID{}; // Index for the mesh
 		uint32_t entityID{}; // Unique ID for this entity instance
+		
+		// Very ghetto... To move out to proper material system...
+		// Actually 16 bits is enough...
+		uint32_t bindlessGlobalTextureIndex_Albedo{ 0xFFFFFFFF };
+		uint32_t bindlessGlobalTextureIndex_Normal{ 0xFFFFFFFF };
+		uint32_t bindlessGlobalTextureIndex_Roughness{ 0xFFFFFFFF };
+		uint32_t bindlessGlobalTextureIndex_Metallic{ 0xFFFFFFFF };
+
 		Sphere sphere;
 		AABB aabb;
 
@@ -354,7 +362,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	private:
 		uint32_t CreateTextureImage(const std::string& fileName);
 		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);
-		uint32_t CreateTextureDescriptor(vk::Texture2D texture);		
+		uint32_t UpdateBindlessGlobalTexture(vk::Texture2D texture);		
 
 };
 
