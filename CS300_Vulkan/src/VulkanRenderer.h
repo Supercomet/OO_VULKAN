@@ -91,7 +91,6 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	inline static VkDescriptorSetLayout descriptorSetLayout_Deferred;
 
 	void ResizeDeferredFB();
-	void DeferredPass();
 
 	std::array<OmniLightInstance, 6> m_HardcodedOmniLights;
 
@@ -106,7 +105,6 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 
 	inline static vk::Buffer lightsBuffer;
 	void CreateLightingBuffers(); 
-	void DeferredLightingComposition();
 	void UpdateLights(float delta);
 	void UploadLights();
 
@@ -142,9 +140,9 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 
 	bool PrepareFrame();
 	void Draw();
+	void RenderFrame();
 	void Present();
 
-	void PrePass();
 	void SimplePass();
 
 	void RecordCommands(uint32_t currentImage);
@@ -163,9 +161,6 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	void UpdateDebugBuffers();
 
 	void UpdateTreeBuffers();
-
-	
-	void DebugPass();
 
 	struct VertexBufferObject
 	{

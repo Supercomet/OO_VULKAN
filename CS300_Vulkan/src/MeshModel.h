@@ -14,74 +14,76 @@
 class MeshContainer
 {
 public:
-	MeshContainer();
-	MeshContainer(std::vector<Mesh> newMeshList);
+    MeshContainer();
+    MeshContainer(std::vector<Mesh> newMeshList);
 
-	size_t getMeshCount();
-	Mesh *getMesh(size_t index);
+    size_t getMeshCount();
+    Mesh *getMesh(size_t index);
 
-	const glm::mat4& getModel();
-	void setModel(glm::mat4 newModel);
+    const glm::mat4& getModel();
+    void setModel(glm::mat4 newModel);
 
-	void destroyMeshModel();
+    void destroyMeshModel();
 
-	static std::vector<std::string> LoadMaterials(const aiScene *scene);
-	static std::vector<Mesh> LoadNode(VkPhysicalDevice newPhysicalDevice, VkDevice newDevice, VkQueue transferQueue, VkCommandPool commandPool,
-		aiNode *node, const aiScene *scene, std::vector<int> matToTex);
-	static Mesh LoadMesh(VkPhysicalDevice newPhysicalDevice, VkDevice newDevice, VkQueue transferQueue, VkCommandPool commandPool,
-		aiMesh *mesh, const aiScene *scene, std::vector<int> matToTex);
-
-	~MeshContainer();
+    static std::vector<std::string> LoadMaterials(const aiScene *scene);
+    static std::vector<Mesh> LoadNode(VkPhysicalDevice newPhysicalDevice, VkDevice newDevice, VkQueue transferQueue, VkCommandPool commandPool,
+        aiNode *node, const aiScene *scene, std::vector<int> matToTex);
+    static Mesh LoadMesh(VkPhysicalDevice newPhysicalDevice, VkDevice newDevice, VkQueue transferQueue, VkCommandPool commandPool,
+        aiMesh *mesh, const aiScene *scene, std::vector<int> matToTex);
 
 private:
-	std::vector<Mesh> meshList;
-	glm::mat4 model{ 1.0f };
+    std::vector<Mesh> meshList;
+    glm::mat4 model{ 1.0f };
 };
 
 struct Model
 {
-	uint32_t gfxIndex;
-	std::string fileName;
-	std::vector<oGFX::Vertex> vertices;
-	std::vector<uint32_t> indices;
-	Sphere s;
-	AABB aabb;
+    uint32_t gfxIndex;
+    std::string fileName;
+    std::vector<oGFX::Vertex> vertices;
+    std::vector<uint32_t> indices;
+    Sphere s;
+    AABB aabb;
 };
 
 struct gfxModel
 {
-	struct Vertices {
-		int count{};
-		uint32_t offset{};
-		VkBuffer buffer{};
-		VkDeviceMemory memory{};
-	} vertices{};
-	struct Indices {
-		int count{};
-		uint32_t offset{};
-		VkBuffer buffer{};
-		VkDeviceMemory memory{};
-	} indices{};
+    struct Vertices
+    {
+        uint32_t count{};
+        uint32_t offset{};
+        VkBuffer buffer{};
+        VkDeviceMemory memory{};
+    } vertices{};
 
-	struct Textures
-	{
-		uint32_t albedo;
-		uint32_t normal;
-		uint32_t occlusion;
-		uint32_t roughness;
-	}textures;
+    struct Indices
+    {
+        uint32_t count{};
+        uint32_t offset{};
+        VkBuffer buffer{};
+        VkDeviceMemory memory{};
+    } indices{};
 
-	Model* cpuModel;
+    struct Textures
+    {
+        uint32_t albedo;
+        uint32_t normal;
+        uint32_t occlusion;
+        uint32_t roughness;
+    }textures;
 
-	void destroy(VkDevice device);
+    Model* cpuModel;
 
-	void loadNode(Node* parent,const aiScene* scene, const aiNode& node, uint32_t nodeIndex
-		,std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);
+    void destroy(VkDevice device);
 
-	std::vector<Node*> nodes;
-	uint32_t meshCount;
+    void loadNode(Node* parent, const aiScene* scene, const aiNode& node, uint32_t nodeIndex,
+                  std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);
+
+    std::vector<Node*> nodes;
+    uint32_t meshCount;
+
 private:
-	oGFX::Mesh* processMesh(aiMesh* mesh, const aiScene* scene, std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);
+    oGFX::Mesh* processMesh(aiMesh* mesh, const aiScene* scene, std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);
 
 };
 

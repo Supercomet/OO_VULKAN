@@ -194,15 +194,8 @@ Mesh MeshContainer::LoadMesh(VkPhysicalDevice newPhysicalDevice, VkDevice newDev
 	return newMesh;
 }
 
-
-MeshContainer::~MeshContainer()
-{
-}
-
-
 void gfxModel::destroy(VkDevice device)
 {
-
 	vkDestroyBuffer(device, vertices.buffer, nullptr);
 	vkFreeMemory(device, vertices.memory, nullptr);
 	vkDestroyBuffer(device, indices.buffer, nullptr);
@@ -248,6 +241,11 @@ void gfxModel::loadNode(Node* parent,const aiScene* scene, const aiNode& node, u
 	}
 }
 
+inline glm::vec3 aiVector3D_to_glm(const aiVector3D& v)
+{
+	return glm::vec3{ v.x, v.y, v.z };
+}
+
 oGFX::Mesh* gfxModel::processMesh(aiMesh* aimesh, const aiScene* scene, std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices)
 {
 	oGFX::Mesh* mesh = new oGFX::Mesh;
@@ -260,43 +258,31 @@ oGFX::Mesh* gfxModel::processMesh(aiMesh* aimesh, const aiScene* scene, std::vec
 	{
 		oGFX::Vertex vertex;
 		const auto& aiVert = aimesh->mVertices[i];
-		vertex.pos = glm::vec3{ aimesh->mVertices[i].x,
-								aimesh->mVertices[i].y,
-								aimesh->mVertices[i].z };
-		if (aimesh->mTextureCoords[0]) // does the mesh contain texture coordinates?
+		vertex.pos = aiVector3D_to_glm(aimesh->mVertices[i]);
+		if (aimesh->HasTextureCoords(0)) // does the mesh contain texture coordinates?
 		{
-			vertex.tex = { aimesh->mTextureCoords[0][i].x,
-							aimesh->mTextureCoords[0][i].y };
+			vertex.tex = glm::vec2{ aimesh->mTextureCoords[0][i].x, aimesh->mTextureCoords[0][i].y };
 		}
-		//if (aimesh->mColors[0])
-		//{
-		//	vertex.col = {aimesh->mColors[0][i].r,
-		//		aimesh->mColors[0][i].g,
-		//		aimesh->mColors[0][i].b,
-		//		//aimesh->mColors[i]->a,
-		//	};
-		//}
-		if (aimesh->mNormals)
+        if (aimesh->HasNormals())
+        {
+            vertex.norm = aiVector3D_to_glm(aimesh->mNormals[i]);
+        }
+        if (aimesh->HasTangentsAndBitangents())
+        {
+            vertex.tangent = aiVector3D_to_glm(aimesh->mTangents[i]);
+        }
+		if (aimesh->HasVertexColors(0))
 		{
-			vertex.norm = glm::vec3{ aimesh->mNormals[i].x,
-				aimesh->mNormals[i].y,
-				aimesh->mNormals[i].z };
+			const auto& color = aimesh->mColors[0][i];
+			vertex.col = glm::vec4{ color.r, color.g, color.b, color.a };
 		}
-		if (aimesh->mTangents)
-		{
-			vertex.tangent =glm::vec3{ aimesh->mTangents[i].x,
-				aimesh->mTangents[i].y,
-				aimesh->mTangents[i].z };
-		}
-		
 
-		//TODO : Normals
-
-		vertices.push_back(vertex);
+		vertices.emplace_back(vertex);
 	}
 
-	uint32_t indicesCnt{  };
+	uint32_t indicesCnt{ 0 };
 	indices.reserve(indices.size() + aimesh->mNumFaces * aimesh->mFaces[0].mNumIndices);
+
 	for(uint32_t i = 0; i < aimesh->mNumFaces; i++)
 	{
 		const aiFace& face = aimesh->mFaces[i];

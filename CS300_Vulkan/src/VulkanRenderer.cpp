@@ -776,13 +776,6 @@ void VulkanRenderer::ResizeDeferredFB()
 
 }
 
-void VulkanRenderer::DeferredPass()
-{
-	RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
-	RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
-	//GBufferRenderPass::Get()->Draw();
-}
-
 void VulkanRenderer::CreateLightingBuffers()
 {
 	oGFX::CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, sizeof(LightUBO), 
@@ -795,14 +788,6 @@ void VulkanRenderer::CreateLightingBuffers()
 	lightsBuffer.descriptor.range = sizeof(LightUBO);
 
 	VK_CHK(lightsBuffer.map());
-
-	UpdateLights(0.0f);
-}
-
-void VulkanRenderer::DeferredLightingComposition()
-{
-	RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
-	//DeferredCompositionRenderpass::Get()->Draw();
 }
 
 void VulkanRenderer::UpdateLights(float delta)
@@ -1659,6 +1644,27 @@ void VulkanRenderer::Draw()
 	}
 }
 
+void VulkanRenderer::RenderFrame()
+{
+	this->Draw(); // TODO: Clean this up...
+
+    {
+		// Command list has already started inside VulkanRenderer::Draw
+        PROFILE_GPU_CONTEXT(commandBuffers[swapchainIdx]);
+        PROFILE_GPU_EVENT("CommandList");
+
+        //this->SimplePass(); // Unsued
+
+		// Manually schedule the order of the render pass execution. (single threaded)
+		{
+            RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
+            RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
+			RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
+			RenderPassDatabase::GetRenderPass<DebugRenderpass>()->Draw();
+		}
+    }
+}
+
 void VulkanRenderer::Present()
 {
 	//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[swapchainImageIndex]);
@@ -1825,8 +1831,9 @@ Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	//std::vector<oGFX::Vertex> verticeBuffer;
 	//std::vector<uint32_t> indexBuffer;
 	model.meshCount= 0 ;
-	model.loadNode(nullptr, scene, *scene->mRootNode,0,m->vertices, m->indices);
-	for (auto& node:model.nodes)
+	model.loadNode(nullptr, scene, *scene->mRootNode, 0, m->vertices, m->indices);
+
+	for (auto& node : model.nodes)
 	{
 		for (auto& mesh : node->meshes)
 		{
@@ -1843,7 +1850,6 @@ Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
 				mesh->vertexOffset += static_cast<uint32_t>(g_MeshBuffers.VtxOffset);
 			}
 		}
-
 	}
 	
 	LoadMeshFromBuffers(m->vertices, m->indices, &model);
@@ -2046,7 +2052,6 @@ uint32_t VulkanRenderer::CreateTexture(const std::string& file)
 
 	//return location of set with texture
 	return descriptorLoc;
-
 }
 
 void VulkanRenderer::InitDebugBuffers()
@@ -2086,110 +2091,6 @@ void VulkanRenderer::UpdateTreeBuffers()
 		}
 	}
 
-}
-
-void VulkanRenderer::DebugPass()
-{
-	RenderPassDatabase::GetRenderPass<DebugRenderpass>()->Draw();
-	//DebugRenderpass::Get()->Draw();
-}
-
-
-void VulkanRenderer::PrePass()
-{
-	PROFILE_SCOPED();
-	std::array<VkClearValue, 2> clearValues{};
-	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
-	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
-	clearValues[1].depthStencil.depth = {1.0f };
-
-	//Information about how to begin a render pass (only needed for graphical applications)
-	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
-	renderPassBeginInfo.renderPass = offscreenPass;									//render pass to begin
-	renderPassBeginInfo.renderArea.offset = { 0,0 };								//start point of render pass in pixels
-	renderPassBeginInfo.renderArea.extent = m_swapchain.swapChainExtent;			//size of region to run render pass on (Starting from offset)
-	renderPassBeginInfo.pClearValues = clearValues.data();							//list of clear values
-	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-
-	renderPassBeginInfo.framebuffer = offscreenFramebuffer;
-
-    const VkCommandBuffer cmdlist = commandBuffers[swapchainIdx];
-
-	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    PROFILE_GPU_CONTEXT(cmdlist);
-    PROFILE_GPU_EVENT("PrePass");
-
-	SetDefaultViewportAndScissor(cmdlist);
-
-	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-	std::array<VkDescriptorSet, 3> descriptorSetGroup =
-	{
-		g0_descriptors,
-		uniformDescriptorSets[swapchainIdx],
-		globalSamplers
-	};
-
-	//using the second camera
-	std::array<uint32_t, 1> dynamicOffsets{ 0 };
-	dynamicOffsets[0] = static_cast<uint32_t>(uboDynamicAlignment);	
-
-	{
-		PROFILE_SCOPED("Camera");
-		Camera cam;
-		auto ar = (float)windowPtr->m_width / windowPtr->m_height;
-		cam.SetOrtho(10.0f,ar,0.1f,1000.0f);
-		cam.LookFromAngle(5.0f, { 0.0f,0.0f,0.0f }, glm::radians(-90.0f), glm::radians(90.0f));
-
-		uboViewProjection.projection = cam.matrices.perspective;
-		uboViewProjection.view = cam.matrices.view;
-		uboViewProjection.viewProjection = uboViewProjection.projection * uboViewProjection.view;
-		uboViewProjection.cameraPosition = glm::vec4(cam.position, 1.0);
-        uboViewProjection.renderTimer.x += 1 / 60.0f; // Fake total time... (TODO: Fix me)
-        uboViewProjection.renderTimer.y = glm::sin(uboViewProjection.renderTimer.x * 0.5f * glm::pi<float>());
-        uboViewProjection.renderTimer.z = glm::cos(uboViewProjection.renderTimer.x * 0.5f * glm::pi<float>());
-        uboViewProjection.renderTimer.w = 0.0f; // unused
-
-		void *data;
-		vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx], uboDynamicAlignment, uboDynamicAlignment, 0, &data);
-		memcpy(data, &uboViewProjection, sizeof(UboViewProjection));
-
-		VkMappedMemoryRange memRng{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
-		memRng.memory = vpUniformBufferMemory[swapchainIdx];
-		memRng.offset = uboDynamicAlignment;
-		memRng.size = uboDynamicAlignment;
-		VK_CHK(vkFlushMappedMemoryRanges(m_device.logicalDevice, 1, &memRng));
-
-		vkUnmapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx]);
-	}
-	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, indirectPipeLayout,
-		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), static_cast<uint32_t>(dynamicOffsets.size()) , dynamicOffsets.data() );
-
-	{
-		PROFILE_SCOPED("for (auto& entity : entities)");
-		for (auto& entity : entities)
-		{
-			auto& model = models[entity.modelID];
-
-			glm::mat4 xform(1.0f);
-			xform = glm::translate(xform, entity.position);
-			xform = glm::rotate(xform, glm::radians(entity.rot), entity.rotVec);
-			xform = glm::scale(xform, entity.scale);
-
-			vkCmdPushConstants(cmdlist,
-				indirectPipeLayout,
-				VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
-				0,							// offset of push constants to update
-				sizeof(glm::mat4),			// size of data being pushed
-				glm::value_ptr(xform));		// actualy data being pushed (could be an array));
-
-
-			VkDeviceSize offsets[] = { 0 };
-			vkCmdBindIndexBuffer(cmdlist, g_MeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-			vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
-			vkCmdDrawIndexed(cmdlist, model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
-		}
-	}
-	vkCmdEndRenderPass(cmdlist);
 }
 
 void VulkanRenderer::SimplePass()
@@ -2253,8 +2154,6 @@ void VulkanRenderer::SimplePass()
 
 void VulkanRenderer::RecordCommands(uint32_t currentImage)
 {
-	
-
 	std::array<VkClearValue, 2> clearValues{};
 	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
 	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
@@ -2422,8 +2321,8 @@ VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(VulkanDevice& device,
 
 uint32_t VulkanRenderer::CreateTextureDescriptor(vk::Texture2D texture)
 {
-	
-	std::vector<VkWriteDescriptorSet> writeSets{
+	std::vector<VkWriteDescriptorSet> writeSets
+	{
 		oGFX::vk::inits::writeDescriptorSet(globalSamplers, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &texture.descriptor),
 	};
 
@@ -2434,7 +2333,6 @@ uint32_t VulkanRenderer::CreateTextureDescriptor(vk::Texture2D texture)
 	vkUpdateDescriptorSets(m_device.logicalDevice, static_cast<uint32_t>(writeSets.size()), writeSets.data(), 0, nullptr);
 
 	return index;
-
 }
 
 int Win32SurfaceCreator(ImGuiViewport* vp, ImU64 device, const void* allocator, ImU64* outSurface)

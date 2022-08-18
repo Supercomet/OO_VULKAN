@@ -483,23 +483,67 @@ int main(int argc, char argv[])
 
     int iter = 0;
     
-    VulkanRenderer::EntityDetails ed;
-    ed.name = "Plane";
-    ed.entityID = FastRandomMagic();
-    ed.modelID = plane->gfxIndex;
-    ed.position = { 0.0f,-2.0f,0.0f };
-    ed.scale = { 30.0f,1.0f,30.0f };
-    renderer.entities.push_back(ed);
+    {
+        VulkanRenderer::EntityDetails ed;
+        ed.name = "Plane";
+        ed.entityID = FastRandomMagic();
+        ed.modelID = plane->gfxIndex;
+        ed.position = { 0.0f,0.0f,0.0f };
+        ed.scale = { 30.0f,1.0f,30.0f };
+        renderer.entities.push_back(ed);
+    }
 
-    ed.name = "Sphere";
-    ed.entityID = FastRandomMagic();
-    ed.modelID = icoSphere->gfxIndex;
-    ed.position = { -2.0f,0.0f,-2.0f };
-    ed.scale = { 1.0f,1.0f,1.0f };
-    renderer.entities.push_back(ed);
+    {
+        VulkanRenderer::EntityDetails ed;
+        ed.name = "IcoSphere";
+        ed.entityID = FastRandomMagic();
+        ed.modelID = icoSphere->gfxIndex;
+        ed.position = { -2.0f,2.0f,-2.0f };
+        ed.scale = { 1.0f,1.0f,1.0f };
+        renderer.entities.push_back(ed);
+    }
+   
+    {
+        VulkanRenderer::EntityDetails ed;
+        ed.modelID = box->gfxIndex;
+        ed.name = "Box";
+        ed.entityID = FastRandomMagic();
+        ed.position = { 2.0f,3.0f,2.0f };
+        ed.scale = { 2.0f,3.0f,1.0f };
+        ed.rot = { 45.0f };
+        renderer.entities.push_back(ed);
+    }
+
+    // Create 8 more surrounding planes
+    {
+        for (int i = 0; i < 8; ++i)
+        {
+            constexpr float offset = 31.0f;
+            static std::array<glm::vec3, 8> positions =
+            {
+                glm::vec3{  offset, 0.0f,   0.0f },
+                glm::vec3{ -offset, 0.0f,   0.0f },
+                glm::vec3{    0.0f, 0.0f,  offset },
+                glm::vec3{    0.0f, 0.0f, -offset },
+                glm::vec3{  offset, 0.0f,  offset },
+                glm::vec3{ -offset, 0.0f,  offset },
+                glm::vec3{  offset, 0.0f, -offset },
+                glm::vec3{ -offset, 0.0f, -offset },
+            };
+
+            VulkanRenderer::EntityDetails ed;
+            ed.name = "Plane_" + std::to_string(i);
+            ed.entityID = FastRandomMagic();
+            ed.modelID = plane->gfxIndex;
+            ed.position = positions[i];
+            ed.scale = { 30.0f,1.0f,30.0f };
+            renderer.entities.push_back(ed);
+        }
+    }
 
     if (bunny)
     {
+        VulkanRenderer::EntityDetails ed;
         ed.modelID = bunny->gfxIndex;
         ed.name = "Bunny";
         ed.entityID = FastRandomMagic();
@@ -507,41 +551,23 @@ int main(int argc, char argv[])
         ed.scale = { 5.0f,5.0f,5.0f };
         renderer.entities.push_back(ed);
     }
-    //ed.modelID = triangle;
-    //ed.entityID = FastRandomMagic();
-    //ed.pos = { 0.0f,0.0f,0.0f };  
-    //renderer.entities.push_back(ed);
-    ed.modelID = box->gfxIndex;
-    ed.name = "Box";
-    ed.entityID = FastRandomMagic();
-    ed.position = { 2.0f,1.0f,2.0f };
-    ed.scale = { 2.0f,3.0f,1.0f };
-    ed.rot = { 45.0f };
-    renderer.entities.push_back(ed);
-    
+
     if (lucy)
     {
+        VulkanRenderer::EntityDetails ed;
         ed.modelID = lucy->gfxIndex;
         ed.name = "lucy";
         ed.entityID = FastRandomMagic();
         ed.position = { -1.0f,1.0f,2.0f };
         ed.scale = { 0.002f,0.002f,0.002f };
-        ed.rotVec= { 1.0f,1.0f,0.0f };
+        ed.rotVec = { 1.0f,1.0f,0.0f };
         ed.rot = { 0.0f };
         renderer.entities.push_back(ed);
     }
 
-    //ed.modelID = cup->gfxIndex;
-    //ed.name = "cup";
-    ed.entityID = FastRandomMagic();
-    ed.position = { 3.0f,0.0f,-3.0f };
-    ed.scale = { 0.01f,0.01f,0.01f };
-    ed.rotVec= { 0.0f,1.0f,0.0f };
-    ed.rot = { 0.0f };
-    //renderer.entities.push_back(ed);
-
     if (starWars)
     {
+        VulkanRenderer::EntityDetails ed;
         ed.modelID = starWars->gfxIndex;
         ed.name = "Starwars1";
         ed.entityID = FastRandomMagic();
@@ -552,6 +578,7 @@ int main(int argc, char argv[])
 
     if (fourSphere)
     {
+        VulkanRenderer::EntityDetails ed;
         ed.modelID = fourSphere->gfxIndex;
         ed.name = "fourSphere";
         ed.entityID = FastRandomMagic();
@@ -644,32 +671,37 @@ int main(int argc, char argv[])
 
     //uint32_t Object = renderer.CreateMeshModel("Models/TextObj.obj");
     //uint32_t obj = renderer.CreateMeshModel(verts, indices);
-   //renderer.CreateTexture("Textures/TD_Checker_Base_Color.png");
-   //renderer.CreateTexture("TD_Checker_Mixed_AO.png");
-   //renderer.CreateTexture("TD_Checker_Normal_OpenGL.png");
-   //renderer.CreateTexture("TD_Checker_Roughness.png");
+    //renderer.CreateTexture("Textures/TD_Checker_Base_Color.png");
+    //renderer.CreateTexture("TD_Checker_Mixed_AO.png");
+    //renderer.CreateTexture("TD_Checker_Normal_OpenGL.png");
+    //renderer.CreateTexture("TD_Checker_Roughness.png");
 
-   auto alb = renderer.CreateTexture("Textures/TD_Checker_Base_Color.dds");
-   auto norm =renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
-   auto occlu =renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
-   auto rough =renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");   
-   
-   //create a hundred random textures because why not
-   std::default_random_engine rndEngine(123456);
-   std::uniform_int_distribution<uint32_t> uniformDist( 0xFF000000, 0xFFFFFFFF );
-   std::vector<oGFX::InstanceData> instanceData;
-   constexpr size_t numTex = 5;
-   constexpr size_t dims = 2;
-   std::vector<uint32_t> bitmap(dims*dims);
-   for (size_t i = 0; i < numTex; i++)
-   {
-       for (size_t x = 0; x < bitmap.size(); x++)
-       {
-       uint32_t colour = uniformDist(rndEngine); // ABGR
-        bitmap[x] = colour;
-       }
-       renderer.CreateTexture(dims, dims, reinterpret_cast<unsigned char*>(bitmap.data()));
-   }
+    renderer.CreateTexture("Textures/7/d.png");
+    renderer.CreateTexture("Textures/8/d.png");
+    renderer.CreateTexture("Textures/13/d.png");
+    renderer.CreateTexture("Textures/23/d.png");
+
+    auto alb = renderer.CreateTexture("Textures/TD_Checker_Base_Color.dds");
+    auto norm = renderer.CreateTexture("Textures/TD_Checker_Normal_OpenGL.dds");
+    auto occlu = renderer.CreateTexture("Textures/TD_Checker_Mixed_AO.dds");
+    auto rough = renderer.CreateTexture("Textures/TD_Checker_Roughness.dds");
+
+    //create a hundred random textures because why not
+    std::default_random_engine rndEngine(123456);
+    std::uniform_int_distribution<uint32_t> uniformDist(0xFF000000, 0xFFFFFFFF);
+    std::vector<oGFX::InstanceData> instanceData;
+    constexpr size_t numTex = 5;
+    constexpr size_t dims = 2;
+    std::vector<uint32_t> bitmap(dims* dims);
+    for (size_t i = 0; i < numTex; i++)
+    {
+        for (size_t x = 0; x < bitmap.size(); x++)
+        {
+            uint32_t colour = uniformDist(rndEngine); // ABGR
+            bitmap[x] = colour;
+        }
+        renderer.CreateTexture(dims, dims, reinterpret_cast<unsigned char*>(bitmap.data()));
+    }
 
     auto lastTime = std::chrono::high_resolution_clock::now();
 
@@ -677,7 +709,7 @@ int main(int argc, char argv[])
     renderer.camera.target = glm::vec3(0.01f, 0.0f, 0.0f);
     renderer.camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
     renderer.camera.SetRotationSpeed(0.5f);
-    renderer.camera.SetPosition(glm::vec3(0.1f, 2.0f, 10.5f));
+    renderer.camera.SetPosition(glm::vec3(0.1f, 5.0f, 10.5f));
     renderer.camera.movementSpeed = 5.0f;
     renderer.camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
     renderer.camera.Rotate(glm::vec3(1 * renderer.camera.rotationSpeed, 1 * renderer.camera.rotationSpeed, 0.0f));
@@ -793,22 +825,8 @@ int main(int argc, char argv[])
             // Upload CPU light data to GPU. Ideally this should only contain lights that intersects the camera frustum.
             renderer.UploadLights();
 
-            renderer.Draw();
-            {
-                // This cmdlist is scoped
-                PROFILE_GPU_CONTEXT(renderer.commandBuffers[renderer.swapchainIdx]);
-                PROFILE_GPU_EVENT("CommandList");
-
-                //renderer.PrePass();
-                //renderer.SimplePass();
-
-                //renderer.RecordCommands(renderer.swapchainImageIndex);
-                
-                renderer.DeferredPass();
-                renderer.DeferredLightingComposition();
-
-                renderer.DebugPass();
-            }
+            // Render the frame
+            renderer.RenderFrame();
 
             // Create a dockspace over the mainviewport so that we can dock stuff
             ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), 
