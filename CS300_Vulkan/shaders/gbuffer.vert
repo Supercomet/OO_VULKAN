@@ -12,9 +12,9 @@ layout(location = 4) in vec2 inUV;
 layout(location = 15) in uvec4 inInstanceData; // (id, material, unused, unused)
 
 #include "frame.shader"
-layout(set = 1, binding = 0) uniform UboViewProjection
+layout(set = 1, binding = 0) uniform UboFrameContext
 {
-	FrameContext uboViewProjection;
+	FrameContext uboFrameContext;
 };
 
 //layout (set = 2, binding = 0) uniform sampler2D textureDesArr[];
@@ -72,7 +72,7 @@ void main()
 	outLightData.btn = mat3(inTangent, binormal, mat3(transpose(inverseMat))*inNormal);
 
 	outPos = dInsMatrix * vec4(inPos,1.0);
-	gl_Position = uboViewProjection.viewProjection * outPos;
+	gl_Position = uboFrameContext.viewProjection * outPos;
 
 	//outTexIndex.maps.x = instanceTexIndex;
 	//outTexIndex.maps.y = instanceNormalTexIndex;

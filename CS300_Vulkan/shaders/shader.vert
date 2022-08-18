@@ -4,9 +4,9 @@ layout(location = 2) in vec3 inCol;
 layout(location = 4) in vec2 tex;
 
 #include "frame.shader"
-layout(set = 1,binding = 0) uniform UboViewProjection
+layout(set = 1,binding = 0) uniform UboFrameContext
 {
-	FrameContext uboViewProjection;
+	FrameContext uboFrameContext;
 };
 
 //
@@ -24,7 +24,7 @@ layout(location = 1) out vec2 fragTex;
 
 void main()
 {
-	gl_Position = uboViewProjection.projection * uboViewProjection.view *  vec4(pos, 1.0);
+	gl_Position = uboFrameContext.projection * uboFrameContext.view *  vec4(pos, 1.0);
 
 	outCol = inCol;
 	fragTex = tex;

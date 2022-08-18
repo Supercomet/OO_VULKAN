@@ -17,9 +17,9 @@ layout(location = 4) in vec2 inUV;
 layout(location = 15) in uvec4 inInstanceData;
 
 #include "frame.shader"
-layout(set = 1, binding = 0) uniform UboViewProjection
+layout(set = 1, binding = 0) uniform UboFrameContext
 {
-	FrameContext uboViewProjection;
+	FrameContext uboFrameContext;
 };
 
 layout(push_constant)uniform PushLight
@@ -56,7 +56,7 @@ void main()
 	mat4 instanceMatrix = mat4(1.0);
 	mat4 inverseMat = inverse(instanceMatrix);
 	
-	outLightData.localEyePos = vec3(inverseMat* vec4(vec3(uboViewProjection.cameraPosition),1.0));
+	outLightData.localEyePos = vec3(inverseMat* vec4(vec3(uboFrameContext.cameraPosition),1.0));
 	
 	outLightData.localLightPos = vec3(inverseMat * vec4(pushLight.pos, 1.0));
 
@@ -64,11 +64,11 @@ void main()
 	outLightData.btn = mat3(inTangent, binormal, inNormal);
 
 
-	//outViewVec = -vec3(uboViewProjection.view[3]);	
+	//outViewVec = -vec3(uboFrameContext.view[3]);	
 	outLightData.localVertexPos = inPos;
 
 	vec4 pos = instanceMatrix * vec4(inPos,1.0);
-	gl_Position = uboViewProjection.projection * uboViewProjection.view * pos;
+	gl_Position = uboFrameContext.projection * uboFrameContext.view * pos;
 
 	//outTexIndex.maps.x = instanceTexIndex;
 	//outTexIndex.maps.y = instanceNormalTexIndex;

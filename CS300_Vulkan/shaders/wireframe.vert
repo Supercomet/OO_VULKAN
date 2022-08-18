@@ -3,9 +3,9 @@ layout(location = 1) in vec3 col;
 layout(location = 2) in vec2 tex;
 
 #include "frame.shader"
-layout(set = 1,binding = 0) uniform UboViewProjection
+layout(set = 1,binding = 0) uniform UboFrameContext
 {
-	FrameContext uboViewProjection;
+	FrameContext uboFrameContext;
 };
 
 //

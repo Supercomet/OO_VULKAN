@@ -146,7 +146,7 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	void SimplePass();
 
 	void RecordCommands(uint32_t currentImage);
-	void UpdateUniformBuffers(uint32_t imageIndex);
+	void UpdateUniformBuffers();
 
 	// Immediate command sending helper
 	VkCommandBuffer beginSingleTimeCommands();
@@ -302,14 +302,14 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	uint64_t uboDynamicAlignment;
 	uint32_t numCameras;
 
-	struct UboViewProjection
+	struct FrameContextUBO
 	{
 		glm::mat4 projection{ 1.0f };
 		glm::mat4 view{ 1.0f };
 		glm::mat4 viewProjection{ 1.0f };
 		glm::vec4 cameraPosition{ 1.0f };
 		glm::vec4 renderTimer{ 0.0f, 0.0f, 0.0f, 0.0f };
-	} uboViewProjection;
+	} m_FrameContextUBO;
 
 	bool resizeSwapchain = false;
 

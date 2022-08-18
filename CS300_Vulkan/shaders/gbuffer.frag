@@ -10,9 +10,9 @@ layout(location = 2) in vec3 inCol;
 layout(location = 15) in flat uvec4 inInstanceData;
 
 #include "frame.shader"
-layout(set = 1, binding = 0) uniform UboViewProjection
+layout(set = 1, binding = 0) uniform UboFrameContext
 {
-	FrameContext uboViewProjection;
+	FrameContext uboFrameContext;
 };
 
 //layout(location = 1) in flat struct

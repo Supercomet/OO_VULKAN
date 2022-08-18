@@ -3,7 +3,7 @@
 
 // Rename this file as appropriate.
 
-// Ideally mirrors struct UboViewProjection from C++ side...
+// Ideally mirrors struct FrameContextUBO from C++ side...
 struct FrameContext
 {
 	mat4 projection;

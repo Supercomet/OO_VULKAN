@@ -351,7 +351,6 @@ void VulkanRenderer::CreateRenderpass()
 
 void VulkanRenderer::CreateDescriptorSetLayout()
 {
-
 	DescAlloc.Init(m_device.logicalDevice);
 	DescLayoutCache.Init(m_device.logicalDevice);
 
@@ -359,7 +358,7 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 	vkGetPhysicalDeviceProperties(m_device.physicalDevice,&props);
 	size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
 	//auto dynamicAlignment = sizeof(glm::mat4);
-	uboDynamicAlignment = sizeof(UboViewProjection);
+	uboDynamicAlignment = sizeof(FrameContextUBO);
 	if (minUboAlignment > 0) {
 		uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
 	}
@@ -367,14 +366,13 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 	numCameras = 2;
 	VkDeviceSize vpBufferSize = uboDynamicAlignment * numCameras;
 
-
 	uniformDescriptorSets.resize(m_swapchain.swapChainImages.size());
 	for (size_t i = 0; i < m_swapchain.swapChainImages.size(); i++)
 	{
 		VkDescriptorBufferInfo vpBufferInfo{};
 		vpBufferInfo.buffer = vpUniformBuffer[i];	// buffer to get data from
 		vpBufferInfo.offset = 0;					// position of start of data
-		vpBufferInfo.range = sizeof(UboViewProjection);			// size of data
+		vpBufferInfo.range = sizeof(FrameContextUBO);			// size of data
 		DescriptorBuilder::Begin(&DescLayoutCache, &DescAlloc)
 			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 			.Build(uniformDescriptorSets[i],descriptorSetLayout);
@@ -888,7 +886,7 @@ void VulkanRenderer::CreateUniformBuffers()
 	vkGetPhysicalDeviceProperties(m_device.physicalDevice,&props);
 	size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
 	//auto dynamicAlignment = sizeof(glm::mat4);
-	uboDynamicAlignment = sizeof(UboViewProjection);
+	uboDynamicAlignment = sizeof(FrameContextUBO);
 	if (minUboAlignment > 0) {
 		uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
 	}
@@ -975,16 +973,13 @@ void VulkanRenderer::CreateDescriptorPool()
 	result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, &globalSamplers);
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("FAiled to allocate texture descriptor sets!");
+		throw std::runtime_error("Failed to allocate texture descriptor sets!");
 	}
 
 }
 
 void VulkanRenderer::CreateDescriptorSets()
 {
-
-	
-
 	VkDescriptorBufferInfo info{};
 	info.buffer = gpuTransformBuffer.getBuffer();
 	info.offset = 0;
@@ -1478,13 +1473,13 @@ void VulkanRenderer::UpdateIndirectDrawCommands()
 
 	// Create on indirect command for node in the scene with a mesh attached to it
 	uint32_t m = 0;
-	for (auto& e : entities)
+	for (auto& e : entities) // TODO: CPU culling? Inactive objects?
 	{
 		auto& model = models[e.modelID];
 		for (auto& node :model.nodes)
 		{
 			IndirectCommandsHelper(node, m_DrawIndirectCommandsCPU, indirectDebugCommandsCPU,m);			
-		}		
+		}
 	}
 
 	//std::cout << "Triangles rendered : " << models[0].indices.count * OBJECT_INSTANCE_COUNT /3 << std::endl;
@@ -1527,7 +1522,6 @@ void VulkanRenderer::UploadInstanceData()
 	static uint64_t curr = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 	static std::default_random_engine rndEngine(static_cast<uint32_t>(curr));
 	static std::uniform_real_distribution<float> uniformDist(0.0f, 1.0f);
-	
 
 	constexpr float radius = 10.0f;
 	constexpr float offset = 10.0f;
@@ -1554,6 +1548,7 @@ void VulkanRenderer::UploadInstanceData()
 		}		
 	}
 	gpuTransformBuffer.writeTo(gpuTransform.size(), gpuTransform.data());
+	// TODO: Must the entire buffer be uploaded every frame?
 
 	std::vector<oGFX::InstanceData> instanceData;
 	instanceData.reserve(objectCount);
@@ -1604,24 +1599,21 @@ void VulkanRenderer::Draw()
 {
 	PROFILE_SCOPED();
 
-	//wait for given fence to signal from last draw before continueing
+	//wait for given fence to signal from last draw before continuing
 	VK_CHK(vkWaitForFences(m_device.logicalDevice, 1, &drawFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max()));
 	//mainually reset fences
 	VK_CHK(vkResetFences(m_device.logicalDevice, 1, &drawFences[currentFrame]));
 	
-	camera.updated = true;
-	if(camera.updated){}
-		UpdateUniformBuffers(swapchainIdx);
-
-	UpdateIndirectDrawCommands();
+	UpdateUniformBuffers();
 	UploadInstanceData();	
+	UpdateIndirectDrawCommands();
 
 	{
 		PROFILE_SCOPED("vkAcquireNextImageKHR");
 
-        //1. get the next available image to draw to and set somethingg to signal when we're finished with the image ( a semaphere )
+        //1. get the next available image to draw to and set something to signal when we're finished with the image ( a semaphore )
 		// -- GET NEXT IMAGE
-		//get  index of next image to be drawn to , and signal semaphere when ready to be drawn to
+		//get  index of next image to be drawn to , and signal semaphore when ready to be drawn to
         VkResult res = vkAcquireNextImageKHR(m_device.logicalDevice, m_swapchain.swapchain, std::numeric_limits<uint64_t>::max(),
             imageAvailable[currentFrame], VK_NULL_HANDLE, &swapchainIdx);
         if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR /*|| WINDOW_RESIZED*/)
@@ -2234,7 +2226,7 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 
 }
 
-void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
+void VulkanRenderer::UpdateUniformBuffers()
 {		
 	PROFILE_SCOPED();
 
@@ -2242,18 +2234,18 @@ void VulkanRenderer::UpdateUniformBuffers(uint32_t imageIndex)
 	float width = static_cast<float>(windowPtr->m_width);
 	float ar = width / height;
 
-	uboViewProjection.projection = camera.matrices.perspective;
-	uboViewProjection.view = camera.matrices.view;
-	uboViewProjection.viewProjection = uboViewProjection.projection * uboViewProjection.view;
-	uboViewProjection.cameraPosition = glm::vec4(camera.position,1.0);
-	uboViewProjection.renderTimer.x += 1 / 60.0f; // Fake total time... (TODO: Fix me)
-	uboViewProjection.renderTimer.y = glm::sin(uboViewProjection.renderTimer.x * 0.5f * glm::pi<float>());
-	uboViewProjection.renderTimer.z = glm::cos(uboViewProjection.renderTimer.x * 0.5f * glm::pi<float>());
-	uboViewProjection.renderTimer.w = 0.0f; // unused
+	m_FrameContextUBO.projection = camera.matrices.perspective;
+	m_FrameContextUBO.view = camera.matrices.view;
+	m_FrameContextUBO.viewProjection = m_FrameContextUBO.projection * m_FrameContextUBO.view;
+	m_FrameContextUBO.cameraPosition = glm::vec4(camera.position,1.0);
+	m_FrameContextUBO.renderTimer.x += 1 / 60.0f; // Fake total time... (TODO: Fix me)
+	m_FrameContextUBO.renderTimer.y = glm::sin(m_FrameContextUBO.renderTimer.x * 0.5f * glm::pi<float>());
+	m_FrameContextUBO.renderTimer.z = glm::cos(m_FrameContextUBO.renderTimer.x * 0.5f * glm::pi<float>());
+	m_FrameContextUBO.renderTimer.w = 0.0f; // unused
 
 	void *data;
 	vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx], 0, uboDynamicAlignment, 0, &data);
-	memcpy(data, &uboViewProjection, sizeof(UboViewProjection));
+	memcpy(data, &m_FrameContextUBO, sizeof(FrameContextUBO));
 
 	VkMappedMemoryRange memRng{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
 	memRng.memory = vpUniformBufferMemory[swapchainIdx];
