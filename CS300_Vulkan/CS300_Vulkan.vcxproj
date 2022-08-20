@@ -278,7 +278,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PreBuildEvent>
-      <Command>call $(SolutionDir)\CS300_Vulkan\shaders\compileShaders.bat</Command>
+      <Command>call "$(SolutionDir)"\CS300_Vulkan\shaders\compileShaders.bat</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

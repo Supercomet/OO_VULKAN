@@ -1,6 +1,10 @@
 @echo off
 SETLOCAL EnableDelayedExpansion
 
+rem Create a "bin" folder if it does not exist, for shader binary output
+if not exist bin\ (
+  mkdir bin
+)
 
 for %%i in (*.vert  *.frag) do (
 	rem this is full accuracy
