@@ -97,7 +97,8 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	{
 		OmniLightInstance lights[6];
 		glm::vec4 viewPos;
-	} lightUBO{};
+	};
+	inline static LightUBO lightUBO{};
 	float timer{};
 
 	inline static bool deferredRendering = true;

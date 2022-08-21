@@ -27,6 +27,8 @@
     <ClCompile Include="..\vendor\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\BspTree.cpp" />
+    <ClCompile Include="src\FramebufferBuilder.cpp" />
+    <ClCompile Include="src\FramebufferCache.cpp" />
     <ClCompile Include="src\GfxSampler.cpp" />
     <ClCompile Include="src\GraphicsWorld.cpp" />
     <ClCompile Include="src\IcoSphereCreator.cpp" />
@@ -74,6 +76,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\BspTree.h" />
+    <ClInclude Include="src\FramebufferBuilder.h" />
+    <ClInclude Include="src\FramebufferCache.h" />
     <ClInclude Include="src\GfxSampler.h" />
     <ClInclude Include="src\GraphicsWorld.h" />
     <ClInclude Include="src\IcoSphereCreator.h" />

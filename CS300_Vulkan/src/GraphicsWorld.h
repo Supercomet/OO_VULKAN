@@ -1,20 +1,10 @@
 #pragma once
 
 #include "MathCommon.h"
+#include "../shaders/shared_structs.h"
 
 #include <vector>
 
-struct OmniLightInstance
-{
-    glm::vec4 position{ 0.0f };
-    glm::vec3 color{ 1.0f };
-    float radius{ 1.0f };
-};
-
-struct SpotLightInstance
-{
-
-};
 
 struct ObjectInstance
 {

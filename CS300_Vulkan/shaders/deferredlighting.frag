@@ -6,12 +6,7 @@ layout (binding = 2) uniform sampler2D samplerNormal;
 layout (binding = 3) uniform sampler2D samplerAlbedo;
 layout (binding = 4) uniform sampler2D samplerMaterial;
 
-struct OmniLightInstance
-{
-	vec4 position;
-	vec3 color;
-	float radius;
-};
+#include "shared_structs.h"
 
 layout (binding = 5) uniform UBO
 {
@@ -42,18 +37,18 @@ vec3 CalculatePointLight_NonPBR(int lightIndex, in vec3 fragPos, in vec3 normal,
 		L = normalize(L);
 	
 		// Attenuation
-		float atten = ubo.lights[lightIndex].radius / (pow(dist, 2.0) + 1.0);
+		float atten = ubo.lights[lightIndex].radius.x / (pow(dist, 2.0) + 1.0);
 	
 		// Diffuse part
 		vec3 N = normalize(normal);
 		float NdotL = max(0.0, dot(N, L));
-		vec3 diff = ubo.lights[lightIndex].color * albedo.rgb * NdotL * atten;
+		vec3 diff = ubo.lights[lightIndex].color.xyz * albedo.rgb * NdotL * atten;
 	
 		// Specular part
 		// Specular map values are stored in alpha of albedo mrt
 		vec3 R = -reflect(L, N);
 		float RdotV = max(0.0, dot(R, V));
-		vec3 spec = ubo.lights[lightIndex].color * specular * pow(RdotV, 16.0) * atten;
+		vec3 spec = ubo.lights[lightIndex].color.xyz * specular * pow(RdotV, 16.0) * atten;
 	
 		result = diff + spec;	
 	}

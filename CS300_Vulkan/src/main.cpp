@@ -601,7 +601,7 @@ int main(int argc, char argv[])
         ed.name = "Starwars1";
         ed.entityID = FastRandomMagic();
         ed.position = { 3.0f,-2.0f,-5.0f };
-        //ed.scale = { 0.001f,0.001f,0.001f };
+        ed.scale = { 0.001f,0.001f,0.001f };
         renderer.entities.push_back(ed);
     }
 
@@ -611,6 +611,7 @@ int main(int argc, char argv[])
         ed.modelID = fourSphere->gfxIndex;
         ed.name = "fourSphere";
         ed.entityID = FastRandomMagic();
+        ed.scale = { 0.001f,0.001f,0.001f };
         ed.position = { 1.0f, 2.0f,5.0f };
         renderer.entities.push_back(ed);
     }
@@ -1028,7 +1029,7 @@ int main(int argc, char argv[])
                                 }
 
                                 ImGui::DragFloat3("Color", glm::value_ptr(light.color));
-                                ImGui::DragFloat("Radius", &light.radius);
+                                ImGui::DragFloat("Radius", &light.radius.x);
                                 ImGui::PopID();
                             }
 

@@ -6,7 +6,10 @@
 #include "Window.h"
 #include "VulkanRenderer.h"
 #include "VulkanUtils.h"
+#include "VulkanTexture.h"
 #include "VulkanFramebufferAttachment.h"
+#include "FramebufferCache.h"
+#include "FramebufferBuilder.h"
 
 #include "../shaders/shared_structs.h"
 #include "MathCommon.h"
@@ -87,6 +90,18 @@ void ShadowPass::Draw()
     const VkBuffer idcb = VulkanRenderer::indirectCommandsBuffer.buffer;
     const uint32_t count = (uint32_t)VulkanRenderer::m_DrawIndirectCommandsCPU.size();
 
+	auto& light = VulkanRenderer::lightUBO.lights[0];
+	light.view[0] = glm::lookAt(glm::vec3(light.position), glm::vec3{ 0.0f,0.0f,0.0f }, glm::vec3{ 0.0f,1.0f,0.0f });
+	light.projection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 0.01f, 100.0f);
+	glm::mat4 viewproj = light.projection * light.view[0] ;
+
+	vkCmdPushConstants(cmdlist,
+		VulkanRenderer::indirectPipeLayout,
+		VK_SHADER_STAGE_VERTEX_BIT| VK_SHADER_STAGE_FRAGMENT_BIT,	// stage to push constants to
+		0,							// offset of push constants to update
+		sizeof(glm::mat4),			// size of data being pushed
+		glm::value_ptr(viewproj));		// actualy data being pushed (could be an array));
+
 	DrawIndexedIndirect(cmdlist, idcb, 0, count, sizeof(VkDrawIndexedIndirectCommand));
   
 	// Other draw calls that are not supported by MDI
@@ -140,6 +155,9 @@ void ShadowPass::SetupRenderpass()
 	const uint32_t height = shadowmapSize.height;
 
 	att_depth.createAttachment(m_device, width, height, VulkanRenderer::G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	
+	vk::Texture2D tex;
+	tex.image = att_depth.image;
 
 	// Set up separate renderpass with references to the color and depth attachments
 	VkAttachmentDescription attachmentDescs = {};
@@ -153,6 +171,7 @@ void ShadowPass::SetupRenderpass()
 	attachmentDescs.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	attachmentDescs.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	attachmentDescs.format = att_depth.format;
+
 
 	VkAttachmentReference depthReference = {};
 	depthReference.attachment = 0;

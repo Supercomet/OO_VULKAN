@@ -355,11 +355,12 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 	DescLayoutCache.Init(m_device.logicalDevice);
 
 	VkPhysicalDeviceProperties props;
-	vkGetPhysicalDeviceProperties(m_device.physicalDevice,&props);
+	vkGetPhysicalDeviceProperties(m_device.physicalDevice, &props);
 	size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
 	//auto dynamicAlignment = sizeof(glm::mat4);
 	uboDynamicAlignment = sizeof(FrameContextUBO);
-	if (minUboAlignment > 0) {
+	if (minUboAlignment > 0)
+	{
 		uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
 	}
 
@@ -375,7 +376,7 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 		vpBufferInfo.range = sizeof(FrameContextUBO);			// size of data
 		DescriptorBuilder::Begin(&DescLayoutCache, &DescAlloc)
 			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-			.Build(uniformDescriptorSets[i],descriptorSetLayout);
+			.Build(uniformDescriptorSets[i], descriptorSetLayout);
 	}
 	//UNIFORM VALUES DESCRIPTOR SET LAYOUT
 	// UboViewProejction binding info
@@ -397,8 +398,8 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 
 	// CREATE TEXTURE SAMPLER DESCRIPTOR SET LAYOUT
 	// Texture binding info
-	VkDescriptorSetLayoutBinding samplerLayoutBinding = 
-		oGFX::vk::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT| VK_SHADER_STAGE_VERTEX_BIT,0,MAX_OBJECTS);
+	VkDescriptorSetLayoutBinding samplerLayoutBinding =
+		oGFX::vk::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, MAX_OBJECTS);
 	
 	// create a descriptor set layout with given bindings for texture
 	VkDescriptorSetLayoutCreateInfo textureLayoutCreateInfo = 
@@ -429,9 +430,10 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 
 void VulkanRenderer::CreatePushConstantRange()
 {
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; //shader stage push constant will go to
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_ALL; //shader stage push constant will go to
 	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(PushConstData);
+	// pushConstantRange.size = sizeof(PushConstData);
+	pushConstantRange.size = 128; // push to max
 }
 
 void VulkanRenderer::CreateGraphicsPipeline()
@@ -795,28 +797,28 @@ void VulkanRenderer::UpdateLights(float delta)
 	lightTimer += delta * 0.25f;
 	
     m_HardcodedOmniLights[0].position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
-    m_HardcodedOmniLights[0].color = glm::vec3(1.5f);
-    m_HardcodedOmniLights[0].radius = 15.0f;
+    m_HardcodedOmniLights[0].color = glm::vec4(1.5f);
+    m_HardcodedOmniLights[0].radius.x = 15.0f;
     // Red
     m_HardcodedOmniLights[1].position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
-    m_HardcodedOmniLights[1].color = glm::vec3(1.0f, 0.0f, 0.0f);
-    m_HardcodedOmniLights[1].radius = 15.0f;
+    m_HardcodedOmniLights[1].color = glm::vec4(1.0f, 0.0f, 0.0f,0.0f);
+    m_HardcodedOmniLights[1].radius.x = 15.0f;
     // Blue
     m_HardcodedOmniLights[2].position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
-    m_HardcodedOmniLights[2].color = glm::vec3(0.0f, 0.0f, 2.5f);
-    m_HardcodedOmniLights[2].radius = 5.0f;
+    m_HardcodedOmniLights[2].color = glm::vec4(0.0f, 0.0f, 2.5f,0.0f);
+    m_HardcodedOmniLights[2].radius.x = 5.0f;
     // Yellow
     m_HardcodedOmniLights[3].position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
-    m_HardcodedOmniLights[3].color = glm::vec3(1.0f, 1.0f, 0.0f);
-    m_HardcodedOmniLights[3].radius = 2.0f;
+    m_HardcodedOmniLights[3].color = glm::vec4(1.0f, 1.0f, 0.0f,0.0f);
+    m_HardcodedOmniLights[3].radius.x = 2.0f;
     // Green
     m_HardcodedOmniLights[4].position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
-    m_HardcodedOmniLights[4].color = glm::vec3(0.0f, 1.0f, 0.2f);
-    m_HardcodedOmniLights[4].radius = 5.0f;
+    m_HardcodedOmniLights[4].color = glm::vec4(0.0f, 1.0f, 0.2f,0.0f);
+    m_HardcodedOmniLights[4].radius.x = 5.0f;
     // Yellow
     m_HardcodedOmniLights[5].position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
-    m_HardcodedOmniLights[5].color = glm::vec3(1.0f, 0.7f, 0.3f);
-    m_HardcodedOmniLights[5].radius = 25.0f;
+    m_HardcodedOmniLights[5].color = glm::vec4(1.0f, 0.7f, 0.3f,0.0f);
+    m_HardcodedOmniLights[5].radius.x = 25.0f;
 
 	m_HardcodedOmniLights[0].position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
 	m_HardcodedOmniLights[0].position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
@@ -1163,6 +1165,7 @@ void VulkanRenderer::DrawGUI()
 		{
 			const auto sz = ImGui::GetContentRegionAvail();
 			auto gbuff = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
+
 			auto shadows = RenderPassDatabase::GetRenderPass<ShadowPass>();
 
 			const float renderWidth = float(windowPtr->m_width);
@@ -1426,7 +1429,7 @@ void VulkanRenderer::InitializeRenderBuffers()
 		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		&globalLightBuffer,
-		MAX_LIGHTS * sizeof(OmniLightInstance));
+		MAX_LIGHTS * sizeof(SpotLightInstance));
     VK_NAME(m_device.logicalDevice, "Light Buffer", globalLightBuffer.buffer);
 
 	constexpr uint32_t MAX_GLOBAL_BONES = 2048;

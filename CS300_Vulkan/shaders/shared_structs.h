@@ -18,6 +18,35 @@ using mat4 = glm::mat4;
 using uint = unsigned int;
 #endif
 
+struct LocalLightInstance
+{
+    vec4 position;
+    vec4 color;
+    vec4 radius;
+    mat4 projection;
+    mat4 view[6];
+};
+
+struct OmniLightInstance
+{
+    vec4 position;
+    vec4 color;
+    vec4 radius;
+    mat4 projection;
+    mat4 view[6];
+};
+
+struct SpotLightInstance
+{
+    vec4 position;
+    vec3 color;
+    float innerRadius;
+    float outerRadius;
+    mat4 projection;
+    mat4 view;
+};
+
+
 struct GPUTransform
 {
 	vec4 row0;

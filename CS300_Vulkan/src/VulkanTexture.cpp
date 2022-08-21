@@ -33,7 +33,7 @@ namespace vk
 	* @param (Optional) forceLinear Force linear tiling (not advised, defaults to false)
 	*
 	*/
-	void Texture2D::loadFromFile(std::string filename, VkFormat format, VulkanDevice *device, VkQueue copyQueue, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout, bool forceLinear)
+	void Texture2D::loadFromFile(std::string filename, VkFormat _format, VulkanDevice *device, VkQueue copyQueue, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout, bool forceLinear)
 	{
 		stbi_uc* ktxTextureData;
 		int _width, _height, _channels;
@@ -42,20 +42,21 @@ namespace vk
 		this->device = device;
 		width = _width;
 		height = _height;
+		format = _format;
 		int ktxTextureSize = (width * height * STBI_rgb_alpha);
 
 		//TODO mips
 		mipLevels = 0;
 
-		// Get device properties for the requested texture format
+		// Get device properties for the requested texture _format
 		VkFormatProperties formatProperties;
-		vkGetPhysicalDeviceFormatProperties(device->physicalDevice, format, &formatProperties);
+		vkGetPhysicalDeviceFormatProperties(device->physicalDevice, _format, &formatProperties);
 
 		// Only use linear tiling if requested (and supported by the device)
 		// Support for linear tiling is mostly limited, so prefer to use
 		// optimal tiling instead
 		// On most implementations linear tiling will only support a very
-		// limited amount of formats and features (mip maps, cubemaps, arrays, etc.)
+		// limited amount of _formats and features (mip maps, cubemaps, arrays, etc.)
 		VkBool32 useStaging = !forceLinear;
 
 		VkMemoryAllocateInfo memAllocInfo =oGFX::vk::inits::memoryAllocateInfo();
@@ -119,7 +120,7 @@ namespace vk
 			// Create optimal tiled target image
 			VkImageCreateInfo imageCreateInfo = oGFX::vk::inits::imageCreateInfo();
 			imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-			imageCreateInfo.format = format;
+			imageCreateInfo.format = _format;
 			imageCreateInfo.mipLevels = mipLevels;
 			imageCreateInfo.arrayLayers = 1;
 			imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -191,14 +192,14 @@ namespace vk
 			// depending on implementation (e.g. no mip maps, only one layer, etc.)
 
 			// Check if this support is supported for linear tiling
-			assert(formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT);
+			assert(_formatProperties.linearTilingFeatures & VK__format_FEATURE_SAMPLED_IMAGE_BIT);
 
 			VkImage mappableImage;
 			VkDeviceMemory mappableMemory;
 
 			VkImageCreateInfo imageCreateInfo = oGFX::vk::inits::imageCreateInfo();
 			imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-			imageCreateInfo.format = format;
+			imageCreateInfo.format = _format;
 			imageCreateInfo.extent = { width, height, 1 };
 			imageCreateInfo.mipLevels = 1;
 			imageCreateInfo.arrayLayers = 1;
@@ -286,11 +287,11 @@ namespace vk
 		// Create image view
 		// Textures are not directly accessed by the shaders and
 		// are abstracted by image views containing additional
-		// information and sub resource ranges
+		// in_formation and sub resource ranges
 		VkImageViewCreateInfo viewCreateInfo = {};
 		viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewCreateInfo.format = format;
+		viewCreateInfo.format = _format;
 		viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 		viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 		// Linear tiling usually won't support mip maps
@@ -318,7 +319,7 @@ namespace vk
 	* @param (Optional) imageUsageFlags Usage flags for the texture's image (defaults to VK_IMAGE_USAGE_SAMPLED_BIT)
 	* @param (Optional) imageLayout Usage layout for the texture (defaults VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 	*/
-	void Texture2D::fromBuffer(void* buffer, VkDeviceSize bufferSize, VkFormat format,
+	void Texture2D::fromBuffer(void* buffer, VkDeviceSize bufferSize, VkFormat _format,
 		uint32_t texWidth, uint32_t texHeight, std::vector<VkBufferImageCopy> mipInfo,VulkanDevice* device, VkQueue copyQueue, VkFilter filter, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout)
 	{
 		assert(buffer);
@@ -326,6 +327,7 @@ namespace vk
 		this->device = device;
 		width = texWidth;
 		height = texHeight;
+		format = _format;
 		mipLevels =static_cast<uint32_t>(mipInfo.size());
 
 		VkMemoryAllocateInfo memAllocInfo = oGFX::vk::inits::memoryAllocateInfo();
@@ -444,7 +446,7 @@ namespace vk
 		VkSamplerCreateInfo samplerCreateInfo = {};
 		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 		samplerCreateInfo.magFilter = filter;
-		samplerCreateInfo.minFilter = filter;
+		samplerCreateInfo.minFilter = filter; 
 		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -454,6 +456,7 @@ namespace vk
 		samplerCreateInfo.minLod = 0.0f;
 		samplerCreateInfo.maxLod = 0.0f;
 		samplerCreateInfo.maxAnisotropy = 1.0f;
+		samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 		vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler);
 		VK_NAME(device->logicalDevice, "fromBuffer::sampler", sampler);
 
@@ -474,52 +477,90 @@ namespace vk
 		updateDescriptor();
 	}
 
-	//void Texture2D::forFrameBuffer(VkFormat format, uint32_t texWidth, uint32_t texHeight, VkMemoryPropertyFlags properties, uint32_t mipLevels, VulkanDevice* device, VkQueue copyQueue, VkFilter filter, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout)
-	//{
-	//	//uint mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
-	//	mipLevels = mipLevels;
-	//
-	//
-	//	ImageWrap myImage = createImageWrap(size.width, size.height, VK_FORMAT_R32G32B32A32_SFLOAT,
-	//		VK_IMAGE_USAGE_TRANSFER_DST_BIT
-	//		| VK_IMAGE_USAGE_SAMPLED_BIT
-	//		| VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-	//		| VK_IMAGE_USAGE_STORAGE_BIT
-	//		| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-	//		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-	//		mipLevels);
-	//
-	//	// Create image view
-	//	VkImageViewCreateInfo viewCreateInfo = {};
-	//	viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	//	viewCreateInfo.pNext = NULL;
-	//	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	//	viewCreateInfo.format = format;
-	//	viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-	//	viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-	//	viewCreateInfo.subresourceRange.levelCount = 1;
-	//	viewCreateInfo.image = image;
-	//	vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view);
-	//
-	//	// Create sampler
-	//	VkSamplerCreateInfo samplerCreateInfo = {};
-	//	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	//	samplerCreateInfo.magFilter = filter;
-	//	samplerCreateInfo.minFilter = filter;
-	//	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	//	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	//	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	//	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	//	samplerCreateInfo.mipLodBias = 0.0f;
-	//	samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-	//	samplerCreateInfo.minLod = 0.0f;
-	//	samplerCreateInfo.maxLod = 0.0f;
-	//	samplerCreateInfo.maxAnisotropy = 1.0f;
-	//	vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler);
-	//
-	//	myImage.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-	//	return myImage;
-	//}
+	void Texture2D::forFrameBuffer(VkFormat _format, 
+		uint32_t texWidth, uint32_t texHeight,
+		VulkanDevice* device,
+		uint32_t mipLevels,
+		VkMemoryPropertyFlags properties,
+		VkFilter filter,
+		VkImageUsageFlags imageUsageFlags,
+		VkImageLayout imageLayout)
+	{
+		this->device = device;
+		width = texWidth;
+		height = texHeight;
+		format = _format;
+		//uint mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
+		mipLevels = mipLevels;
+	
+		// Does this matter in signiature? 
+		imageUsageFlags =  VK_IMAGE_USAGE_TRANSFER_DST_BIT
+			| VK_IMAGE_USAGE_SAMPLED_BIT
+			| VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+			| VK_IMAGE_USAGE_STORAGE_BIT
+			| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	
+		VkImageCreateInfo imageinfo = oGFX::vk::inits::imageCreateInfo();
+		imageinfo.imageType = VK_IMAGE_TYPE_2D;
+		imageinfo.extent.width = width;
+		imageinfo.extent.height = height;
+		imageinfo.extent.depth = 1;
+		imageinfo.mipLevels = mipLevels;
+		imageinfo.arrayLayers = 1;
+		imageinfo.format = format;
+		imageinfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageinfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageinfo.usage = imageUsageFlags;
+		imageinfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageinfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		VK_CHK(vkCreateImage(device->logicalDevice, &imageinfo, nullptr, &image));
+		VK_NAME(device->logicalDevice, "forFramebuffer::image", image);
+
+		VkMemoryRequirements memReqs;
+		vkGetImageMemoryRequirements(device->logicalDevice, image, &memReqs);
+
+		VkMemoryAllocateInfo memAllocInfo = oGFX::vk::inits::memoryAllocateInfo();
+		memAllocInfo.allocationSize = memReqs.size;
+		// Get memory type index for a host visible buffer
+		memAllocInfo.memoryTypeIndex = oGFX::FindMemoryTypeIndex(device->physicalDevice,memReqs.memoryTypeBits,properties);
+		
+		VK_CHK(vkAllocateMemory(device->logicalDevice, &memAllocInfo, nullptr, &deviceMemory));
+
+		VK_CHK(vkBindImageMemory(device->logicalDevice, image, deviceMemory, 0));
+
+		// Create image view
+		VkImageViewCreateInfo viewCreateInfo = {};
+		viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewCreateInfo.pNext = NULL;
+		viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewCreateInfo.format = format;
+		viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+		viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+		viewCreateInfo.subresourceRange.levelCount = 1;
+		viewCreateInfo.image = image;
+		VK_CHK(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
+		VK_NAME(device->logicalDevice, "forFramebuffer::view", view);
+
+		// Create sampler
+		VkSamplerCreateInfo samplerCreateInfo = {};
+		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerCreateInfo.magFilter = filter;
+		samplerCreateInfo.minFilter = filter;
+		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.mipLodBias = 0.0f;
+		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER; // VK_COMPARE_OP_ALWAYS ??
+		samplerCreateInfo.minLod = 0.0f;
+		samplerCreateInfo.maxLod = 0.0f;
+		samplerCreateInfo.anisotropyEnable = device->enabledFeatures.samplerAnisotropy; // VK_TRUE / VK_FALSE ??
+		samplerCreateInfo.maxAnisotropy = device->enabledFeatures.samplerAnisotropy ? device->properties.limits.maxSamplerAnisotropy : 1.0f;
+		VK_CHK(vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler));
+		VK_NAME(device->logicalDevice, "forFramebuffer::sampler", sampler);
+
+		imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	}
 
 
 

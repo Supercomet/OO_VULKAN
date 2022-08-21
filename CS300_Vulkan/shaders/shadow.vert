@@ -83,7 +83,7 @@ void main()
 	outLightData.localVertexPos = inPos;
 
 	outPos = dInsMatrix * vec4(inPos,1.0);
-	gl_Position = uboFrameContext.viewProjection * outPos;
+	gl_Position = pushLight.instanceMatrix * outPos;
 
 	//outTexIndex.maps.x = instanceTexIndex;
 	//outTexIndex.maps.y = instanceNormalTexIndex;

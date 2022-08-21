@@ -7,6 +7,8 @@
 #include "VulkanRenderer.h"
 #include "VulkanUtils.h"
 #include "VulkanFramebufferAttachment.h"
+#include "FramebufferCache.h"
+#include "FramebufferBuilder.h"
 
 #include "../shaders/shared_structs.h"
 #include "MathCommon.h"
@@ -241,6 +243,28 @@ void GBufferRenderPass::SetupFramebuffer()
 	attachments[GBufferAttachmentIndex::ALBEDO]   = att_albedo.view;
 	attachments[GBufferAttachmentIndex::MATERIAL] = att_material.view;
 	attachments[GBufferAttachmentIndex::DEPTH]    = VulkanRenderer::m_swapchain.depthAttachment.view;
+
+	auto& m_device = VulkanRenderer::m_device;
+	auto& m_swapchain = VulkanRenderer::m_swapchain;
+	const uint32_t width = m_swapchain.swapChainExtent.width;
+	const uint32_t height = m_swapchain.swapChainExtent.height;
+
+	vk::Texture2D tex[4];
+	tex[0].forFrameBuffer(VK_FORMAT_R16G16B16A16_SFLOAT, width, height, &m_device);
+	tex[1].forFrameBuffer(VK_FORMAT_R16G16B16A16_SFLOAT, width, height, &m_device);
+	tex[2].forFrameBuffer(VK_FORMAT_R8G8B8A8_UNORM, width, height, &m_device);
+	tex[3].forFrameBuffer(VK_FORMAT_R8G8B8A8_UNORM, width, height, &m_device);
+
+	//FramebufferCache g_cache;
+	//g_cache.Init(VulkanRenderer::m_device.logicalDevice);
+	//
+	//VkFramebuffer fb;
+	//FramebufferBuilder::Begin(&g_cache)
+	//	.BindImage(tex[0])
+	//	.BindImage(tex[1])
+	//	.BindImage(tex[2])
+	//	.BindImage(tex[3])
+	//	.Build(fb,renderpass_GBuffer);
 
 	VkFramebufferCreateInfo fbufCreateInfo = {};
 	fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

@@ -137,6 +137,10 @@ namespace oGFX
 		return attributeDescriptions;
 	}
 
+	const std::vector<VkDescriptorSet>& GetGFXDescriptoSetGroup()
+	{
+	}
+
 	oGFX::SwapChainDetails GetSwapchainDetails(VulkanInstance& instance, VkPhysicalDevice device)
     {
         oGFX::SwapChainDetails swapChainDetails;
