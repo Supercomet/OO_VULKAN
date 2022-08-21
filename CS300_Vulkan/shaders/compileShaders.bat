@@ -1,9 +1,11 @@
 @echo off
 SETLOCAL EnableDelayedExpansion
 
+set OUTPUT=bin\
+
 rem Create a "bin" folder if it does not exist, for shader binary output
-if not exist bin\ (
-  mkdir bin
+if not exist %OUTPUT% (
+  mkdir %OUTPUT%
 )
 
 for %%i in (*.vert  *.frag) do (
@@ -19,7 +21,7 @@ for %%i in (*.vert  *.frag) do (
 	set /A "Hour=%%E"
 	set /A "Min=%%F"
 	set "f=%%G"
-	if !f! == pm ( set /A Hour=!Hour!+12 )
+	if !f! == pm if !Hour! neq 12 ( set /A Hour=!Hour!+12 )
 	)
 	rem echo year !Year!	
 	rem echo month !Month!
@@ -27,7 +29,7 @@ for %%i in (*.vert  *.frag) do (
 	rem echo hours !Hour!
 	rem echo min !Min!
 	set /A compile=0
-	for %%j in ("%%~i.spv") do (
+	for %%j in ("%OUTPUT%%%~i.spv") do (
 	 IF exist "%%~j" (
 				 echo %%~tj				
 				for /f "tokens=1-8 delims=:0/,. " %%A in ("%%~tj") do (
@@ -37,7 +39,7 @@ for %%i in (*.vert  *.frag) do (
 				set /A "jHour=%%E"
 				set /A "jMin=%%F"
 				set "f=%%G"
-				if !f! == pm ( set /A jHour=!jHour!+12 )
+				if !f! == pm if !jHour! neq 12 ( set /A jHour=!jHour!+12 )
 				)
 				rem echo jyear !jYear!	
 				rem echo jmonth !jMonth!
