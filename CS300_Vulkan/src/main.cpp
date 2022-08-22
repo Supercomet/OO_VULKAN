@@ -685,7 +685,7 @@ int main(int argc, char argv[])
     btmTree.getDrawList<VulkanRenderer::EntityDetails, AABB>(btmBoxDebugs,btmTree.root.get());
     for (auto& [depth,box] : btmBoxDebugs)
     {
-        renderer.AddDebugBox(box, oGFX::Colors::c[depth],renderer.g_btmUp_AABB);
+        renderer.AddDebugBox(box, oGFX::Colors::c[depth % oGFX::Colors::c.size()],renderer.g_btmUp_AABB);
     }
 
     std::iota(ids.begin(), ids.end(), 0);
@@ -696,7 +696,7 @@ int main(int argc, char argv[])
     btmSphereTree.getDrawList<VulkanRenderer::EntityDetails, Sphere>(btmSphereDebugs,btmSphereTree.root.get());
     for (auto& [depth,sphere] : btmSphereDebugs)
     {
-        renderer.AddDebugSphere(sphere, oGFX::Colors::c[depth],renderer.g_btmUp_Sphere);
+        renderer.AddDebugSphere(sphere, oGFX::Colors::c[depth % oGFX::Colors::c.size()],renderer.g_btmUp_Sphere);
     }
 
 
@@ -800,7 +800,7 @@ int main(int argc, char argv[])
                 auto& model = renderer.models[e.modelID];
                 ab.center = e.position;
                 ab.halfExt = e.scale * 0.5f;
-                UpdateBV(renderer.models[e.modelID].cpuModel, e, currSphereType);
+                //UpdateBV(renderer.models[e.modelID].cpuModel, e, currSphereType);
                 
             }
 
