@@ -1,6 +1,8 @@
 #include "VulkanTexture.h"
 #include "stb_image.h"
 
+#include <cassert>
+
 namespace vk
 {
 	void Texture::updateDescriptor()
@@ -192,7 +194,7 @@ namespace vk
 			// depending on implementation (e.g. no mip maps, only one layer, etc.)
 
 			// Check if this support is supported for linear tiling
-			assert(_formatProperties.linearTilingFeatures & VK__format_FEATURE_SAMPLED_IMAGE_BIT);
+			assert(formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT);
 
 			VkImage mappableImage;
 			VkDeviceMemory mappableMemory;

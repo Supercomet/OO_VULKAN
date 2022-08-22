@@ -40,7 +40,7 @@ VkFramebuffer FramebufferCache::CreateFramebuffer(VkFramebufferCreateInfo* info)
 		//create a new one (not found)
 		VkFramebuffer frameBuffer;
 		VK_CHK(vkCreateFramebuffer(device, info, nullptr, &frameBuffer));
-		VK_NAME(device, "LayoutCache::layout", layout);
+		VK_NAME(device, "famebufferCache::framebuffer", frameBuffer);
 		//add to cache
 		
 		//store the pointers

@@ -41,18 +41,6 @@
 #include <chrono>
 #include <random>
 
-// Use this to catch potential problems, especially since default assert is ignored in Release mode.
-#define MESSAGE_BOX_ONCE(winhdl, msg, title) \
-    do                                       \
-    {                                        \
-        static bool once = false;            \
-        if (!once)                           \
-        {                                    \
-            MessageBoxW(winhdl, (LPCWSTR)msg, (LPCWSTR)title, MB_ICONWARNING | MB_OK); \
-            once = true;                     \
-        }                                    \
-    } while (0)
-
 
 VulkanRenderer::~VulkanRenderer()
 { 

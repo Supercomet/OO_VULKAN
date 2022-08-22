@@ -75,6 +75,7 @@
     <ClCompile Include="src\tinyddsloader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\BitContainer.h" />
     <ClInclude Include="src\BspTree.h" />
     <ClInclude Include="src\FramebufferBuilder.h" />
     <ClInclude Include="src\FramebufferCache.h" />
