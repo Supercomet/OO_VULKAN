@@ -9,7 +9,24 @@
 
 struct ObjectInstance
 {
+    std::string name;
+
+    // Begin These are temp until its fully integrated
+    glm::vec3 position{};
+    glm::vec3 scale{1.0f};
+    float rot{};
+    glm::vec3 rotVec{0.0f,1.0f,0.0f};
+
+    uint32_t bindlessGlobalTextureIndex_Albedo{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Normal{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Roughness{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Metallic{ 0xFFFFFFFF };
+    // End temp stuff
+
     glm::mat4x4 localToWorld{ 1.0f };
+
+    uint32_t modelID{}; // Index for the mesh
+    uint32_t entityID{}; // Unique ID for this entity instance
 };
 
 struct DecalInstance
@@ -37,6 +54,7 @@ public:
     auto& GetAllOmniLightInstances() { return m_OmniLightInstances; }
 
     int32_t CreateObjectInstance();
+    int32_t CreateObjectInstance(ObjectInstance obj);
     ObjectInstance& GetObjectInstance(int32_t id);
 
 private:

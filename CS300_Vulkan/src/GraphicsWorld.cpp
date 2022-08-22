@@ -2,7 +2,12 @@
 
 int32_t GraphicsWorld::CreateObjectInstance()
 {
-	return m_ObjectInstances.Add(ObjectInstance());
+	return CreateObjectInstance(ObjectInstance());
+}
+
+int32_t GraphicsWorld::CreateObjectInstance(ObjectInstance obj)
+{
+	return m_ObjectInstances.Add(obj);
 }
 
 ObjectInstance& GraphicsWorld::GetObjectInstance(int32_t id)
