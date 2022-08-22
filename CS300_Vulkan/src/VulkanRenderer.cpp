@@ -2139,7 +2139,7 @@ void VulkanRenderer::SimplePass()
 
 		vkCmdPushConstants(cmdlist,
 			indirectPipeLayout,
-			VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+			VK_SHADER_STAGE_ALL,        // stage to push constants to
 			0,							// offset of push constants to update
 			sizeof(glm::mat4),			// size of data being pushed
 			glm::value_ptr(xform));		// actualy data being pushed (could be an array));
@@ -2203,10 +2203,10 @@ void VulkanRenderer::RecordCommands(uint32_t currentImage)
 	 
 	 vkCmdPushConstants(commandBuffers[currentImage],
 		 indirectPipeLayout,
-		 VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+		 VK_SHADER_STAGE_ALL,       // stage to push constants to
 		 0,							// offset of push constants to update
 		 sizeof(LightData),			// size of data being pushed
-		 &light);		// actualy data being pushed (could be an array));
+		 &light);                   // actualy data being pushed (could be an array));
 
 	 uint32_t dynamicOffset[] = { 0 };
 	

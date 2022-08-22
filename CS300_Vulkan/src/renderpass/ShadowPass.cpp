@@ -97,10 +97,10 @@ void ShadowPass::Draw()
 
 	vkCmdPushConstants(cmdlist,
 		VulkanRenderer::indirectPipeLayout,
-		VK_SHADER_STAGE_VERTEX_BIT| VK_SHADER_STAGE_FRAGMENT_BIT,	// stage to push constants to
+		VK_SHADER_STAGE_ALL,	    // stage to push constants to
 		0,							// offset of push constants to update
 		sizeof(glm::mat4),			// size of data being pushed
-		glm::value_ptr(viewproj));		// actualy data being pushed (could be an array));
+		glm::value_ptr(viewproj));	// actualy data being pushed (could be an array));
 
 	DrawIndexedIndirect(cmdlist, idcb, 0, count, sizeof(VkDrawIndexedIndirectCommand));
   
@@ -119,7 +119,7 @@ void ShadowPass::Draw()
 
             vkCmdPushConstants(cmdlist,
                 VulkanRenderer::indirectPipeLayout,
-                VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+				VK_SHADER_STAGE_ALL,        // stage to push constants to
                 0,							// offset of push constants to update
                 sizeof(glm::mat4),			// size of data being pushed
                 glm::value_ptr(xform));		// actualy data being pushed (could be an array));

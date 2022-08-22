@@ -570,6 +570,30 @@ int main(int argc, char argv[])
         }
     }
 
+    std::unique_ptr<Model> diona{ renderer.LoadMeshFromFile("Models/diona.fbx") };
+    if (diona)
+    {
+        VulkanRenderer::EntityDetails ed;
+        ed.modelID = diona->gfxIndex;
+        ed.name = "diona";
+        ed.entityID = FastRandomMagic();
+        ed.position = { 0.0f,0.0f,0.0f };
+        ed.scale = { 1.0f,1.0f,1.0f };
+        renderer.entities.push_back(ed);
+    }
+    
+    std::unique_ptr<Model> qiqi{ renderer.LoadMeshFromFile("Models/qiqi.fbx") };
+    if (qiqi)
+    {
+        VulkanRenderer::EntityDetails ed;
+        ed.modelID = qiqi->gfxIndex;
+        ed.name = "qiqi";
+        ed.entityID = FastRandomMagic();
+        ed.position = { 1.0f,0.0f,0.0f };
+        ed.scale = { 1.0f,1.0f,1.0f };
+        renderer.entities.push_back(ed);
+    }
+
     if (bunny)
     {
         VulkanRenderer::EntityDetails ed;

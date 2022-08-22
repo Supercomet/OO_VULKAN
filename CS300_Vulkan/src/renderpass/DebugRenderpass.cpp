@@ -63,7 +63,7 @@ void DebugRenderpass::Draw()
 	glm::mat4 xform{ 1.0f };
 	vkCmdPushConstants(cmdlist,
 		VulkanRenderer::indirectPipeLayout,
-		VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
+		VK_SHADER_STAGE_ALL,    	// stage to push constants to
 		0,							// offset of push constants to update
 		sizeof(glm::mat4),			// size of data being pushed
 		glm::value_ptr(xform));		// actualy data being pushed (could be an array));
