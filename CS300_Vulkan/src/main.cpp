@@ -665,6 +665,9 @@ int main(int argc, char argv[])
     }
 
     std::cout << "Total triangles : " << sceneIndices.size() / 3 << std::endl;
+    
+    GraphicsWorld Gworld;
+    std::vector<int32_t> gWorldIds;
 
     for (auto& e: renderer.entities)
     {
@@ -672,58 +675,31 @@ int main(int argc, char argv[])
         auto& model = renderer.models[e.modelID];
         
         UpdateBV(renderer.models[e.modelID].cpuModel, e);
+
+        glm::mat4 xform(1.0f);
+        xform = glm::translate(xform, e.position);
+        xform = glm::rotate(xform,glm::radians(e.rot), e.rotVec);
+        xform = glm::scale(xform, e.scale);
+        auto id = Gworld.CreateObjectInstance(ObjectInstance{
+            e.name,
+            e.position,
+            e.scale,
+            e.rot,
+            e.rotVec,
+            e.bindlessGlobalTextureIndex_Albedo,
+            e.bindlessGlobalTextureIndex_Normal,
+            e.bindlessGlobalTextureIndex_Roughness,
+            e.bindlessGlobalTextureIndex_Metallic,
+            xform,
+            e. modelID,
+            e. entityID 
+            }
+        );
+        gWorldIds.push_back(id);
     }
 
-    std::vector<uint32_t> ids(renderer.entities.size());
-    std::iota(ids.begin(), ids.end(), 0);
-
-    Tree<VulkanRenderer::EntityDetails,Sphere> topDownSphere;
-    topDownSphere.root = std::make_unique<TreeNode<Sphere>>();
-    Tree<VulkanRenderer::EntityDetails, Sphere>::TopDownTree<VulkanRenderer::EntityDetails, Sphere>
-        (renderer.entities, topDownSphere.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
-
-    std::vector<std::pair<uint32_t,Sphere>> topSphereDebugs;
-    topDownSphere.getDrawList<VulkanRenderer::EntityDetails, Sphere>(topSphereDebugs,topDownSphere.root.get());
-
-    for (auto& [depth,sphere] : topSphereDebugs)
-    {         
-        renderer.AddDebugSphere(sphere, oGFX::Colors::c[depth], renderer.g_topDwn_Sphere);
-    }
-
-    Tree<VulkanRenderer::EntityDetails,AABB> boxTree;
-    std::iota(ids.begin(), ids.end(), 0);
-    boxTree.root = std::make_unique<TreeNode<AABB>>();
-    Tree<VulkanRenderer::EntityDetails, AABB>::TopDownTree<VulkanRenderer::EntityDetails, AABB>(renderer.entities, boxTree.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
-    std::vector<std::pair<uint32_t,AABB>> topBoxDebugs;
-    boxTree.getDrawList<VulkanRenderer::EntityDetails, AABB>(topBoxDebugs,boxTree.root.get());
-    for (auto& [depth,box] : topBoxDebugs)
-    {
-        renderer.AddDebugBox(box, oGFX::Colors::c[depth],renderer.g_topDwn_AABB);
-    }
-
-    std::iota(ids.begin(), ids.end(), 0);
-    Tree<VulkanRenderer::EntityDetails,AABB> btmTree;
-    btmTree.BottomUpTree(renderer.entities, btmTree.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
-
-    std::vector<std::pair<uint32_t,AABB>> btmBoxDebugs;
-    btmTree.getDrawList<VulkanRenderer::EntityDetails, AABB>(btmBoxDebugs,btmTree.root.get());
-    for (auto& [depth,box] : btmBoxDebugs)
-    {
-        renderer.AddDebugBox(box, oGFX::Colors::c[depth % oGFX::Colors::c.size()],renderer.g_btmUp_AABB);
-    }
-
-    std::iota(ids.begin(), ids.end(), 0);
-    Tree<VulkanRenderer::EntityDetails,Sphere> btmSphereTree;
-    btmSphereTree.BottomUpTree(renderer.entities, btmSphereTree.root.get(), ids.data(), static_cast<uint32_t>(ids.size()) );
-
-    std::vector<std::pair<uint32_t,Sphere>> btmSphereDebugs;
-    btmSphereTree.getDrawList<VulkanRenderer::EntityDetails, Sphere>(btmSphereDebugs,btmSphereTree.root.get());
-    for (auto& [depth,sphere] : btmSphereDebugs)
-    {
-        renderer.AddDebugSphere(sphere, oGFX::Colors::c[depth % oGFX::Colors::c.size()],renderer.g_btmUp_Sphere);
-    }
-
-
+    // for now..
+    // renderer.SetWorld(Gworld);
 
     //create a hundred random textures because why not
     std::default_random_engine rndEngine(123456);
@@ -831,11 +807,6 @@ int main(int argc, char argv[])
             geomChanged = false;
         }
 
-        {
-            PROFILE_SCOPED("UpdateTreeBuffers");
-            renderer.UpdateTreeBuffers();
-        }
-
         if (renderer.gpuTransformBuffer.MustUpdate())
         {
             auto dbi = renderer.gpuTransformBuffer.GetDescriptorBufferInfo();
@@ -940,12 +911,23 @@ int main(int argc, char argv[])
                     }
                 }
             }
-
+            bool renderGraphicsWorld = renderer.currWorld;
             // Display ImGui Window
             {
                 PROFILE_SCOPED("ImGuiSceneHelper");
                 if (ImGui::Begin("Scene Helper"))
                 {
+                    if (ImGui::Checkbox("RenderGraphicsWorld", &renderGraphicsWorld))
+                    {
+                        if (renderGraphicsWorld)
+                        {
+                            renderer.SetWorld(&Gworld);
+                        }
+                        else
+                        {
+                            renderer.SetWorld(nullptr);
+                        }
+                    }
                     if (ImGui::BeginTabBar("SceneHelperTabBar"))
                     {
                         if (ImGui::BeginTabItem("Entity"))
@@ -1110,28 +1092,6 @@ int main(int argc, char argv[])
                 
                 ImGui::End();
             }
-
-          
-
-            if(ImGui::Begin("Debug Draws"))
-            {
-                static const char* sphereTypes[]
-                {
-                    "Ritter",
-                    "EPOS_6",
-                    "EPOS_14",
-                    "EPOS_26",
-                    "EPOS_98",
-                    "Eigen",
-                };
-
-                geomChanged |= ImGui::ListBox("SphereType", &currSphereType, sphereTypes, 6);
-                ImGui::Checkbox("Top down AABB", &renderer.g_b_drawDebug[renderer.g_topDwn_AABB]);
-                ImGui::Checkbox("Bottom Up AABB", &renderer.g_b_drawDebug[renderer.g_btmUp_AABB]);
-                ImGui::Checkbox("Top down Sphere", &renderer.g_b_drawDebug[renderer.g_topDwn_Sphere]);
-                ImGui::Checkbox("Bottom Up Sphere", &renderer.g_b_drawDebug[renderer.g_btmUp_Sphere]);
-            }           
-            ImGui::End();
 
             renderer.DrawGUI();
 

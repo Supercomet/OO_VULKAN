@@ -4,6 +4,7 @@
 #include <memory>
 #include <bitset>
 #include <vector>
+#include <tuple>
 
 template <typename T, int32_t MAX_OBJECTS = 2048>
 class BitContainer
@@ -16,6 +17,10 @@ public:
 	void Remove(int32_t id);
 	T& Get(int32_t id);
 	void Clear();
+
+	auto Raw();
+
+	T& operator[](size_t i);
 
 private:
 	std::bitset<MAX_OBJECTS> m_bits;
@@ -83,4 +88,16 @@ inline void BitContainer<T, MAX_OBJECTS>::Clear()
 	{
 		m_bits[i] == false;
 	}
+}
+
+template<typename T, int32_t MAX_OBJECTS>
+inline auto BitContainer<T, MAX_OBJECTS>::Raw()
+{
+	return std::tuple<std::bitset<MAX_OBJECTS>&, std::vector<T>&>{ m_bits,m_data };
+}
+
+template<typename T, int32_t MAX_OBJECTS>
+inline T& BitContainer<T, MAX_OBJECTS>::operator[](size_t i)
+{
+	return Get(i);
 }

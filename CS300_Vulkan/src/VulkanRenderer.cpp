@@ -764,6 +764,13 @@ void VulkanRenderer::ResizeDeferredFB()
 
 }
 
+void VulkanRenderer::SetWorld(GraphicsWorld* world)
+{
+	// force a sync here
+	vkDeviceWaitIdle(m_device.logicalDevice);
+	currWorld = world;
+}
+
 void VulkanRenderer::CreateLightingBuffers()
 {
 	oGFX::CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, sizeof(LightUBO), 
@@ -1520,57 +1527,127 @@ void VulkanRenderer::UploadInstanceData()
 	// update the transform positions
 	gpuTransform.clear();
 	gpuTransform.reserve(MAX_OBJECTS);
-	for (size_t i = 0; i < entities.size(); i++)
+
+	if (currWorld)
 	{
-		// TODO: This needs urgent fixing..
-		size_t x = gpuTransform.size();
-		size_t len = x + models[entities[i].modelID].meshCount;
-		mat4 xform{ 1.0f };
-		xform = glm::translate(xform, entities[i].position);
-		xform = glm::rotate(xform,glm::radians(entities[i].rot), entities[i].rotVec);
-		xform = glm::scale(xform, entities[i].scale);
-		for (; x < len; x++)
+		std::cout << "rendering graphics world" << std::endl;
+		auto& entsBundle = currWorld->GetAllObjectInstances();
+		auto [bits, ents] = entsBundle.Raw();
+		for (size_t i = 0; i < bits.size(); i++)
 		{
-			GPUTransform gpt;
-			gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
-			gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
-			gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
-			gpuTransform.emplace_back(gpt);
-		}		
+			if (bits[i])
+			{
+				size_t x = gpuTransform.size();
+				size_t len = x + models[ents[i].modelID].meshCount;
+				mat4 xform = ents[i].localToWorld;
+				for (; x < len; x++)
+				{
+					GPUTransform gpt;
+					gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
+					gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
+					gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
+					gpuTransform.emplace_back(gpt);
+				}
+			}
+		}
 	}
+	else
+	{
+		for (size_t i = 0; i < entities.size(); i++)
+		{
+			// TODO: This needs urgent fixing..
+			size_t x = gpuTransform.size();
+			size_t len = x + models[entities[i].modelID].meshCount;
+			mat4 xform{ 1.0f };
+			xform = glm::translate(xform, entities[i].position);
+			xform = glm::rotate(xform,glm::radians(entities[i].rot), entities[i].rotVec);
+			xform = glm::scale(xform, entities[i].scale);
+			for (; x < len; x++)
+			{
+				GPUTransform gpt;
+				gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
+				gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
+				gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
+				gpuTransform.emplace_back(gpt);
+			}		
+		}
+	}
+	
 	gpuTransformBuffer.writeTo(gpuTransform.size(), gpuTransform.data());
 	// TODO: Must the entire buffer be uploaded every frame?
 
 	std::vector<oGFX::InstanceData> instanceData;
 	instanceData.reserve(objectCount);
-	for (size_t i = 0; i < entities.size(); i++)
+	if (currWorld)
 	{
-		oGFX::InstanceData id;
-		size_t sz = instanceData.size();
-		for (size_t x = 0; x < models[entities[i].modelID].meshCount; x++)
+		uint32_t matCnt = 0;
+		auto& entsBundle = currWorld->GetAllObjectInstances();
+		auto [bits, ents] = entsBundle.Raw();
+		for (size_t i = 0; i < bits.size(); i++)
 		{
-			// This is per entity. Should be per material.
-			uint32_t albedo = entities[i].bindlessGlobalTextureIndex_Albedo;
-			uint32_t normal = entities[i].bindlessGlobalTextureIndex_Normal;
-			uint32_t roughness = entities[i].bindlessGlobalTextureIndex_Roughness;
-			uint32_t metallic = entities[i].bindlessGlobalTextureIndex_Metallic;
-			constexpr uint32_t invalidIndex = 0xFFFFFFFF;
-			if (albedo == invalidIndex)
-				albedo = 0;
-			if (normal == invalidIndex)
-				normal = 1;
-            if (roughness == invalidIndex)
-				roughness = 0;
-            if (metallic == invalidIndex)
-				metallic = 1;
+			if (bits[i])
+			{
+				oGFX::InstanceData id;
+				size_t sz = instanceData.size();
+				for (size_t x = 0; x < models[ents[i].modelID].meshCount; x++)
+				{
+					// This is per entity. Should be per material.
+					uint32_t albedo = ents[i].bindlessGlobalTextureIndex_Albedo;
+					uint32_t normal = ents[i].bindlessGlobalTextureIndex_Normal;
+					uint32_t roughness = ents[i].bindlessGlobalTextureIndex_Roughness;
+					uint32_t metallic = ents[i].bindlessGlobalTextureIndex_Metallic;
+					constexpr uint32_t invalidIndex = 0xFFFFFFFF;
+					if (albedo == invalidIndex)
+						albedo = 0;
+					if (normal == invalidIndex)
+						normal = 1;
+					if (roughness == invalidIndex)
+						roughness = 0;
+					if (metallic == invalidIndex)
+						metallic = 1;
 
-			uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF) ;
-			uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
+					uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF) ;
+					uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
 
-			id.instanceAttributes = uvec4(sz+x, i, albedo_normal, roughness_metallic);
-			instanceData.emplace_back(id);
+					id.instanceAttributes = uvec4(sz+x, matCnt, albedo_normal, roughness_metallic);
+					instanceData.emplace_back(id);
+				}
+				++matCnt;
+			}
 		}
 	}
+	else
+	{
+		for (size_t i = 0; i < entities.size(); i++)
+		{
+			oGFX::InstanceData id;
+			size_t sz = instanceData.size();
+			for (size_t x = 0; x < models[entities[i].modelID].meshCount; x++)
+			{
+				// This is per entity. Should be per material.
+				uint32_t albedo = entities[i].bindlessGlobalTextureIndex_Albedo;
+				uint32_t normal = entities[i].bindlessGlobalTextureIndex_Normal;
+				uint32_t roughness = entities[i].bindlessGlobalTextureIndex_Roughness;
+				uint32_t metallic = entities[i].bindlessGlobalTextureIndex_Metallic;
+				constexpr uint32_t invalidIndex = 0xFFFFFFFF;
+				if (albedo == invalidIndex)
+					albedo = 0;
+				if (normal == invalidIndex)
+					normal = 1;
+				if (roughness == invalidIndex)
+					roughness = 0;
+				if (metallic == invalidIndex)
+					metallic = 1;
+
+				uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF) ;
+				uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
+
+				id.instanceAttributes = uvec4(sz+x, i, albedo_normal, roughness_metallic);
+				instanceData.emplace_back(id);
+			}
+		}
+	}
+	
 
 	vk::Buffer stagingBuffer;
 	m_device.CreateBuffer(

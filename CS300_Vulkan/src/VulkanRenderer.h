@@ -90,7 +90,8 @@ public:
 
 	void ResizeDeferredFB();
 
-	inline static GraphicsWorld world;
+	void SetWorld(GraphicsWorld* world);
+	inline static GraphicsWorld* currWorld{ nullptr };
 
 	std::array<OmniLightInstance, 6> m_HardcodedOmniLights;
 
