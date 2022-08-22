@@ -527,6 +527,7 @@ namespace vk
 		memAllocInfo.memoryTypeIndex = oGFX::FindMemoryTypeIndex(device->physicalDevice,memReqs.memoryTypeBits,properties);
 		
 		VK_CHK(vkAllocateMemory(device->logicalDevice, &memAllocInfo, nullptr, &deviceMemory));
+		VK_NAME(device->logicalDevice, "forFramebuffer::deviceMemory", deviceMemory);
 
 		VK_CHK(vkBindImageMemory(device->logicalDevice, image, deviceMemory, 0));
 

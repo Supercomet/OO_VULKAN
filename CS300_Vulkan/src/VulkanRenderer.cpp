@@ -77,15 +77,9 @@ VulkanRenderer::~VulkanRenderer()
 	{
 		models[i].destroy(m_device.logicalDevice);
 	}	
-	for (size_t i = 0; i < textureImages.size(); i++)
+	for (size_t i = 0; i < g_Textures.size(); i++)
 	{
-		vkDestroyImageView(m_device.logicalDevice, textureImageViews[i], nullptr);
-		vkDestroyImage(m_device.logicalDevice, textureImages[i], nullptr);
-		vkFreeMemory(m_device.logicalDevice, textureImageMemory[i], nullptr);
-	}
-	for (size_t i = 0; i < newTextures.size(); i++)
-	{
-		newTextures[i].destroy();
+		g_Textures[i].destroy();
 	}
 
 	// global sampler pool
@@ -2124,11 +2118,8 @@ uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned
 
 	auto ind = CreateTextureImage(fileData);
 
-	//VkImageView imageView = CreateImageView(m_device,textureImages[ind], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
-	//textureImageViews.push_back(imageView);
-
 	//create texture descriptor
-	int descriptorLoc = UpdateBindlessGlobalTexture(newTextures[ind]);
+	int descriptorLoc = UpdateBindlessGlobalTexture(g_Textures[ind]);
 
 	//return location of set with texture
 	return descriptorLoc;
@@ -2140,15 +2131,25 @@ uint32_t VulkanRenderer::CreateTexture(const std::string& file)
 	// Create texture image and get its location in array
 	uint32_t textureImageLoc = CreateTextureImage(file);
 
-	// Create image view and add to list
-	//VkImageView imageView = oGFX::CreateImageView(m_device,textureImages[textureImageLoc], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
-	//textureImageViews.push_back(imageView);
 
 	//create texture descriptor
-	int descriptorLoc = UpdateBindlessGlobalTexture(newTextures[textureImageLoc]);
+	int descriptorLoc = UpdateBindlessGlobalTexture(g_Textures[textureImageLoc]);
 
 	//return location of set with texture
 	return descriptorLoc;
+}
+
+VulkanRenderer::TextureInfo VulkanRenderer::GetTextureInfo(uint32_t handle)
+{
+	TextureInfo ti{
+		g_Textures[handle].name,
+		g_Textures[handle].width,
+		g_Textures[handle].height,
+		g_Textures[handle].format,
+		g_Textures[handle].mipLevels,
+	};
+	
+	return ti;
 }
 
 void VulkanRenderer::InitDebugBuffers()
@@ -2383,11 +2384,11 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 {
 	VkDeviceSize imageSize = imageInfo.dataSize;
 
-	auto indx = newTextures.size();
-	newTextures.push_back(vk::Texture2D());
+	auto indx = g_Textures.size();
+	g_Textures.push_back(vk::Texture2D());
 
-	newTextures[indx].fromBuffer((void*)imageInfo.imgData.data(), imageSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
-
+	g_Textures[indx].fromBuffer((void*)imageInfo.imgData.data(), imageSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
+	g_Textures[indx].name = imageInfo.name;
 	// Return index of new texture image
 	return static_cast<uint32_t>(indx);
 }
