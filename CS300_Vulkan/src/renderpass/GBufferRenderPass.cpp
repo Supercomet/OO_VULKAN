@@ -105,12 +105,12 @@ void GBufferRenderPass::Draw()
             xform = glm::rotate(xform, glm::radians(entity.rot), entity.rotVec);
             xform = glm::scale(xform, entity.scale);
 
-            vkCmdPushConstants(cmdlist,
-                VulkanRenderer::indirectPipeLayout,
-                VK_SHADER_STAGE_VERTEX_BIT,	// stage to push constants to
-                0,							// offset of push constants to update
-                sizeof(glm::mat4),			// size of data being pushed
-                glm::value_ptr(xform));		// actualy data being pushed (could be an array));
+			vkCmdPushConstants(cmdlist,
+				VulkanRenderer::indirectPipeLayout,
+				VK_SHADER_STAGE_ALL,        // stage to push constants to
+				0,                          // offset of push constants to update
+				sizeof(glm::mat4),          // size of data being pushed
+				glm::value_ptr(xform));     // actualy data being pushed (could be an array));
 
             VkDeviceSize offsets[] = { 0 };
             vkCmdBindIndexBuffer(cmdlist, VulkanRenderer::g_MeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
@@ -149,13 +149,7 @@ void GBufferRenderPass::SetupRenderpass()
 	att_normal  .createAttachment(m_device, width, height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 	att_albedo  .createAttachment(m_device, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 	att_material.createAttachment(m_device, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
-
-	// TODO: This is unnecessary... Just choose 1 format? Preferably VK_FORMAT_D32_SFLOAT_S8_UINT?
-	VkFormat depthFormat = oGFX::ChooseSupportedFormat(m_device,
-		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-	att_depth.createAttachment(m_device, width, height, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	att_depth   .createAttachment(m_device, width, height, VulkanRenderer::G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
 	// Set up separate renderpass with references to the color and depth attachments
 	std::array<VkAttachmentDescription, GBufferAttachmentIndex::MAX_ATTACHMENTS> attachmentDescs = {};
@@ -353,7 +347,7 @@ void GBufferRenderPass::CreatePipeline()
 	colorBlendState.pAttachments = blendAttachmentStates.data();
 
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_GBufferDefault));
-	VK_NAME(m_device.logicalDevice, "deferredPipe", pso_GBufferDefault);
+	VK_NAME(m_device.logicalDevice, "GBufferPSO", pso_GBufferDefault);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
 
