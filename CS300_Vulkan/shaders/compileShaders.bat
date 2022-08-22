@@ -8,7 +8,7 @@ if not exist %OUTPUT% (
   mkdir %OUTPUT%
 )
 
-for %%i in (*.vert  *.frag) do (
+for %%i in (*.vert *.frag *.comp *.geom) do (
 	rem this is full accuracy
 	rem forfiles /M "%%~i.spv" /C "cmd /c set time=@ftime set date=@fdate 
 	rem echo !time!
@@ -86,12 +86,22 @@ for %%i in (*.vert  *.frag) do (
 		
 	set numberstring=                      %%~i
 	if !compile! EQU 1 ( 	
-	"%VULKAN_SDK%\Bin\glslc.exe" --target-env=vulkan1.2 -std=460 "%%~i" -o "bin/%%~i.spv"
-	if !ERRORLEVEL! NEQ 0 (echo ["%%~i" COMPILATION ERROR] 
-	exit /B 1
-		echo.) else ( echo !numberstring:~-28! [COMPILED] )	
-	)else (echo !numberstring:~-28! ^| NC)
-	
+		"%VULKAN_SDK%\Bin\glslc.exe" --target-env=vulkan1.2 -std=460 -O "%%~i" -o "bin/%%~i.spv"
+		if !ERRORLEVEL! NEQ 0 (
+			:: This "CMD" here is needed as a hack...
+			CMD /C echo/
+			echo [91m%%~i [COMPILATION ERROR][0m
+			exit /B 1
+			echo.
+		) else ( 
+			:: This "CMD" here is needed as a hack...
+			CMD /C echo/ 
+			echo [92m!numberstring:~-28!  [COMPILATION SUCCESS][0m
+		)
+	)else (
+		:: This "CMD" here is needed as a hack...
+		CMD /C echo/ 
+		echo [93m!numberstring:~-28! ^| NC[0m)
 	)
 	
 	rem echo.
