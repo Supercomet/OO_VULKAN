@@ -1471,12 +1471,31 @@ void VulkanRenderer::UpdateIndirectDrawCommands()
 
 	// Create on indirect command for node in the scene with a mesh attached to it
 	uint32_t m = 0;
-	for (auto& e : entities) // TODO: CPU culling? Inactive objects?
+	if (currWorld)
 	{
-		auto& model = models[e.modelID];
-		for (auto& node :model.nodes)
+		auto& entsBundle = currWorld->GetAllObjectInstances();
+		auto [bits, ents] = entsBundle.Raw();
+		for (size_t i = 0; i < bits.size(); i++)
 		{
-			IndirectCommandsHelper(node, m_DrawIndirectCommandsCPU, indirectDebugCommandsCPU,m);			
+			if (bits[i])
+			{
+				auto& model = models[ents[i].modelID];
+				for (auto& node :model.nodes)
+				{
+					IndirectCommandsHelper(node, m_DrawIndirectCommandsCPU, indirectDebugCommandsCPU,m);			
+				}
+			}
+		}
+	}
+	else
+	{
+		for (auto& e : entities) // TODO: CPU culling? Inactive objects?
+		{
+			auto& model = models[e.modelID];
+			for (auto& node :model.nodes)
+			{
+				IndirectCommandsHelper(node, m_DrawIndirectCommandsCPU, indirectDebugCommandsCPU,m);			
+			}
 		}
 	}
 
