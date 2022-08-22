@@ -1,5 +1,10 @@
 #pragma once
 
+#include "VulkanUtils.h"
+
+#include <vector>
+#include <cstdint>
+
 // Just a dummy struct to hold Vertex and 32-bit Index Buffers.
 struct DefaultMesh
 {

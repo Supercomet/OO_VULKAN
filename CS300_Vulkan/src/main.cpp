@@ -128,10 +128,10 @@ enum class AppWindowSizeTypes : int
     HD_900P_16_10
 };
 
-static glm::vec2 gs_AppWindowSizes[] =
+static glm::ivec2 gs_AppWindowSizes[] =
 {
-    glm::vec2{ 1280, 720 },
-    glm::vec2{ 1440, 900 },
+    glm::ivec2{ 1280, 720 },
+    glm::ivec2{ 1440, 900 },
 };
 
 static float* gizmoHijack = nullptr; // TODO: Clean this up...
@@ -148,7 +148,7 @@ int main(int argc, char argv[])
     //RunAllTests();
 
     AppWindowSizeTypes appWindowSizeType = AppWindowSizeTypes::HD_900P_16_10;
-    const glm::vec2 windowSize = gs_AppWindowSizes[(int)appWindowSizeType];
+    const glm::ivec2 windowSize = gs_AppWindowSizes[(int)appWindowSizeType];
     Window mainWindow(windowSize.x, windowSize.y);
     mainWindow.Init();
     
@@ -520,7 +520,7 @@ int main(int argc, char argv[])
             });
         for (auto ind: meshInfo.indices)
         {
-            sceneIndices.push_back(chachedPos + ind);
+            sceneIndices.push_back((uint32_t)(chachedPos + ind));
         }
     }
 

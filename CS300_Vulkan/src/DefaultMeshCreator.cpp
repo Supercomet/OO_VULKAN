@@ -1,5 +1,7 @@
 #include "DefaultMeshCreator.h"
 
+#include "MathCommon.h"
+
 DefaultMesh CreateDefaultCubeMesh()
 {
     DefaultMesh mesh;
