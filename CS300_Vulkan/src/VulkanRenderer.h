@@ -43,14 +43,13 @@ class VulkanRenderer
 {
 public:
 
-static constexpr int MAX_FRAME_DRAWS = 2;
-static constexpr int MAX_OBJECTS = 2048;
-static constexpr VkFormat G_DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	static constexpr int MAX_FRAME_DRAWS = 2;
+	static constexpr int MAX_OBJECTS = 2048;
+	static constexpr VkFormat G_DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
 #define OBJECT_INSTANCE_COUNT 128
 
-
-inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nullptr };
+	inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nullptr };
 
 	~VulkanRenderer();
 
@@ -90,6 +89,8 @@ inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nul
 	inline static VkDescriptorSetLayout descriptorSetLayout_Deferred;
 
 	void ResizeDeferredFB();
+
+	inline static GraphicsWorld world;
 
 	std::array<OmniLightInstance, 6> m_HardcodedOmniLights;
 

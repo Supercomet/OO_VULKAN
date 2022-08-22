@@ -2,6 +2,7 @@
 
 #include "MathCommon.h"
 #include "../shaders/shared_structs.h"
+#include "BitContainer.h"
 
 #include <vector>
 
@@ -31,12 +32,16 @@ enum class ObjectInstanceFlags : uint32_t
 class GraphicsWorld
 {
 public:
+
     auto& GetAllObjectInstances() { return m_ObjectInstances; }
     auto& GetAllOmniLightInstances() { return m_OmniLightInstances; }
 
+    int32_t CreateObjectInstance();
+    ObjectInstance& GetObjectInstance(int32_t id);
+
 private:
-    std::vector<ObjectInstance> m_ObjectInstances;
-    std::vector<OmniLightInstance> m_OmniLightInstances;
+    BitContainer<ObjectInstance> m_ObjectInstances;
+    BitContainer<OmniLightInstance> m_OmniLightInstances;
     //etc
 
     // + Spatial Acceleration Structures
