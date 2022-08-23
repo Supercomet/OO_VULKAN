@@ -157,7 +157,15 @@ public:
 
 	uint32_t CreateTexture(uint32_t width, uint32_t height,unsigned char* imgData);
 	uint32_t CreateTexture(const std::string& fileName);
-
+	struct TextureInfo
+	{
+		std::string name;
+		uint32_t width;
+		uint32_t height;
+		VkFormat format;
+		uint32_t mips;
+	};
+	TextureInfo GetTextureInfo(uint32_t handle);
 	
 	void InitDebugBuffers();
 	void UpdateDebugBuffers();
@@ -222,11 +230,7 @@ public:
 
 
 	//textures
-	std::vector<VkImage> textureImages;
-	std::vector<VkDeviceMemory> textureImageMemory;
-	std::vector<VkImageView> textureImageViews;
-
-	std::vector<vk::Texture2D> newTextures;
+	std::vector<vk::Texture2D> g_Textures;
 
 	// - Synchronisation
 	std::vector<VkSemaphore> imageAvailable;

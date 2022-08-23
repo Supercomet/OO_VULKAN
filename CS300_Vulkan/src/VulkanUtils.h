@@ -14,6 +14,8 @@
 namespace oGFX::vk::tools
 {
 	std::string VkResultString(VkResult value);
+	std::string VkFormatString(VkFormat value);
+	std::string VkColorSpaceKHRString(VkColorSpaceKHR value);
 };
 
 #ifndef MESSAGE_BOX_ONCE
@@ -186,6 +188,7 @@ namespace oGFX
 
 	struct FileImageData
 	{
+		std::string name;
 		int32_t w{};
 		int32_t h{};
 		int32_t channels{};

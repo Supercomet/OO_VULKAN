@@ -16,6 +16,7 @@ namespace vk
 	class Texture
 	{
 	public:
+		std::string name; // maybe remove when not debug?
 		VulkanDevice* device;
 		VkImage image;
 		VkFormat format;
@@ -27,7 +28,7 @@ namespace vk
 		uint32_t layerCount;
 		VkDescriptorImageInfo descriptor;
 		VkSampler sampler;
-
+		
 		void updateDescriptor();
 		void destroy();
 	};
