@@ -25,9 +25,9 @@
 #include <stdlib.h>
 #include <crtdbg.h>
 
-#include <imgui.h>
-#include <backends/imgui_impl_vulkan.h>
-#include <backends/imgui_impl_win32.h>
+#include <imgui/imgui.h>
+#include <imgui/backends/imgui_impl_vulkan.h>
+#include <imgui/backends/imgui_impl_win32.h>
 #include "ImGuizmo.h"
 
 #include "IcoSphereCreator.h"
