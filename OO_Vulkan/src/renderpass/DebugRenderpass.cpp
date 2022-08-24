@@ -91,10 +91,10 @@ void DebugRenderpass::Draw()
 
 void DebugRenderpass::Shutdown()
 {
-	auto& m_device = VulkanRenderer::m_device;
+	auto& device = VulkanRenderer::m_device.logicalDevice;
 
-	vkDestroyRenderPass(m_device.logicalDevice, debugRenderpass, nullptr);
-	vkDestroyPipeline(m_device.logicalDevice, debugDrawLinesPSO, nullptr);
+	vkDestroyRenderPass(device, debugRenderpass, nullptr);
+	vkDestroyPipeline(device, debugDrawLinesPSO, nullptr);
 	VulkanRenderer::g_debugDrawVertBuffer.destroy();
 	VulkanRenderer::g_debugDrawIndxBuffer.destroy();
 }
@@ -221,9 +221,9 @@ void DebugRenderpass::CreatePipeline()
 	// -- PIPELINE LAYOUT 
 	std::array<VkDescriptorSetLayout, 3> descriptorSetLayouts = 
 	{
-		VulkanRenderer::descriptorSetLayout_gpuscene, // (set = 0)
-		VulkanRenderer::descriptorSetLayout_uniform, // (set = 1)
-		VulkanRenderer::descriptorSetLayout_bindless // (set = 2)
+		LayoutDB::gpuscene, // (set = 0)
+		LayoutDB::uniform, // (set = 1)
+		LayoutDB::bindless // (set = 2)
 	};
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = 

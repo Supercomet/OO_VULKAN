@@ -671,7 +671,7 @@ int main(int argc, char argv[])
             //vkUpdateDescriptorSets(renderer.m_device.logicalDevice, 1, &write, 0, 0);
             DescriptorBuilder::Begin(&VulkanRenderer::DescLayoutCache, &VulkanRenderer::DescAlloc)
                 .BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-                .Build(VulkanRenderer::descriptorSet_gpuscene,VulkanRenderer::descriptorSetLayout_gpuscene);
+                .Build(VulkanRenderer::descriptorSet_gpuscene,LayoutDB::gpuscene);
             renderer.gpuTransformBuffer.Updated();
         }
 

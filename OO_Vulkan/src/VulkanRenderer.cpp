@@ -84,7 +84,7 @@ VulkanRenderer::~VulkanRenderer()
 
 	// global sampler pool
 	vkDestroyDescriptorPool(m_device.logicalDevice, samplerDescriptorPool, nullptr);
-	vkDestroyDescriptorSetLayout(m_device.logicalDevice, descriptorSetLayout_bindless, nullptr);
+	vkDestroyDescriptorSetLayout(m_device.logicalDevice, LayoutDB::bindless, nullptr);
 
 	for (auto framebuffer : swapChainFramebuffers)
 	{
@@ -361,7 +361,7 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 
 		DescriptorBuilder::Begin(&DescLayoutCache, &DescAlloc)
 			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-			.Build(descriptorSets_uniform[i], descriptorSetLayout_uniform);
+			.Build(descriptorSets_uniform[i], LayoutDB::uniform);
 	}
 	//UNIFORM VALUES DESCRIPTOR SET LAYOUT
 	// UboViewProejction binding info
@@ -404,8 +404,8 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 	textureLayoutCreateInfo.pNext = &flaginfo;
 
 
-	VkResult result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &textureLayoutCreateInfo, nullptr, &descriptorSetLayout_bindless);
-	VK_NAME(m_device.logicalDevice, "samplerSetLayout", descriptorSetLayout_bindless);
+	VkResult result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &textureLayoutCreateInfo, nullptr, &LayoutDB::bindless);
+	VK_NAME(m_device.logicalDevice, "samplerSetLayout", LayoutDB::bindless);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a descriptor set layout!");
@@ -469,9 +469,9 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	// -- PIPELINE LAYOUT 
 	std::array<VkDescriptorSetLayout, 3> descriptorSetLayouts = 
 	{
-		descriptorSetLayout_gpuscene, // (set = 0)
-		descriptorSetLayout_uniform,  // (set = 1)
-		descriptorSetLayout_bindless // (set = 2)
+		LayoutDB::gpuscene, // (set = 0)
+		LayoutDB::uniform,  // (set = 1)
+		LayoutDB::bindless // (set = 2)
 	};
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo =
@@ -966,7 +966,7 @@ void VulkanRenderer::CreateDescriptorPool()
 	variableDescriptorCountAllocInfo.pDescriptorCounts  = variableDescCounts;
 
 	//Descriptor set allocation info
-	VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vkutils::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&descriptorSetLayout_bindless,1);
+	VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vkutils::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&LayoutDB::bindless,1);
 	setAllocInfo.pNext = &variableDescriptorCountAllocInfo;
 
 	//Allocate our descriptor sets
@@ -986,7 +986,7 @@ void VulkanRenderer::CreateDescriptorSets_GPUScene()
 
 	DescriptorBuilder::Begin(&DescLayoutCache, &DescAlloc)
 		.BindBuffer(3, &info, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-		.Build(descriptorSet_gpuscene,descriptorSetLayout_gpuscene);
+		.Build(descriptorSet_gpuscene,LayoutDB::gpuscene);
 }
 
 void VulkanRenderer::InitImGUI()

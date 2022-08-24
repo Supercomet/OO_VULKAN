@@ -36,6 +36,20 @@ struct Window;
 
 int Win32SurfaceCreator(ImGuiViewport* vp, ImU64 device, const void* allocator, ImU64* outSurface);
 
+// Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...
+struct LayoutDB // Think of a better name? Very short and sweet for easy typing productivity?
+{
+    // For GPU Scene
+    inline static VkDescriptorSetLayout gpuscene;
+    // For UBO with the corresponding swap chain image
+    inline static VkDescriptorSetLayout uniform;
+    // For unbounded array of texture descriptors, used in bindless approach
+    inline static VkDescriptorSetLayout bindless;
+	// For lighting
+	inline static VkDescriptorSetLayout DeferredComposition;
+	// 
+	inline static VkDescriptorSetLayout ForwardDecal;
+};
 
 class VulkanRenderer
 {
@@ -84,22 +98,11 @@ public:
 	inline static std::vector<VkFramebuffer> swapChainFramebuffers;
 	inline static uint32_t swapchainIdx{ 0 };
 
-	//---------- DescriptorSetLayout & DescriptorSet ----------
+	//---------- DescriptorSet ----------
 
-	// For Deferred Lighting onwards
-	inline static VkDescriptorSetLayout descriptorSetLayout_DeferredComposition;
 	inline static VkDescriptorSet descriptorSet_DeferredComposition;
-
-	// For unbounded array of texture descriptors, used in bindless approach
-	inline static VkDescriptorSetLayout descriptorSetLayout_bindless;
 	inline static VkDescriptorSet descriptorSet_bindless;
-
-	// For GPU Scene
-    inline static VkDescriptorSetLayout descriptorSetLayout_gpuscene;
-    inline static VkDescriptorSet descriptorSet_gpuscene;
-
-	// For UBO with the corresponding swap chain image
-	inline static VkDescriptorSetLayout descriptorSetLayout_uniform;
+	inline static VkDescriptorSet descriptorSet_gpuscene;
 	inline static std::vector<VkDescriptorSet> descriptorSets_uniform;
 
 	void ResizeDeferredFB();
