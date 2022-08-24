@@ -40,6 +40,8 @@
 #include <iostream>
 #include <chrono>
 #include <random>
+#include <filesystem>
+
 
 
 VulkanRenderer::~VulkanRenderer()
@@ -61,7 +63,10 @@ VulkanRenderer::~VulkanRenderer()
 	g_MeshBuffers.IdxBuffer.destroy();
 	g_MeshBuffers.VtxBuffer.destroy();
 
-	DestroyImGUI();
+	if (m_imguiInitialized)
+	{
+		DestroyImGUI();
+	}
 
 	DescLayoutCache.Cleanup();
 	DescAlloc.Cleanup();
@@ -123,15 +128,17 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 {
 	try
 	{	
+		std::cout<< "PATH: "<<std::filesystem::current_path().string() << std::endl;
+
 		CreateInstance(setupSpecs);
-		CreateSurface(window);
+		CreateSurface(setupSpecs,window);
 		AcquirePhysicalDevice();
 		CreateLogicalDevice();
 
 		//if (m_device.debugMarker)
 		//{
 		// TODO MAKE SURE THIS IS SUPPORTED
-			pfnDebugMarkerSetObjectName = (PFN_vkDebugMarkerSetObjectNameEXT)vkGetDeviceProcAddr(m_device.logicalDevice, "vkDebugMarkerSetObjectNameEXT");
+		pfnDebugMarkerSetObjectName = (PFN_vkDebugMarkerSetObjectNameEXT)vkGetDeviceProcAddr(m_device.logicalDevice, "vkDebugMarkerSetObjectNameEXT");
 		//}
 		//
 		SetupSwapchain();
@@ -143,18 +150,18 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateDescriptorSetLayout();
 		CreatePushConstantRange();
 
-		gpuTransformBuffer.Init(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		gpuTransformBuffer.Init(&m_device,VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 		gpuTransformBuffer.reserve(MAX_OBJECTS);
 
 		// TEMP debug drawing code
-		debugTransformBuffer.Init(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		debugTransformBuffer.Init(&m_device,VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 		debugTransformBuffer.reserve(MAX_OBJECTS);
 
 		CreateDescriptorSets_GPUScene();
 
 		CreateGraphicsPipeline();
 
-		InitImGUI();
+		//InitImGUI();
 
 		CreateLightingBuffers();
 
@@ -162,6 +169,16 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		samplerManager.Init();
 
 		// Calls "Init()" on all registered render passes. Order is not guarunteed.
+		auto rpd = RenderPassDatabase::Get();
+		GfxRenderpass* ptr = new ShadowPass;
+		rpd->RegisterRenderPass(ptr);
+		 ptr = new DebugRenderpass;
+		rpd->RegisterRenderPass(ptr);
+		 ptr = new GBufferRenderPass;
+		rpd->RegisterRenderPass(ptr);
+		 ptr = new DeferredCompositionRenderpass;
+		rpd->RegisterRenderPass(ptr);
+
 		RenderPassDatabase::InitAllRegisteredPasses();
 
 		CreateFramebuffers();
@@ -203,10 +220,20 @@ void VulkanRenderer::CreateInstance(const oGFX::SetupInfo& setupSpecs)
 	}
 }
 
-void VulkanRenderer::CreateSurface(Window& window)
+class SDL_Window;
+void VulkanRenderer::CreateSurface(const oGFX::SetupInfo& setupSpecs, Window& window)
 {
     windowPtr = &window;
-    m_instance.CreateSurface(window);
+	if (window.m_type == Window::WindowType::SDL2)
+	{
+		assert(setupSpecs.SurfaceFunctionPointer); // Surface pointer doesnt work	
+		std::function<void()> fn = setupSpecs.SurfaceFunctionPointer;
+		fn();
+	}
+	else
+	{
+		m_instance.CreateSurface(window);
+	}
 }
 
 void VulkanRenderer::AcquirePhysicalDevice()
@@ -246,6 +273,7 @@ void VulkanRenderer::CreateRenderpass()
 	colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; //image data layout before render pass starts
 	//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
 	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL; //image data layout aftet render pass ( to change to)
+	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
 
 																	// Depth attachment of render pass
 	VkAttachmentDescription depthAttachment{};
@@ -748,7 +776,7 @@ void VulkanRenderer::CreateOffscreenFB()
 	{
 		throw std::runtime_error("Failed to create a Framebuffer!");
 	}
-	myImg = ImGui_ImplVulkan_AddTexture(samplerManager.GetDefaultSampler(), offscreenFB.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	myImg = CreateImguiBinding(samplerManager.GetDefaultSampler(), offscreenFB.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	
 }
 
@@ -1114,6 +1142,8 @@ void VulkanRenderer::InitImGUI()
 		VK_NAME(m_device.logicalDevice, "imguiconfig_Framebuffer", m_imguiConfig.buffers[i]);
 	}
 
+	m_imguiInitialized = true;
+
 }
 
 void VulkanRenderer::ResizeGUIBuffers()
@@ -1211,6 +1241,8 @@ void VulkanRenderer::DestroyImGUI()
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext(ImGui::GetCurrentContext());
+
+	m_imguiInitialized = false;
 }
 
 void VulkanRenderer::AddDebugBox(const AABB& aabb, const oGFX::Color& col, size_t loc)
@@ -1549,6 +1581,7 @@ void VulkanRenderer::UploadInstanceData()
 	gpuTransform.clear();
 	gpuTransform.reserve(MAX_OBJECTS);
 
+
 	if (currWorld)
 	{
 		std::cout << "rendering graphics world" << std::endl;
@@ -1753,7 +1786,6 @@ void VulkanRenderer::RenderFrame()
         PROFILE_GPU_EVENT("CommandList");
 
         //this->SimplePass(); // Unsued
-
 		// Manually schedule the order of the render pass execution. (single threaded)
 		{
             RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
@@ -2369,6 +2401,15 @@ uint32_t VulkanRenderer::UpdateBindlessGlobalTexture(vkutils::Texture2D texture)
 	vkUpdateDescriptorSets(m_device.logicalDevice, static_cast<uint32_t>(writeSets.size()), writeSets.data(), 0, nullptr);
 
 	return index;
+}
+
+ImTextureID VulkanRenderer::CreateImguiBinding(VkSampler s, VkImageView v, VkImageLayout l)
+{
+	if (m_imguiInitialized == false)
+	{
+		return 0;
+	}
+	return ImGui_ImplVulkan_AddTexture(s,v,l);
 }
 
 int Win32SurfaceCreator(ImGuiViewport* vp, ImU64 device, const void* allocator, ImU64* outSurface)

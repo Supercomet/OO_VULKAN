@@ -10,8 +10,20 @@
 
 DECLARE_RENDERPASS(DeferredCompositionRenderpass);
 
+
+//struct test
+//{
+//	test()
+//	{
+//		auto ptr = new DeferredCompositionRenderpass;
+//		RenderPassDatabase::Get()->RegisterRenderPass(ptr);
+//		std::cout<< "KILL ME PLS" << std::endl;
+//	}
+//}t;
+
 void DeferredCompositionRenderpass::Init()
 {
+
 }
 
 void DeferredCompositionRenderpass::CreatePSO()

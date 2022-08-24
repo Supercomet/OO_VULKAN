@@ -163,6 +163,7 @@ int main(int argc, char argv[])
     try
     {
         renderer.Init(setupSpec, mainWindow);
+        renderer.InitImGUI();
 
         std::cout << "Created vulkan instance!"<< std::endl;
     }
@@ -947,7 +948,7 @@ int main(int argc, char argv[])
                 ImGui::End();
             }
 
-            renderer.DrawGUI();
+            //renderer.DrawGUI();
 
             renderer.Present();
         }

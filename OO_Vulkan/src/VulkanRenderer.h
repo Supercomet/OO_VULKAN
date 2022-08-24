@@ -30,6 +30,7 @@
 
 #include <vector>
 #include <array>
+#include <set>
 #include <string>
 
 struct Window;
@@ -49,12 +50,16 @@ public:
 
 	inline static PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nullptr };
 
+	VulkanRenderer()
+	{
+		(void)1;
+	}
 	~VulkanRenderer();
 
 	void Init(const oGFX::SetupInfo& setupSpecs, Window& window);
 
 	void CreateInstance(const oGFX::SetupInfo& setupSpecs);
-	void CreateSurface(Window& window);
+	void CreateSurface(const oGFX::SetupInfo& setupSpecs, Window& window);
 	void AcquirePhysicalDevice();
 	void CreateLogicalDevice();
 	void SetupSwapchain();
@@ -75,6 +80,9 @@ public:
 	void CreateOffscreenPass();
 	void CreateOffscreenFB();
 	void ResizeOffscreenFB();
+
+	inline static bool m_imguiInitialized = false;
+	bool m_initialized = false;
 
 	//---------- Device ----------
 
@@ -246,10 +254,10 @@ public:
 	std::vector<vkutils::Texture2D> g_Textures;
 
 	// - Synchronisation
-	std::vector<VkSemaphore> imageAvailable;
-	std::vector<VkSemaphore> renderFinished;
-	std::vector<VkFence> drawFences;
-
+	inline static std::vector<VkSemaphore> imageAvailable;
+	inline static std::vector<VkSemaphore> renderFinished;
+	inline static std::vector<VkFence> drawFences;
+	
 	// - Pipeline
 	VkPipeline graphicsPSO{};
 	VkPipeline wireframePSO{};
@@ -281,15 +289,15 @@ public:
 	uint32_t bindlessGlobalTexturesNextIndex = 0;
 
 	// SSBO
-	std::vector<GPUTransform> gpuTransform;
+	inline static std::vector<GPUTransform> gpuTransform{};
 	GpuVector<GPUTransform> gpuTransformBuffer{&m_device};
 
-	std::vector<GPUTransform> debugTransform;
+	inline static std::vector<GPUTransform> debugTransform;
 	GpuVector<GPUTransform> debugTransformBuffer{&m_device};
 	
 	// SSBO
-	std::vector<VkBuffer> vpUniformBuffer;
-	std::vector<VkDeviceMemory> vpUniformBufferMemory;
+	inline static std::vector<VkBuffer> vpUniformBuffer{};
+	inline static std::vector<VkDeviceMemory> vpUniformBufferMemory{};
 
 	inline static DescriptorAllocator DescAlloc;
 	inline static DescriptorLayoutCache DescLayoutCache;
@@ -300,7 +308,7 @@ public:
 
 	// Store the indirect draw commands containing index offsets and instance count per object
 	inline static std::vector<VkDrawIndexedIndirectCommand> m_DrawIndirectCommandsCPU;
-	std::vector<VkDrawIndexedIndirectCommand> indirectDebugCommandsCPU;
+	inline static std::vector<VkDrawIndexedIndirectCommand> indirectDebugCommandsCPU;
 
 	//Scene objects
 	inline static std::vector<gfxModel> models;
@@ -324,6 +332,7 @@ public:
 	Camera camera;
 
 public:
+	
 	struct EntityDetails
 	{
 		std::string name;
@@ -364,12 +373,14 @@ public:
 		}
 	};
 	inline static std::vector<EntityDetails> entities;
-
+	static ImTextureID CreateImguiBinding(VkSampler s, VkImageView v, VkImageLayout l);
 	static VkPipelineShaderStageCreateInfo LoadShader(VulkanDevice& device, const std::string& fileName, VkShaderStageFlagBits stage);
 	private:
+		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);		
 		uint32_t CreateTextureImage(const std::string& fileName);
-		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);
 		uint32_t UpdateBindlessGlobalTexture(vkutils::Texture2D texture);		
+
+		
 
 };
 

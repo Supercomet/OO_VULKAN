@@ -20,6 +20,16 @@
 
 DECLARE_RENDERPASS(ShadowPass);
 
+struct test
+{
+	test()
+	{
+		auto ptr = new ShadowPass;
+		RenderPassDatabase::Get()->RegisterRenderPass(ptr);
+		std::cout<< "KILL ME PLS" << std::endl;
+	}
+}t;
+
 void ShadowPass::Init()
 {
 	SetupRenderpass();
@@ -233,7 +243,7 @@ void ShadowPass::SetupFramebuffer()
 
 	// TODO: Fix imgui depth rendering
 	//deferredImg[GBufferAttachmentIndex::DEPTH]    = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-	shadowImg = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_depth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	shadowImg = VulkanRenderer::CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), att_depth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void ShadowPass::CreatePipeline()
