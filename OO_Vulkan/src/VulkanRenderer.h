@@ -119,7 +119,7 @@ public:
 
 	inline static bool deferredRendering = true;
 
-	inline static vk::Buffer lightsBuffer;
+	inline static vkutils::Buffer lightsBuffer;
 	void CreateLightingBuffers(); 
 	void UpdateLights(float delta);
 	void UploadLights();
@@ -153,7 +153,7 @@ public:
 	void UploadInstanceData();
 	uint32_t objectCount{};
 	// Contains the instanced data
-	inline static vk::Buffer instanceBuffer;
+	inline static vkutils::Buffer instanceBuffer;
 
 	bool PrepareFrame();
 	void Draw();
@@ -243,7 +243,7 @@ public:
 	inline static Window* windowPtr{nullptr};
 
 	//textures
-	std::vector<vk::Texture2D> g_Textures;
+	std::vector<vkutils::Texture2D> g_Textures;
 
 	// - Synchronisation
 	std::vector<VkSemaphore> imageAvailable;
@@ -255,14 +255,14 @@ public:
 	VkPipeline wireframePSO{};
 	inline static VkRenderPass renderPass_default{};
 
-	inline static vk::Buffer indirectCommandsBuffer{};
-	inline static VkPipeline indirectPipeline{};
-	inline static VkPipelineLayout indirectPipeLayout{};
+	inline static vkutils::Buffer indirectCommandsBuffer{};
+	inline static VkPipeline indirectPSO{};
+	inline static VkPipelineLayout indirectPSOLayout{};
 	inline static uint32_t indirectDrawCount{};
 
-	inline static vk::Buffer boneMatrixBuffer{};
-	inline static vk::Buffer skinningVertexBuffer{};
-	inline static vk::Buffer globalLightBuffer{};
+	inline static vkutils::Buffer boneMatrixBuffer{};
+	inline static vkutils::Buffer skinningVertexBuffer{};
+	inline static vkutils::Buffer globalLightBuffer{};
 
 	// - Descriptors
 	
@@ -369,7 +369,7 @@ public:
 	private:
 		uint32_t CreateTextureImage(const std::string& fileName);
 		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);
-		uint32_t UpdateBindlessGlobalTexture(vk::Texture2D texture);		
+		uint32_t UpdateBindlessGlobalTexture(vkutils::Texture2D texture);		
 
 };
 
