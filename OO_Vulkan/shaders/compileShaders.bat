@@ -1,8 +1,13 @@
 @echo off
 SETLOCAL EnableDelayedExpansion
 
+rem This sets this batch file's dir to itself
+cd /d %~dp0
+
 set OUTPUT=bin\
 
+echo [ CompilingShaders... ]
+echo .
 rem Create a "bin" folder if it does not exist, for shader binary output
 if not exist %OUTPUT% (
   mkdir %OUTPUT%
@@ -107,7 +112,7 @@ for %%i in (*.vert *.frag *.comp *.geom) do (
 	rem echo.
  )
  echo.
- call touch done.txt
+ rem call touch done.txt
  echo Finished
  echo.
 
