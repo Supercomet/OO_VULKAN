@@ -598,7 +598,6 @@ int main(int argc, char argv[])
     bool geomChanged = false;
     bool warningMsg = false;
 
-    glm::vec3 pos{0.1f, 1.1f, -3.5f};
     // handling winOS messages
     // This will handle inputs and pass it to our input callback
     while( mainWindow.windowShouldClose == false )  // infinite loop
@@ -619,7 +618,6 @@ int main(int argc, char argv[])
         renderer.camera.keys.up =       Input::GetKeyHeld(KEY_W)? true : false;
         renderer.camera.Update(deltaTime);
 
-
         if (mainWindow.m_width != 0 && mainWindow.m_height != 0)
         {
             renderer.camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
@@ -639,10 +637,6 @@ int main(int argc, char argv[])
         if (Input::GetKeyTriggered(KEY_SPACE))
         {
             freezeLight = !freezeLight;
-        }
-        if (freezeLight == false)
-        {
-            renderer.light.position = renderer.camera.position;
         }
 
         ImGui_ImplVulkan_NewFrame();
@@ -677,7 +671,7 @@ int main(int argc, char argv[])
             //vkUpdateDescriptorSets(renderer.m_device.logicalDevice, 1, &write, 0, 0);
             DescriptorBuilder::Begin(&VulkanRenderer::DescLayoutCache, &VulkanRenderer::DescAlloc)
                 .BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-                .Build(VulkanRenderer::g0_descriptors,VulkanRenderer::g0_descriptorsLayout);
+                .Build(VulkanRenderer::descriptorSet_gpuscene,VulkanRenderer::descriptorSetLayout_gpuscene);
             renderer.gpuTransformBuffer.Updated();
         }
 
@@ -817,10 +811,10 @@ int main(int argc, char argv[])
                             {
                                 for (int i = 0; i < addRandomEntityCount; ++i)
                                 {
-                                    const glm::vec3 pos = glm::sphericalRand(10.0f);
+                                    const glm::vec3 pos = glm::sphericalRand(20.0f);
 
                                     VulkanRenderer::EntityDetails entity;
-                                    entity.position = pos;
+                                    entity.position = { pos.x, glm::abs(pos.y), pos.z };
                                     entity.scale = { 1.0f,1.0f,1.0f };
                                     entity.modelID = box->gfxIndex;
                                     entity.entityID = FastRandomMagic();
