@@ -218,7 +218,7 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to create a runtime instance!\n" + oGFX::vk::tools::VkResultString(result));
+		throw std::runtime_error("Failed to create a runtime instance!\n" + oGFX::vkutils::tools::VkResultString(result));
 	}
 
 	return true;

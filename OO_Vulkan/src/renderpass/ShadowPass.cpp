@@ -52,7 +52,7 @@ void ShadowPass::Draw()
 	VkClearValue clearValues;
 	clearValues.depthStencil = { 1.0f, 0 };
 	
-	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vk::inits::renderPassBeginInfo();
+	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
 	renderPassBeginInfo.renderPass =  renderpass_Shadow;
 	renderPassBeginInfo.framebuffer = framebuffer_Shadow;
 	renderPassBeginInfo.renderArea.extent.width = shadowmapSize.width;
@@ -78,7 +78,7 @@ void ShadowPass::Draw()
 	};
 	
 	uint32_t dynamicOffset = 0;
-	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, VulkanRenderer::indirectPipeLayout,
+	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, VulkanRenderer::indirectPSOLayout,
 		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);
 	
 	// Bind merged mesh vertex & index buffers, instancing buffers.
@@ -96,7 +96,7 @@ void ShadowPass::Draw()
 	glm::mat4 viewproj = light.projection * light.view[0] ;
 
 	vkCmdPushConstants(cmdlist,
-		VulkanRenderer::indirectPipeLayout,
+		VulkanRenderer::indirectPSOLayout,
 		VK_SHADER_STAGE_ALL,	    // stage to push constants to
 		0,							// offset of push constants to update
 		sizeof(glm::mat4),			// size of data being pushed
@@ -118,7 +118,7 @@ void ShadowPass::Draw()
             xform = glm::scale(xform, entity.scale);
 
             vkCmdPushConstants(cmdlist,
-                VulkanRenderer::indirectPipeLayout,
+                VulkanRenderer::indirectPSOLayout,
 				VK_SHADER_STAGE_ALL,        // stage to push constants to
                 0,							// offset of push constants to update
                 sizeof(glm::mat4),			// size of data being pushed
@@ -156,7 +156,7 @@ void ShadowPass::SetupRenderpass()
 
 	att_depth.createAttachment(m_device, width, height, VulkanRenderer::G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	
-	vk::Texture2D tex;
+	vkutils::Texture2D tex;
 	tex.image = att_depth.image;
 
 	// Set up separate renderpass with references to the color and depth attachments
@@ -240,18 +240,18 @@ void ShadowPass::CreatePipeline()
 {
 	auto& m_device = VulkanRenderer::m_device;
 
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vk::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
-	VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vk::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
-	VkPipelineColorBlendAttachmentState blendAttachmentState = oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
-	VkPipelineColorBlendStateCreateInfo colorBlendState = oGFX::vk::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
-	VkPipelineDepthStencilStateCreateInfo depthStencilState = oGFX::vk::inits::pipelineDepthStencilStateCreateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
-	VkPipelineViewportStateCreateInfo viewportState = oGFX::vk::inits::pipelineViewportStateCreateInfo(1, 1, 0);
-	VkPipelineMultisampleStateCreateInfo multisampleState = oGFX::vk::inits::pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT, 0);
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
+	VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
+	VkPipelineColorBlendAttachmentState blendAttachmentState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
+	VkPipelineColorBlendStateCreateInfo colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
+	VkPipelineDepthStencilStateCreateInfo depthStencilState = oGFX::vkutils::inits::pipelineDepthStencilStateCreateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
+	VkPipelineViewportStateCreateInfo viewportState = oGFX::vkutils::inits::pipelineViewportStateCreateInfo(1, 1, 0);
+	VkPipelineMultisampleStateCreateInfo multisampleState = oGFX::vkutils::inits::pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT, 0);
 	std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-	VkPipelineDynamicStateCreateInfo dynamicState = oGFX::vk::inits::pipelineDynamicStateCreateInfo(dynamicStateEnables);
+	VkPipelineDynamicStateCreateInfo dynamicState = oGFX::vkutils::inits::pipelineDynamicStateCreateInfo(dynamicStateEnables);
 	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
 
-	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vk::inits::pipelineCreateInfo(VulkanRenderer::indirectPipeLayout, VulkanRenderer::renderPass_default);
+	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(VulkanRenderer::indirectPSOLayout, VulkanRenderer::renderPass_default);
 	pipelineCI.pInputAssemblyState = &inputAssemblyState;
 	pipelineCI.pRasterizationState = &rasterizationState;
 	pipelineCI.pColorBlendState = &colorBlendState;
@@ -272,7 +272,7 @@ void ShadowPass::CreatePipeline()
 
 	rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
 	// -- VERTEX INPUT -- 
-	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = oGFX::vk::inits::pipelineVertexInputStateCreateInfo(bindingDescription,attributeDescriptions);
+	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = oGFX::vkutils::inits::pipelineVertexInputStateCreateInfo(bindingDescription,attributeDescriptions);
 	//vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
 	//vertexInputCreateInfo.vertexAttributeDescriptionCount = 5;
 
