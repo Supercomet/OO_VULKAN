@@ -5,7 +5,7 @@
 #endif
 
 #include "gpuCommon.h"
-#include "VulkanRenderer.h"
+#include "Vulkanrenderer.h"
 
 
 #include <iostream>
@@ -159,11 +159,11 @@ int main(int argc, char argv[])
     setupSpec.debug = true;
     setupSpec.renderDoc = true;
 
-    VulkanRenderer renderer;
+    VulkanRenderer* renderer = VulkanRenderer::get();
     try
     {
-        renderer.Init(setupSpec, mainWindow);
-        renderer.InitImGUI();
+        renderer->Init(setupSpec, mainWindow);
+        renderer->InitImGUI();
 
         std::cout << "Created vulkan instance!"<< std::endl;
     }
@@ -231,12 +231,12 @@ int main(int argc, char argv[])
             }
 
         }
-        renderer.g_MeshBuffers.VtxBuffer.reserve(100000*sizeof(oGFX::Vertex));
-        renderer.g_MeshBuffers.IdxBuffer.reserve(100000*sizeof(oGFX::Vertex));
-        icoSphere.reset( renderer.LoadMeshFromBuffers(vertices, indices, nullptr));
+        renderer->g_MeshBuffers.VtxBuffer.reserve(100000*sizeof(oGFX::Vertex));
+        renderer->g_MeshBuffers.IdxBuffer.reserve(100000*sizeof(oGFX::Vertex));
+        icoSphere.reset( renderer->LoadMeshFromBuffers(vertices, indices, nullptr));
     }
 
-    std::unique_ptr<Model> bunny{ renderer.LoadMeshFromFile("Models/bunny.obj") };
+    std::unique_ptr<Model> bunny{ renderer->LoadMeshFromFile("Models/bunny.obj") };
     std::vector<Point3D> vertPositions;
     Sphere ms;
     if (bunny)
@@ -258,13 +258,13 @@ int main(int argc, char argv[])
     oGFX::BV::RitterSphere(icoSphere->s, vertPositions);
     oGFX::BV::BoundingAABB(icoSphere->aabb, vertPositions);
 
-    std::unique_ptr<Model> box{ renderer.LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
+    std::unique_ptr<Model> box{ renderer->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
     vertPositions.resize(box->vertices.size());
     std::transform(box->vertices.begin(), box->vertices.end(), vertPositions.begin(), [](const oGFX::Vertex& v) { return v.pos; });
     oGFX::BV::LarsonSphere(ms, vertPositions, oGFX::BV::EPOS::_98);
     oGFX::BV::BoundingAABB(box->aabb, vertPositions);
 
-    std::unique_ptr<Model> lucy{ renderer.LoadMeshFromFile("Models/lucy_princeton.obj") };
+    std::unique_ptr<Model> lucy{ renderer->LoadMeshFromFile("Models/lucy_princeton.obj") };
     if (lucy)
     {
         vertPositions.resize(lucy->vertices.size());
@@ -273,7 +273,7 @@ int main(int argc, char argv[])
         oGFX::BV::BoundingAABB(lucy->aabb, vertPositions);
     }
 
-    std::unique_ptr<Model> starWars{ renderer.LoadMeshFromFile("Models/starwars1.obj") };
+    std::unique_ptr<Model> starWars{ renderer->LoadMeshFromFile("Models/starwars1.obj") };
     if (starWars)
     {
         vertPositions.resize(starWars->vertices.size());
@@ -282,7 +282,7 @@ int main(int argc, char argv[])
         oGFX::BV::BoundingAABB(starWars->aabb, vertPositions);
     }
     
-    std::unique_ptr<Model> fourSphere{ renderer.LoadMeshFromFile("Models/4Sphere.obj") };
+    std::unique_ptr<Model> fourSphere{ renderer->LoadMeshFromFile("Models/4Sphere.obj") };
     if (fourSphere)
     {
         vertPositions.resize(fourSphere->vertices.size());
@@ -292,7 +292,7 @@ int main(int argc, char argv[])
     }
    
     //std::unique_ptr<Model> ball;
-    //ball.reset(renderer.LoadMeshFromFile("Models/sphere.obj"));
+    //ball.reset(renderer->LoadMeshFromFile("Models/sphere.obj"));
     
     //int o{};
     //std::vector<glm::vec3> positions(bunny->vertices.size());
@@ -309,8 +309,8 @@ int main(int argc, char argv[])
     //std::cout << "vertices : " << bunny->vertices.size() << std::endl;
     //
     //
-    //uint32_t triangle = renderer.LoadMeshFromBuffers(quadVerts, quadIndices, nullptr);
-    std::unique_ptr<Model> plane{ renderer.LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
+    //uint32_t triangle = renderer->LoadMeshFromBuffers(quadVerts, quadIndices, nullptr);
+    std::unique_ptr<Model> plane{ renderer->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
     //delete bunny;
     //
     //oGFX::BV::RitterSphere(ms, positions);
@@ -336,20 +336,20 @@ int main(int argc, char argv[])
     uint32_t blackTexture = 0xFF000000; // ABGR
     uint32_t normalTexture = 0xFFFF8080; // ABGR
     uint32_t pinkTexture = 0xFFA040A0; // ABGR
-    renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&whiteTexture));
-    renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
-    renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
-    renderer.CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
+    renderer->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&whiteTexture));
+    renderer->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
+    renderer->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
+    renderer->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
 
-    uint32_t diffuseTexture0 = renderer.CreateTexture("Textures/7/d.png");
-    uint32_t diffuseTexture1 = renderer.CreateTexture("Textures/8/d.png");
-    uint32_t diffuseTexture2 = renderer.CreateTexture("Textures/13/d.png");
-    uint32_t diffuseTexture3 = renderer.CreateTexture("Textures/23/d.png");
+    uint32_t diffuseTexture0 = renderer->CreateTexture("Textures/7/d.png");
+    uint32_t diffuseTexture1 = renderer->CreateTexture("Textures/8/d.png");
+    uint32_t diffuseTexture2 = renderer->CreateTexture("Textures/13/d.png");
+    uint32_t diffuseTexture3 = renderer->CreateTexture("Textures/23/d.png");
 
-    uint32_t roughnessTexture0 = renderer.CreateTexture("Textures/7/r.png");
-    uint32_t roughnessTexture1 = renderer.CreateTexture("Textures/8/r.png");
-    uint32_t roughnessTexture2 = renderer.CreateTexture("Textures/13/r.png");
-    uint32_t roughnessTexture3 = renderer.CreateTexture("Textures/23/r.png");
+    uint32_t roughnessTexture0 = renderer->CreateTexture("Textures/7/r.png");
+    uint32_t roughnessTexture1 = renderer->CreateTexture("Textures/8/r.png");
+    uint32_t roughnessTexture2 = renderer->CreateTexture("Textures/13/r.png");
+    uint32_t roughnessTexture3 = renderer->CreateTexture("Textures/23/r.png");
 
     std::array<uint32_t, 4> diffuseBindlessTextureIndexes =
     {
@@ -378,7 +378,7 @@ int main(int argc, char argv[])
         ed.modelID = plane->gfxIndex;
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
-        renderer.entities.push_back(ed);
+        renderer->entities.push_back(ed);
     }
 
     {
@@ -388,7 +388,7 @@ int main(int argc, char argv[])
         ed.modelID = icoSphere->gfxIndex;
         ed.position = { -2.0f,2.0f,-2.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
-        renderer.entities.push_back(ed);
+        renderer->entities.push_back(ed);
     }
    
     {
@@ -399,7 +399,7 @@ int main(int argc, char argv[])
         ed.position = { 2.0f,3.0f,2.0f };
         ed.scale = { 2.0f,3.0f,1.0f };
         ed.rot = { 45.0f };
-        renderer.entities.push_back(ed);
+        renderer->entities.push_back(ed);
     }
 
     // Create 8 more surrounding planes
@@ -427,11 +427,11 @@ int main(int argc, char argv[])
             ed.scale = { 15.0f,1.0f,15.0f };
             ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[i / 2];
             ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[i / 2];
-            renderer.entities.push_back(ed);
+            renderer->entities.push_back(ed);
         }
     }
 
-    std::unique_ptr<Model> diona{ renderer.LoadMeshFromFile("Models/diona.fbx") };
+    std::unique_ptr<Model> diona{ renderer->LoadMeshFromFile("Models/diona.fbx") };
     if (diona)
     {
         VulkanRenderer::EntityDetails ed;
@@ -440,10 +440,10 @@ int main(int argc, char argv[])
         ed.entityID = FastRandomMagic();
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
-        renderer.entities.push_back(ed);
+        renderer->entities.push_back(ed);
     }
     
-    std::unique_ptr<Model> qiqi{ renderer.LoadMeshFromFile("Models/qiqi.fbx") };
+    std::unique_ptr<Model> qiqi{ renderer->LoadMeshFromFile("Models/qiqi.fbx") };
     if (qiqi)
     {
         VulkanRenderer::EntityDetails ed;
@@ -452,7 +452,7 @@ int main(int argc, char argv[])
         ed.entityID = FastRandomMagic();
         ed.position = { 1.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
-        renderer.entities.push_back(ed);
+        renderer->entities.push_back(ed);
     }
 
     if (bunny)
@@ -463,7 +463,7 @@ int main(int argc, char argv[])
         ed.entityID = FastRandomMagic();
         ed.position = { -3.0f,2.0f,-3.0f };
         ed.scale = { 5.0f,5.0f,5.0f };
-        renderer.entities.push_back(ed);
+        renderer->entities.push_back(ed);
     }
 
     if (lucy)
@@ -476,7 +476,7 @@ int main(int argc, char argv[])
         ed.scale = { 0.002f,0.002f,0.002f };
         ed.rotVec = { 1.0f,1.0f,0.0f };
         ed.rot = { 0.0f };
-        renderer.entities.push_back(ed);
+        renderer->entities.push_back(ed);
     }
 
     if (starWars)
@@ -487,7 +487,7 @@ int main(int argc, char argv[])
         ed.entityID = FastRandomMagic();
         ed.position = { 3.0f,-2.0f,-5.0f };
         ed.scale = { 0.001f,0.001f,0.001f };
-        renderer.entities.push_back(ed);
+        renderer->entities.push_back(ed);
     }
 
     if (fourSphere)
@@ -498,15 +498,15 @@ int main(int argc, char argv[])
         ed.entityID = FastRandomMagic();
         ed.scale = { 0.001f,0.001f,0.001f };
         ed.position = { 1.0f, 2.0f,5.0f };
-        renderer.entities.push_back(ed);
+        renderer->entities.push_back(ed);
     }
 
     std::vector<Point3D> sceneVertices;
     std::vector<uint32_t> sceneIndices;
-    for (size_t i = 0; i < renderer.entities.size(); i++)
+    for (size_t i = 0; i < renderer->entities.size(); i++)
     {
-        auto& ent = renderer.entities[i];
-        auto& model = renderer.models[renderer.entities[i].modelID];
+        auto& ent = renderer->entities[i];
+        auto& model = renderer->models[renderer->entities[i].modelID];
         auto& meshInfo = *model.cpuModel;
         
         auto chachedPos = sceneVertices.size();
@@ -530,12 +530,12 @@ int main(int argc, char argv[])
     GraphicsWorld Gworld;
     std::vector<int32_t> gWorldIds;
 
-    for (auto& e: renderer.entities)
+    for (auto& e: renderer->entities)
     {
         AABB ab;
-        auto& model = renderer.models[e.modelID];
+        auto& model = renderer->models[e.modelID];
         
-        UpdateBV(renderer.models[e.modelID].cpuModel, e);
+        UpdateBV(renderer->models[e.modelID].cpuModel, e);
 
         glm::mat4 xform(1.0f);
         xform = glm::translate(xform, e.position);
@@ -560,7 +560,7 @@ int main(int argc, char argv[])
     }
 
     // for now..
-    // renderer.SetWorld(Gworld);
+    // renderer->SetWorld(Gworld);
 
     //create a hundred random textures because why not
     std::default_random_engine rndEngine(123456);
@@ -576,24 +576,24 @@ int main(int argc, char argv[])
             uint32_t colour = uniformDist(rndEngine); // ABGR
             bitmap[x] = colour;
         }
-        renderer.CreateTexture(dims, dims, reinterpret_cast<unsigned char*>(bitmap.data()));
+        renderer->CreateTexture(dims, dims, reinterpret_cast<unsigned char*>(bitmap.data()));
     }
 
     auto lastTime = std::chrono::high_resolution_clock::now();
 
-    renderer.camera.type = Camera::CameraType::lookat;
-    renderer.camera.target = glm::vec3(0.01f, 0.0f, 0.0f);
-    renderer.camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
-    renderer.camera.SetRotationSpeed(0.5f);
-    renderer.camera.SetPosition(glm::vec3(0.1f, 5.0f, 10.5f));
-    renderer.camera.movementSpeed = 5.0f;
-    renderer.camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
-    renderer.camera.Rotate(glm::vec3(1 * renderer.camera.rotationSpeed, 1 * renderer.camera.rotationSpeed, 0.0f));
-    renderer.camera.type = Camera::CameraType::firstperson;
+    renderer->camera.type = Camera::CameraType::lookat;
+    renderer->camera.target = glm::vec3(0.01f, 0.0f, 0.0f);
+    renderer->camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
+    renderer->camera.SetRotationSpeed(0.5f);
+    renderer->camera.SetPosition(glm::vec3(0.1f, 5.0f, 10.5f));
+    renderer->camera.movementSpeed = 5.0f;
+    renderer->camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
+    renderer->camera.Rotate(glm::vec3(1 * renderer->camera.rotationSpeed, 1 * renderer->camera.rotationSpeed, 0.0f));
+    renderer->camera.type = Camera::CameraType::firstperson;
 
     static bool freezeLight = false;
 
-    //renderer.UpdateDebugBuffers();
+    //renderer->UpdateDebugBuffers();
 
     int currSphereType{ 0 };
     bool geomChanged = false;
@@ -613,26 +613,26 @@ int main(int argc, char argv[])
         float deltaTime = std::chrono::duration<float>( now - lastTime).count();
         lastTime = now;
 
-        renderer.camera.keys.left =     Input::GetKeyHeld(KEY_A)? true : false;
-        renderer.camera.keys.right =    Input::GetKeyHeld(KEY_D)? true : false;
-        renderer.camera.keys.down =     Input::GetKeyHeld(KEY_S)? true : false;
-        renderer.camera.keys.up =       Input::GetKeyHeld(KEY_W)? true : false;
-        renderer.camera.Update(deltaTime);
+        renderer->camera.keys.left =     Input::GetKeyHeld(KEY_A)? true : false;
+        renderer->camera.keys.right =    Input::GetKeyHeld(KEY_D)? true : false;
+        renderer->camera.keys.down =     Input::GetKeyHeld(KEY_S)? true : false;
+        renderer->camera.keys.up =       Input::GetKeyHeld(KEY_W)? true : false;
+        renderer->camera.Update(deltaTime);
 
         if (mainWindow.m_width != 0 && mainWindow.m_height != 0)
         {
-            renderer.camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
+            renderer->camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
         }
 
         auto mousedel = Input::GetMouseDelta();
         float wheelDelta = Input::GetMouseWheel();
         if (Input::GetMouseHeld(MOUSE_RIGHT)) 
         {
-            renderer.camera.Rotate(glm::vec3(-mousedel.y * renderer.camera.rotationSpeed, mousedel.x * renderer.camera.rotationSpeed, 0.0f));
+            renderer->camera.Rotate(glm::vec3(-mousedel.y * renderer->camera.rotationSpeed, mousedel.x * renderer->camera.rotationSpeed, 0.0f));
         }
-        if (renderer.camera.type == Camera::CameraType::lookat)
+        if (renderer->camera.type == Camera::CameraType::lookat)
         {
-            renderer.camera.ChangeDistance(wheelDelta * -0.001f);
+            renderer->camera.ChangeDistance(wheelDelta * -0.001f);
         }
         
         if (Input::GetKeyTriggered(KEY_SPACE))
@@ -644,54 +644,54 @@ int main(int argc, char argv[])
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        //std::cout<<  renderer.camera.position << '\n';
+        //std::cout<<  renderer->camera.position << '\n';
 
         if (geomChanged)
         {
             // update bv
-            for (auto& e: renderer.entities)
+            for (auto& e: renderer->entities)
             {
                 AABB ab;
-                auto& model = renderer.models[e.modelID];
+                auto& model = renderer->models[e.modelID];
                 ab.center = e.position;
                 ab.halfExt = e.scale * 0.5f;
-                //UpdateBV(renderer.models[e.modelID].cpuModel, e, currSphereType);
+                //UpdateBV(renderer->models[e.modelID].cpuModel, e, currSphereType);
                 
             }
 
             geomChanged = false;
         }
 
-        if (renderer.gpuTransformBuffer.MustUpdate())
+        if (renderer->gpuTransformBuffer.MustUpdate())
         {
-            auto dbi = renderer.gpuTransformBuffer.GetDescriptorBufferInfo();
-            //VkWriteDescriptorSet write = oGFX::vk::inits::writeDescriptorSet(renderer.g0_descriptors, 
+            auto dbi = renderer->gpuTransformBuffer.GetDescriptorBufferInfo();
+            //VkWriteDescriptorSet write = oGFX::vk::inits::writeDescriptorSet(renderer->g0_descriptors, 
             //    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 
             //    3,
             //    &dbi);
-            //vkUpdateDescriptorSets(renderer.m_device.logicalDevice, 1, &write, 0, 0);
-            DescriptorBuilder::Begin(&VulkanRenderer::DescLayoutCache, &VulkanRenderer::DescAlloc)
+            //vkUpdateDescriptorSets(renderer->m_device.logicalDevice, 1, &write, 0, 0);
+            DescriptorBuilder::Begin(&VulkanRenderer::get()->DescLayoutCache, &VulkanRenderer::get()->DescAlloc)
                 .BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-                .Build(VulkanRenderer::descriptorSet_gpuscene,VulkanRenderer::descriptorSetLayout_gpuscene);
-            renderer.gpuTransformBuffer.Updated();
+                .Build(VulkanRenderer::get()->descriptorSet_gpuscene,VulkanRenderer::get()->descriptorSetLayout_gpuscene);
+            renderer->gpuTransformBuffer.Updated();
         }
 
-        if (renderer.PrepareFrame() == true)
+        if (renderer->PrepareFrame() == true)
         {
-            PROFILE_SCOPED("renderer.PrepareFrame() == true");
+            PROFILE_SCOPED("renderer->PrepareFrame() == true");
 
-            renderer.timer += deltaTime;
+            renderer->timer += deltaTime;
             if (freezeLight == false)
             {
                 // TODO: turn into proper entities
-                renderer.UpdateLights(deltaTime);
+                renderer->UpdateLights(deltaTime);
             }
 
             // Upload CPU light data to GPU. Ideally this should only contain lights that intersects the camera frustum.
-            renderer.UploadLights();
+            renderer->UploadLights();
 
             // Render the frame
-            renderer.RenderFrame();
+            renderer->RenderFrame();
 
             // Create a dockspace over the mainviewport so that we can dock stuff
             ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), 
@@ -720,8 +720,8 @@ int main(int argc, char argv[])
 
                 ImGuiIO& io = ImGui::GetIO();
                 ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
-                const auto& viewMatrix = renderer.camera.matrices.view;
-                const auto& projMatrix = renderer.camera.matrices.perspective;
+                const auto& viewMatrix = renderer->camera.matrices.view;
+                const auto& projMatrix = renderer->camera.matrices.perspective;
                 
                 static glm::mat4x4 localToWorld{ 1.0f };
                 float* matrixPtr = glm::value_ptr(localToWorld);
@@ -766,7 +766,7 @@ int main(int argc, char argv[])
                     }
                 }
             }
-            bool renderGraphicsWorld = renderer.currWorld;
+            bool renderGraphicsWorld = renderer->currWorld;
             // Display ImGui Window
             {
                 PROFILE_SCOPED("ImGuiSceneHelper");
@@ -776,11 +776,11 @@ int main(int argc, char argv[])
                     {
                         if (renderGraphicsWorld)
                         {
-                            renderer.SetWorld(&Gworld);
+                            renderer->SetWorld(&Gworld);
                         }
                         else
                         {
-                            renderer.SetWorld(nullptr);
+                            renderer->SetWorld(nullptr);
                         }
                     }
                     if (ImGui::BeginTabBar("SceneHelperTabBar"))
@@ -794,7 +794,7 @@ int main(int argc, char argv[])
                                 entity.scale = { 1.0f,1.0f,1.0f };
                                 entity.modelID = box->gfxIndex;
                                 entity.entityID = FastRandomMagic();
-                                renderer.entities.emplace_back(entity);
+                                renderer->entities.emplace_back(entity);
                             }
 
                             int addRandomEntityCount = 0;
@@ -819,15 +819,15 @@ int main(int argc, char argv[])
                                     entity.scale = { 1.0f,1.0f,1.0f };
                                     entity.modelID = box->gfxIndex;
                                     entity.entityID = FastRandomMagic();
-                                    renderer.entities.emplace_back(entity);
+                                    renderer->entities.emplace_back(entity);
                                 }
                             }
 
-                            ImGui::Text("Total Entities: %u", renderer.entities.size());
+                            ImGui::Text("Total Entities: %u", renderer->entities.size());
 
                             if (ImGui::TreeNode("Entity List"))
                             {
-                                for (auto& entity : renderer.entities)
+                                for (auto& entity : renderer->entities)
                                 {
                                     ImGui::PushID(entity.entityID);
 
@@ -870,12 +870,12 @@ int main(int argc, char argv[])
                             static bool debugDrawPosition = false;
                             ImGui::Checkbox("Freeze Lights", &freezeLight);
                             ImGui::Checkbox("Debug Draw Position", &debugDrawPosition);
-                            ImGui::DragFloat3("ViewPos", glm::value_ptr(renderer.lightUBO.viewPos));
+                            ImGui::DragFloat3("ViewPos", glm::value_ptr(renderer->lightUBO.viewPos));
                             ImGui::Separator();
                             for (int i = 0; i < 6; ++i)
                             {
                                 ImGui::PushID(i);
-                                auto& light = renderer.m_HardcodedOmniLights[i];
+                                auto& light = renderer->m_HardcodedOmniLights[i];
                                 ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.01f);
                                 {
                                     if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
@@ -903,8 +903,8 @@ int main(int argc, char argv[])
                                     {
                                         const int screenWidth = (int)windowSize.x;
                                         const int screenHeight = (int)windowSize.y;
-                                        const glm::mat4& viewMatrix = renderer.camera.matrices.view;
-                                        const glm::mat4& projectionMatrix = renderer.camera.matrices.perspective;
+                                        const glm::mat4& viewMatrix = renderer->camera.matrices.view;
+                                        const glm::mat4& projectionMatrix = renderer->camera.matrices.perspective;
                                         // World Space to NDC Space
                                         glm::vec4 ndcPosition = projectionMatrix * viewMatrix * glm::vec4{ worldPosition, 1.0f };
                                         // Perspective Division
@@ -917,7 +917,7 @@ int main(int argc, char argv[])
 
                                     for (int i = 0; i < 6; ++i)
                                     {
-                                        auto& light = renderer.m_HardcodedOmniLights[i];
+                                        auto& light = renderer->m_HardcodedOmniLights[i];
                                         auto& pos = light.position;
                                         const auto screenPosition = WorldToScreen(pos);
                                         constexpr float circleSize = 10.0f;
@@ -948,9 +948,11 @@ int main(int argc, char argv[])
                 ImGui::End();
             }
 
-            //renderer.DrawGUI();
+            //
+            //ImGui::Render();  // Rendering UI
+            //renderer->DrawGUI();
 
-            renderer.Present();
+            renderer->Present();
         }
 
         //finish for all windows
