@@ -142,8 +142,9 @@ int main(int argc, char argv[])
     (void)argv;
 
     _CrtDumpMemoryLeaks();
-    _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
-    //_CrtSetBreakAlloc(2383);
+    _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG );
+    //_CrtSetBreakAlloc(228);
 
     //RunAllTests();
 
@@ -163,6 +164,19 @@ int main(int argc, char argv[])
     try
     {
         renderer->Init(setupSpec, mainWindow);
+       
+        // Setup Dear ImGui context
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+                                                                    //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+
+
+                                                                    // Setup Dear ImGui style
+        ImGui::StyleColorsDark();
         renderer->InitImGUI();
 
         std::cout << "Created vulkan instance!"<< std::endl;
@@ -585,7 +599,7 @@ int main(int argc, char argv[])
     renderer->camera.target = glm::vec3(0.01f, 0.0f, 0.0f);
     renderer->camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
     renderer->camera.SetRotationSpeed(0.5f);
-    renderer->camera.SetPosition(glm::vec3(0.1f, 5.0f, 10.5f));
+    renderer->camera.SetPosition(glm::vec3(0.1f, 10.0f, 10.5f));
     renderer->camera.movementSpeed = 5.0f;
     renderer->camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
     renderer->camera.Rotate(glm::vec3(1 * renderer->camera.rotationSpeed, 1 * renderer->camera.rotationSpeed, 0.0f));
@@ -949,8 +963,8 @@ int main(int argc, char argv[])
             }
 
             //
-            //ImGui::Render();  // Rendering UI
-            //renderer->DrawGUI();
+            ImGui::Render();  // Rendering UI
+            renderer->DrawGUI();
 
             renderer->Present();
         }
@@ -964,6 +978,11 @@ int main(int argc, char argv[])
         }
 
     }   
+
+    renderer->DestroyImGUI();
+    ImGui::DestroyContext(ImGui::GetCurrentContext());
+    delete renderer;
+    
 
     std::cout << "Exiting application..."<< std::endl;
 
