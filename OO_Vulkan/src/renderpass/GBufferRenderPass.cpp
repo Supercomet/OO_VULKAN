@@ -126,16 +126,15 @@ void GBufferRenderPass::Draw()
 
 void GBufferRenderPass::Shutdown()
 {
-	auto& vr = *VulkanRenderer::get();
-	auto& m_device = vr.m_device;
-	att_albedo.destroy(m_device.logicalDevice);
-	att_position.destroy(m_device.logicalDevice);
-	att_normal.destroy(m_device.logicalDevice);
-	att_material.destroy(m_device.logicalDevice);
-	att_depth.destroy(m_device.logicalDevice);
-	vkDestroyFramebuffer(m_device.logicalDevice, framebuffer_GBuffer, nullptr);
-	vkDestroyRenderPass(m_device.logicalDevice,renderpass_GBuffer, nullptr);
-	vkDestroyPipeline(m_device.logicalDevice, pso_GBufferDefault, nullptr);
+	auto& device = VulkanRenderer::get()->m_device.logicalDevice;
+	att_albedo.destroy(device);
+	att_position.destroy(device);
+	att_normal.destroy(device);
+	att_material.destroy(device);
+	att_depth.destroy(device);
+	vkDestroyFramebuffer(device, framebuffer_GBuffer, nullptr);
+	vkDestroyRenderPass(device,renderpass_GBuffer, nullptr);
+	vkDestroyPipeline(device, pso_GBufferDefault, nullptr);
 }
 
 void GBufferRenderPass::SetupRenderpass()

@@ -140,13 +140,12 @@ void ShadowPass::Draw()
 void ShadowPass::Shutdown()
 {
 	auto& vr = *VulkanRenderer::get();
-	auto& m_device = vr.m_device;
+	auto& device = vr.m_device.logicalDevice;
 
-	att_depth.destroy(m_device.logicalDevice);
-
-	vkDestroyFramebuffer(m_device.logicalDevice, framebuffer_Shadow, nullptr);
-	vkDestroyRenderPass(m_device.logicalDevice,renderpass_Shadow, nullptr);
-	vkDestroyPipeline(m_device.logicalDevice, pso_ShadowDefault, nullptr);
+	att_depth.destroy(device);
+	vkDestroyFramebuffer(device, framebuffer_Shadow, nullptr);
+	vkDestroyRenderPass(device, renderpass_Shadow, nullptr);
+	vkDestroyPipeline(device, pso_ShadowDefault, nullptr);
 }
 
 void ShadowPass::SetupRenderpass()
