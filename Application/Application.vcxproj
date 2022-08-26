@@ -139,12 +139,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\AppUtils.cpp" />
+    <ClCompile Include="src\ImGuizmo.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\TestApplication.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\OO_Vulkan\OO_Vulkan.vcxproj">
       <Project>{225d5d91-a5de-4974-bf22-362859e9b2ae}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\ImGuizmo.h" />
+    <ClInclude Include="src\TestApplication.h" />
+    <ClInclude Include="src\AppUtils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
