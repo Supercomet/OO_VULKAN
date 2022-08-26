@@ -7,15 +7,6 @@
 #include "gpuCommon.h"
 #include "Vulkanrenderer.h"
 
-
-#include <iostream>
-#include <iomanip>
-#include <chrono>
-#include <cctype>
-#include <thread>
-#include <functional>
-#include <random>
-
 #include "window.h"
 #include "input.h"
 
@@ -33,109 +24,47 @@
 #include "IcoSphereCreator.h"
 #include "Tree.h"
 
-#include <numeric>
-//#include <algorithm>
-
 #include "Profiling.h"
 
 #include "BoudingVolume.h"
 #include "DefaultMeshCreator.h"
 
-std::ostream& operator<<(std::ostream& os, const glm::vec3& vec)
+#include "AppUtils.h"
+
+#include <iostream>
+#include <iomanip>
+#include <chrono>
+#include <cctype>
+#include <thread>
+#include <functional>
+#include <random>
+#include <numeric>
+#include <algorithm>
+
+#if 1
+#include "TestApplication.h"
+int main(int argc, char argv[])
 {
-    os << std::setprecision(4) << "[" << vec.x << "," << vec.y << "," << vec.z << "]";
-    return os;
+    (void)argc;
+    (void)argv;
+
+    _CrtDumpMemoryLeaks();
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
+
+    // !! IMPORTANT !!
+    // !! THIS IS A HACK !!
+    // - Hijacking the directory So that all the models/shaders/textures folder can be accessed
+    // - This is a quick workaround so that this .exe from this project can be run from Visual Studio.
+    // - As such, be careful when running from the .exe application directly.
+    SetCurrentDirectory(L"../OO_Vulkan/");
+
+    TestApplication app;
+    app.Run();
 }
-
-bool BoolQueryUser(const char* str)
-{
-    char response{ 0 };
-    std::cout << str << " [y/n]" << std::endl;
-    while (!response) {
-        std::cin >> response;
-        response = static_cast<char>(std::tolower(response));
-        if (response != 'y' && response != 'n') {
-            std::cout << "Invalid input[" << response << "]please try again" << std::endl;
-            response = 0;
-        }
-    }
-    return response == 'n' ? false : true;
-}
-
-oGFX::Color generateRandomColor()
-{
-    static std::default_random_engine rndEngine(3456);
-    static std::uniform_real<float> uniformDist(0.0f, 1.0f);
-
-    oGFX::Color col;
-    col.a = 1.0f;
-    float sum;
-    do
-    {
-        col.r = uniformDist(rndEngine);
-        col.g = uniformDist(rndEngine);
-        col.b = uniformDist(rndEngine);
-        sum = (col.r + col.g + col.b);
-    } while (sum < 2.0f && sum > 2.8f);
-    return col;
-}
-
-void UpdateBV(Model* model, VulkanRenderer::EntityDetails& entity, int i = 0)
-{
-    std::vector<Point3D> vertPositions;
-    vertPositions.resize(model->vertices.size());
-    glm::mat4 xform(1.0f);
-    xform = glm::translate(xform, entity.position);
-    xform = glm::rotate(xform, glm::radians(entity.rot), entity.rotVec);
-    xform = glm::scale(xform, entity.scale);
-    std::transform(model->vertices.begin(), model->vertices.end(), vertPositions.begin(), [&](const oGFX::Vertex& v) {
-        glm::vec4 pos{ v.pos,1.0f };
-        pos = xform * pos;
-        return pos;
-        }
-    );
-    switch (i)
-    {
-    case 0:
-        oGFX::BV::RitterSphere(entity.sphere, vertPositions);
-        break;
-    case 1:
-        oGFX::BV::LarsonSphere(entity.sphere, vertPositions, oGFX::BV::EPOS::_6);
-        break;
-    case 2:
-        oGFX::BV::LarsonSphere(entity.sphere, vertPositions, oGFX::BV::EPOS::_14);
-        break;
-    case 3:
-        oGFX::BV::LarsonSphere(entity.sphere, vertPositions, oGFX::BV::EPOS::_26);
-        break;
-    case 4:
-        oGFX::BV::LarsonSphere(entity.sphere, vertPositions, oGFX::BV::EPOS::_98);
-        break;
-    case 5:
-        oGFX::BV::EigenSphere(entity.sphere, vertPositions);
-        break;
-    default:
-        oGFX::BV::RitterSphere(entity.sphere, vertPositions);
-        break;
-    }
-
-    oGFX::BV::BoundingAABB(entity.aabb, vertPositions);
-}
-
-enum class AppWindowSizeTypes : int
-{
-    HD_720P_16_9,
-    HD_900P_16_10
-};
-
-static glm::ivec2 gs_AppWindowSizes[] =
-{
-    glm::ivec2{ 1280, 720 },
-    glm::ivec2{ 1440, 900 },
-};
-
+#endif
+#if 0
 static float* gizmoHijack = nullptr; // TODO: Clean this up...
-
 int main(int argc, char argv[])
 {
     (void)argc;
@@ -149,7 +78,7 @@ int main(int argc, char argv[])
     // !! IMPORTANT !!
     // !! THIS IS A HACK !!
     // - Hijacking the directory So that all the models/shaders/textures folder can be accessed
-    // - This is a quick workaround so that this .exe from this project can be run.
+    // - This is a quick workaround so that this .exe from this project can be run from Visual Studio.
     // - As such, be careful when running from the .exe application directly.
     SetCurrentDirectory(L"../OO_Vulkan/");
 
@@ -174,19 +103,17 @@ int main(int argc, char argv[])
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
-        //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-                                                                    //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+        //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // Enable Docking
+        //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // Enable Multi-Viewport / Platform Windows
 
-
-                                                                    // Setup Dear ImGui style
-        ImGui::StyleColorsDark();
+        ImGui::StyleColorsDark(); // Setup Dear ImGui style
         renderer->InitImGUI();
 
         std::cout << "Created vulkan instance!" << std::endl;
     }
-    catch (std::runtime_error e)
+    catch (const std::runtime_error& e)
     {
         std::cout << "Cannot create vulkan instance! " << e.what() << std::endl;
         getchar();
@@ -199,14 +126,13 @@ int main(int argc, char argv[])
     }
 
     std::vector<oGFX::Vertex>triVerts{
-            oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-            oGFX::Vertex{ { 0.5,-0.5,0.0}, { 0.0f,1.0f,0.0f }, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f } },
-            oGFX::Vertex{ { 0.0, 0.5,0.0}, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f,1.0f }, { 0.0f,1.0f } }
+        oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
+        oGFX::Vertex{ { 0.5,-0.5,0.0}, { 0.0f,1.0f,0.0f }, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f } },
+        oGFX::Vertex{ { 0.0, 0.5,0.0}, { 0.0f,0.0f,1.0f }, { 0.0f,0.0f,1.0f }, { 0.0f,1.0f } }
     };
     std::vector<uint32_t>triIndices{
         0,1,2
     };
-
     // triangle splitting test
     Triangle t;
     t.v0 = Point3D(-4.0f, -8.0f, 0.0f);
@@ -992,3 +918,4 @@ int main(int argc, char argv[])
     std::cout << "Exiting application..." << std::endl;
 
 }
+#endif
