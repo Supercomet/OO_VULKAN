@@ -160,14 +160,12 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		(void)intsVector;
 
-		new(&gpuTransformBuffer) GpuVector<GPUTransform>;
 		*const_cast<VkBuffer*>(gpuTransformBuffer.getBufferPtr()) = VK_NULL_HANDLE;
 		std::cout << "gpu xform :" << gpuTransformBuffer.m_size << " " << gpuTransformBuffer.m_capacity << std::endl;
 		gpuTransformBuffer.Init(&m_device,VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 		gpuTransformBuffer.reserve(MAX_OBJECTS);
 
 		// TEMP debug drawing code
-		new(&debugTransformBuffer) GpuVector<GPUTransform>;
 		std::cout << "debug xform :" << debugTransformBuffer.m_size << " " << debugTransformBuffer.m_capacity << std::endl;
 		*const_cast<VkBuffer*>(debugTransformBuffer.getBufferPtr()) = VK_NULL_HANDLE;
 		debugTransformBuffer.Init(&m_device,VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
@@ -177,7 +175,10 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		CreateGraphicsPipeline();
 
-		//InitImGUI();
+		if (setupSpecs.useOwnImgui)
+		{
+			InitImGUI();
+		}
 
 		CreateLightingBuffers();
 
@@ -371,6 +372,8 @@ void VulkanRenderer::CreateRenderpass()
 	}
 	VK_NAME(m_device.logicalDevice, "defaultRenderPass",renderPass_default);
 
+	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+	vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &renderPass_default2);
 	//depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	//result = vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &compositionPass);
 	//if (result != VK_SUCCESS)
@@ -1038,6 +1041,8 @@ void VulkanRenderer::CreateDescriptorSets_GPUScene()
 
 void VulkanRenderer::InitImGUI()
 {
+	if (m_imguiInitialized) return;
+
 	VkAttachmentDescription attachment = {};
 	attachment.format = m_swapchain.swapChainImageFormat;
 	attachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -1076,7 +1081,6 @@ void VulkanRenderer::InitImGUI()
 	info.dependencyCount = 1;
 	info.pDependencies = &dependency;
 
-	new (&m_imguiConfig) ImGUIStructures;
 
 	if (vkCreateRenderPass(m_device.logicalDevice, &info, nullptr, &m_imguiConfig.renderPass) != VK_SUCCESS) {
 		throw std::runtime_error("Could not create Dear ImGui's render pass");
@@ -1196,48 +1200,51 @@ void VulkanRenderer::ResizeGUIBuffers()
 	}
 }
 
+void VulkanRenderer::DebugGUIcalls()
+{
+	if(ImGui::Begin("img"))
+	{
+		const char* views[]  = { "Lookat", "FirstPerson" };
+		ImGui::ListBox("Camera View", reinterpret_cast<int*>(&camera.type), views, 2);
+		auto sz = ImGui::GetContentRegionAvail();
+		ImGui::Image(myImg, { sz.x,sz.y });
+	}
+	ImGui::End();
+	
+	if(ImGui::Begin("Deferred Rendering GBuffer"))
+	{
+		ImGui::Checkbox("Enable Deferred Rendering", &deferredRendering);
+		if (deferredRendering)
+		{
+			const auto sz = ImGui::GetContentRegionAvail();
+			auto gbuff = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
+	
+			auto shadows = RenderPassDatabase::GetRenderPass<ShadowPass>();
+	
+			const float renderWidth = float(windowPtr->m_width);
+			const float renderHeight = float(windowPtr->m_height);
+			const float aspectRatio = renderHeight / renderWidth;
+			const ImVec2 imageSize = { sz.x, sz.x * aspectRatio };
+	
+			//auto gbuff = GBufferRenderPass::Get();
+			ImGui::BulletText("World Position");
+			ImGui::Image(gbuff->deferredImg[POSITION], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::BulletText("World Normal");
+			ImGui::Image(gbuff->deferredImg[NORMAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::BulletText("Albedo");
+			ImGui::Image(gbuff->deferredImg[ALBEDO], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::BulletText("Material");
+			ImGui::Image(gbuff->deferredImg[MATERIAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::BulletText("Depth (TODO)");
+			//ImGui::Image(gbuff->deferredImg[3], { sz.x,sz.y/4 });
+			ImGui::Image(shadows->shadowImg ,imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+		}
+	}
+	ImGui::End();
+}
+
 void VulkanRenderer::DrawGUI()
 {
-	//if(ImGui::Begin("img"))
-	//{
-	//	const char* views[]  = { "Lookat", "FirstPerson" };
-	//	ImGui::ListBox("Camera View", reinterpret_cast<int*>(&camera.type), views, 2);
-	//	auto sz = ImGui::GetContentRegionAvail();
-	//	ImGui::Image(myImg, { sz.x,sz.y });
-	//}
-	//ImGui::End();
-	//
-	//if(ImGui::Begin("Deferred Rendering GBuffer"))
-	//{
-	//	ImGui::Checkbox("Enable Deferred Rendering", &deferredRendering);
-	//	if (deferredRendering)
-	//	{
-	//		const auto sz = ImGui::GetContentRegionAvail();
-	//		auto gbuff = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
-	//
-	//		auto shadows = RenderPassDatabase::GetRenderPass<ShadowPass>();
-	//
-	//		const float renderWidth = float(windowPtr->m_width);
-	//		const float renderHeight = float(windowPtr->m_height);
-	//		const float aspectRatio = renderHeight / renderWidth;
-	//		const ImVec2 imageSize = { sz.x, sz.x * aspectRatio };
-	//
-	//		//auto gbuff = GBufferRenderPass::Get();
-	//		ImGui::BulletText("World Position");
-	//		ImGui::Image(gbuff->deferredImg[POSITION], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
-	//		ImGui::BulletText("World Normal");
-	//		ImGui::Image(gbuff->deferredImg[NORMAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
-	//		ImGui::BulletText("Albedo");
-	//		ImGui::Image(gbuff->deferredImg[ALBEDO], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
-	//		ImGui::BulletText("Material");
-	//		ImGui::Image(gbuff->deferredImg[MATERIAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
-	//		ImGui::BulletText("Depth (TODO)");
-	//		//ImGui::Image(gbuff->deferredImg[3], { sz.x,sz.y/4 });
-	//		ImGui::Image(shadows->shadowImg ,imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
-	//	}
-	//}
-	//ImGui::End();
-
 	VkRenderPassBeginInfo GUIpassInfo = {};
 	GUIpassInfo.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	GUIpassInfo.renderPass  = m_imguiConfig.renderPass;
@@ -2357,6 +2364,7 @@ ImTextureID VulkanRenderer::CreateImguiBinding(VkSampler s, VkImageView v, VkIma
 	{
 		return 0;
 	}
+	
 	return ImGui_ImplVulkan_AddTexture(s,v,l);
 }
 
