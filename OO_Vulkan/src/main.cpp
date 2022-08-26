@@ -159,12 +159,11 @@ int main(int argc, char argv[])
     //setupSpec.renderDoc = BoolQueryUser("Do you want renderdoc?");
     setupSpec.debug = true;
     setupSpec.renderDoc = true;
+    setupSpec.useOwnImgui = true;
 
     VulkanRenderer* renderer = VulkanRenderer::get();
     try
     {
-        renderer->Init(setupSpec, mainWindow);
-       
         // Setup Dear ImGui context
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
@@ -172,11 +171,12 @@ int main(int argc, char argv[])
         //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-                                                                    //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+        //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+        ImGui::StyleColorsDark();// Setup Dear ImGui style
 
-
-                                                                    // Setup Dear ImGui style
-        ImGui::StyleColorsDark();
+        renderer->Init(setupSpec, mainWindow);
+       
+      
         renderer->InitImGUI();
 
         std::cout << "Created vulkan instance!"<< std::endl;
@@ -962,6 +962,7 @@ int main(int argc, char argv[])
                 ImGui::End();
             }
 
+            renderer->DebugGUIcalls();
             //
             ImGui::Render();  // Rendering UI
             renderer->DrawGUI();

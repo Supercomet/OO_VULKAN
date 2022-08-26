@@ -159,6 +159,7 @@ public:
 	 
 	void InitImGUI();
 	void ResizeGUIBuffers();
+	void DebugGUIcalls();
 	void DrawGUI();
 	void DestroyImGUI();
 
@@ -271,6 +272,7 @@ public:
 	VkPipeline graphicsPSO{};
 	VkPipeline wireframePSO{};
 	 VkRenderPass renderPass_default{};
+	 VkRenderPass renderPass_default2{};
 
 	 vkutils::Buffer indirectCommandsBuffer{};
 	 VkPipeline indirectPSO{};

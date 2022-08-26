@@ -67,7 +67,16 @@ void VulkanFramebufferAttachment::createAttachment(VulkanDevice& indevice, uint3
 	imageView.subresourceRange.layerCount = 1;
 	imageView.image = this->image;
 	VK_CHK(vkCreateImageView(device, &imageView, nullptr, &this->view));
-	VK_NAME(device, "createAtt::imgView", this->view);
+	if (name)
+	{
+		std::string img= std::string("createAttachment::") +name;
+		VK_NAME(device, img.c_str(), this->view);
+	}
+	else
+	{
+		VK_NAME(device, "createAtt::imgView", this->view);
+	}
+	
 }
 
 void VulkanFramebufferAttachment::destroy(VkDevice device)
