@@ -3,7 +3,7 @@
 #include "VulkanUtils.h"
 
 void VulkanFramebufferAttachment::createAttachment(VulkanDevice& indevice, uint32_t width, uint32_t height,
-	VkFormat format, VkImageUsageFlagBits usage, const char* debugName)
+	VkFormat format, VkImageUsageFlagBits usage, const char* name)
 {
 	VkImageAspectFlags aspectMask = 0;
 	VkImageLayout imageLayout;
@@ -42,12 +42,16 @@ void VulkanFramebufferAttachment::createAttachment(VulkanDevice& indevice, uint3
 
 	
 	VK_CHK(vkCreateImage(device, &image, nullptr, &this->image));
-
-	std::string debugNameStr = "createAttachment::image_";
-	if (debugName)
-		debugNameStr += debugName;
-	VK_NAME(device, debugNameStr.c_str(), this->image);
-
+	if (name)
+	{
+		std::string img= std::string("createAttachment::") +name;
+		VK_NAME(device, img.c_str(), this->image);
+	}
+	else
+	{
+		VK_NAME(device, "createAttachment::image", this->image);
+	}
+	
 	vkGetImageMemoryRequirements(device, this->image, &memReqs);
 	memAlloc.allocationSize = memReqs.size;
 
