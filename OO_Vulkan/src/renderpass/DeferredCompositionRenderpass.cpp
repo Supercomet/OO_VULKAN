@@ -49,7 +49,7 @@ void DeferredCompositionRenderpass::Draw()
 
 	//Information about how to begin a render pass (only needed for graphical applications)
 	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
-	renderPassBeginInfo.renderPass = vr.renderPass_default2;                  //render pass to begin
+	renderPassBeginInfo.renderPass = vr.renderPass_default;                  //render pass to begin
 	renderPassBeginInfo.renderArea.offset = { 0,0 };                                     //start point of render pass in pixels
 	renderPassBeginInfo.renderArea.extent = vr.m_swapchain.swapChainExtent; //size of region to run render pass on (Starting from offset)
 	renderPassBeginInfo.pClearValues = clearValues.data();                               //list of clear values
@@ -80,7 +80,7 @@ void DeferredCompositionRenderpass::Shutdown()
 	auto& device = VulkanRenderer::get()->m_device.logicalDevice;
 	
 	vkDestroyPipelineLayout(device, layout_DeferredLightingComposition, nullptr);
-	vkDestroyRenderPass(device, renderpass_DeferredLightingComposition, nullptr);
+	//vkDestroyRenderPass(device, renderpass_DeferredLightingComposition, nullptr);
 	vkDestroyPipeline(device, pso_DeferredLightingComposition, nullptr);
 }
 
