@@ -335,22 +335,6 @@ void TestApplication::Run()
             ImGui_ImplWin32_NewFrame();
             ImGui::NewFrame();
 
-            //std::cout<<  gs_RenderEngine->camera.position << '\n';
-
-            if (gs_RenderEngine->gpuTransformBuffer.MustUpdate())
-            {
-                auto dbi = gs_RenderEngine->gpuTransformBuffer.GetDescriptorBufferInfo();
-                //VkWriteDescriptorSet write = oGFX::vk::inits::writeDescriptorSet(gs_RenderEngine->g0_descriptors, 
-                //    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 
-                //    3,
-                //    &dbi);
-                //vkUpdateDescriptorSets(gs_RenderEngine->m_device.logicalDevice, 1, &write, 0, 0);
-                DescriptorBuilder::Begin(&VulkanRenderer::get()->DescLayoutCache, &VulkanRenderer::get()->DescAlloc)
-                    .BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-                    .Build(VulkanRenderer::get()->descriptorSet_gpuscene, LayoutDB::gpuscene);
-                gs_RenderEngine->gpuTransformBuffer.Updated();
-            }
-
             if (gs_RenderEngine->PrepareFrame() == true)
             {
                 PROFILE_SCOPED("gs_RenderEngine->PrepareFrame() == true");
@@ -474,7 +458,6 @@ void TestApplication::Run()
 
                                 int addRandomEntityCount = 0;
                                 ImGui::Text("Add Random Entity: ");
-                                ImGui::SameLine();
                                 if (ImGui::SmallButton("+10")) { addRandomEntityCount = 10; }
                                 ImGui::SameLine();
                                 if (ImGui::SmallButton("+50")) { addRandomEntityCount = 50; }
@@ -604,9 +587,23 @@ void TestApplication::Run()
                                 ImGui::EndTabItem();
                             }//ImGui::BeginTabItem
 
-                            if (ImGui::BeginTabItem("Settings"))
+                            if (ImGui::BeginTabItem("Camera"))
                             {
-                                // TODO?
+                                auto& camera = gs_RenderEngine->camera;
+                                ImGui::DragFloat3("Position", glm::value_ptr(camera.position));
+                                ImGui::DragFloat3("Rotation", glm::value_ptr(camera.rotation));
+                                ImGui::DragFloat3("Target", glm::value_ptr(camera.target));
+                                ImGui::DragFloat("Distance", &camera.distance);
+
+                                bool fps = camera.type == Camera::CameraType::firstperson;
+                                if (ImGui::Checkbox("FPS", &fps))
+                                {
+                                    camera.type = fps ? Camera::CameraType::firstperson : Camera::CameraType::lookat;
+                                }
+
+                                ImGui::DragFloat("RotationSpeed", &camera.rotationSpeed);
+                                ImGui::DragFloat("MovementSpeed", &camera.movementSpeed);
+
                                 ImGui::EndTabItem();
                             }//ImGui::BeginTabItem
 
