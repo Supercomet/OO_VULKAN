@@ -168,7 +168,7 @@ void Camera::Translate(glm::vec3 delta)
 
 
 
-void Camera::ChangeDistance(float delta)
+void Camera::ChangeTargetDistance(float delta)
 {
 	m_TargetDistance = std::max(1.0f, delta + m_TargetDistance);
 	updateViewMatrix();

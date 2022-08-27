@@ -45,6 +45,8 @@
 #include "ImGuizmo.h"
 #include "AppUtils.h"
 
+#include "CameraController.h"
+
 static VulkanRenderer* gs_RenderEngine = nullptr;
 static GraphicsWorld gs_GraphicsWorld;
 
@@ -68,6 +70,8 @@ void TestApplication::Init()
 {
 
 }
+
+static CameraController gs_CameraController;
 
 static float* gizmoHijack = nullptr; // TODO: Clean this up...
 
@@ -306,6 +310,7 @@ void TestApplication::Run()
             //------------------------------
             // Camera Controller
             //------------------------------
+            if constexpr(false) // Soon deprecated...
             {
                 auto& camera = gs_RenderEngine->camera;
 
@@ -315,27 +320,38 @@ void TestApplication::Run()
                 camera.keys.up = Input::GetKeyHeld(KEY_W) ? true : false;
                 camera.Update(deltaTime);
 
+                // If the aspect ratio changes, then the projection matrix must be updated correctly...
                 camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
 
-                /*
                 if (mainWindow.m_width != 0 && mainWindow.m_height != 0)
                 {
                     camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
                 }
-                */
 
-                auto mousedel = Input::GetMouseDelta();
+                auto mousedelta = Input::GetMouseDelta();
                 float wheelDelta = Input::GetMouseWheel();
                 if (Input::GetMouseHeld(MOUSE_RIGHT))
                 {
-                    camera.Rotate(glm::vec3(-mousedel.y * camera.rotationSpeed, mousedel.x * camera.rotationSpeed, 0.0f));
+                    camera.Rotate(glm::vec3(-mousedelta.y * camera.rotationSpeed, mousedelta.x * camera.rotationSpeed, 0.0f));
                 }
                 if (gs_RenderEngine->camera.m_CameraMovementType == Camera::CameraMovementType::lookat)
                 {
-                    camera.ChangeDistance(wheelDelta * -0.001f);
+                    camera.ChangeTargetDistance(wheelDelta * -0.001f);
                 }
 
+                //camera.updateViewMatrix();
                 camera.UpdateProjectionMatrix();
+            }
+
+            // Decoupling camera logic.
+            // Graphics should only know the final state before calculating the view & projection matrix.
+            {
+                auto& camera = gs_RenderEngine->camera;
+
+                gs_CameraController.SetCamera(&camera);
+                // If the aspect ratio changes, then the projection matrix must be updated correctly...
+                camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
+                gs_CameraController.Update(deltaTime);
             }
 
             if (Input::GetKeyTriggered(KEY_SPACE))
@@ -615,6 +631,11 @@ void TestApplication::Run()
 
                                 ImGui::DragFloat("RotationSpeed", &camera.rotationSpeed);
                                 ImGui::DragFloat("MovementSpeed", &camera.movementSpeed);
+
+                                if (ImGui::Button("Shake"))
+                                {
+                                    gs_CameraController.ShakeCamera();
+                                }
 
                                 ImGui::EndTabItem();
                             }//ImGui::BeginTabItem

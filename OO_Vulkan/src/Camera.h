@@ -77,7 +77,7 @@ public:
 	void SetRotationSpeed(float rotationSpeed) { this->rotationSpeed = rotationSpeed; };
 	void SetMovementSpeed(float movementSpeed) { this->movementSpeed = movementSpeed; };
 
-	void ChangeDistance(float delta);
+	void ChangeTargetDistance(float delta);
 
 	void Update(float deltaTime);
 

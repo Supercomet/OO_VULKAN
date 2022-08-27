@@ -576,7 +576,7 @@ int main2(int argc, char argv[])
         }
         if (renderer->camera.m_CameraMovementType == Camera::CameraMovementType::lookat)
         {
-            renderer->camera.ChangeDistance(wheelDelta * -0.001f);
+            renderer->camera.ChangeTargetDistance(wheelDelta * -0.001f);
         }
 
         if (Input::GetKeyTriggered(KEY_SPACE))
