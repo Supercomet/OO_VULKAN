@@ -63,9 +63,9 @@ int main(int argc, char argv[])
     app.Run();
 }
 #endif
-#if 0
+#if 1
 static float* gizmoHijack = nullptr; // TODO: Clean this up...
-int main(int argc, char argv[])
+int main2(int argc, char argv[])
 {
     (void)argc;
     (void)argv;
@@ -526,15 +526,14 @@ int main(int argc, char argv[])
 
     auto lastTime = std::chrono::high_resolution_clock::now();
 
-    renderer->camera.type = Camera::CameraType::lookat;
-    renderer->camera.target = glm::vec3(0.01f, 0.0f, 0.0f);
+    renderer->camera.m_TargetPosition = glm::vec3(0.01f, 0.0f, 0.0f);
     renderer->camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
     renderer->camera.SetRotationSpeed(0.5f);
     renderer->camera.SetPosition(glm::vec3(0.1f, 10.0f, 10.5f));
     renderer->camera.movementSpeed = 5.0f;
     renderer->camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
     renderer->camera.Rotate(glm::vec3(1 * renderer->camera.rotationSpeed, 1 * renderer->camera.rotationSpeed, 0.0f));
-    renderer->camera.type = Camera::CameraType::firstperson;
+    renderer->camera.m_CameraMovementType = Camera::CameraMovementType::firstperson;
 
     static bool freezeLight = false;
 
@@ -569,13 +568,13 @@ int main(int argc, char argv[])
             renderer->camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
         }
 
-        auto mousedel = Input::GetMouseDelta();
+        auto mouseDelta = Input::GetMouseDelta();
         float wheelDelta = Input::GetMouseWheel();
         if (Input::GetMouseHeld(MOUSE_RIGHT))
         {
-            renderer->camera.Rotate(glm::vec3(-mousedel.y * renderer->camera.rotationSpeed, mousedel.x * renderer->camera.rotationSpeed, 0.0f));
+            renderer->camera.Rotate(glm::vec3(-mouseDelta.y * renderer->camera.rotationSpeed, mouseDelta.x * renderer->camera.rotationSpeed, 0.0f));
         }
-        if (renderer->camera.type == Camera::CameraType::lookat)
+        if (renderer->camera.m_CameraMovementType == Camera::CameraMovementType::lookat)
         {
             renderer->camera.ChangeDistance(wheelDelta * -0.001f);
         }

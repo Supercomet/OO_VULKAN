@@ -275,15 +275,14 @@ void TestApplication::Run()
     // Setup Initial Camera
     //----------------------------------------------------------------------------------------------------
 
-    gs_RenderEngine->camera.type = Camera::CameraType::lookat;
-    gs_RenderEngine->camera.target = glm::vec3(0.01f, 0.0f, 0.0f);
+    gs_RenderEngine->camera.m_TargetPosition = glm::vec3(0.01f, 0.0f, 0.0f);
     gs_RenderEngine->camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
     gs_RenderEngine->camera.SetRotationSpeed(0.5f);
     gs_RenderEngine->camera.SetPosition(glm::vec3(0.1f, 10.0f, 10.5f));
     gs_RenderEngine->camera.movementSpeed = 5.0f;
     gs_RenderEngine->camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
     gs_RenderEngine->camera.Rotate(glm::vec3(1 * gs_RenderEngine->camera.rotationSpeed, 1 * gs_RenderEngine->camera.rotationSpeed, 0.0f));
-    gs_RenderEngine->camera.type = Camera::CameraType::firstperson;
+    gs_RenderEngine->camera.m_CameraMovementType = Camera::CameraMovementType::firstperson;
 
     auto lastTime = std::chrono::high_resolution_clock::now();
     static bool freezeLight = false;
@@ -296,34 +295,47 @@ void TestApplication::Run()
         {
             PROFILE_FRAME("MainThread");
 
-            //reset keys
-            Input::Begin();
-            while (Window::PollEvents());
-
             auto now = std::chrono::high_resolution_clock::now();
             float deltaTime = std::chrono::duration<float>(now - lastTime).count();
             lastTime = now;
 
-            gs_RenderEngine->camera.keys.left = Input::GetKeyHeld(KEY_A) ? true : false;
-            gs_RenderEngine->camera.keys.right = Input::GetKeyHeld(KEY_D) ? true : false;
-            gs_RenderEngine->camera.keys.down = Input::GetKeyHeld(KEY_S) ? true : false;
-            gs_RenderEngine->camera.keys.up = Input::GetKeyHeld(KEY_W) ? true : false;
-            gs_RenderEngine->camera.Update(deltaTime);
+            //reset keys
+            Input::Begin();
+            while (Window::PollEvents());
 
-            if (mainWindow.m_width != 0 && mainWindow.m_height != 0)
+            //------------------------------
+            // Camera Controller
+            //------------------------------
             {
-                gs_RenderEngine->camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
-            }
+                auto& camera = gs_RenderEngine->camera;
 
-            auto mousedel = Input::GetMouseDelta();
-            float wheelDelta = Input::GetMouseWheel();
-            if (Input::GetMouseHeld(MOUSE_RIGHT))
-            {
-                gs_RenderEngine->camera.Rotate(glm::vec3(-mousedel.y * gs_RenderEngine->camera.rotationSpeed, mousedel.x * gs_RenderEngine->camera.rotationSpeed, 0.0f));
-            }
-            if (gs_RenderEngine->camera.type == Camera::CameraType::lookat)
-            {
-                gs_RenderEngine->camera.ChangeDistance(wheelDelta * -0.001f);
+                camera.keys.left = Input::GetKeyHeld(KEY_A) ? true : false;
+                camera.keys.right = Input::GetKeyHeld(KEY_D) ? true : false;
+                camera.keys.down = Input::GetKeyHeld(KEY_S) ? true : false;
+                camera.keys.up = Input::GetKeyHeld(KEY_W) ? true : false;
+                camera.Update(deltaTime);
+
+                camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
+
+                /*
+                if (mainWindow.m_width != 0 && mainWindow.m_height != 0)
+                {
+                    camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
+                }
+                */
+
+                auto mousedel = Input::GetMouseDelta();
+                float wheelDelta = Input::GetMouseWheel();
+                if (Input::GetMouseHeld(MOUSE_RIGHT))
+                {
+                    camera.Rotate(glm::vec3(-mousedel.y * camera.rotationSpeed, mousedel.x * camera.rotationSpeed, 0.0f));
+                }
+                if (gs_RenderEngine->camera.m_CameraMovementType == Camera::CameraMovementType::lookat)
+                {
+                    camera.ChangeDistance(wheelDelta * -0.001f);
+                }
+
+                camera.UpdateProjectionMatrix();
             }
 
             if (Input::GetKeyTriggered(KEY_SPACE))
@@ -592,13 +604,13 @@ void TestApplication::Run()
                                 auto& camera = gs_RenderEngine->camera;
                                 ImGui::DragFloat3("Position", glm::value_ptr(camera.position));
                                 ImGui::DragFloat3("Rotation", glm::value_ptr(camera.rotation));
-                                ImGui::DragFloat3("Target", glm::value_ptr(camera.target));
-                                ImGui::DragFloat("Distance", &camera.distance);
+                                ImGui::DragFloat3("Target", glm::value_ptr(camera.m_TargetPosition));
+                                ImGui::DragFloat("Distance", &camera.m_TargetDistance);
 
-                                bool fps = camera.type == Camera::CameraType::firstperson;
+                                bool fps = camera.m_CameraMovementType == Camera::CameraMovementType::firstperson;
                                 if (ImGui::Checkbox("FPS", &fps))
                                 {
-                                    camera.type = fps ? Camera::CameraType::firstperson : Camera::CameraType::lookat;
+                                    camera.m_CameraMovementType = fps ? Camera::CameraMovementType::firstperson : Camera::CameraMovementType::lookat;
                                 }
 
                                 ImGui::DragFloat("RotationSpeed", &camera.rotationSpeed);
