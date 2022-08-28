@@ -189,41 +189,41 @@ public:
 	// Immediate command sending helper
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
-	uint32_t CreateTexture(uint32_t width, uint32_t height,unsigned char* imgData);
-	uint32_t CreateTexture(const std::string& fileName);
-	struct TextureInfo
-	{
-		std::string name;
-		uint32_t width;
-		uint32_t height;
-		VkFormat format;
-		uint32_t mips;
-	};
-	TextureInfo GetTextureInfo(uint32_t handle);
-	
-	void InitDebugBuffers();
-	void UpdateDebugBuffers();
+    uint32_t CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData);
+    uint32_t CreateTexture(const std::string& fileName);
+    struct TextureInfo
+    {
+        std::string name;
+        uint32_t width;
+        uint32_t height;
+        VkFormat format;
+        uint32_t mips;
+    };
+    TextureInfo GetTextureInfo(uint32_t handle);
 
-	struct VertexBufferObject
-	{
-		GpuVector<oGFX::Vertex> VtxBuffer;
-		GpuVector<uint32_t> IdxBuffer;
-		size_t VtxOffset{};
-		size_t IdxOffset{};
-	};
+    void InitDebugBuffers();
+    void UpdateDebugBuffers();
 
-	 VertexBufferObject g_MeshBuffers;
+    struct VertexBufferObject
+    {
+        GpuVector<oGFX::Vertex> VtxBuffer;
+        GpuVector<uint32_t> IdxBuffer;
+        uint32_t VtxOffset{};
+        uint32_t IdxOffset{};
+    };
 
-	 VertexBufferObject g_AABBMeshBuffers;
-	std::vector<oGFX::Vertex> g_AABBMeshes;
-	 VertexBufferObject g_SphereMeshBuffers;
-	std::vector<oGFX::Vertex> g_SphereMeshes;
+    VertexBufferObject g_GlobalMeshBuffers;
 
-	std::vector<int> intsVector;
-	GpuVector<oGFX::Vertex> g_debugDrawVertBuffer;
-	GpuVector<uint32_t> g_debugDrawIndxBuffer;
-	std::vector<oGFX::Vertex> g_debugDrawVerts;
-	std::vector<uint32_t> g_debugDrawIndices;
+    VertexBufferObject g_AABBMeshBuffers;
+    std::vector<oGFX::Vertex> g_AABBMeshes;
+    VertexBufferObject g_SphereMeshBuffers;
+    std::vector<oGFX::Vertex> g_SphereMeshes;
+
+    std::vector<int> intsVector;
+    GpuVector<oGFX::Vertex> g_debugDrawVertBuffer;
+    GpuVector<uint32_t> g_debugDrawIndxBuffer;
+    std::vector<oGFX::Vertex> g_debugDrawVerts;
+    std::vector<uint32_t> g_debugDrawIndices;
 
 	//TEMP
 	struct DebugDraw
@@ -252,7 +252,7 @@ public:
 	void ShutdownTreeDebug();
 
 
-	Model* LoadMeshFromFile(const std::string& file);
+	Model* LoadModelFromFile(const std::string& file);
 	Model* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, gfxModel* model);
 	void SetMeshTextures(uint32_t modelID,uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough);
 

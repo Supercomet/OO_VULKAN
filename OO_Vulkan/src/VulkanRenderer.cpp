@@ -60,8 +60,8 @@ VulkanRenderer::~VulkanRenderer()
 	gpuTransformBuffer.destroy();
 	debugTransformBuffer.destroy();
 
-	g_MeshBuffers.IdxBuffer.destroy();
-	g_MeshBuffers.VtxBuffer.destroy();
+	g_GlobalMeshBuffers.IdxBuffer.destroy();
+	g_GlobalMeshBuffers.VtxBuffer.destroy();
 
 	if (m_imguiInitialized)
 	{
@@ -221,8 +221,8 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		InitTreeDebugDraws();
 		InitDebugBuffers();
-		g_MeshBuffers.IdxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-		g_MeshBuffers.VtxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		g_GlobalMeshBuffers.IdxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+		g_GlobalMeshBuffers.VtxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 		
 		PROFILE_INIT_VULKAN(&m_device.logicalDevice, &m_device.physicalDevice, &m_device.graphicsQueue, (uint32_t*)&m_device.queueIndices.graphicsFamily, 1, nullptr);
 	}
@@ -1949,7 +1949,7 @@ void VulkanRenderer::ShutdownTreeDebug()
 	}
 }
 
-Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
+Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
 {
 	// new model loader
 	
@@ -1973,15 +1973,14 @@ Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	{
 		return nullptr; // Dont explode...
 		//throw std::runtime_error("Failed to load model! (" + file + ")");
-	}	
-	
+	}
 
 	std::vector<std::string> textureNames = MeshContainer::LoadMaterials(scene);
 	std::vector<int> matToTex(textureNames.size());
 	// Loop over textureNames and create textures for them
 	for (size_t i = 0; i < textureNames.size(); i++)
 	{
-		// if material had no texture, set '0' to indicate no texture, texxture 0 will be reserved fora  default texture
+		// if material had no texture, set '0' to indicate no texture, texture 0 will be reserved fora  default texture
 		if (textureNames[i].empty())
 		{
 			matToTex[i] = 0;
@@ -1993,10 +1992,9 @@ Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
 		}
 	}
 
-	auto index = models.size();
-	models.emplace_back(std::move(gfxModel()));	
+	auto modelResourceIndex = models.size();
+	auto& model = models.emplace_back(std::move(gfxModel()));
 
-	auto& model = models[index];
 	for (auto& node : model.nodes)
 	{
 		for (auto& mesh : node->meshes)
@@ -2006,7 +2004,7 @@ Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
 	}
 
 	Model* m = new Model;
-	m->gfxIndex = static_cast<uint32_t>(index);
+	m->gfxIndex = static_cast<uint32_t>(modelResourceIndex);
 	model.cpuModel = m;
 	//std::vector<oGFX::Vertex> verticeBuffer;
 	//std::vector<uint32_t> indexBuffer;
@@ -2018,16 +2016,16 @@ Model* VulkanRenderer::LoadMeshFromFile(const std::string& file)
 		for (auto& mesh : node->meshes)
 		{
 			model.meshCount += 1;
-			mesh->indicesOffset += static_cast<uint32_t>(g_MeshBuffers.IdxOffset);
-			mesh->vertexOffset += static_cast<uint32_t>(g_MeshBuffers.VtxOffset);
+			mesh->indicesOffset += g_GlobalMeshBuffers.IdxOffset;
+			mesh->vertexOffset += g_GlobalMeshBuffers.VtxOffset;
 		}
 		for (auto& child: node->children)
 		{
 			for (auto& mesh : child->meshes)
 			{
 				model.meshCount += 1;
-				mesh->indicesOffset += static_cast<uint32_t>(g_MeshBuffers.IdxOffset);
-				mesh->vertexOffset += static_cast<uint32_t>(g_MeshBuffers.VtxOffset);
+				mesh->indicesOffset += g_GlobalMeshBuffers.IdxOffset;
+				mesh->vertexOffset += g_GlobalMeshBuffers.VtxOffset;
 			}
 		}
 	}
@@ -2049,8 +2047,8 @@ Model* VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, st
 		model = &models[index];
 		Node* n = new Node{};
 		oGFX::Mesh* msh = new oGFX::Mesh{};
-		msh->indicesOffset = static_cast<uint32_t>(g_MeshBuffers.IdxOffset);
-		msh->vertexOffset = static_cast<uint32_t>(g_MeshBuffers.VtxOffset);
+		msh->indicesOffset = static_cast<uint32_t>(g_GlobalMeshBuffers.IdxOffset);
+		msh->vertexOffset = static_cast<uint32_t>(g_GlobalMeshBuffers.VtxOffset);
 		msh->indicesCount = static_cast<uint32_t>(indices.size());
 		msh->vertexCount = static_cast<uint32_t>(vertex.size());
 		model->meshCount= 1;
@@ -2068,14 +2066,14 @@ Model* VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, st
 	model->indices.count = static_cast<uint32_t>(indices.size());
 	model->vertices.count = static_cast<uint32_t>(vertex.size());
 
-	g_MeshBuffers.IdxBuffer.writeTo(indices.size(), indices.data(), g_MeshBuffers.IdxOffset);
-	g_MeshBuffers.VtxBuffer.writeTo(vertex.size(), vertex.data(), g_MeshBuffers.VtxOffset);
+	g_GlobalMeshBuffers.IdxBuffer.writeTo(indices.size(), indices.data(), g_GlobalMeshBuffers.IdxOffset);
+	g_GlobalMeshBuffers.VtxBuffer.writeTo(vertex.size(), vertex.data(), g_GlobalMeshBuffers.VtxOffset);
 
-	model->indices.offset = static_cast<uint32_t>(g_MeshBuffers.IdxOffset);
-	model->vertices.offset = static_cast<uint32_t>(g_MeshBuffers.VtxOffset);
+	model->indices.offset = g_GlobalMeshBuffers.IdxOffset;
+	model->vertices.offset = g_GlobalMeshBuffers.VtxOffset;
 
-	g_MeshBuffers.IdxOffset += model->indices.count ;
-	g_MeshBuffers.VtxOffset += model->vertices.count;
+	g_GlobalMeshBuffers.IdxOffset += model->indices.count ;
+	g_GlobalMeshBuffers.VtxOffset += model->vertices.count;
 
 	return m;
 

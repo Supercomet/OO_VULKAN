@@ -85,8 +85,8 @@ void ShadowPass::Draw()
 	
 	// Bind merged mesh vertex & index buffers, instancing buffers.
     VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, vr.g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
-    vkCmdBindIndexBuffer(cmdlist, vr.g_MeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr(), offsets);
+    vkCmdBindIndexBuffer(cmdlist, vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindVertexBuffers(cmdlist, INSTANCE_BUFFER_ID, 1, &vr.instanceBuffer.buffer, offsets);
 
     const VkBuffer idcb = vr.indirectCommandsBuffer.buffer;
@@ -127,8 +127,8 @@ void ShadowPass::Draw()
                 glm::value_ptr(xform));		// actualy data being pushed (could be an array));
 
             VkDeviceSize offsets[] = { 0 };
-            vkCmdBindIndexBuffer(cmdlist, vr.g_MeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-            vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, vr.g_MeshBuffers.VtxBuffer.getBufferPtr(), offsets);
+            vkCmdBindIndexBuffer(cmdlist, vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr(), offsets);
             vkCmdBindVertexBuffers(cmdlist, INSTANCE_BUFFER_ID, 1, &vr.instanceBuffer.buffer, offsets);
             //vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
         }

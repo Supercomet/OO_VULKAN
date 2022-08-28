@@ -1,4 +1,4 @@
-#include "TestApplication.h"
+﻿#include "TestApplication.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #if defined(_WIN32)
@@ -157,8 +157,8 @@ void TestApplication::Run()
     std::unique_ptr<Model> model_plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
     std::unique_ptr<Model> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
 
-    std::unique_ptr<Model> character_diona{ gs_RenderEngine->LoadMeshFromFile("Models/diona.fbx") };
-    std::unique_ptr<Model> character_qiqi{ gs_RenderEngine->LoadMeshFromFile("Models/qiqi.fbx") };
+    std::unique_ptr<Model> character_diona{ gs_RenderEngine->LoadModelFromFile("Models/diona.fbx") };
+    std::unique_ptr<Model> character_qiqi{ gs_RenderEngine->LoadModelFromFile("Models/qiqi.fbx") };
 
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Scene Objects
