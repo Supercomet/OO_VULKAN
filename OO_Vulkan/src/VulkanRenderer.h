@@ -61,6 +61,8 @@ public:
 	static constexpr int MAX_OBJECTS = 2048;
 	static constexpr VkFormat G_DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
+	static int ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface);
+
 #define OBJECT_INSTANCE_COUNT 128
 
 	 PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nullptr };

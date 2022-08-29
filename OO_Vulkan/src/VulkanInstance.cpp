@@ -223,7 +223,7 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 	return true;
 }
 
-void VulkanInstance::CreateSurface(Window& window)
+void VulkanInstance::CreateSurface(Window& window, VkSurfaceKHR& surface)
 {
 	//
 	// Create the surface
@@ -231,6 +231,7 @@ void VulkanInstance::CreateSurface(Window& window)
 	
 
 	// Get the Surface creation extension since we are about to use it
+	// TODO: do once..
 	auto VKCreateWin32Surface = (PFN_vkCreateWin32SurfaceKHR)vkGetInstanceProcAddr(instance, "vkCreateWin32SurfaceKHR");
 	if (nullptr == VKCreateWin32Surface)
 	{
@@ -250,9 +251,6 @@ void VulkanInstance::CreateSurface(Window& window)
 	{
 		throw std::runtime_error("Vulkan Fail to create window surface");
 	}
-
-	// set surface for imgui
-	Window::SurfaceFormat = (uint64_t)surface;
 
 }
 

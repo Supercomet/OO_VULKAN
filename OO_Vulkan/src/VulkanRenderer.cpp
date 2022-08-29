@@ -44,6 +44,25 @@
 
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
+int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
+{
+		auto* hdl = viewport->PlatformHandle;
+		(void)vk_allocator;
+		Window temp;
+		temp.rawHandle = hdl;
+		try
+		{
+			VulkanRenderer::get()->m_instance.CreateSurface(temp, *(VkSurfaceKHR*)out_vk_surface);
+		}
+		catch (std::runtime_error e)
+		{
+			temp.rawHandle = nullptr;
+			return 1;
+		}
+		temp.rawHandle = nullptr;
+		return 0;
+}
+
 VulkanRenderer::~VulkanRenderer()
 { 
 	//wait until no actions being run on device before destorying
@@ -149,7 +168,11 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	{	
 
 		CreateInstance(setupSpecs);
+
 		CreateSurface(setupSpecs,window);
+		// set surface for imgui
+		Window::SurfaceFormat = (uint64_t)window.SurfaceFormat;
+
 		AcquirePhysicalDevice(setupSpecs);
 		CreateLogicalDevice(setupSpecs);
 
@@ -260,7 +283,7 @@ void VulkanRenderer::CreateSurface(const oGFX::SetupInfo& setupSpecs, Window& wi
 	}
 	else
 	{
-		m_instance.CreateSurface(window);
+		m_instance.CreateSurface(window,m_instance.surface);
 	}
 }
 
@@ -1124,6 +1147,8 @@ void VulkanRenderer::InitImGUI()
 	if (windowPtr->m_type == Window::WindowType::WINDOWS32)
 	{
 		ImGui_ImplWin32_Init(windowPtr->GetRawHandle());
+		//setup surface creator
+		ImGui::GetPlatformIO().Platform_CreateVkSurface = ImGui_ImplWin32_CreateVkSurface;
 	}
 	else
 	{
