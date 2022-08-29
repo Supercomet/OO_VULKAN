@@ -61,11 +61,13 @@ int main(int argc, char argv[])
 
     TestApplication app;
     app.Run();
+
+    return 0;
 }
 #endif
-#if 0
+#if 1
 static float* gizmoHijack = nullptr; // TODO: Clean this up...
-int main(int argc, char argv[])
+int main2(int argc, char argv[])
 {
     (void)argc;
     (void)argv;
@@ -176,12 +178,12 @@ int main(int argc, char argv[])
             }
 
         }
-        renderer->g_MeshBuffers.VtxBuffer.reserve(100000 * sizeof(oGFX::Vertex));
-        renderer->g_MeshBuffers.IdxBuffer.reserve(100000 * sizeof(oGFX::Vertex));
+        renderer->g_GlobalMeshBuffers.VtxBuffer.reserve(100000 * sizeof(oGFX::Vertex));
+        renderer->g_GlobalMeshBuffers.IdxBuffer.reserve(100000 * sizeof(oGFX::Vertex));
         icoSphere.reset(renderer->LoadMeshFromBuffers(vertices, indices, nullptr));
     }
 
-    std::unique_ptr<Model> bunny{ renderer->LoadMeshFromFile("Models/bunny.obj") };
+    std::unique_ptr<Model> bunny{ renderer->LoadModelFromFile("Models/bunny.obj") };
     std::vector<Point3D> vertPositions;
     Sphere ms;
     if (bunny)
@@ -209,7 +211,7 @@ int main(int argc, char argv[])
     oGFX::BV::LarsonSphere(ms, vertPositions, oGFX::BV::EPOS::_98);
     oGFX::BV::BoundingAABB(box->aabb, vertPositions);
 
-    std::unique_ptr<Model> lucy{ renderer->LoadMeshFromFile("Models/lucy_princeton.obj") };
+    std::unique_ptr<Model> lucy{ renderer->LoadModelFromFile("Models/lucy_princeton.obj") };
     if (lucy)
     {
         vertPositions.resize(lucy->vertices.size());
@@ -218,7 +220,7 @@ int main(int argc, char argv[])
         oGFX::BV::BoundingAABB(lucy->aabb, vertPositions);
     }
 
-    std::unique_ptr<Model> starWars{ renderer->LoadMeshFromFile("Models/starwars1.obj") };
+    std::unique_ptr<Model> starWars{ renderer->LoadModelFromFile("Models/starwars1.obj") };
     if (starWars)
     {
         vertPositions.resize(starWars->vertices.size());
@@ -227,7 +229,7 @@ int main(int argc, char argv[])
         oGFX::BV::BoundingAABB(starWars->aabb, vertPositions);
     }
 
-    std::unique_ptr<Model> fourSphere{ renderer->LoadMeshFromFile("Models/4Sphere.obj") };
+    std::unique_ptr<Model> fourSphere{ renderer->LoadModelFromFile("Models/4Sphere.obj") };
     if (fourSphere)
     {
         vertPositions.resize(fourSphere->vertices.size());
@@ -237,7 +239,7 @@ int main(int argc, char argv[])
     }
 
     //std::unique_ptr<Model> ball;
-    //ball.reset(renderer->LoadMeshFromFile("Models/sphere.obj"));
+    //ball.reset(renderer->LoadModelFromFile("Models/sphere.obj"));
 
     //int o{};
     //std::vector<glm::vec3> positions(bunny->vertices.size());
@@ -376,7 +378,7 @@ int main(int argc, char argv[])
         }
     }
 
-    std::unique_ptr<Model> diona{ renderer->LoadMeshFromFile("Models/diona.fbx") };
+    std::unique_ptr<Model> diona{ renderer->LoadModelFromFile("Models/diona.fbx") };
     if (diona)
     {
         VulkanRenderer::EntityDetails ed;
@@ -388,7 +390,7 @@ int main(int argc, char argv[])
         renderer->entities.push_back(ed);
     }
 
-    std::unique_ptr<Model> qiqi{ renderer->LoadMeshFromFile("Models/qiqi.fbx") };
+    std::unique_ptr<Model> qiqi{ renderer->LoadModelFromFile("Models/qiqi.fbx") };
     if (qiqi)
     {
         VulkanRenderer::EntityDetails ed;
@@ -526,15 +528,14 @@ int main(int argc, char argv[])
 
     auto lastTime = std::chrono::high_resolution_clock::now();
 
-    renderer->camera.type = Camera::CameraType::lookat;
-    renderer->camera.target = glm::vec3(0.01f, 0.0f, 0.0f);
+    renderer->camera.m_TargetPosition = glm::vec3(0.01f, 0.0f, 0.0f);
     renderer->camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
     renderer->camera.SetRotationSpeed(0.5f);
     renderer->camera.SetPosition(glm::vec3(0.1f, 10.0f, 10.5f));
     renderer->camera.movementSpeed = 5.0f;
     renderer->camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
     renderer->camera.Rotate(glm::vec3(1 * renderer->camera.rotationSpeed, 1 * renderer->camera.rotationSpeed, 0.0f));
-    renderer->camera.type = Camera::CameraType::firstperson;
+    renderer->camera.m_CameraMovementType = Camera::CameraMovementType::firstperson;
 
     static bool freezeLight = false;
 
@@ -569,15 +570,15 @@ int main(int argc, char argv[])
             renderer->camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
         }
 
-        auto mousedel = Input::GetMouseDelta();
+        auto mouseDelta = Input::GetMouseDelta();
         float wheelDelta = Input::GetMouseWheel();
         if (Input::GetMouseHeld(MOUSE_RIGHT))
         {
-            renderer->camera.Rotate(glm::vec3(-mousedel.y * renderer->camera.rotationSpeed, mousedel.x * renderer->camera.rotationSpeed, 0.0f));
+            renderer->camera.Rotate(glm::vec3(-mouseDelta.y * renderer->camera.rotationSpeed, mouseDelta.x * renderer->camera.rotationSpeed, 0.0f));
         }
-        if (renderer->camera.type == Camera::CameraType::lookat)
+        if (renderer->camera.m_CameraMovementType == Camera::CameraMovementType::lookat)
         {
-            renderer->camera.ChangeDistance(wheelDelta * -0.001f);
+            renderer->camera.ChangeTargetDistance(wheelDelta * -0.001f);
         }
 
         if (Input::GetKeyTriggered(KEY_SPACE))
@@ -917,5 +918,6 @@ int main(int argc, char argv[])
 
     std::cout << "Exiting application..." << std::endl;
 
+    return 0;
 }
 #endif

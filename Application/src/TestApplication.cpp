@@ -1,4 +1,4 @@
-#include "TestApplication.h"
+﻿#include "TestApplication.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #if defined(_WIN32)
@@ -45,6 +45,8 @@
 #include "ImGuizmo.h"
 #include "AppUtils.h"
 
+#include "CameraController.h"
+
 static VulkanRenderer* gs_RenderEngine = nullptr;
 static GraphicsWorld gs_GraphicsWorld;
 
@@ -68,6 +70,8 @@ void TestApplication::Init()
 {
 
 }
+
+static CameraController gs_CameraController;
 
 static float* gizmoHijack = nullptr; // TODO: Clean this up...
 
@@ -154,8 +158,8 @@ void TestApplication::Run()
     std::unique_ptr<Model> model_plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
     std::unique_ptr<Model> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
 
-    std::unique_ptr<Model> character_diona{ gs_RenderEngine->LoadMeshFromFile("Models/diona.fbx") };
-    std::unique_ptr<Model> character_qiqi{ gs_RenderEngine->LoadMeshFromFile("Models/qiqi.fbx") };
+    std::unique_ptr<Model> character_diona{ gs_RenderEngine->LoadModelFromFile("Models/diona.fbx") };
+    std::unique_ptr<Model> character_qiqi{ gs_RenderEngine->LoadModelFromFile("Models/qiqi.fbx") };
 
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Scene Objects
@@ -276,15 +280,14 @@ void TestApplication::Run()
     // Setup Initial Camera
     //----------------------------------------------------------------------------------------------------
 
-    gs_RenderEngine->camera.type = Camera::CameraType::lookat;
-    gs_RenderEngine->camera.target = glm::vec3(0.01f, 0.0f, 0.0f);
+    gs_RenderEngine->camera.m_TargetPosition = glm::vec3(0.01f, 0.0f, 0.0f);
     gs_RenderEngine->camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
     gs_RenderEngine->camera.SetRotationSpeed(0.5f);
     gs_RenderEngine->camera.SetPosition(glm::vec3(0.1f, 10.0f, 10.5f));
     gs_RenderEngine->camera.movementSpeed = 5.0f;
     gs_RenderEngine->camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
     gs_RenderEngine->camera.Rotate(glm::vec3(1 * gs_RenderEngine->camera.rotationSpeed, 1 * gs_RenderEngine->camera.rotationSpeed, 0.0f));
-    gs_RenderEngine->camera.type = Camera::CameraType::firstperson;
+    gs_RenderEngine->camera.m_CameraMovementType = Camera::CameraMovementType::firstperson;
 
     auto lastTime = std::chrono::high_resolution_clock::now();
     static bool freezeLight = false;
@@ -297,34 +300,59 @@ void TestApplication::Run()
         {
             PROFILE_FRAME("MainThread");
 
-            //reset keys
-            Input::Begin();
-            while (Window::PollEvents());
-
             auto now = std::chrono::high_resolution_clock::now();
             float deltaTime = std::chrono::duration<float>(now - lastTime).count();
             lastTime = now;
 
-            gs_RenderEngine->camera.keys.left = Input::GetKeyHeld(KEY_A) ? true : false;
-            gs_RenderEngine->camera.keys.right = Input::GetKeyHeld(KEY_D) ? true : false;
-            gs_RenderEngine->camera.keys.down = Input::GetKeyHeld(KEY_S) ? true : false;
-            gs_RenderEngine->camera.keys.up = Input::GetKeyHeld(KEY_W) ? true : false;
-            gs_RenderEngine->camera.Update(deltaTime);
+            //reset keys
+            Input::Begin();
+            while (Window::PollEvents());
 
-            if (mainWindow.m_width != 0 && mainWindow.m_height != 0)
+            //------------------------------
+            // Camera Controller
+            //------------------------------
+            if constexpr(false) // Soon deprecated...
             {
-                gs_RenderEngine->camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
+                auto& camera = gs_RenderEngine->camera;
+
+                camera.keys.left = Input::GetKeyHeld(KEY_A) ? true : false;
+                camera.keys.right = Input::GetKeyHeld(KEY_D) ? true : false;
+                camera.keys.down = Input::GetKeyHeld(KEY_S) ? true : false;
+                camera.keys.up = Input::GetKeyHeld(KEY_W) ? true : false;
+                camera.Update(deltaTime);
+
+                // If the aspect ratio changes, then the projection matrix must be updated correctly...
+                camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
+
+                if (mainWindow.m_width != 0 && mainWindow.m_height != 0)
+                {
+                    camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
+                }
+
+                auto mousedelta = Input::GetMouseDelta();
+                float wheelDelta = Input::GetMouseWheel();
+                if (Input::GetMouseHeld(MOUSE_RIGHT))
+                {
+                    camera.Rotate(glm::vec3(-mousedelta.y * camera.rotationSpeed, mousedelta.x * camera.rotationSpeed, 0.0f));
+                }
+                if (gs_RenderEngine->camera.m_CameraMovementType == Camera::CameraMovementType::lookat)
+                {
+                    camera.ChangeTargetDistance(wheelDelta * -0.001f);
+                }
+
+                //camera.updateViewMatrix();
+                camera.UpdateProjectionMatrix();
             }
 
-            auto mousedel = Input::GetMouseDelta();
-            float wheelDelta = Input::GetMouseWheel();
-            if (Input::GetMouseHeld(MOUSE_RIGHT))
+            // Decoupling camera logic.
+            // Graphics should only know the final state before calculating the view & projection matrix.
             {
-                gs_RenderEngine->camera.Rotate(glm::vec3(-mousedel.y * gs_RenderEngine->camera.rotationSpeed, mousedel.x * gs_RenderEngine->camera.rotationSpeed, 0.0f));
-            }
-            if (gs_RenderEngine->camera.type == Camera::CameraType::lookat)
-            {
-                gs_RenderEngine->camera.ChangeDistance(wheelDelta * -0.001f);
+                auto& camera = gs_RenderEngine->camera;
+
+                gs_CameraController.SetCamera(&camera);
+                // If the aspect ratio changes, then the projection matrix must be updated correctly...
+                camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
+                gs_CameraController.Update(deltaTime);
             }
 
             if (Input::GetKeyTriggered(KEY_SPACE))
@@ -593,17 +621,22 @@ void TestApplication::Run()
                                 auto& camera = gs_RenderEngine->camera;
                                 ImGui::DragFloat3("Position", glm::value_ptr(camera.position));
                                 ImGui::DragFloat3("Rotation", glm::value_ptr(camera.rotation));
-                                ImGui::DragFloat3("Target", glm::value_ptr(camera.target));
-                                ImGui::DragFloat("Distance", &camera.distance);
+                                ImGui::DragFloat3("Target", glm::value_ptr(camera.m_TargetPosition));
+                                ImGui::DragFloat("Distance", &camera.m_TargetDistance);
 
-                                bool fps = camera.type == Camera::CameraType::firstperson;
+                                bool fps = camera.m_CameraMovementType == Camera::CameraMovementType::firstperson;
                                 if (ImGui::Checkbox("FPS", &fps))
                                 {
-                                    camera.type = fps ? Camera::CameraType::firstperson : Camera::CameraType::lookat;
+                                    camera.m_CameraMovementType = fps ? Camera::CameraMovementType::firstperson : Camera::CameraMovementType::lookat;
                                 }
 
                                 ImGui::DragFloat("RotationSpeed", &camera.rotationSpeed);
                                 ImGui::DragFloat("MovementSpeed", &camera.movementSpeed);
+
+                                if (ImGui::Button("Shake"))
+                                {
+                                    gs_CameraController.ShakeCamera();
+                                }
 
                                 ImGui::EndTabItem();
                             }//ImGui::BeginTabItem
