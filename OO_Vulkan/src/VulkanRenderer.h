@@ -52,6 +52,26 @@ struct LayoutDB // Think of a better name? Very short and sweet for easy typing 
 	inline static VkDescriptorSetLayout ForwardDecal;
 };
 
+// Moving all constant buffer structures into this CB namespace.
+// Important: Take extra care of the alignment and memory layout. Must match the shader side.
+namespace CB
+{
+	struct FrameContextUBO
+	{
+		glm::mat4 projection{ 1.0f };
+		glm::mat4 view{ 1.0f };
+		glm::mat4 viewProjection{ 1.0f };
+		glm::vec4 cameraPosition{ 1.0f };
+		glm::vec4 renderTimer{ 0.0f, 0.0f, 0.0f, 0.0f };
+	};
+
+    struct LightUBO
+    {
+        OmniLightInstance lights[6];
+        glm::vec4 viewPos;
+    };
+}
+
 class VulkanRenderer
 {
 public:
@@ -96,53 +116,48 @@ public:
 	void CreateOffscreenFB();
 	void ResizeOffscreenFB();
 
-	 bool m_imguiInitialized = false;
+    bool m_imguiInitialized = false;
 	bool m_initialized = false;
 
 	//---------- Device ----------
 
-	 VulkanInstance m_instance{};
-	 VulkanDevice m_device{};
-	 VulkanSwapchain m_swapchain{};
-	 std::vector<VkFramebuffer> swapChainFramebuffers;
-	 uint32_t swapchainIdx{ 0 };
+    VulkanInstance m_instance{};
+    VulkanDevice m_device{};
+	VulkanSwapchain m_swapchain{};
+	std::vector<VkFramebuffer> swapChainFramebuffers;
+	uint32_t swapchainIdx{ 0 };
 
 	//---------- DescriptorSet ----------
 
 	// For Deferred Lighting onwards
-	 VkDescriptorSetLayout descriptorSetLayout_DeferredComposition;
-	 VkDescriptorSet descriptorSet_DeferredComposition;
+	VkDescriptorSetLayout descriptorSetLayout_DeferredComposition;
+	VkDescriptorSet descriptorSet_DeferredComposition;
 
 	// For unbounded array of texture descriptors, used in bindless approach
-	 VkDescriptorSetLayout descriptorSetLayout_bindless;
-	 VkDescriptorSet descriptorSet_bindless;
+	VkDescriptorSetLayout descriptorSetLayout_bindless;
+	VkDescriptorSet descriptorSet_bindless;
 
 	// For GPU Scene
-     VkDescriptorSetLayout descriptorSetLayout_gpuscene;
-     VkDescriptorSet descriptorSet_gpuscene;
+	VkDescriptorSetLayout descriptorSetLayout_gpuscene;
+	VkDescriptorSet descriptorSet_gpuscene;
 
 	// For UBO with the corresponding swap chain image
-	 VkDescriptorSetLayout descriptorSetLayout_uniform;
-	 std::vector<VkDescriptorSet> descriptorSets_uniform;
+    VkDescriptorSetLayout descriptorSetLayout_uniform;
+    std::vector<VkDescriptorSet> descriptorSets_uniform;
 
 	void ResizeDeferredFB();
 
 	void SetWorld(GraphicsWorld* world);
-	 GraphicsWorld* currWorld{ nullptr };
+	GraphicsWorld* currWorld{ nullptr };
 
 	std::array<OmniLightInstance, 6> m_HardcodedOmniLights;
 
-	struct LightUBO
-	{
-		OmniLightInstance lights[6];
-		glm::vec4 viewPos;
-	};
-	 LightUBO lightUBO{};
+	
 	float timer{ 0.0f };
 
-	 bool deferredRendering = true;
+	bool deferredRendering = true;
 
-	 vkutils::Buffer lightsBuffer;
+    vkutils::Buffer lightsBuffer;
 	void CreateLightingBuffers(); 
 	void UpdateLights(float delta);
 	void UploadLights();
@@ -180,7 +195,7 @@ public:
 	 vkutils::Buffer instanceBuffer;
 
 	bool PrepareFrame();
-	void Draw();
+	void BeginDraw();
 	void RenderFrame();
 	void Present();
 
@@ -331,14 +346,7 @@ public:
 	uint64_t uboDynamicAlignment;
 	uint32_t numCameras;
 
-	struct FrameContextUBO
-	{
-		glm::mat4 projection{ 1.0f };
-		glm::mat4 view{ 1.0f };
-		glm::mat4 viewProjection{ 1.0f };
-		glm::vec4 cameraPosition{ 1.0f };
-		glm::vec4 renderTimer{ 0.0f, 0.0f, 0.0f, 0.0f };
-	} m_FrameContextUBO;
+    
 
 	bool resizeSwapchain = false;
 	bool m_prepared = false;

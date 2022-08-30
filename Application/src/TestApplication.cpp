@@ -570,7 +570,6 @@ void TestApplication::Run()
                                 static bool debugDrawPosition = false;
                                 ImGui::Checkbox("Freeze Lights", &freezeLight);
                                 ImGui::Checkbox("Debug Draw Position", &debugDrawPosition);
-                                ImGui::DragFloat3("ViewPos", glm::value_ptr(gs_RenderEngine->lightUBO.viewPos));
                                 ImGui::Separator();
                                 for (int i = 0; i < 6; ++i)
                                 {

@@ -816,7 +816,6 @@ int main2(int argc, char argv[])
                             static bool debugDrawPosition = false;
                             ImGui::Checkbox("Freeze Lights", &freezeLight);
                             ImGui::Checkbox("Debug Draw Position", &debugDrawPosition);
-                            ImGui::DragFloat3("ViewPos", glm::value_ptr(renderer->lightUBO.viewPos));
                             ImGui::Separator();
                             for (int i = 0; i < 6; ++i)
                             {
