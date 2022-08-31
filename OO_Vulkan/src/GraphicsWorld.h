@@ -71,4 +71,5 @@ private:
     //etc
 
     // + Spatial Acceleration Structures
+    // + Culling object BV against frustum
 };

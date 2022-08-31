@@ -132,7 +132,7 @@ void GpuVector<T>::writeTo(size_t writeSize, void* data, size_t offset)
 template <typename T>
 void GpuVector<T>::resize(size_t size)
 {
-	std::cout << "RESIZE!\n";
+	std::cout << "[GpuVector<T>::resize] " << "Resizing from " << m_size << " to " << size << "\n";
 	reserve(size);
 	m_size = size;	
 }

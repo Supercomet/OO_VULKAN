@@ -2,7 +2,7 @@
 
 void GraphicsWorld::BeginFrame()
 {
-	// TODO: What do you do at the begining of the frame?
+	// TODO: What do you do at the beginning of the frame?
 }
 
 void GraphicsWorld::EndFrame()
