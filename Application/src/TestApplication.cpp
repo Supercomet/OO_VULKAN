@@ -158,8 +158,8 @@ void TestApplication::Run()
     std::unique_ptr<Model> model_plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
     std::unique_ptr<Model> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
 
-    std::unique_ptr<Model> character_diona{ gs_RenderEngine->LoadModelFromFile("Models/diona.fbx") };
-    std::unique_ptr<Model> character_qiqi{ gs_RenderEngine->LoadModelFromFile("Models/qiqi.fbx") };
+    std::unique_ptr<Model> character_diona{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx") };
+    std::unique_ptr<Model> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
 
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Scene Objects
@@ -246,6 +246,49 @@ void TestApplication::Run()
         gs_RenderEngine->entities.push_back(ed);
     }
 
+    // Stress test more models
+    std::vector<std::unique_ptr<Model>> moreModels;
+    moreModels.reserve(128);
+#define LOAD_MODEL(FILE) moreModels.emplace_back(gs_RenderEngine->LoadModelFromFile("../Application/models/" FILE))
+    LOAD_MODEL("arrow.fbx");
+    LOAD_MODEL("classroom_door.fbx");
+    LOAD_MODEL("cleaning_trolley.fbx");
+    LOAD_MODEL("crowd_control_barrier.fbx");
+    LOAD_MODEL("english_bond_brick.fbx");
+    LOAD_MODEL("filing_cabinet.fbx");
+    LOAD_MODEL("garden_bench_01.fbx");
+    LOAD_MODEL("greek_column_02.fbx");
+    LOAD_MODEL("large_pallet.fbx");
+    LOAD_MODEL("location_marker.fbx");
+    LOAD_MODEL("moulded_breeze_block_03.fbx");
+    LOAD_MODEL("office_desk.fbx");
+    LOAD_MODEL("pallet.fbx");
+    LOAD_MODEL("park_bench.fbx");
+    LOAD_MODEL("torii_gate_01.fbx");
+    LOAD_MODEL("tuscan_column.fbx");
+    LOAD_MODEL("wooden_crate_02.fbx");
+    LOAD_MODEL("wooden_produce_crate.fbx");
+    LOAD_MODEL("wood_barrel.fbx");
+    LOAD_MODEL("industrial_shelving_02.fbx");
+    LOAD_MODEL("pallet_of_pipes.fbx");
+    LOAD_MODEL("I_beam.fbx");
+#undef LOAD_MODEL
+    {
+        int counter = 0;
+        for (auto& model : moreModels)
+        {
+            VulkanRenderer::EntityDetails ed;
+            ed.modelID = model->gfxIndex;
+            ed.name = "model_" + std::to_string(counter);
+            ed.entityID = FastRandomMagic();
+            ed.position = { 2.0f + 2.0 * float(counter % 4), 0.0f, -(2.0f + 2.0 * float(counter / 4)) };
+            ed.scale = { 0.01f,0.01f,0.01f };
+            ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+            gs_RenderEngine->entities.push_back(ed);
+            ++counter;
+        }
+    }
+
     // Transfer to Graphics World
     for (auto& e : gs_RenderEngine->entities)
     {
@@ -279,15 +322,18 @@ void TestApplication::Run()
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Camera
     //----------------------------------------------------------------------------------------------------
+    {
+        auto& camera = gs_RenderEngine->camera;
+        gs_CameraController.SetCamera(&camera);
 
-    gs_RenderEngine->camera.m_TargetPosition = glm::vec3(0.01f, 0.0f, 0.0f);
-    gs_RenderEngine->camera.SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
-    gs_RenderEngine->camera.SetRotationSpeed(0.5f);
-    gs_RenderEngine->camera.SetPosition(glm::vec3(0.1f, 10.0f, 10.5f));
-    gs_RenderEngine->camera.movementSpeed = 5.0f;
-    gs_RenderEngine->camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
-    gs_RenderEngine->camera.Rotate(glm::vec3(1 * gs_RenderEngine->camera.rotationSpeed, 1 * gs_RenderEngine->camera.rotationSpeed, 0.0f));
-    gs_RenderEngine->camera.m_CameraMovementType = Camera::CameraMovementType::firstperson;
+        camera.m_CameraMovementType = Camera::CameraMovementType::firstperson;
+        camera.movementSpeed = 5.0f;
+        
+        camera.SetRotation(glm::vec3(0.0f, 180.0f, 0.0f));
+        camera.SetRotationSpeed(0.5f);
+        camera.SetPosition(glm::vec3(0.0f, 2.0f, 10.0f));
+        camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
+    }
 
     auto lastTime = std::chrono::high_resolution_clock::now();
     static bool freezeLight = false;
@@ -311,39 +357,6 @@ void TestApplication::Run()
             //------------------------------
             // Camera Controller
             //------------------------------
-            if constexpr(false) // Soon deprecated...
-            {
-                auto& camera = gs_RenderEngine->camera;
-
-                camera.keys.left = Input::GetKeyHeld(KEY_A) ? true : false;
-                camera.keys.right = Input::GetKeyHeld(KEY_D) ? true : false;
-                camera.keys.down = Input::GetKeyHeld(KEY_S) ? true : false;
-                camera.keys.up = Input::GetKeyHeld(KEY_W) ? true : false;
-                camera.Update(deltaTime);
-
-                // If the aspect ratio changes, then the projection matrix must be updated correctly...
-                camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
-
-                if (mainWindow.m_width != 0 && mainWindow.m_height != 0)
-                {
-                    camera.SetPerspective(60.0f, (float)mainWindow.m_width / (float)mainWindow.m_height, 0.1f, 10000.0f);
-                }
-
-                auto mousedelta = Input::GetMouseDelta();
-                float wheelDelta = Input::GetMouseWheel();
-                if (Input::GetMouseHeld(MOUSE_RIGHT))
-                {
-                    camera.Rotate(glm::vec3(-mousedelta.y * camera.rotationSpeed, mousedelta.x * camera.rotationSpeed, 0.0f));
-                }
-                if (gs_RenderEngine->camera.m_CameraMovementType == Camera::CameraMovementType::lookat)
-                {
-                    camera.ChangeTargetDistance(wheelDelta * -0.001f);
-                }
-
-                //camera.updateViewMatrix();
-                camera.UpdateProjectionMatrix();
-            }
-
             // Decoupling camera logic.
             // Graphics should only know the final state before calculating the view & projection matrix.
             {
@@ -557,7 +570,6 @@ void TestApplication::Run()
                                 static bool debugDrawPosition = false;
                                 ImGui::Checkbox("Freeze Lights", &freezeLight);
                                 ImGui::Checkbox("Debug Draw Position", &debugDrawPosition);
-                                ImGui::DragFloat3("ViewPos", glm::value_ptr(gs_RenderEngine->lightUBO.viewPos));
                                 ImGui::Separator();
                                 for (int i = 0; i < 6; ++i)
                                 {

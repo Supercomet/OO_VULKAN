@@ -426,7 +426,7 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 	vkGetPhysicalDeviceProperties(m_device.physicalDevice, &props);
 	size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
 	//auto dynamicAlignment = sizeof(glm::mat4);
-	uboDynamicAlignment = sizeof(FrameContextUBO);
+	uboDynamicAlignment = sizeof(CB::FrameContextUBO);
 	if (minUboAlignment > 0)
 	{
 		uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
@@ -442,7 +442,7 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 		VkDescriptorBufferInfo vpBufferInfo{};
 		vpBufferInfo.buffer = vpUniformBuffer[i];	// buffer to get data from
 		vpBufferInfo.offset = 0;					// position of start of data
-		vpBufferInfo.range = sizeof(FrameContextUBO);			// size of data
+		vpBufferInfo.range = sizeof(CB::FrameContextUBO);			// size of data
 
 		DescriptorBuilder::Begin(&DescLayoutCache, &DescAlloc)
 			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -862,14 +862,14 @@ void VulkanRenderer::SetWorld(GraphicsWorld* world)
 
 void VulkanRenderer::CreateLightingBuffers()
 {
-	oGFX::CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, sizeof(LightUBO), 
+	oGFX::CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, sizeof(CB::LightUBO), 
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		&lightsBuffer.buffer, &lightsBuffer.memory);
-	lightsBuffer.size = sizeof(LightUBO);
+	lightsBuffer.size = sizeof(CB::LightUBO);
 	lightsBuffer.device = m_device.logicalDevice;
 	lightsBuffer.descriptor.buffer = lightsBuffer.buffer;
 	lightsBuffer.descriptor.offset = 0;
-	lightsBuffer.descriptor.range = sizeof(LightUBO);
+	lightsBuffer.descriptor.range = sizeof(CB::LightUBO);
 
 	VK_CHK(lightsBuffer.map());
 }
@@ -922,7 +922,9 @@ void VulkanRenderer::UpdateLights(float delta)
 
 void VulkanRenderer::UploadLights()
 {
-    // Current view position
+	CB::LightUBO lightUBO{};
+
+	// Current view position
 	lightUBO.viewPos = glm::vec4(camera.position, 0.0f);
 
 	// Gather lights to be uploaded.
@@ -933,7 +935,7 @@ void VulkanRenderer::UploadLights()
 	}
 
 	// Only lights that are inside/intersecting the camera frustum should be uploaded.
-	memcpy(lightsBuffer.mapped, &lightUBO, sizeof(LightUBO));
+	memcpy(lightsBuffer.mapped, &lightUBO, sizeof(CB::LightUBO));
 }
 
 void VulkanRenderer::CreateSynchronisation()
@@ -972,7 +974,7 @@ void VulkanRenderer::CreateUniformBuffers()
 	vkGetPhysicalDeviceProperties(m_device.physicalDevice,&props);
 	size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
 	//auto dynamicAlignment = sizeof(glm::mat4);
-	uboDynamicAlignment = sizeof(FrameContextUBO);
+	uboDynamicAlignment = sizeof(CB::FrameContextUBO);
 	if (minUboAlignment > 0) {
 		uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
 	}
@@ -1807,7 +1809,7 @@ bool VulkanRenderer::PrepareFrame()
 	return true;
 }
 
-void VulkanRenderer::Draw()
+void VulkanRenderer::BeginDraw()
 {
 	PROFILE_SCOPED();
 
@@ -1851,7 +1853,7 @@ void VulkanRenderer::Draw()
 
 void VulkanRenderer::RenderFrame()
 {
-	this->Draw(); // TODO: Clean this up...
+	this->BeginDraw(); // TODO: Clean this up...
 
     {
 		// Command list has already started inside VulkanRenderer::Draw
@@ -2292,6 +2294,7 @@ void VulkanRenderer::UpdateUniformBuffers()
 	float width = static_cast<float>(windowPtr->m_width);
 	float ar = width / height;
 
+	CB::FrameContextUBO m_FrameContextUBO;
 	m_FrameContextUBO.projection = camera.matrices.perspective;
 	m_FrameContextUBO.view = camera.matrices.view;
 	m_FrameContextUBO.viewProjection = m_FrameContextUBO.projection * m_FrameContextUBO.view;
@@ -2303,7 +2306,7 @@ void VulkanRenderer::UpdateUniformBuffers()
 
 	void *data;
 	vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx], 0, uboDynamicAlignment, 0, &data);
-	memcpy(data, &m_FrameContextUBO, sizeof(FrameContextUBO));
+	memcpy(data, &m_FrameContextUBO, sizeof(CB::FrameContextUBO));
 
 	VkMappedMemoryRange memRng{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
 	memRng.memory = vpUniformBufferMemory[swapchainIdx];
