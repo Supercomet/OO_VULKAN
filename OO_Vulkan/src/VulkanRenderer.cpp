@@ -166,7 +166,6 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 {
 	try
 	{	
-
 		CreateInstance(setupSpecs);
 
 		CreateSurface(setupSpecs,window);
@@ -602,7 +601,7 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	//graphics pipeline creation requires array of shader stages create
 
 	//create graphics pipeline
-	shaderStages[0]  = LoadShader(m_device,"Shaders/bin/indirect.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[0] = LoadShader(m_device,"Shaders/bin/indirect.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	shaderStages[1] = LoadShader(m_device,"Shaders/bin/indirect.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	pipelineCreateInfo.layout = indirectPSOLayout;
@@ -2192,7 +2191,6 @@ uint32_t VulkanRenderer::CreateTexture(const std::string& file)
 	// Create texture image and get its location in array
 	uint32_t textureImageLoc = CreateTextureImage(file);
 
-
 	//create texture descriptor
 	int descriptorLoc = UpdateBindlessGlobalTexture(g_Textures[textureImageLoc]);
 
@@ -2215,8 +2213,6 @@ VulkanRenderer::TextureInfo VulkanRenderer::GetTextureInfo(uint32_t handle)
 
 void VulkanRenderer::InitDebugBuffers()
 {
-
-
 	// TODO remove this
 	g_debugDrawVertBuffer.Init(&m_device,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	g_debugDrawIndxBuffer.Init(&m_device,VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
@@ -2229,9 +2225,7 @@ void VulkanRenderer::UpdateDebugBuffers()
 
 	g_debugDrawVertBuffer.writeTo(g_debugDrawVerts.size() , g_debugDrawVerts.data());
 	g_debugDrawIndxBuffer.writeTo(g_debugDrawIndices.size() , g_debugDrawIndices.data());
-
 }
-
 
 void VulkanRenderer::UpdateUniformBuffers()
 {		
@@ -2313,19 +2307,10 @@ VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(VulkanDevice& device,
 	//pointer to the shader starting function
 	shaderStageCreateInfo.pName = "main";
 
-
 	assert(shaderStageCreateInfo.module != VK_NULL_HANDLE);
 	return shaderStageCreateInfo;
 }
-/*
-struct BindlessTextureDebugInfo
-{
-	uint32_t index{ 0xFFFFFFFF };
 
-};
-
-static std::vector<BindlessTextureDebugInfo> gs_BindlessTextureDebugInfo;
-*/
 uint32_t VulkanRenderer::UpdateBindlessGlobalTexture(vkutils::Texture2D texture)
 {
 	std::vector<VkWriteDescriptorSet> writeSets
@@ -2345,7 +2330,6 @@ uint32_t VulkanRenderer::UpdateBindlessGlobalTexture(vkutils::Texture2D texture)
 
 ImTextureID VulkanRenderer::CreateImguiBinding(VkSampler s, VkImageView v, VkImageLayout l)
 {
-
 	if (VulkanRenderer::get()->m_imguiInitialized == false)
 	{
 		return 0;

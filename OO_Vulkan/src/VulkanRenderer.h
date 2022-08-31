@@ -131,19 +131,12 @@ public:
 	//---------- DescriptorSet ----------
 
 	// For Deferred Lighting onwards
-	VkDescriptorSetLayout descriptorSetLayout_DeferredComposition;
 	VkDescriptorSet descriptorSet_DeferredComposition;
-
 	// For unbounded array of texture descriptors, used in bindless approach
-	VkDescriptorSetLayout descriptorSetLayout_bindless;
 	VkDescriptorSet descriptorSet_bindless;
-
 	// For GPU Scene
-	VkDescriptorSetLayout descriptorSetLayout_gpuscene;
 	VkDescriptorSet descriptorSet_gpuscene;
-
 	// For UBO with the corresponding swap chain image
-    VkDescriptorSetLayout descriptorSetLayout_uniform;
     std::vector<VkDescriptorSet> descriptorSets_uniform;
 
 	void ResizeDeferredFB();
@@ -152,7 +145,6 @@ public:
 	GraphicsWorld* currWorld{ nullptr };
 
 	std::array<OmniLightInstance, 6> m_HardcodedOmniLights;
-
 	
 	float timer{ 0.0f };
 

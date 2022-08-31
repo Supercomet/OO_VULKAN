@@ -375,7 +375,7 @@ void TestApplication::Run()
         
         camera.SetRotation(glm::vec3(0.0f, 180.0f, 0.0f));
         camera.SetRotationSpeed(0.5f);
-        camera.SetPosition(glm::vec3(0.0f, 2.0f, 10.0f));
+        camera.SetPosition(glm::vec3(0.0f, 2.0f, 4.0f));
         camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
     }
 
