@@ -18,6 +18,7 @@
 #include "DescriptorBuilder.h"
 #include "DescriptorAllocator.h"
 #include "DescriptorLayoutCache.h"
+#include "FramebufferCache.h"
 #include "Geometry.h"
 
 #include "Camera.h"
@@ -236,7 +237,6 @@ public:
     VertexBufferObject g_SphereMeshBuffers;
     std::vector<oGFX::Vertex> g_SphereMeshes;
 
-    std::vector<int> intsVector;
     GpuVector<oGFX::Vertex> g_debugDrawVertBuffer;
     GpuVector<uint32_t> g_debugDrawIndxBuffer;
     std::vector<oGFX::Vertex> g_debugDrawVerts;
@@ -329,6 +329,8 @@ public:
 
 	 DescriptorAllocator DescAlloc;
 	 DescriptorLayoutCache DescLayoutCache;
+
+	 FramebufferCache fbCache;
 
 	GfxSamplerManager samplerManager;
 

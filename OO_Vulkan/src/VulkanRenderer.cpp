@@ -191,7 +191,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateDescriptorSetLayout();
 		CreatePushConstantRange();
 
-		(void)intsVector;
+		fbCache.Init(m_device.logicalDevice);
 
 		*const_cast<VkBuffer*>(gpuTransformBuffer.getBufferPtr()) = VK_NULL_HANDLE;
 		std::cout << "gpu xform :" << gpuTransformBuffer.m_size << " " << gpuTransformBuffer.m_capacity << std::endl;

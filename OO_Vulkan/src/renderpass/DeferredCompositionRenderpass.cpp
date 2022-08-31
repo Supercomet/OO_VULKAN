@@ -94,27 +94,27 @@ void DeferredCompositionRenderpass::CreateDescriptors()
     // Image descriptors for the offscreen color attachments
     VkDescriptorImageInfo texDescriptorPosition = oGFX::vkutils::inits::descriptorImageInfo(
         GfxSamplerManager::GetSampler_Deferred(),
-		gbuffer->att_position.view,
+		gbuffer->attachments[GBufferAttachmentIndex::POSITION].view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     VkDescriptorImageInfo texDescriptorNormal = oGFX::vkutils::inits::descriptorImageInfo(
         GfxSamplerManager::GetSampler_Deferred(),
-		gbuffer->att_normal.view,
+		gbuffer->attachments[GBufferAttachmentIndex::NORMAL]  .view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     VkDescriptorImageInfo texDescriptorAlbedo = oGFX::vkutils::inits::descriptorImageInfo(
         GfxSamplerManager::GetSampler_Deferred(),
-		gbuffer->att_albedo.view,
+		gbuffer->attachments[GBufferAttachmentIndex::ALBEDO]  .view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     VkDescriptorImageInfo texDescriptorMaterial = oGFX::vkutils::inits::descriptorImageInfo(
         GfxSamplerManager::GetSampler_Deferred(),
-        gbuffer->att_material.view,
+        gbuffer->attachments[GBufferAttachmentIndex::MATERIAL].view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     VkDescriptorImageInfo texDescriptorDepth = oGFX::vkutils::inits::descriptorImageInfo(
         GfxSamplerManager::GetSampler_Deferred(),
-        gbuffer->att_depth.view,
+        gbuffer->attachments[GBufferAttachmentIndex::DEPTH]   .view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	
 	// TODO: Proper light buffer
