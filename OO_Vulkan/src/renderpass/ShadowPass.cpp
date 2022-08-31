@@ -92,7 +92,7 @@ void ShadowPass::Draw()
     const VkBuffer idcb = vr.indirectCommandsBuffer.buffer;
     const uint32_t count = (uint32_t)vr.m_DrawIndirectCommandsCPU.size();
 
-	auto& light = vr.m_HardcodedOmniLights[0];
+	auto& light = vr.currWorld->m_HardcodedOmniLights[0];
 	light.view[0] = glm::lookAt(glm::vec3(light.position), glm::vec3{ 0.0f,0.0f,0.0f }, glm::vec3{ 0.0f,1.0f,0.0f });
 	light.projection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 0.01f, 100.0f);
 	glm::mat4 viewproj = light.projection * light.view[0] ;

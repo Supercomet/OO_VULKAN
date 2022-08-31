@@ -143,16 +143,11 @@ public:
 
 	void SetWorld(GraphicsWorld* world);
 	GraphicsWorld* currWorld{ nullptr };
-
-	std::array<OmniLightInstance, 6> m_HardcodedOmniLights;
 	
-	float timer{ 0.0f };
-
 	bool deferredRendering = true;
 
     vkutils::Buffer lightsBuffer;
 	void CreateLightingBuffers(); 
-	void UpdateLights(float delta);
 	void UploadLights();
 
 	void CreateSynchronisation();

@@ -873,64 +873,25 @@ void VulkanRenderer::CreateLightingBuffers()
 	VK_CHK(lightsBuffer.map());
 }
 
-void VulkanRenderer::UpdateLights(float delta)
-{
-	PROFILE_SCOPED();
-	static float lightTimer = 0.0f;
-	lightTimer += delta * 0.25f;
-	
-    m_HardcodedOmniLights[0].position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
-    m_HardcodedOmniLights[0].color = glm::vec4(1.5f);
-    m_HardcodedOmniLights[0].radius.x = 15.0f;
-    // Red
-    m_HardcodedOmniLights[1].position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
-    m_HardcodedOmniLights[1].color = glm::vec4(1.0f, 0.0f, 0.0f,0.0f);
-    m_HardcodedOmniLights[1].radius.x = 15.0f;
-    // Blue
-    m_HardcodedOmniLights[2].position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
-    m_HardcodedOmniLights[2].color = glm::vec4(0.0f, 0.0f, 2.5f,0.0f);
-    m_HardcodedOmniLights[2].radius.x = 5.0f;
-    // Yellow
-    m_HardcodedOmniLights[3].position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
-    m_HardcodedOmniLights[3].color = glm::vec4(1.0f, 1.0f, 0.0f,0.0f);
-    m_HardcodedOmniLights[3].radius.x = 2.0f;
-    // Green
-    m_HardcodedOmniLights[4].position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
-    m_HardcodedOmniLights[4].color = glm::vec4(0.0f, 1.0f, 0.2f,0.0f);
-    m_HardcodedOmniLights[4].radius.x = 5.0f;
-    // Yellow
-    m_HardcodedOmniLights[5].position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
-    m_HardcodedOmniLights[5].color = glm::vec4(1.0f, 0.7f, 0.3f,0.0f);
-    m_HardcodedOmniLights[5].radius.x = 25.0f;
-
-	m_HardcodedOmniLights[0].position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
-	m_HardcodedOmniLights[0].position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
-
-	m_HardcodedOmniLights[1].position.x = -4.0f + sin(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
-	m_HardcodedOmniLights[1].position.z =  0.0f + cos(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
-	
-	m_HardcodedOmniLights[2].position.x = 4.0f + sin(glm::radians(360.0f * lightTimer)) * 2.0f;
-	m_HardcodedOmniLights[2].position.z = 0.0f + cos(glm::radians(360.0f * lightTimer)) * 2.0f;
-	
-	m_HardcodedOmniLights[4].position.x = 0.0f + sin(glm::radians(360.0f * lightTimer + 90.0f)) * 5.0f;
-	m_HardcodedOmniLights[4].position.z = 0.0f - cos(glm::radians(360.0f * lightTimer + 45.0f)) * 5.0f;
-	
-	m_HardcodedOmniLights[5].position.x = 0.0f + sin(glm::radians(-360.0f * lightTimer + 135.0f)) * 10.0f;
-	m_HardcodedOmniLights[5].position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
-}
-
 void VulkanRenderer::UploadLights()
 {
+	if (currWorld == nullptr)
+		return;
+
 	CB::LightUBO lightUBO{};
 
 	// Current view position
 	lightUBO.viewPos = glm::vec4(camera.position, 0.0f);
 
+	// Temporary reroute
+	auto& allLights = currWorld->m_HardcodedOmniLights;
+
 	// Gather lights to be uploaded.
 	// TODO: Frustum culling for light bounding volume...
-	for (int i = 0; i < 6; ++i)
+	int numLights = glm::clamp((int)allLights.size(), 0, 6);
+	for (int i = 0; i < numLights; ++i)
 	{
-		lightUBO.lights[i] = m_HardcodedOmniLights[i];
+		lightUBO.lights[i] = allLights[i];
 	}
 
 	// Only lights that are inside/intersecting the camera frustum should be uploaded.

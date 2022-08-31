@@ -633,29 +633,14 @@ int main2(int argc, char argv[])
             geomChanged = false;
         }
 
-        if (renderer->gpuTransformBuffer.MustUpdate())
-        {
-            auto dbi = renderer->gpuTransformBuffer.GetDescriptorBufferInfo();
-            //VkWriteDescriptorSet write = oGFX::vk::inits::writeDescriptorSet(renderer->g0_descriptors, 
-            //    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 
-            //    3,
-            //    &dbi);
-            //vkUpdateDescriptorSets(renderer->m_device.logicalDevice, 1, &write, 0, 0);
-            DescriptorBuilder::Begin(&VulkanRenderer::get()->DescLayoutCache, &VulkanRenderer::get()->DescAlloc)
-                .BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-                .Build(VulkanRenderer::get()->descriptorSet_gpuscene, LayoutDB::gpuscene);
-            renderer->gpuTransformBuffer.Updated();
-        }
-
         if (renderer->PrepareFrame() == true)
         {
             PROFILE_SCOPED("renderer->PrepareFrame() == true");
 
-            renderer->timer += deltaTime;
             if (freezeLight == false)
             {
                 // TODO: turn into proper entities
-                renderer->UpdateLights(deltaTime);
+                //renderer->UpdateLights(deltaTime);
             }
 
             // Upload CPU light data to GPU. Ideally this should only contain lights that intersects the camera frustum.
@@ -845,7 +830,7 @@ int main2(int argc, char argv[])
                             for (int i = 0; i < 6; ++i)
                             {
                                 ImGui::PushID(i);
-                                auto& light = renderer->m_HardcodedOmniLights[i];
+                                auto& light = renderer->currWorld->m_HardcodedOmniLights[i];
                                 ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.01f);
                                 {
                                     if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
@@ -884,7 +869,7 @@ int main2(int argc, char argv[])
                                         const float winY = glm::round(((1.0f - ndcPosition.y) / 2.0f) * (float)screenHeight);
                                         return ImVec2{ winX, winY };
                                     };
-
+                                    /*
                                     for (int i = 0; i < 6; ++i)
                                     {
                                         auto& light = renderer->m_HardcodedOmniLights[i];
@@ -893,6 +878,7 @@ int main2(int argc, char argv[])
                                         constexpr float circleSize = 10.0f;
                                         bgDrawList->AddCircle(ImVec2(screenPosition.x - 0.5f * circleSize, screenPosition.y - 0.5f * circleSize), circleSize, IM_COL32(light.color.r * 0xFF, light.color.g * 0xFF, light.color.b * 0xFF, 0xFF), 0, 2.0f);
                                     }
+                                    */
                                 }
                             }
 
