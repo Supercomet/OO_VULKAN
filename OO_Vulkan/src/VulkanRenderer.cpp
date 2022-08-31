@@ -598,7 +598,7 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	pipelineCreateInfo.layout = indirectPSOLayout;
 	// Indirect pipeline
 	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &indirectPSO);
-	VK_NAME(m_device.logicalDevice, "indirectPipeline", indirectPSO);
+	VK_NAME(m_device.logicalDevice, "indirectPSO", indirectPSO);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a Graphics Pipeline!");
@@ -617,7 +617,7 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	shaderStages[1] = LoadShader(m_device,"Shaders/bin/shader.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPSO);
-	VK_NAME(m_device.logicalDevice, "graphicsPipeline", graphicsPSO);
+	VK_NAME(m_device.logicalDevice, "graphicsPSO", graphicsPSO);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a Graphics Pipeline!");
@@ -625,7 +625,7 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
 	pipelineCreateInfo.renderPass = renderPass_default;
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &wireframePSO));
-	VK_NAME(m_device.logicalDevice, "wirePipeline", wireframePSO);
+	VK_NAME(m_device.logicalDevice, "wireframePSO", wireframePSO);
 
 	//destroy shader modules after pipeline is created
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);

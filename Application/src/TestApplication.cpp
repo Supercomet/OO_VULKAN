@@ -480,6 +480,13 @@ void TestApplication::Run()
                 // Upload CPU light data to GPU. Ideally this should only contain lights that intersects the camera frustum.
                 gs_RenderEngine->UploadLights();
 
+                // We need to test debug draw...
+                AABB aabb;
+                aabb.center = { 0.0f,1.0f,0.0f };
+                aabb.halfExt = { 1.0f,1.0f,1.0f };
+                gs_RenderEngine->AddDebugBox(aabb, oGFX::Colors::GREEN);
+                // ^ Should see this by default, otherwise its fucked.
+
                 // Render the frame
                 gs_RenderEngine->RenderFrame();
 
