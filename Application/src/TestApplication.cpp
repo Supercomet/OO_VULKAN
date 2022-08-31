@@ -71,6 +71,67 @@ void TestApplication::Init()
 
 }
 
+// this is to pretend we have an ECS system
+struct EntityInfo
+{
+    std::string name;
+    glm::vec3 position{};
+    glm::vec3 scale{1.0f};
+    float rot{};
+    glm::vec3 rotVec{0.0f,1.0f,0.0f};
+
+    uint32_t modelID{}; // Index for the mesh
+    uint32_t entityID{}; // Unique ID for this entity instance // THIS IS THE ECS UUID
+
+                         // Very ghetto... To move out to proper material system...
+                         // Actually 16 bits is enough...
+    uint32_t bindlessGlobalTextureIndex_Albedo{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Normal{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Roughness{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Metallic{ 0xFFFFFFFF };
+
+    int32_t gfxID; // gfxworld id
+
+    mat4 getLocalToWorld()
+    {
+		glm::mat4 xform{ 1.0f };
+		xform = glm::translate(xform, position);
+		xform = glm::rotate(xform, glm::radians(rot), rotVec);
+		xform = glm::scale(xform, scale);
+        return xform;
+    }
+
+};
+
+void CreateGraphicsEntityHelper(EntityInfo& ei)
+{
+    AABB ab;
+    auto& model = gs_RenderEngine->models[ei.modelID];
+
+    //UpdateBV(gs_RenderEngine->models[e.modelID].cpuModel, e);
+
+    auto id = gs_GraphicsWorld.CreateObjectInstance(
+        ObjectInstance{
+            ei.name,
+            ei.position,
+            ei.scale,
+            ei.rot,
+            ei.rotVec,
+            ei.bindlessGlobalTextureIndex_Albedo,
+            ei.bindlessGlobalTextureIndex_Normal,
+            ei.bindlessGlobalTextureIndex_Roughness,
+            ei.bindlessGlobalTextureIndex_Metallic,
+            ei.getLocalToWorld(),
+            ei.modelID,
+            ei.entityID
+        }
+    );
+    // assign id
+    ei.gfxID = id;
+}
+
+static std::vector<EntityInfo> entities;
+
 static CameraController gs_CameraController;
 
 static float* gizmoHijack = nullptr; // TODO: Clean this up...
@@ -184,13 +245,14 @@ void TestApplication::Run()
     };
 
     {
-        VulkanRenderer::EntityDetails ed;
+        auto x = entities.size();
+        entities.emplace_back(EntityInfo{});
+        auto& ed = entities[x];
         ed.name = "Plane";
         ed.entityID = FastRandomMagic();
         ed.modelID = model_plane->gfxIndex;
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
-        gs_RenderEngine->entities.push_back(ed);
     }
 
     // Create 8 more surrounding planes
@@ -210,7 +272,9 @@ void TestApplication::Run()
                 glm::vec3{ -offset, 0.0f, -offset },
             };
 
-            VulkanRenderer::EntityDetails ed;
+            auto x = entities.size();
+            entities.emplace_back(EntityInfo{});
+            auto& ed = entities[x];
             ed.name = "Plane_" + std::to_string(i);
             ed.entityID = FastRandomMagic();
             ed.modelID = model_plane->gfxIndex;
@@ -218,32 +282,33 @@ void TestApplication::Run()
             ed.scale = { 15.0f,1.0f,15.0f };
             ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[i / 2];
             ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[i / 2];
-            gs_RenderEngine->entities.push_back(ed);
         }
     }
 
     if (character_diona)
     {
-        VulkanRenderer::EntityDetails ed;
+        auto x = entities.size();
+        entities.emplace_back(EntityInfo{});
+        auto& ed = entities[x];
         ed.modelID = character_diona->gfxIndex;
         ed.name = "diona";
         ed.entityID = FastRandomMagic();
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        gs_RenderEngine->entities.push_back(ed);
     }
 
     if (character_qiqi)
     {
-        VulkanRenderer::EntityDetails ed;
+        auto x = entities.size();
+        entities.emplace_back(EntityInfo{});
+        auto& ed = entities[x];
         ed.modelID = character_qiqi->gfxIndex;
         ed.name = "qiqi";
         ed.entityID = FastRandomMagic();
         ed.position = { 1.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        gs_RenderEngine->entities.push_back(ed);
     }
 
     // Stress test more models
@@ -277,46 +342,25 @@ void TestApplication::Run()
         int counter = 0;
         for (auto& model : moreModels)
         {
-            VulkanRenderer::EntityDetails ed;
+            auto x = entities.size();
+            entities.emplace_back(EntityInfo{});
+            auto& ed = entities[x];
             ed.modelID = model->gfxIndex;
             ed.name = "model_" + std::to_string(counter);
             ed.entityID = FastRandomMagic();
             ed.position = { 2.0f + 2.0 * float(counter % 4), 0.0f, -(2.0f + 2.0 * float(counter / 4)) };
             ed.scale = { 0.01f,0.01f,0.01f };
             ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-            gs_RenderEngine->entities.push_back(ed);
             ++counter;
         }
     }
 
+  
+
     // Transfer to Graphics World
-    for (auto& e : gs_RenderEngine->entities)
+    for (auto& e : entities)
     {
-        AABB ab;
-        auto& model = gs_RenderEngine->models[e.modelID];
-
-        UpdateBV(gs_RenderEngine->models[e.modelID].cpuModel, e);
-
-        glm::mat4 xform{ 1.0f };
-        xform = glm::translate(xform, e.position);
-        xform = glm::rotate(xform, glm::radians(e.rot), e.rotVec);
-        xform = glm::scale(xform, e.scale);
-        auto id = gs_GraphicsWorld.CreateObjectInstance(
-            ObjectInstance{
-                e.name,
-                e.position,
-                e.scale,
-                e.rot,
-                e.rotVec,
-                e.bindlessGlobalTextureIndex_Albedo,
-                e.bindlessGlobalTextureIndex_Normal,
-                e.bindlessGlobalTextureIndex_Roughness,
-                e.bindlessGlobalTextureIndex_Metallic,
-                xform,
-                e.modelID,
-                e.entityID
-            }
-        );
+        CreateGraphicsEntityHelper(e);
     }
 
     //----------------------------------------------------------------------------------------------------
@@ -337,6 +381,11 @@ void TestApplication::Run()
 
     auto lastTime = std::chrono::high_resolution_clock::now();
     static bool freezeLight = false;
+
+    //----------------------------------------------------------------------------------------------------
+    // Set graphics world before rendering
+    //----------------------------------------------------------------------------------------------------
+    gs_RenderEngine->SetWorld(&gs_GraphicsWorld);
 
     //----------------------------------------------------------------------------------------------------
     // Application Loop
@@ -467,35 +516,26 @@ void TestApplication::Run()
                         }
                     }
                 }
-                bool renderGraphicsWorld = gs_RenderEngine->currWorld;
                 // Display ImGui Window
                 {
                     PROFILE_SCOPED("ImGuiSceneHelper");
                     if (ImGui::Begin("Scene Helper"))
-                    {
-                        if (ImGui::Checkbox("RenderGraphicsWorld", &renderGraphicsWorld))
-                        {
-                            if (renderGraphicsWorld)
-                            {
-                                gs_RenderEngine->SetWorld(&gs_GraphicsWorld);
-                            }
-                            else
-                            {
-                                gs_RenderEngine->SetWorld(nullptr);
-                            }
-                        }
+                    {                       
                         if (ImGui::BeginTabBar("SceneHelperTabBar"))
                         {
                             if (ImGui::BeginTabItem("Entity"))
                             {
                                 if (ImGui::SmallButton("Create Cube"))
                                 {
-                                    VulkanRenderer::EntityDetails entity;
+                                    auto x = entities.size();
+                                    entities.emplace_back(EntityInfo{});
+                                    auto& entity = entities[x];
                                     entity.position = { 2.0f,2.0f,2.0f };
                                     entity.scale = { 1.0f,1.0f,1.0f };
                                     entity.modelID = model_box->gfxIndex;
                                     entity.entityID = FastRandomMagic();
-                                    gs_RenderEngine->entities.emplace_back(entity);
+
+                                    CreateGraphicsEntityHelper(entity);
                                 }
 
                                 int addRandomEntityCount = 0;
@@ -514,27 +554,31 @@ void TestApplication::Run()
                                     {
                                         const glm::vec3 pos = glm::sphericalRand(20.0f);
 
-                                        VulkanRenderer::EntityDetails entity;
+                                        auto x = entities.size();
+                                        entities.emplace_back(EntityInfo{});
+                                        auto& entity = entities[x];
                                         entity.position = { pos.x, glm::abs(pos.y), pos.z };
                                         entity.scale = { 1.0f,1.0f,1.0f };
                                         entity.modelID = model_box->gfxIndex;
                                         entity.entityID = FastRandomMagic();
-                                        gs_RenderEngine->entities.emplace_back(entity);
+                                        
+                                        CreateGraphicsEntityHelper(entity);
                                     }
                                 }
 
-                                ImGui::Text("Total Entities: %u", gs_RenderEngine->entities.size());
+                                ImGui::Text("Total Entities: %u", entities.size());
 
                                 if (ImGui::TreeNode("Entity List"))
                                 {
-                                    for (auto& entity : gs_RenderEngine->entities)
+                                    for (auto& entity : entities)
                                     {
+                                        bool valuesModified = false;
                                         ImGui::PushID(entity.entityID);
 
                                         ImGui::BulletText("[ID:%u] ", entity.entityID);
                                         ImGui::SameLine();
                                         ImGui::Text(entity.name.c_str());
-                                        ImGui::DragFloat3("Position", glm::value_ptr(entity.position), 0.01f);
+                                        valuesModified |= ImGui::DragFloat3("Position", glm::value_ptr(entity.position), 0.01f);
                                         {
                                             if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
                                             {
@@ -547,10 +591,15 @@ void TestApplication::Run()
                                             }
                                         }
 
-                                        ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
-                                        ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
-                                        ImGui::DragFloat("Theta", &entity.rot);
+                                        valuesModified |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
+                                        valuesModified |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
+                                        valuesModified |= ImGui::DragFloat("Theta", &entity.rot);
                                         // TODO: We should be using quaternions.........
+
+                                        if (valuesModified)
+                                        {
+                                            gs_GraphicsWorld.GetObjectInstance(entity.gfxID).localToWorld = entity.getLocalToWorld();
+                                        }
 
                                         ImGui::PopID();
                                     }

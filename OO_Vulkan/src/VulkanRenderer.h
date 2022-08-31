@@ -355,6 +355,7 @@ public:
 
 public:
 	
+	// TODO: remove
 	struct EntityDetails
 	{
 		std::string name;
@@ -394,7 +395,7 @@ public:
 			return 8.0f * ( (width*height)*(width*depth)*(height*depth) );
 		}
 	};
-	 std::vector<EntityDetails> entities;
+
 	static ImTextureID CreateImguiBinding(VkSampler s, VkImageView v, VkImageLayout l);
 	static VkPipelineShaderStageCreateInfo LoadShader(VulkanDevice& device, const std::string& fileName, VkShaderStageFlagBits stage);
 	private:

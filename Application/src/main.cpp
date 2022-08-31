@@ -51,6 +51,7 @@ int main(int argc, char argv[])
     _CrtDumpMemoryLeaks();
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
+    _CrtSetBreakAlloc(156);
 
     // !! IMPORTANT !!
     // !! THIS IS A HACK !!
@@ -316,37 +317,54 @@ int main2(int argc, char argv[])
         return (seed >> 16) & 0x7FFF;
     };
 
+    GraphicsWorld Gworld;
+
     int iter = 0;
 
     {
-        VulkanRenderer::EntityDetails ed;
+        ObjectInstance ed;
         ed.name = "Plane";
         ed.entityID = FastRandomMagic();
         ed.modelID = plane->gfxIndex;
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
-        renderer->entities.push_back(ed);
+        glm::mat4 xform(1.0f);
+        xform = glm::translate(xform, ed.position);
+        xform = glm::rotate(xform, glm::radians(ed.rot), ed.rotVec);
+        xform = glm::scale(xform, ed.scale);
+        ed.localToWorld = xform;
+        Gworld.CreateObjectInstance(ed);
     }
 
     {
-        VulkanRenderer::EntityDetails ed;
+        ObjectInstance ed;
         ed.name = "IcoSphere";
         ed.entityID = FastRandomMagic();
         ed.modelID = icoSphere->gfxIndex;
         ed.position = { -2.0f,2.0f,-2.0f };
-        ed.scale = { 1.0f,1.0f,1.0f };
-        renderer->entities.push_back(ed);
+        ed.scale = { 1.0f,1.0f,1.0f };        
+        glm::mat4 xform(1.0f);
+        xform = glm::translate(xform, ed.position);
+        xform = glm::rotate(xform, glm::radians(ed.rot), ed.rotVec);
+        xform = glm::scale(xform, ed.scale);
+        ed.localToWorld = xform;
+        Gworld.CreateObjectInstance(ed);
     }
 
     {
-        VulkanRenderer::EntityDetails ed;
+        ObjectInstance ed;
         ed.modelID = box->gfxIndex;
         ed.name = "Box";
         ed.entityID = FastRandomMagic();
         ed.position = { 2.0f,3.0f,2.0f };
         ed.scale = { 2.0f,3.0f,1.0f };
         ed.rot = { 45.0f };
-        renderer->entities.push_back(ed);
+        glm::mat4 xform(1.0f);
+        xform = glm::translate(xform, ed.position);
+        xform = glm::rotate(xform, glm::radians(ed.rot), ed.rotVec);
+        xform = glm::scale(xform, ed.scale);
+        ed.localToWorld = xform;
+        Gworld.CreateObjectInstance(ed);
     }
 
     // Create 8 more surrounding planes
@@ -366,7 +384,7 @@ int main2(int argc, char argv[])
                 glm::vec3{ -offset, 0.0f, -offset },
             };
 
-            VulkanRenderer::EntityDetails ed;
+            ObjectInstance ed;
             ed.name = "Plane_" + std::to_string(i);
             ed.entityID = FastRandomMagic();
             ed.modelID = plane->gfxIndex;
@@ -374,48 +392,68 @@ int main2(int argc, char argv[])
             ed.scale = { 15.0f,1.0f,15.0f };
             ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[i / 2];
             ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[i / 2];
-            renderer->entities.push_back(ed);
+            glm::mat4 xform(1.0f);
+            xform = glm::translate(xform, ed.position);
+            xform = glm::rotate(xform, glm::radians(ed.rot), ed.rotVec);
+            xform = glm::scale(xform, ed.scale);
+            ed.localToWorld = xform;
+            Gworld.CreateObjectInstance(ed);
         }
     }
 
     std::unique_ptr<Model> diona{ renderer->LoadModelFromFile("Models/diona.fbx") };
     if (diona)
     {
-        VulkanRenderer::EntityDetails ed;
+        ObjectInstance ed;
         ed.modelID = diona->gfxIndex;
         ed.name = "diona";
         ed.entityID = FastRandomMagic();
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
-        renderer->entities.push_back(ed);
+        glm::mat4 xform(1.0f);
+        xform = glm::translate(xform, ed.position);
+        xform = glm::rotate(xform, glm::radians(ed.rot), ed.rotVec);
+        xform = glm::scale(xform, ed.scale);
+        ed.localToWorld = xform;
+        Gworld.CreateObjectInstance(ed);
     }
 
     std::unique_ptr<Model> qiqi{ renderer->LoadModelFromFile("Models/qiqi.fbx") };
     if (qiqi)
     {
-        VulkanRenderer::EntityDetails ed;
+        ObjectInstance ed;
         ed.modelID = qiqi->gfxIndex;
         ed.name = "qiqi";
         ed.entityID = FastRandomMagic();
         ed.position = { 1.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
-        renderer->entities.push_back(ed);
+        glm::mat4 xform(1.0f);
+        xform = glm::translate(xform, ed.position);
+        xform = glm::rotate(xform, glm::radians(ed.rot), ed.rotVec);
+        xform = glm::scale(xform, ed.scale);
+        ed.localToWorld = xform;
+        Gworld.CreateObjectInstance(ed);
     }
 
     if (bunny)
     {
-        VulkanRenderer::EntityDetails ed;
+        ObjectInstance ed;
         ed.modelID = bunny->gfxIndex;
         ed.name = "Bunny";
         ed.entityID = FastRandomMagic();
         ed.position = { -3.0f,2.0f,-3.0f };
         ed.scale = { 5.0f,5.0f,5.0f };
-        renderer->entities.push_back(ed);
+        glm::mat4 xform(1.0f);
+        xform = glm::translate(xform, ed.position);
+        xform = glm::rotate(xform, glm::radians(ed.rot), ed.rotVec);
+        xform = glm::scale(xform, ed.scale);
+        ed.localToWorld = xform;
+        Gworld.CreateObjectInstance(ed);
     }
 
     if (lucy)
     {
-        VulkanRenderer::EntityDetails ed;
+        ObjectInstance ed;
         ed.modelID = lucy->gfxIndex;
         ed.name = "lucy";
         ed.entityID = FastRandomMagic();
@@ -423,88 +461,75 @@ int main2(int argc, char argv[])
         ed.scale = { 0.002f,0.002f,0.002f };
         ed.rotVec = { 1.0f,1.0f,0.0f };
         ed.rot = { 0.0f };
-        renderer->entities.push_back(ed);
+        glm::mat4 xform(1.0f);
+        xform = glm::translate(xform, ed.position);
+        xform = glm::rotate(xform, glm::radians(ed.rot), ed.rotVec);
+        xform = glm::scale(xform, ed.scale);
+        ed.localToWorld = xform;
+        Gworld.CreateObjectInstance(ed);
     }
 
     if (starWars)
     {
-        VulkanRenderer::EntityDetails ed;
+        ObjectInstance ed;
         ed.modelID = starWars->gfxIndex;
         ed.name = "Starwars1";
         ed.entityID = FastRandomMagic();
         ed.position = { 3.0f,-2.0f,-5.0f };
         ed.scale = { 0.001f,0.001f,0.001f };
-        renderer->entities.push_back(ed);
+        glm::mat4 xform(1.0f);
+        xform = glm::translate(xform, ed.position);
+        xform = glm::rotate(xform, glm::radians(ed.rot), ed.rotVec);
+        xform = glm::scale(xform, ed.scale);
+        ed.localToWorld = xform;
+        Gworld.CreateObjectInstance(ed);
     }
 
     if (fourSphere)
     {
-        VulkanRenderer::EntityDetails ed;
+        ObjectInstance ed;
         ed.modelID = fourSphere->gfxIndex;
         ed.name = "fourSphere";
         ed.entityID = FastRandomMagic();
         ed.scale = { 0.001f,0.001f,0.001f };
         ed.position = { 1.0f, 2.0f,5.0f };
-        renderer->entities.push_back(ed);
+        glm::mat4 xform(1.0f);
+        xform = glm::translate(xform, ed.position);
+        xform = glm::rotate(xform, glm::radians(ed.rot), ed.rotVec);
+        xform = glm::scale(xform, ed.scale);
+        ed.localToWorld = xform;
+        Gworld.CreateObjectInstance(ed);
     }
 
     std::vector<Point3D> sceneVertices;
     std::vector<uint32_t> sceneIndices;
-    for (size_t i = 0; i < renderer->entities.size(); i++)
-    {
-        auto& ent = renderer->entities[i];
-        auto& model = renderer->models[renderer->entities[i].modelID];
-        auto& meshInfo = *model.cpuModel;
-
-        auto chachedPos = sceneVertices.size();
-
-        glm::mat4 xform(1.0f);
-        xform = glm::translate(xform, ent.position);
-        xform = glm::rotate(xform, glm::radians(ent.rot), ent.rotVec);
-        xform = glm::scale(xform, ent.scale);
-        std::transform(meshInfo.vertices.begin(), meshInfo.vertices.end(), std::back_inserter(sceneVertices), [&](const oGFX::Vertex& v)
-            {
-                return xform * vec4{ v.pos ,1.0f };
-            });
-        for (auto ind : meshInfo.indices)
-        {
-            sceneIndices.push_back((uint32_t)(chachedPos + ind));
-        }
-    }
+   //for (size_t i = 0; i < renderer->entities.size(); i++)
+   //{
+   //    auto& ent = renderer->entities[i];
+   //    auto& model = renderer->models[renderer->entities[i].modelID];
+   //    auto& meshInfo = *model.cpuModel;
+   //
+   //    auto chachedPos = sceneVertices.size();
+   //
+   //    glm::mat4 xform(1.0f);
+   //    xform = glm::translate(xform, ent.position);
+   //    xform = glm::rotate(xform, glm::radians(ent.rot), ent.rotVec);
+   //    xform = glm::scale(xform, ent.scale);
+   //    std::transform(meshInfo.vertices.begin(), meshInfo.vertices.end(), std::back_inserter(sceneVertices), [&](const oGFX::Vertex& v)
+   //        {
+   //            return xform * vec4{ v.pos ,1.0f };
+   //        });
+   //    for (auto ind : meshInfo.indices)
+   //    {
+   //        sceneIndices.push_back((uint32_t)(chachedPos + ind));
+   //    }
+   //}
 
     std::cout << "Total triangles : " << sceneIndices.size() / 3 << std::endl;
 
-    GraphicsWorld Gworld;
+   
     std::vector<int32_t> gWorldIds;
 
-    for (auto& e : renderer->entities)
-    {
-        AABB ab;
-        auto& model = renderer->models[e.modelID];
-
-        UpdateBV(renderer->models[e.modelID].cpuModel, e);
-
-        glm::mat4 xform(1.0f);
-        xform = glm::translate(xform, e.position);
-        xform = glm::rotate(xform, glm::radians(e.rot), e.rotVec);
-        xform = glm::scale(xform, e.scale);
-        auto id = Gworld.CreateObjectInstance(ObjectInstance{
-            e.name,
-            e.position,
-            e.scale,
-            e.rot,
-            e.rotVec,
-            e.bindlessGlobalTextureIndex_Albedo,
-            e.bindlessGlobalTextureIndex_Normal,
-            e.bindlessGlobalTextureIndex_Roughness,
-            e.bindlessGlobalTextureIndex_Metallic,
-            xform,
-            e.modelID,
-            e.entityID
-            }
-        );
-        gWorldIds.push_back(id);
-    }
 
     // for now..
     // renderer->SetWorld(Gworld);
@@ -595,15 +620,15 @@ int main2(int argc, char argv[])
         if (geomChanged)
         {
             // update bv
-            for (auto& e : renderer->entities)
-            {
-                AABB ab;
-                auto& model = renderer->models[e.modelID];
-                ab.center = e.position;
-                ab.halfExt = e.scale * 0.5f;
-                //UpdateBV(renderer->models[e.modelID].cpuModel, e, currSphereType);
-
-            }
+           //for (auto& e : renderer->entities)
+           //{
+           //    AABB ab;
+           //    auto& model = renderer->models[e.modelID];
+           //    ab.center = e.position;
+           //    ab.halfExt = e.scale * 0.5f;
+           //    //UpdateBV(renderer->models[e.modelID].cpuModel, e, currSphereType);
+           //
+           //}
 
             geomChanged = false;
         }
@@ -735,12 +760,12 @@ int main2(int argc, char argv[])
                         {
                             if (ImGui::SmallButton("Create Cube"))
                             {
-                                VulkanRenderer::EntityDetails entity;
+                                ObjectInstance entity;
                                 entity.position = { 2.0f,2.0f,2.0f };
                                 entity.scale = { 1.0f,1.0f,1.0f };
                                 entity.modelID = box->gfxIndex;
                                 entity.entityID = FastRandomMagic();
-                                renderer->entities.emplace_back(entity);
+                                Gworld.CreateObjectInstance(entity);
                             }
 
                             int addRandomEntityCount = 0;
@@ -760,49 +785,49 @@ int main2(int argc, char argv[])
                                 {
                                     const glm::vec3 pos = glm::sphericalRand(20.0f);
 
-                                    VulkanRenderer::EntityDetails entity;
+                                    ObjectInstance entity;
                                     entity.position = { pos.x, glm::abs(pos.y), pos.z };
                                     entity.scale = { 1.0f,1.0f,1.0f };
                                     entity.modelID = box->gfxIndex;
                                     entity.entityID = FastRandomMagic();
-                                    renderer->entities.emplace_back(entity);
+                                    Gworld.CreateObjectInstance(entity);
                                 }
                             }
 
-                            ImGui::Text("Total Entities: %u", renderer->entities.size());
+                            //ImGui::Text("Total Entities: %u", renderer->entities.size());
 
-                            if (ImGui::TreeNode("Entity List"))
-                            {
-                                for (auto& entity : renderer->entities)
-                                {
-                                    ImGui::PushID(entity.entityID);
+                            //if (ImGui::TreeNode("Entity List"))
+                            //{
+                            //    for (auto& entity : renderer->entities)
+                            //    {
+                            //        ImGui::PushID(entity.entityID);
 
-                                    ImGui::BulletText("[ID:%u] ", entity.entityID);
-                                    ImGui::SameLine();
-                                    ImGui::Text(entity.name.c_str());
-                                    geomChanged |= ImGui::DragFloat3("Position", glm::value_ptr(entity.position), 0.01f);
-                                    {
-                                        if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
-                                        {
-                                            if (ImGui::Selectable("Set ptr Gizmo"))
-                                            {
-                                                // Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
-                                                gizmoHijack = glm::value_ptr(entity.position);
-                                            }
-                                            ImGui::EndPopup();
-                                        }
-                                    }
+                            //        ImGui::BulletText("[ID:%u] ", entity.entityID);
+                            //        ImGui::SameLine();
+                            //        ImGui::Text(entity.name.c_str());
+                            //        geomChanged |= ImGui::DragFloat3("Position", glm::value_ptr(entity.position), 0.01f);
+                            //        {
+                            //            if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
+                            //            {
+                            //                if (ImGui::Selectable("Set ptr Gizmo"))
+                            //                {
+                            //                    // Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
+                            //                    gizmoHijack = glm::value_ptr(entity.position);
+                            //                }
+                            //                ImGui::EndPopup();
+                            //            }
+                            //        }
 
-                                    geomChanged |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
-                                    geomChanged |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
-                                    geomChanged |= ImGui::DragFloat("Theta", &entity.rot);
-                                    // TODO: We should be using quaternions.........
+                            //        geomChanged |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
+                            //        geomChanged |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
+                            //        geomChanged |= ImGui::DragFloat("Theta", &entity.rot);
+                            //        // TODO: We should be using quaternions.........
 
-                                    ImGui::PopID();
-                                }
+                            //        ImGui::PopID();
+                            //    }
 
-                                ImGui::TreePop();
-                            }//ImGui::TreeNode
+                            //    ImGui::TreePop();
+                            //}//ImGui::TreeNode
 
                             ImGui::EndTabItem();
                         }//ImGui::BeginTabItem

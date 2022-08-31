@@ -95,31 +95,31 @@ void GBufferRenderPass::Draw()
 
 	// Other draw calls that are not supported by MDI
     // TODO: Deprecate this, or handle it gracefully. Leaving this here.
-    if constexpr (false)
-    {
-        for (auto& entity : vr.entities)
-        {
-            auto& model = vr.models[entity.modelID];
-
-            glm::mat4 xform(1.0f);
-            xform = glm::translate(xform, entity.position);
-            xform = glm::rotate(xform, glm::radians(entity.rot), entity.rotVec);
-            xform = glm::scale(xform, entity.scale);
-
-			vkCmdPushConstants(cmdlist,
-				vr.indirectPSOLayout,
-				VK_SHADER_STAGE_ALL,        // stage to push constants to
-				0,                          // offset of push constants to update
-				sizeof(glm::mat4),          // size of data being pushed
-				glm::value_ptr(xform));     // actualy data being pushed (could be an array));
-
-            VkDeviceSize offsets[] = { 0 };
-            vkCmdBindIndexBuffer(cmdlist, vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-            vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr(), offsets);
-            vkCmdBindVertexBuffers(cmdlist, INSTANCE_BUFFER_ID, 1, &vr.instanceBuffer.buffer, offsets);
-            //vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
-        }
-    }
+    //if constexpr (false)
+    //{
+    //    for (auto& entity : vr.entities)
+    //    {
+    //        auto& model = vr.models[entity.modelID];
+	//
+    //        glm::mat4 xform(1.0f);
+    //        xform = glm::translate(xform, entity.position);
+    //        xform = glm::rotate(xform, glm::radians(entity.rot), entity.rotVec);
+    //        xform = glm::scale(xform, entity.scale);
+	//
+	//		vkCmdPushConstants(cmdlist,
+	//			vr.indirectPSOLayout,
+	//			VK_SHADER_STAGE_ALL,        // stage to push constants to
+	//			0,                          // offset of push constants to update
+	//			sizeof(glm::mat4),          // size of data being pushed
+	//			glm::value_ptr(xform));     // actualy data being pushed (could be an array));
+	//
+    //        VkDeviceSize offsets[] = { 0 };
+    //        vkCmdBindIndexBuffer(cmdlist, vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    //        vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr(), offsets);
+    //        vkCmdBindVertexBuffers(cmdlist, INSTANCE_BUFFER_ID, 1, &vr.instanceBuffer.buffer, offsets);
+    //        //vkCmdDrawIndexed(commandBuffers[swapchainImageIndex], model.indices.count, 1, model.indices.offset, model.vertices.offset, 0);
+    //    }
+    //}
 
 	vkCmdEndRenderPass(cmdlist);
 }

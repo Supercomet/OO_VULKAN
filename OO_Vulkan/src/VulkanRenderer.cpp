@@ -1582,7 +1582,7 @@ void VulkanRenderer::UpdateIndirectDrawCommands()
 	{
 		auto& entsBundle = currWorld->GetAllObjectInstances();
 		auto [bits, ents] = entsBundle.Raw();
-		for (size_t i = 0; i < bits.size(); i++)
+		for (size_t i = 0; i < bits.size(); i++)// TODO: CPU culling? Inactive objects?
 		{
 			if (bits[i])
 			{
@@ -1591,17 +1591,6 @@ void VulkanRenderer::UpdateIndirectDrawCommands()
 				{
 					IndirectCommandsHelper(node, m_DrawIndirectCommandsCPU, indirectDebugCommandsCPU,m);			
 				}
-			}
-		}
-	}
-	else
-	{
-		for (auto& e : entities) // TODO: CPU culling? Inactive objects?
-		{
-			auto& model = models[e.modelID];
-			for (auto& node :model.nodes)
-			{
-				IndirectCommandsHelper(node, m_DrawIndirectCommandsCPU, indirectDebugCommandsCPU,m);			
 			}
 		}
 	}
@@ -1664,6 +1653,7 @@ void VulkanRenderer::UploadInstanceData()
 		{
 			if (bits[i])
 			{
+				// TODO: This needs urgent fixing..
 				size_t x = gpuTransform.size();
 				size_t len = x + models[ents[i].modelID].meshCount;
 				mat4 xform = ents[i].localToWorld;
@@ -1676,27 +1666,6 @@ void VulkanRenderer::UploadInstanceData()
 					gpuTransform.emplace_back(gpt);
 				}
 			}
-		}
-	}
-	else
-	{
-		for (size_t i = 0; i < entities.size(); i++)
-		{
-			// TODO: This needs urgent fixing..
-			size_t x = gpuTransform.size();
-			size_t len = x + models[entities[i].modelID].meshCount;
-			mat4 xform{ 1.0f };
-			xform = glm::translate(xform, entities[i].position);
-			xform = glm::rotate(xform,glm::radians(entities[i].rot), entities[i].rotVec);
-			xform = glm::scale(xform, entities[i].scale);
-			for (; x < len; x++)
-			{
-				GPUTransform gpt;
-				gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
-				gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
-				gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
-				gpuTransform.emplace_back(gpt);
-			}		
 		}
 	}
 	
@@ -1743,37 +1712,6 @@ void VulkanRenderer::UploadInstanceData()
 			}
 		}
 	}
-	else
-	{
-		for (size_t i = 0; i < entities.size(); i++)
-		{
-			oGFX::InstanceData id;
-			size_t sz = instanceData.size();
-			for (size_t x = 0; x < models[entities[i].modelID].meshCount; x++)
-			{
-				// This is per entity. Should be per material.
-				uint32_t albedo = entities[i].bindlessGlobalTextureIndex_Albedo;
-				uint32_t normal = entities[i].bindlessGlobalTextureIndex_Normal;
-				uint32_t roughness = entities[i].bindlessGlobalTextureIndex_Roughness;
-				uint32_t metallic = entities[i].bindlessGlobalTextureIndex_Metallic;
-				constexpr uint32_t invalidIndex = 0xFFFFFFFF;
-				if (albedo == invalidIndex)
-					albedo = 0;
-				if (normal == invalidIndex)
-					normal = 1;
-				if (roughness == invalidIndex)
-					roughness = 0;
-				if (metallic == invalidIndex)
-					metallic = 1;
-
-				uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF) ;
-				uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
-
-				id.instanceAttributes = uvec4(sz+x, i, albedo_normal, roughness_metallic);
-				instanceData.emplace_back(id);
-			}
-		}
-	}
 	
 
 	vkutils::Buffer stagingBuffer;
@@ -1811,6 +1749,9 @@ bool VulkanRenderer::PrepareFrame()
 
 void VulkanRenderer::BeginDraw()
 {
+	if (currWorld == nullptr) 
+		return;
+
 	PROFILE_SCOPED();
 
 	//wait for given fence to signal from last draw before continuing
@@ -1853,6 +1794,9 @@ void VulkanRenderer::BeginDraw()
 
 void VulkanRenderer::RenderFrame()
 {
+	if (currWorld == nullptr)
+		return;
+
 	this->BeginDraw(); // TODO: Clean this up...
 
     {
@@ -1873,6 +1817,9 @@ void VulkanRenderer::RenderFrame()
 
 void VulkanRenderer::Present()
 {
+	if (currWorld == nullptr) 
+		return;
+
 	//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[swapchainImageIndex]);
 	//stop recording to command buffer
 	VkResult result = vkEndCommandBuffer(commandBuffers[swapchainIdx]);
