@@ -102,7 +102,6 @@ public:
 	void CreateRenderpass();
 	void CreateDescriptorSetLayout();
 
-	void CreatePushConstantRange();
 	void CreateGraphicsPipeline();
 	//void CreateDepthBufferImage();
 	void CreateFramebuffers(); 
@@ -176,7 +175,7 @@ public:
 
 	void InitializeRenderBuffers();
 	void DestroyRenderBuffers();
-	void UpdateIndirectDrawCommands();
+	void GenerateCPUIndirectDrawCommands();
 	void UploadInstanceData();
 	uint32_t objectCount{};
 	// Contains the instanced data
@@ -289,14 +288,6 @@ public:
 
 	// - Descriptors
 	
-
-	struct PushConstData
-	{
-		glm::mat4 xform{};
-		glm::vec3 light{};
-	};
-	 VkPushConstantRange pushConstantRange{};
-
 	VkDescriptorPool descriptorPool{};
 	VkDescriptorPool samplerDescriptorPool{};
 	

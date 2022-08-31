@@ -14,7 +14,6 @@ DECLARE_RENDERPASS(DebugRenderpass);
 
 void DebugRenderpass::Init()
 {
-	CreatePushconstants();
 	CreateDebugRenderpass();
 	CreatePipeline();
 	InitDebugBuffers();
@@ -236,6 +235,7 @@ void DebugRenderpass::CreatePipeline()
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = 
 		oGFX::vkutils::inits::pipelineLayoutCreateInfo(descriptorSetLayouts.data(),static_cast<uint32_t>(descriptorSetLayouts.size()));
+	VkPushConstantRange pushConstantRange{ VK_SHADER_STAGE_ALL, 0, 128 };
 	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
 	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 
@@ -288,14 +288,6 @@ void DebugRenderpass::CreatePipeline()
 	//destroy shader modules after pipeline is created
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
-}
-
-void DebugRenderpass::CreatePushconstants()
-{
-	auto& vr = *VulkanRenderer::get();
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; //shader stage push constant will go to
-	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(VulkanRenderer::PushConstData);
 }
 
 void DebugRenderpass::InitDebugBuffers()

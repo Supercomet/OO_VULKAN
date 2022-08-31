@@ -188,7 +188,6 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateRenderpass();
 		CreateUniformBuffers();
 		CreateDescriptorSetLayout();
-		CreatePushConstantRange();
 
 		fbCache.Init(m_device.logicalDevice);
 
@@ -497,14 +496,6 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 
 }
 
-void VulkanRenderer::CreatePushConstantRange()
-{
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_ALL; //shader stage push constant will go to
-	pushConstantRange.offset = 0;
-	// pushConstantRange.size = sizeof(PushConstData);
-	pushConstantRange.size = 128; // push to max
-}
-
 void VulkanRenderer::CreateGraphicsPipeline()
 {
 	using namespace oGFX;
@@ -560,7 +551,7 @@ void VulkanRenderer::CreateGraphicsPipeline()
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo =
 		oGFX::vkutils::inits::pipelineLayoutCreateInfo(descriptorSetLayouts.data(),static_cast<uint32_t>(descriptorSetLayouts.size()));
-
+	VkPushConstantRange pushConstantRange{ VK_SHADER_STAGE_ALL, 0, 128 };
 	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
 	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 
@@ -1517,20 +1508,14 @@ void VulkanRenderer::InitializeRenderBuffers()
 
 void VulkanRenderer::DestroyRenderBuffers()
 {
-
 	indirectCommandsBuffer.destroy();
-
 	instanceBuffer.destroy();
-
 	globalLightBuffer.destroy();
-
 	boneMatrixBuffer.destroy();
-
 	skinningVertexBuffer.destroy();
-
 }
 
-void VulkanRenderer::UpdateIndirectDrawCommands()
+void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 {
 	PROFILE_SCOPED();
 	m_DrawIndirectCommandsCPU.clear();
@@ -1721,7 +1706,7 @@ void VulkanRenderer::BeginDraw()
 	
 	UpdateUniformBuffers();
 	UploadInstanceData();	
-	UpdateIndirectDrawCommands();
+	GenerateCPUIndirectDrawCommands();
 
 	{
 		PROFILE_SCOPED("vkAcquireNextImageKHR");

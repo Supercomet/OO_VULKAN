@@ -137,8 +137,9 @@ void DeferredCompositionRenderpass::CreatePipeline()
 	std::vector<VkDescriptorSetLayout> setLayouts{ LayoutDB::DeferredComposition };
 
 	VkPipelineLayoutCreateInfo plci = oGFX::vkutils::inits::pipelineLayoutCreateInfo(setLayouts.data(),static_cast<uint32_t>(setLayouts.size()));	
+	VkPushConstantRange pushConstantRange{ VK_SHADER_STAGE_ALL, 0, 128 };
 	plci.pushConstantRangeCount = 1;
-	plci.pPushConstantRanges = &vr.pushConstantRange;
+	plci.pPushConstantRanges = &pushConstantRange;
 
 	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &layout_DeferredLightingComposition));
 	VK_NAME(m_device.logicalDevice, "compositionPipeLayout", layout_DeferredLightingComposition);
