@@ -1744,6 +1744,7 @@ void VulkanRenderer::RenderFrame()
 
 	this->BeginDraw(); // TODO: Clean this up...
 
+	UpdateDebugBuffers();
     {
 		// Command list has already started inside VulkanRenderer::Draw
         PROFILE_GPU_CONTEXT(commandBuffers[swapchainIdx]);
