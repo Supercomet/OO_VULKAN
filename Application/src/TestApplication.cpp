@@ -200,15 +200,15 @@ void TestApplication::Run()
     gs_NormalTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
     gs_PinkTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
 
-    BindlessTextureIndex diffuseTexture0 = gs_RenderEngine->CreateTexture("Textures/7/d.png");
-    BindlessTextureIndex diffuseTexture1 = gs_RenderEngine->CreateTexture("Textures/8/d.png");
-    BindlessTextureIndex diffuseTexture2 = gs_RenderEngine->CreateTexture("Textures/13/d.png");
-    BindlessTextureIndex diffuseTexture3 = gs_RenderEngine->CreateTexture("Textures/23/d.png");
+    const BindlessTextureIndex diffuseTexture0 = gs_RenderEngine->CreateTexture("Textures/7/d.png");
+    const BindlessTextureIndex diffuseTexture1 = gs_RenderEngine->CreateTexture("Textures/8/d.png");
+    const BindlessTextureIndex diffuseTexture2 = gs_RenderEngine->CreateTexture("Textures/13/d.png");
+    const BindlessTextureIndex diffuseTexture3 = gs_RenderEngine->CreateTexture("Textures/23/d.png");
 
-    BindlessTextureIndex roughnessTexture0 = gs_RenderEngine->CreateTexture("Textures/7/r.png");
-    BindlessTextureIndex roughnessTexture1 = gs_RenderEngine->CreateTexture("Textures/8/r.png");
-    BindlessTextureIndex roughnessTexture2 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
-    BindlessTextureIndex roughnessTexture3 = gs_RenderEngine->CreateTexture("Textures/23/r.png");
+    const BindlessTextureIndex roughnessTexture0 = gs_RenderEngine->CreateTexture("Textures/7/r.png");
+    const BindlessTextureIndex roughnessTexture1 = gs_RenderEngine->CreateTexture("Textures/8/r.png");
+    const BindlessTextureIndex roughnessTexture2 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
+    const BindlessTextureIndex roughnessTexture3 = gs_RenderEngine->CreateTexture("Textures/23/r.png");
 
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Models
@@ -245,9 +245,7 @@ void TestApplication::Run()
     };
 
     {
-        auto x = entities.size();
-        entities.emplace_back(EntityInfo{});
-        auto& ed = entities[x];
+        auto& ed = entities.emplace_back(EntityInfo{});
         ed.name = "Plane";
         ed.entityID = FastRandomMagic();
         ed.modelID = model_plane->gfxIndex;
@@ -272,9 +270,7 @@ void TestApplication::Run()
                 glm::vec3{ -offset, 0.0f, -offset },
             };
 
-            auto x = entities.size();
-            entities.emplace_back(EntityInfo{});
-            auto& ed = entities[x];
+            auto& ed = entities.emplace_back(EntityInfo{});
             ed.name = "Plane_" + std::to_string(i);
             ed.entityID = FastRandomMagic();
             ed.modelID = model_plane->gfxIndex;
@@ -287,9 +283,7 @@ void TestApplication::Run()
 
     if (character_diona)
     {
-        auto x = entities.size();
-        entities.emplace_back(EntityInfo{});
-        auto& ed = entities[x];
+        auto& ed = entities.emplace_back(EntityInfo{});
         ed.modelID = character_diona->gfxIndex;
         ed.name = "diona";
         ed.entityID = FastRandomMagic();
@@ -300,9 +294,7 @@ void TestApplication::Run()
 
     if (character_qiqi)
     {
-        auto x = entities.size();
-        entities.emplace_back(EntityInfo{});
-        auto& ed = entities[x];
+        auto& ed = entities.emplace_back(EntityInfo{});
         ed.modelID = character_qiqi->gfxIndex;
         ed.name = "qiqi";
         ed.entityID = FastRandomMagic();
@@ -342,9 +334,7 @@ void TestApplication::Run()
         int counter = 0;
         for (auto& model : moreModels)
         {
-            auto x = entities.size();
-            entities.emplace_back(EntityInfo{});
-            auto& ed = entities[x];
+            auto& ed = entities.emplace_back(EntityInfo{});
             ed.modelID = model->gfxIndex;
             ed.name = "model_" + std::to_string(counter);
             ed.entityID = FastRandomMagic();

@@ -27,7 +27,6 @@ struct GBufferRenderPass : public GfxRenderpass
 	VkRenderPass renderpass_GBuffer;
 	VkFramebuffer framebuffer_GBuffer;
 
-	//VkPushConstantRange pushConstantRange;
 	VkPipeline pso_GBufferDefault;
 
 private:
