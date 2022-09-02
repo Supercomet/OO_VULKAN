@@ -248,11 +248,22 @@ void TestApplication::Run()
 
     {
         auto& ed = entities.emplace_back(EntityInfo{});
-        ed.name = "Plane";
+        ed.name = "Ground_Plane";
         ed.entityID = FastRandomMagic();
         ed.modelID = model_plane->gfxIndex;
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
+    }
+
+    {
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.name = "Plane_Effects";
+        ed.entityID = FastRandomMagic();
+        ed.modelID = model_plane->gfxIndex;
+        ed.position = { -2.0f,2.0f,0.0f };
+        ed.scale = { 2.0f,1.0f,2.0f };
+        ed.rot = 90.0f;
+        ed.rotVec = { 1.0f,0.0f,0.0f };
         ed.instanceData = 3;
     }
 
@@ -274,7 +285,7 @@ void TestApplication::Run()
             };
 
             auto& ed = entities.emplace_back(EntityInfo{});
-            ed.name = "Plane_" + std::to_string(i);
+            ed.name = "Ground_Plane_" + std::to_string(i);
             ed.entityID = FastRandomMagic();
             ed.modelID = model_plane->gfxIndex;
             ed.position = positions[i];
