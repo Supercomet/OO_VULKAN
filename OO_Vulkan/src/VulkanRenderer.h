@@ -142,7 +142,8 @@ public:
 
 	void SetWorld(GraphicsWorld* world);
 	GraphicsWorld* currWorld{ nullptr };
-	
+	float renderClock{ 0.0f };
+
 	bool deferredRendering = true;
 
     vkutils::Buffer lightsBuffer;

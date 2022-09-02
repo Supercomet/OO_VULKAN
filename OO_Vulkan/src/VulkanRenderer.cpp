@@ -1591,7 +1591,6 @@ void VulkanRenderer::UploadInstanceData()
 
 	if (currWorld)
 	{
-
 		auto& entsBundle = currWorld->GetAllObjectInstances();
 		auto [bits, ents] = entsBundle.Raw();
 		for (size_t i = 0; i < bits.size(); i++)
@@ -1632,6 +1631,8 @@ void VulkanRenderer::UploadInstanceData()
 				size_t sz = instanceData.size();
 				for (size_t x = 0; x < models[ents[i].modelID].meshCount; x++)
 				{
+					const uint8_t perInstanceData = ents[i].instanceData;
+					
 					// This is per entity. Should be per material.
 					uint32_t albedo = ents[i].bindlessGlobalTextureIndex_Albedo;
 					uint32_t normal = ents[i].bindlessGlobalTextureIndex_Normal;
@@ -1639,18 +1640,32 @@ void VulkanRenderer::UploadInstanceData()
 					uint32_t metallic = ents[i].bindlessGlobalTextureIndex_Metallic;
 					constexpr uint32_t invalidIndex = 0xFFFFFFFF;
 					if (albedo == invalidIndex)
-						albedo = 0;
+						albedo = 0; // TODO: Dont hardcode this bindless texture index
 					if (normal == invalidIndex)
-						normal = 1;
+						normal = 1; // TODO: Dont hardcode this bindless texture index
 					if (roughness == invalidIndex)
-						roughness = 0;
+						roughness = 0; // TODO: Dont hardcode this bindless texture index
 					if (metallic == invalidIndex)
-						metallic = 1;
+						metallic = 1; // TODO: Dont hardcode this bindless texture index
 
-					uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF) ;
-					uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
+					// Important: Make sure this index packing matches the unpacking in the shader
+					const uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF);
+					const uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
+					const uint32_t instanceID = uint32_t(sz + x);
+					const uint32_t unused = (uint32_t)perInstanceData; //matCnt;
+                    // Putting these ranges here for easy reference:
+					// 9-bit:  [0 to 511]
+                    // 10-bit: [0 to 1023]
+                    // 11-bit: [0 to 2047]
+                    // 12-bit: [0 to 4095]
+                    // 13-bit: [0 to 8191]
+                    // 14-bit: [0 to 16383]
+                    // 15-bit: [0 to 32767]
+                    // 16-bit: [0 to 65535]
 
-					id.instanceAttributes = uvec4(sz+x, matCnt, albedo_normal, roughness_metallic);
+					// TODO: This is the solution for now.
+					// In the future, we can just use an index for all the materials (indirection) to fetch from another buffer.
+					id.instanceAttributes = uvec4(instanceID, unused, albedo_normal, roughness_metallic);
 					instanceData.emplace_back(id);
 				}
 				++matCnt;
@@ -2186,9 +2201,9 @@ void VulkanRenderer::UpdateUniformBuffers()
 	m_FrameContextUBO.view = camera.matrices.view;
 	m_FrameContextUBO.viewProjection = m_FrameContextUBO.projection * m_FrameContextUBO.view;
 	m_FrameContextUBO.cameraPosition = glm::vec4(camera.position,1.0);
-	m_FrameContextUBO.renderTimer.x += 1 / 60.0f; // Fake total time... (TODO: Fix me)
-	m_FrameContextUBO.renderTimer.y = glm::sin(m_FrameContextUBO.renderTimer.x * 0.5f * glm::pi<float>());
-	m_FrameContextUBO.renderTimer.z = glm::cos(m_FrameContextUBO.renderTimer.x * 0.5f * glm::pi<float>());
+	m_FrameContextUBO.renderTimer.x = renderClock;
+    m_FrameContextUBO.renderTimer.y = std::sin(renderClock * glm::pi<float>());
+    m_FrameContextUBO.renderTimer.z = std::cos(renderClock * glm::pi<float>());
 	m_FrameContextUBO.renderTimer.w = 0.0f; // unused
 
 	void *data;
@@ -2202,7 +2217,6 @@ void VulkanRenderer::UpdateUniformBuffers()
 	VK_CHK(vkFlushMappedMemoryRanges(m_device.logicalDevice, 1, &memRng));
 
 	vkUnmapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx]);
-
 }
 
 uint32_t VulkanRenderer::CreateTextureImage(const std::string& fileName)

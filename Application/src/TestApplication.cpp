@@ -89,6 +89,7 @@ struct EntityInfo
     uint32_t bindlessGlobalTextureIndex_Normal{ 0xFFFFFFFF };
     uint32_t bindlessGlobalTextureIndex_Roughness{ 0xFFFFFFFF };
     uint32_t bindlessGlobalTextureIndex_Metallic{ 0xFFFFFFFF };
+    uint8_t instanceData{ 0 };
 
     int32_t gfxID; // gfxworld id
 
@@ -121,6 +122,7 @@ void CreateGraphicsEntityHelper(EntityInfo& ei)
             ei.bindlessGlobalTextureIndex_Normal,
             ei.bindlessGlobalTextureIndex_Roughness,
             ei.bindlessGlobalTextureIndex_Metallic,
+            ei.instanceData,
             ei.getLocalToWorld(),
             ei.modelID,
             ei.entityID
@@ -251,6 +253,7 @@ void TestApplication::Run()
         ed.modelID = model_plane->gfxIndex;
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
+        ed.instanceData = 3;
     }
 
     // Create 8 more surrounding planes
@@ -290,6 +293,7 @@ void TestApplication::Run()
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        ed.instanceData = 1;
     }
 
     if (character_qiqi)
@@ -301,6 +305,7 @@ void TestApplication::Run()
         ed.position = { 1.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        ed.instanceData = 2;
     }
 
     // Stress test more models
@@ -368,7 +373,7 @@ void TestApplication::Run()
     }
 
     auto lastTime = std::chrono::high_resolution_clock::now();
-    static bool freezeLight = false;
+    static bool freezeLight = true;
 
     //----------------------------------------------------------------------------------------------------
     // Set graphics world before rendering
@@ -386,6 +391,8 @@ void TestApplication::Run()
             auto now = std::chrono::high_resolution_clock::now();
             float deltaTime = std::chrono::duration<float>(now - lastTime).count();
             lastTime = now;
+
+            gs_RenderEngine->renderClock += deltaTime;
 
             //reset keys
             Input::Begin();
