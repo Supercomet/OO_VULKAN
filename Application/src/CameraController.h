@@ -1,8 +1,8 @@
 #pragma once
 
-#include "MathCommon.h"
+#include "../../OO_Vulkan/src/MathCommon.h"
 
-#include "Camera.h"
+#include "../../OO_Vulkan/src/Camera.h"
 
 class CameraController
 {
