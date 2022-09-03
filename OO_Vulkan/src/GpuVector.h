@@ -94,6 +94,9 @@ void GpuVector<T>::writeTo(size_t writeSize, void* data, size_t offset)
 		return;
 	}
 
+	if (writeSize == 0) 
+		return;
+	
 	using namespace oGFX;
 	//get writeSize of buffer needed for vertices
 	VkDeviceSize bufferBytes = writeSize*sizeof(T);
