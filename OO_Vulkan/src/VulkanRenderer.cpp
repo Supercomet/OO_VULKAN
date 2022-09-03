@@ -872,7 +872,7 @@ void VulkanRenderer::UploadLights()
 	CB::LightUBO lightUBO{};
 
 	// Current view position
-	lightUBO.viewPos = glm::vec4(camera.position, 0.0f);
+	lightUBO.viewPos = glm::vec4(camera.m_position, 0.0f);
 
 	// Temporary reroute
 	auto& allLights = currWorld->m_HardcodedOmniLights;
@@ -2201,7 +2201,7 @@ void VulkanRenderer::UpdateUniformBuffers()
 	m_FrameContextUBO.projection = camera.matrices.perspective;
 	m_FrameContextUBO.view = camera.matrices.view;
 	m_FrameContextUBO.viewProjection = m_FrameContextUBO.projection * m_FrameContextUBO.view;
-	m_FrameContextUBO.cameraPosition = glm::vec4(camera.position,1.0);
+	m_FrameContextUBO.cameraPosition = glm::vec4(camera.m_position,1.0);
 	m_FrameContextUBO.renderTimer.x = renderClock;
     m_FrameContextUBO.renderTimer.y = std::sin(renderClock * glm::pi<float>());
     m_FrameContextUBO.renderTimer.z = std::cos(renderClock * glm::pi<float>());

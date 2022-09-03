@@ -735,10 +735,10 @@ void TestApplication::Run()
                             if (ImGui::BeginTabItem("Camera"))
                             {
                                 auto& camera = gs_RenderEngine->camera;
-                                ImGui::DragFloat3("Position", glm::value_ptr(camera.position));
-                                ImGui::DragFloat3("Rotation", glm::value_ptr(camera.rotation));
-                                ImGui::DragFloat3("Target", glm::value_ptr(camera.m_TargetPosition));
-                                ImGui::DragFloat("Distance", &camera.m_TargetDistance);
+                                ImGui::DragFloat3("Position", glm::value_ptr(camera.m_position), 0.01f);
+                                ImGui::DragFloat3("Rotation", glm::value_ptr(camera.m_rotation), 0.01f);
+                                ImGui::DragFloat3("Target", glm::value_ptr(camera.m_TargetPosition), 0.01f);
+                                ImGui::DragFloat("Distance", &camera.m_TargetDistance, 0.01f);
 
                                 bool fps = camera.m_CameraMovementType == Camera::CameraMovementType::firstperson;
                                 if (ImGui::Checkbox("FPS", &fps))
