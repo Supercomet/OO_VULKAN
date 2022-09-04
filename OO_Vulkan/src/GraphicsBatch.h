@@ -1,0 +1,37 @@
+#pragma once
+
+#include "gpuCommon.h"
+#include <vector>
+#include <array>
+
+class GraphicsWorld;
+class VulkanRenderer;
+
+class GraphicsBatch
+{
+public:
+	enum DrawBatch
+	{
+	SHADOW_CAST,
+	SHADOW_RECV,
+	GBUFFER_STATIC,
+	GBUFFER_DYNAMIC,
+	FORWARD_STATIC,
+	FORWARD_DYNAMIC,
+	ZPREPASS,
+	MAX_NUM
+	};
+
+	static GraphicsBatch Init(GraphicsWorld* gw,VulkanRenderer* renderer ,size_t maxObjects);
+	void GenerateBatches();
+	const std::vector<oGFX::IndirectCommand>& GetBatch(int32_t batchIdx);
+	
+
+private:
+	GraphicsWorld* m_world;
+	VulkanRenderer* m_renderer;
+
+	std::array<std::vector<oGFX::IndirectCommand> , DrawBatch::MAX_NUM> m_batches;
+
+};
+

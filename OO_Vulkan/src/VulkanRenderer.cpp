@@ -29,6 +29,8 @@
 #include "renderpass/DebugRenderpass.h"
 #include "renderpass/ShadowPass.h"
 
+#include "GraphicsBatch.h"
+
 #include "IcoSphereCreator.h"
 
 #include "Profiling.h"
@@ -1423,36 +1425,7 @@ void VulkanRenderer::AddDebugTriangle(const Triangle& tri, const oGFX::Color& co
 	}
 }
 
-void IndirectCommandsHelper(Node* node, std::vector<VkDrawIndexedIndirectCommand>& m_DrawIndirectCommandsCPU,
-	std::vector<VkDrawIndexedIndirectCommand>& indirectDebugCommandsCPU, uint32_t& m)
-{
-	if (node->meshes.size())
-	{
-		//for (size_t i = 0; i < OBJECT_INSTANCE_COUNT; i++)
-		{
-			VkDrawIndexedIndirectCommand indirectCmd{};
-			indirectCmd.instanceCount = 1;
-			indirectCmd.firstInstance = static_cast<uint32_t>(m /* *OBJECT_INSTANCE_COUNT + i*/);
 
-			// @todo: Multiple primitives
-			// A glTF node may consist of multiple primitives, so we may have to do multiple commands per mesh
-			indirectCmd.firstIndex = node->meshes[0]->indicesOffset;
-			indirectCmd.indexCount = node->meshes[0]->indicesCount;
-			indirectCmd.vertexOffset = node->meshes[0]->vertexOffset;
-
-			// for counting
-			//vertexCount += node->meshes[0]->vertexCount;
-			m_DrawIndirectCommandsCPU.emplace_back(indirectCmd);
-
-			indirectDebugCommandsCPU.emplace_back(indirectCmd);
-		}
-		m++;
-	}
-	for (auto& child: node->children)
-	{
-		IndirectCommandsHelper(child,m_DrawIndirectCommandsCPU,indirectDebugCommandsCPU,m);
-	}
-}
 
 void VulkanRenderer::InitializeRenderBuffers()
 {
@@ -1463,7 +1436,7 @@ void VulkanRenderer::InitializeRenderBuffers()
         VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         &indirectCommandsBuffer,
-        MAX_OBJECTS * sizeof(VkDrawIndexedIndirectCommand));
+        MAX_OBJECTS * sizeof(oGFX::IndirectCommand));
     VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer.buffer);
 
 	// Note: Moved here from VulkanRenderer::UpdateInstanceData
@@ -1525,19 +1498,14 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 	uint32_t m = 0;
 	if (currWorld)
 	{
-		auto& entsBundle = currWorld->GetAllObjectInstances();
-		auto [bits, ents] = entsBundle.Raw();
-		for (size_t i = 0; i < bits.size(); i++)// TODO: CPU culling? Inactive objects?
+		for (auto& ent: currWorld->GetAllObjectInstances())// TODO: CPU culling? Inactive objects?
 		{
-			if (bits[i])
+			auto& model = models[ent.modelID];
+			for (auto& node :model.nodes)
 			{
-				auto& model = models[ents[i].modelID];
-				for (auto& node :model.nodes)
-				{
-					IndirectCommandsHelper(node, m_DrawIndirectCommandsCPU, indirectDebugCommandsCPU,m);			
-				}
+				oGFX::IndirectCommandsHelper(node, m_DrawIndirectCommandsCPU, indirectDebugCommandsCPU,m);			
 			}
-		}
+		}		
 	}
 
 	//std::cout << "Triangles rendered : " << models[0].indices.count * OBJECT_INSTANCE_COUNT /3 << std::endl;
@@ -1556,7 +1524,7 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		&stagingBuffer,
-		m_DrawIndirectCommandsCPU.size() * sizeof(VkDrawIndexedIndirectCommand),
+		m_DrawIndirectCommandsCPU.size() * sizeof(oGFX::IndirectCommand),
 		m_DrawIndirectCommandsCPU.data());
 
 	// Better to catch this on the software side early than the Vulkan validation layer
@@ -1591,24 +1559,19 @@ void VulkanRenderer::UploadInstanceData()
 
 	if (currWorld)
 	{
-		auto& entsBundle = currWorld->GetAllObjectInstances();
-		auto [bits, ents] = entsBundle.Raw();
-		for (size_t i = 0; i < bits.size(); i++)
+		for (auto& ent :  currWorld->GetAllObjectInstances())
 		{
-			if (bits[i])
+			// TODO: This needs urgent fixing..
+			size_t x = gpuTransform.size();
+			size_t len = x + models[ent.modelID].meshCount;
+			mat4 xform = ent.localToWorld;
+			for (; x < len; x++)
 			{
-				// TODO: This needs urgent fixing..
-				size_t x = gpuTransform.size();
-				size_t len = x + models[ents[i].modelID].meshCount;
-				mat4 xform = ents[i].localToWorld;
-				for (; x < len; x++)
-				{
-					GPUTransform gpt;
-					gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
-					gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
-					gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
-					gpuTransform.emplace_back(gpt);
-				}
+				GPUTransform gpt;
+				gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
+				gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
+				gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
+				gpuTransform.emplace_back(gpt);
 			}
 		}
 	}
@@ -1621,56 +1584,51 @@ void VulkanRenderer::UploadInstanceData()
 	if (currWorld)
 	{
 		uint32_t matCnt = 0;
-		auto& entsBundle = currWorld->GetAllObjectInstances();
-		auto [bits, ents] = entsBundle.Raw();
-		for (size_t i = 0; i < bits.size(); i++)
+		for (auto& ent: currWorld->GetAllObjectInstances())
 		{
-			if (bits[i])
+			oGFX::InstanceData id;
+			size_t sz = instanceData.size();
+			for (size_t x = 0; x < models[ent.modelID].meshCount; x++)
 			{
-				oGFX::InstanceData id;
-				size_t sz = instanceData.size();
-				for (size_t x = 0; x < models[ents[i].modelID].meshCount; x++)
-				{
-					const uint8_t perInstanceData = ents[i].instanceData;
-					
-					// This is per entity. Should be per material.
-					uint32_t albedo = ents[i].bindlessGlobalTextureIndex_Albedo;
-					uint32_t normal = ents[i].bindlessGlobalTextureIndex_Normal;
-					uint32_t roughness = ents[i].bindlessGlobalTextureIndex_Roughness;
-					uint32_t metallic = ents[i].bindlessGlobalTextureIndex_Metallic;
-					constexpr uint32_t invalidIndex = 0xFFFFFFFF;
-					if (albedo == invalidIndex)
-						albedo = 0; // TODO: Dont hardcode this bindless texture index
-					if (normal == invalidIndex)
-						normal = 1; // TODO: Dont hardcode this bindless texture index
-					if (roughness == invalidIndex)
-						roughness = 0; // TODO: Dont hardcode this bindless texture index
-					if (metallic == invalidIndex)
-						metallic = 1; // TODO: Dont hardcode this bindless texture index
+				// This is per entity. Should be per material.
+				uint32_t albedo = ent.bindlessGlobalTextureIndex_Albedo;
+				uint32_t normal = ent.bindlessGlobalTextureIndex_Normal;
+				uint32_t roughness = ent.bindlessGlobalTextureIndex_Roughness;
+				uint32_t metallic = ent.bindlessGlobalTextureIndex_Metallic;
+				const uint8_t perInstanceData = ent.instanceData;
+				constexpr uint32_t invalidIndex = 0xFFFFFFFF;
+				if (albedo == invalidIndex)
+					albedo = 0; // TODO: Dont hardcode this bindless texture index
+				if (normal == invalidIndex)
+					normal = 1; // TODO: Dont hardcode this bindless texture index
+				if (roughness == invalidIndex)
+					roughness = 0; // TODO: Dont hardcode this bindless texture index
+				if (metallic == invalidIndex)
+					metallic = 1; // TODO: Dont hardcode this bindless texture index
 
-					// Important: Make sure this index packing matches the unpacking in the shader
-					const uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF);
-					const uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
-					const uint32_t instanceID = uint32_t(sz + x);
-					const uint32_t unused = (uint32_t)perInstanceData; //matCnt;
-                    // Putting these ranges here for easy reference:
-					// 9-bit:  [0 to 511]
-                    // 10-bit: [0 to 1023]
-                    // 11-bit: [0 to 2047]
-                    // 12-bit: [0 to 4095]
-                    // 13-bit: [0 to 8191]
-                    // 14-bit: [0 to 16383]
-                    // 15-bit: [0 to 32767]
-                    // 16-bit: [0 to 65535]
+				// Important: Make sure this index packing matches the unpacking in the shader
+				const uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF);
+				const uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
+				const uint32_t instanceID = uint32_t(sz + x);
+				const uint32_t unused = (uint32_t)perInstanceData; //matCnt;
+                // Putting these ranges here for easy reference:
+				// 9-bit:  [0 to 511]
+                // 10-bit: [0 to 1023]
+                // 11-bit: [0 to 2047]
+                // 12-bit: [0 to 4095]
+                // 13-bit: [0 to 8191]
+                // 14-bit: [0 to 16383]
+                // 15-bit: [0 to 32767]
+                // 16-bit: [0 to 65535]
 
-					// TODO: This is the solution for now.
-					// In the future, we can just use an index for all the materials (indirection) to fetch from another buffer.
-					id.instanceAttributes = uvec4(instanceID, unused, albedo_normal, roughness_metallic);
-					instanceData.emplace_back(id);
-				}
-				++matCnt;
+				// TODO: This is the solution for now.
+				// In the future, we can just use an index for all the materials (indirection) to fetch from another buffer.
+				id.instanceAttributes = uvec4(instanceID, unused, albedo_normal, roughness_metallic);
+				instanceData.emplace_back(id);
 			}
+			++matCnt;
 		}
+		
 	}
 	
 
@@ -1711,6 +1669,9 @@ void VulkanRenderer::BeginDraw()
 {
 	if (currWorld == nullptr) 
 		return;
+
+	auto gb = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
+	gb.GenerateBatches();
 
 	PROFILE_SCOPED();
 
@@ -2352,14 +2313,14 @@ void DrawIndexedIndirect(
 {
     if (VulkanRenderer::get()->m_device.enabledFeatures.multiDrawIndirect)
     {
-        vkCmdDrawIndexedIndirect(commandBuffer, buffer, offset, drawCount, sizeof(VkDrawIndexedIndirectCommand));
+        vkCmdDrawIndexedIndirect(commandBuffer, buffer, offset, drawCount, sizeof(oGFX::IndirectCommand));
     }
     else
     {
         // If MDI not supported, still use IDCB but draw one by one per instance instead of one MDI for all instances (ie count = 1)
         for (uint32_t i = 0; i < drawCount; ++i)
         {
-            vkCmdDrawIndexedIndirect(commandBuffer, buffer, offset + i * sizeof(VkDrawIndexedIndirectCommand), 1, sizeof(VkDrawIndexedIndirectCommand));
+            vkCmdDrawIndexedIndirect(commandBuffer, buffer, offset + i * sizeof(oGFX::IndirectCommand), 1, sizeof(oGFX::IndirectCommand));
         }
     }
 }
