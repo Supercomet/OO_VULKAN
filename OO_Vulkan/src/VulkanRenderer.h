@@ -316,8 +316,8 @@ public:
 	 std::vector<VkCommandBuffer> commandBuffers;
 
 	// Store the indirect draw commands containing index offsets and instance count per object
-	 std::vector<VkDrawIndexedIndirectCommand> m_DrawIndirectCommandsCPU;
-	 std::vector<VkDrawIndexedIndirectCommand> indirectDebugCommandsCPU;
+	 std::vector<oGFX::IndirectCommand> m_DrawIndirectCommandsCPU;
+	 std::vector<oGFX::IndirectCommand> indirectDebugCommandsCPU;
 
 	//Scene objects
 	 std::vector<gfxModel> models;

@@ -104,7 +104,7 @@ void ShadowPass::Draw()
 		sizeof(glm::mat4),			// size of data being pushed
 		glm::value_ptr(viewproj));	// actualy data being pushed (could be an array));
 
-	DrawIndexedIndirect(cmdlist, idcb, 0, count, sizeof(VkDrawIndexedIndirectCommand));
+	DrawIndexedIndirect(cmdlist, idcb, 0, count, sizeof(oGFX::IndirectCommand));
 
 	vkCmdEndRenderPass(cmdlist);
 }

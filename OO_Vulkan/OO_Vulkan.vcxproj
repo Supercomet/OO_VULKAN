@@ -23,6 +23,8 @@
     <ClCompile Include="src\FramebufferBuilder.cpp" />
     <ClCompile Include="src\FramebufferCache.cpp" />
     <ClCompile Include="src\GfxSampler.cpp" />
+    <ClCompile Include="src\gpuCommon.cpp" />
+    <ClCompile Include="src\GraphicsBatch.cpp" />
     <ClCompile Include="src\GraphicsWorld.cpp" />
     <ClCompile Include="src\IcoSphereCreator.cpp" />
     <ClCompile Include="src\renderpass\DebugRenderpass.cpp" />
@@ -72,6 +74,7 @@
     <ClInclude Include="src\FramebufferBuilder.h" />
     <ClInclude Include="src\FramebufferCache.h" />
     <ClInclude Include="src\GfxSampler.h" />
+    <ClInclude Include="src\GraphicsBatch.h" />
     <ClInclude Include="src\GraphicsWorld.h" />
     <ClInclude Include="src\IcoSphereCreator.h" />
     <ClInclude Include="src\renderpass\DebugRenderpass.h" />

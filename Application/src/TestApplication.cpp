@@ -122,6 +122,7 @@ void CreateGraphicsEntityHelper(EntityInfo& ei)
             ei.bindlessGlobalTextureIndex_Roughness,
             ei.bindlessGlobalTextureIndex_Metallic,
             ei.getLocalToWorld(),
+            {},
             ei.modelID,
             ei.entityID
         }
