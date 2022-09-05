@@ -29,8 +29,8 @@ public:
 	
 
 private:
-	GraphicsWorld* m_world;
-	VulkanRenderer* m_renderer;
+	GraphicsWorld* m_world{ nullptr };
+	VulkanRenderer* m_renderer{nullptr};
 
 	std::array<std::vector<oGFX::IndirectCommand> , DrawBatch::MAX_NUM> m_batches;
 

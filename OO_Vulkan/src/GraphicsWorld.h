@@ -39,7 +39,7 @@ struct ObjectInstance
 
     glm::mat4x4 localToWorld{ 1.0f };
     
-    ObjectInstanceFlags flags;
+    ObjectInstanceFlags flags{};
 
     uint32_t modelID{}; // Index for the mesh
     uint32_t entityID{}; // Unique ID for this entity instance

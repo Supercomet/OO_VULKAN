@@ -2047,7 +2047,7 @@ uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned
 	fileData.w = width;
 	fileData.h = height;
 	fileData.channels = 4;
-	fileData.dataSize = fileData.w * fileData.h * fileData.channels;
+	fileData.dataSize = (size_t)fileData.w * (size_t)fileData.h * (size_t)fileData.channels;
 	fileData.imgData.resize(fileData.dataSize);
 
 	VkBufferImageCopy copyRegion{};
