@@ -1491,45 +1491,28 @@ void VulkanRenderer::DestroyRenderBuffers()
 void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 {
 	PROFILE_SCOPED();
-	m_DrawIndirectCommandsCPU.clear();
-	indirectDebugCommandsCPU.clear();
 
-	// Create on indirect command for node in the scene with a mesh attached to it
-	uint32_t m = 0;
-	if (currWorld)
-	{
-		for (auto& ent: currWorld->GetAllObjectInstances())// TODO: CPU culling? Inactive objects?
-		{
-			auto& model = models[ent.modelID];
-			for (auto& node :model.nodes)
-			{
-				oGFX::IndirectCommandsHelper(node, m_DrawIndirectCommandsCPU, indirectDebugCommandsCPU,m);			
-			}
-		}		
-	}
-
-	//std::cout << "Triangles rendered : " << models[0].indices.count * OBJECT_INSTANCE_COUNT /3 << std::endl;
-	indirectDrawCount = static_cast<uint32_t>(m_DrawIndirectCommandsCPU.size());
-	//indirectDebugDrawCount = static_cast<uint32_t>(indirectDebugCommands.size());
+	auto gb = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
+	gb.GenerateBatches();
+	auto& allObjectsCommands = gb.GetBatch(GraphicsBatch::ALL_OBJECTS);
 
 	objectCount = 0;
-	for (auto& indirectCmd : m_DrawIndirectCommandsCPU)
+	for (auto& indirectCmd : allObjectsCommands)
 	{
 		objectCount += indirectCmd.instanceCount;
 	}
-	//vertexCount *= objectCount /3;
 
 	vkutils::Buffer stagingBuffer;	
 	m_device.CreateBuffer(
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		&stagingBuffer,
-		m_DrawIndirectCommandsCPU.size() * sizeof(oGFX::IndirectCommand),
-		m_DrawIndirectCommandsCPU.data());
+		allObjectsCommands.size() * sizeof(oGFX::IndirectCommand),
+		allObjectsCommands.data());
 
 	// Better to catch this on the software side early than the Vulkan validation layer
 	// TODO: Fix this gracefully
-	if (m_DrawIndirectCommandsCPU.size() > MAX_OBJECTS)
+	if (allObjectsCommands.size() > MAX_OBJECTS)
 	{
 		MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of indirect command buffer.", L"BAD ERROR");
 	}
@@ -1654,9 +1637,6 @@ void VulkanRenderer::BeginDraw()
 {
 	if (currWorld == nullptr) 
 		return;
-
-	auto gb = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
-	gb.GenerateBatches();
 
 	PROFILE_SCOPED();
 

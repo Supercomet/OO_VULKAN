@@ -17,7 +17,6 @@ struct SetupInfo
 
 using IndirectCommand = VkDrawIndexedIndirectCommand;
 
-void IndirectCommandsHelper(Node* node, std::vector<oGFX::IndirectCommand>& m_DrawIndirectCommandsCPU,
-	std::vector<oGFX::IndirectCommand>& indirectDebugCommandsCPU, uint32_t& m);
+void IndirectCommandsHelper(Node* node, std::vector<oGFX::IndirectCommand>& m_DrawIndirectCommandsCPU);
 
 }
