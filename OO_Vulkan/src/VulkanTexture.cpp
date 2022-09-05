@@ -1,5 +1,5 @@
 #include "VulkanTexture.h"
-#include "stb_image.h"
+#include "loader/stb_image.h"
 
 #include <cassert>
 
