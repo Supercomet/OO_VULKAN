@@ -142,7 +142,6 @@
     <ClCompile Include="src\AppUtils.cpp" />
     <ClCompile Include="src\CameraController.cpp" />
     <ClCompile Include="src\ImGuizmo.cpp" />
-    <ClCompile Include="src\Input.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\TestApplication.cpp" />
   </ItemGroup>
@@ -154,7 +153,6 @@
   <ItemGroup>
     <ClInclude Include="src\CameraController.h" />
     <ClInclude Include="src\ImGuizmo.h" />
-    <ClInclude Include="src\Input.h" />
     <ClInclude Include="src\keycodes.h" />
     <ClInclude Include="src\TestApplication.h" />
     <ClInclude Include="src\AppUtils.h" />
