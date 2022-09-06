@@ -7,6 +7,8 @@
 #include <vector>
 #include <array>
 
+// pos windows
+#undef TRANSPARENT 
 enum ObjectInstanceFlags : uint32_t // fuck enum class
 {
     STATIC_INSTANCE  = 0x1,  // Object will never change after initialization
@@ -15,8 +17,8 @@ enum ObjectInstanceFlags : uint32_t // fuck enum class
     SHADOW_CASTER    = 0x8,  // Object casts shadows (put it into shadow render pass)
     SHADOW_RECEIVER  = 0x10, // Object receives shadows (a mask for lighting pass)
     ENABLE_ZPREPASS  = 0x20, // Object is added to Z-Prepass
+    TRANSPARENT      = 0x40 // Object is added to forward pass
                              // etc
-
 };
 
 struct ObjectInstance
@@ -39,7 +41,7 @@ struct ObjectInstance
 
     glm::mat4x4 localToWorld{ 1.0f };
     
-    ObjectInstanceFlags flags;
+    ObjectInstanceFlags flags{};
 
     uint32_t modelID{}; // Index for the mesh
     uint32_t entityID{}; // Unique ID for this entity instance

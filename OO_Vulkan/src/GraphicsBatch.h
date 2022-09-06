@@ -12,14 +12,15 @@ class GraphicsBatch
 public:
 	enum DrawBatch
 	{
-	SHADOW_CAST,
-	SHADOW_RECV,
-	GBUFFER_STATIC,
-	GBUFFER_DYNAMIC,
-	FORWARD_STATIC,
-	FORWARD_DYNAMIC,
-	ZPREPASS,
-	MAX_NUM
+		ALL_OBJECTS,
+		SHADOW_CAST,
+		SHADOW_RECV,
+		GBUFFER_STATIC,
+		GBUFFER_DYNAMIC,
+		FORWARD_STATIC,
+		FORWARD_DYNAMIC,
+		ZPREPASS,
+		MAX_NUM
 	};
 
 	static GraphicsBatch Init(GraphicsWorld* gw,VulkanRenderer* renderer ,size_t maxObjects);
@@ -28,10 +29,12 @@ public:
 	
 
 private:
-	GraphicsWorld* m_world;
-	VulkanRenderer* m_renderer;
+	GraphicsWorld* m_world{ nullptr };
+	VulkanRenderer* m_renderer{nullptr};
 
 	std::array<std::vector<oGFX::IndirectCommand> , DrawBatch::MAX_NUM> m_batches;
+
+	static inline std::vector<oGFX::IndirectCommand> s_scratchBuffer;
 
 };
 

@@ -110,7 +110,7 @@ inline int32_t BitContainer<T, MAX_OBJECTS>::Add(const T& obj)
 		if (m_bits[i] == false)
 		{
 			m_bits[i] = true;
-			id = i;
+			id = int32_t(i);
 
 			m_data[id] = obj;
 			return id;
@@ -167,7 +167,7 @@ inline T& BitContainer<T, MAX_OBJECTS>::operator[](size_t i)
 template<typename T, int32_t MAX_OBJECTS>
 inline typename BitContainer<T, MAX_OBJECTS>::Iterator& BitContainer<T, MAX_OBJECTS>::Iterator::operator++()
 {
-	int i = m_ptr - m_begin;
+	size_t i = m_ptr - m_begin;
 	while (++i < m_b->size())
 	{
 		if ((*m_b)[i] == true)

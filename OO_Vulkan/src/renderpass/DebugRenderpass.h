@@ -9,6 +9,7 @@ struct DebugRenderpass : public GfxRenderpass
 
 	VkRenderPass debugRenderpass{};
 	VkPipeline debugDrawLinesPSO{};
+	VkPushConstantRange pushConstantRange{};
 
 	void Init() override;
 	void Draw() override;
