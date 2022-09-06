@@ -208,7 +208,7 @@ public:
     TextureInfo GetTextureInfo(uint32_t handle);
 
     void InitDebugBuffers();
-    void UpdateDebugBuffers();
+    void UploadDebugDrawBuffers();
 
     struct VertexBufferObject
     {

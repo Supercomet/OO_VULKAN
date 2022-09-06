@@ -871,6 +871,8 @@ void VulkanRenderer::UploadLights()
 	if (currWorld == nullptr)
 		return;
 
+	PROFILE_SCOPED();
+
 	CB::LightUBO lightUBO{};
 
 	// Current view position
@@ -1707,9 +1709,11 @@ void VulkanRenderer::RenderFrame()
 	if (currWorld == nullptr)
 		return;
 
+	PROFILE_SCOPED();
+
 	this->BeginDraw(); // TODO: Clean this up...
 
-	UpdateDebugBuffers();
+	UploadDebugDrawBuffers();
     {
 		// Command list has already started inside VulkanRenderer::Draw
         PROFILE_GPU_CONTEXT(commandBuffers[swapchainIdx]);
@@ -2130,13 +2134,20 @@ void VulkanRenderer::InitDebugBuffers()
 	g_debugDrawIndxBuffer.Init(&m_device,VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
-void VulkanRenderer::UpdateDebugBuffers()
+void VulkanRenderer::UploadDebugDrawBuffers()
 {
+	PROFILE_SCOPED();
+
 	g_debugDrawVertBuffer.reserve(g_debugDrawVerts.size() );
 	g_debugDrawIndxBuffer.reserve(g_debugDrawIndices.size());
 
+	// Copy CPU debug draw buffers to the GPU
 	g_debugDrawVertBuffer.writeTo(g_debugDrawVerts.size() , g_debugDrawVerts.data());
 	g_debugDrawIndxBuffer.writeTo(g_debugDrawIndices.size() , g_debugDrawIndices.data());
+
+	// Clear the CPU debug draw buffers for this frame
+	g_debugDrawVerts.clear();
+	g_debugDrawIndices.clear();
 }
 
 void VulkanRenderer::UpdateUniformBuffers()
