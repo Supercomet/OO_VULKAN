@@ -1240,6 +1240,8 @@ void VulkanRenderer::DebugGUIcalls()
 
 void VulkanRenderer::DrawGUI()
 {
+	PROFILE_SCOPED();
+	
 	VkRenderPassBeginInfo GUIpassInfo = {};
 	GUIpassInfo.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	GUIpassInfo.renderPass  = m_imguiConfig.renderPass;
@@ -1734,6 +1736,8 @@ void VulkanRenderer::Present()
 {
 	if (currWorld == nullptr) 
 		return;
+
+	PROFILE_SCOPED();
 
 	//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[swapchainImageIndex]);
 	//stop recording to command buffer
