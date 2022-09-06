@@ -30,6 +30,7 @@
 #include "renderpass/ShadowPass.h"
 
 #include "GraphicsBatch.h"
+#include "DelayedDeleter.h"
 
 #include "IcoSphereCreator.h"
 
@@ -69,6 +70,8 @@ VulkanRenderer::~VulkanRenderer()
 { 
 	//wait until no actions being run on device before destorying
 	vkDeviceWaitIdle(m_device.logicalDevice);
+
+	DelayedDeleter::get()->Shutdown();
 
 	RenderPassDatabase::Shutdown();
 
@@ -1502,6 +1505,8 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		objectCount += indirectCmd.instanceCount;
 	}
 
+	auto* del = DelayedDeleter::get();
+
 	vkutils::Buffer stagingBuffer;	
 	m_device.CreateBuffer(
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -1516,9 +1521,20 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 	{
 		MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of indirect command buffer.", L"BAD ERROR");
 	}
+	auto oldbuffer = indirectCommandsBuffer.buffer;
+	auto oldMemory = indirectCommandsBuffer.memory;
+	m_device.CreateBuffer(
+		VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		&indirectCommandsBuffer,
+		MAX_OBJECTS * sizeof(oGFX::IndirectCommand));
+	VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer.buffer);
 
 	m_device.CopyBuffer(&stagingBuffer, &indirectCommandsBuffer, m_device.graphicsQueue);
 
+	del->DeleteAfterFrames([=]() { vkDestroyBuffer(m_device.logicalDevice, oldbuffer, nullptr); });
+	del->DeleteAfterFrames([=]() { vkFreeMemory(m_device.logicalDevice, oldMemory, nullptr); });
+	
 	stagingBuffer.destroy();
 }
 
@@ -1629,6 +1645,8 @@ bool VulkanRenderer::PrepareFrame()
 			return false;
 		resizeSwapchain = false;
 	}
+
+	DelayedDeleter::get()->Update();
 
 	return true;
 }
@@ -1834,6 +1852,11 @@ Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	{
 		return nullptr; // Dont explode...
 		//throw std::runtime_error("Failed to load model! (" + file + ")");
+	}
+
+	if (scene->HasAnimations())
+	{
+
 	}
 
 	std::vector<std::string> textureNames = MeshContainer::LoadMaterials(scene);
