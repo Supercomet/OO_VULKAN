@@ -1271,6 +1271,15 @@ void VulkanRenderer::DestroyImGUI()
 	m_imguiInitialized = false;
 }
 
+void VulkanRenderer::AddDebugLine(const glm::vec3& p0, const glm::vec3& p1, const oGFX::Color& col, size_t loc)
+{
+	auto sz = g_debugDrawVerts.size();
+	g_debugDrawVerts.push_back(oGFX::Vertex{ p0,{/*normal*/},col });
+	g_debugDrawVerts.push_back(oGFX::Vertex{ p1,{/*normal*/},col });
+	g_debugDrawIndices.push_back(0 + static_cast<uint32_t>(sz));
+	g_debugDrawIndices.push_back(1 + static_cast<uint32_t>(sz));
+}
+
 void VulkanRenderer::AddDebugBox(const AABB& aabb, const oGFX::Color& col, size_t loc)
 {
 	static std::vector<uint32_t> boxindices{

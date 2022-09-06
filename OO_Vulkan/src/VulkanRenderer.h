@@ -170,6 +170,7 @@ public:
 
 	//---------- Debug Draw Interface ----------
 
+	void AddDebugLine(const glm::vec3& p0, const glm::vec3& p1, const oGFX::Color& col, size_t loc = -1);
 	void AddDebugBox(const AABB& aabb, const oGFX::Color& col, size_t loc = -1);
 	void AddDebugSphere(const Sphere& sphere, const oGFX::Color& col,size_t loc = -1);
 	void AddDebugTriangle(const Triangle& tri, const oGFX::Color& col,size_t loc = -1);
