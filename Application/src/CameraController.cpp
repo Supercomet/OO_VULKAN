@@ -21,15 +21,18 @@ void CameraController::Update(float dt)
     // Camera Movement
     if (m_Camera->m_CameraMovementType == Camera::CameraMovementType::firstperson)
     {
-        const float moveSpeed = dt * m_Camera->movementSpeed;
+        float moveSpeed = dt * m_Camera->movementSpeed;
+        if (Input::GetKeyHeld(VK_SHIFT))
+            moveSpeed *= 2.0f;
+
         if (up)
-            amountToTranslate -= m_Camera->GetFront() * moveSpeed;
-        if (down)
             amountToTranslate += m_Camera->GetFront() * moveSpeed;
+        if (down)
+            amountToTranslate -= m_Camera->GetFront() * moveSpeed;
         if (left)
-            amountToTranslate -= m_Camera->GetRight() * moveSpeed;
-        if (right)
             amountToTranslate += m_Camera->GetRight() * moveSpeed;
+        if (right)
+            amountToTranslate -= m_Camera->GetRight() * moveSpeed;
     }
     
     // Simulate some very simple fucked up camera shake

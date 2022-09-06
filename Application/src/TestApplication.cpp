@@ -89,6 +89,7 @@ struct EntityInfo
     uint32_t bindlessGlobalTextureIndex_Normal{ 0xFFFFFFFF };
     uint32_t bindlessGlobalTextureIndex_Roughness{ 0xFFFFFFFF };
     uint32_t bindlessGlobalTextureIndex_Metallic{ 0xFFFFFFFF };
+    uint8_t instanceData{ 0 };
 
     int32_t gfxID; // gfxworld id
 
@@ -121,6 +122,7 @@ void CreateGraphicsEntityHelper(EntityInfo& ei)
             ei.bindlessGlobalTextureIndex_Normal,
             ei.bindlessGlobalTextureIndex_Roughness,
             ei.bindlessGlobalTextureIndex_Metallic,
+            ei.instanceData,
             ei.getLocalToWorld(),
             {},
             ei.modelID,
@@ -201,15 +203,15 @@ void TestApplication::Run()
     gs_NormalTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
     gs_PinkTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
 
-    BindlessTextureIndex diffuseTexture0 = gs_RenderEngine->CreateTexture("Textures/7/d.png");
-    BindlessTextureIndex diffuseTexture1 = gs_RenderEngine->CreateTexture("Textures/8/d.png");
-    BindlessTextureIndex diffuseTexture2 = gs_RenderEngine->CreateTexture("Textures/13/d.png");
-    BindlessTextureIndex diffuseTexture3 = gs_RenderEngine->CreateTexture("Textures/23/d.png");
+    const BindlessTextureIndex diffuseTexture0 = gs_RenderEngine->CreateTexture("Textures/7/d.png");
+    const BindlessTextureIndex diffuseTexture1 = gs_RenderEngine->CreateTexture("Textures/8/d.png");
+    const BindlessTextureIndex diffuseTexture2 = gs_RenderEngine->CreateTexture("Textures/13/d.png");
+    const BindlessTextureIndex diffuseTexture3 = gs_RenderEngine->CreateTexture("Textures/23/d.png");
 
-    BindlessTextureIndex roughnessTexture0 = gs_RenderEngine->CreateTexture("Textures/7/r.png");
-    BindlessTextureIndex roughnessTexture1 = gs_RenderEngine->CreateTexture("Textures/8/r.png");
-    BindlessTextureIndex roughnessTexture2 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
-    BindlessTextureIndex roughnessTexture3 = gs_RenderEngine->CreateTexture("Textures/23/r.png");
+    const BindlessTextureIndex roughnessTexture0 = gs_RenderEngine->CreateTexture("Textures/7/r.png");
+    const BindlessTextureIndex roughnessTexture1 = gs_RenderEngine->CreateTexture("Textures/8/r.png");
+    const BindlessTextureIndex roughnessTexture2 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
+    const BindlessTextureIndex roughnessTexture3 = gs_RenderEngine->CreateTexture("Textures/23/r.png");
 
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Models
@@ -246,14 +248,24 @@ void TestApplication::Run()
     };
 
     {
-        auto x = entities.size();
-        entities.emplace_back(EntityInfo{});
-        auto& ed = entities[x];
-        ed.name = "Plane";
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.name = "Ground_Plane";
         ed.entityID = FastRandomMagic();
         ed.modelID = model_plane->gfxIndex;
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
+    }
+
+    {
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.name = "Plane_Effects";
+        ed.entityID = FastRandomMagic();
+        ed.modelID = model_plane->gfxIndex;
+        ed.position = { -2.0f,2.0f,0.0f };
+        ed.scale = { 2.0f,1.0f,2.0f };
+        ed.rot = 90.0f;
+        ed.rotVec = { 1.0f,0.0f,0.0f };
+        ed.instanceData = 3;
     }
 
     // Create 8 more surrounding planes
@@ -273,10 +285,8 @@ void TestApplication::Run()
                 glm::vec3{ -offset, 0.0f, -offset },
             };
 
-            auto x = entities.size();
-            entities.emplace_back(EntityInfo{});
-            auto& ed = entities[x];
-            ed.name = "Plane_" + std::to_string(i);
+            auto& ed = entities.emplace_back(EntityInfo{});
+            ed.name = "Ground_Plane_" + std::to_string(i);
             ed.entityID = FastRandomMagic();
             ed.modelID = model_plane->gfxIndex;
             ed.position = positions[i];
@@ -288,28 +298,26 @@ void TestApplication::Run()
 
     if (character_diona)
     {
-        auto x = entities.size();
-        entities.emplace_back(EntityInfo{});
-        auto& ed = entities[x];
+        auto& ed = entities.emplace_back(EntityInfo{});
         ed.modelID = character_diona->gfxIndex;
         ed.name = "diona";
         ed.entityID = FastRandomMagic();
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        ed.instanceData = 1;
     }
 
     if (character_qiqi)
     {
-        auto x = entities.size();
-        entities.emplace_back(EntityInfo{});
-        auto& ed = entities[x];
+        auto& ed = entities.emplace_back(EntityInfo{});
         ed.modelID = character_qiqi->gfxIndex;
         ed.name = "qiqi";
         ed.entityID = FastRandomMagic();
         ed.position = { 1.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        ed.instanceData = 2;
     }
 
     // Stress test more models
@@ -343,9 +351,7 @@ void TestApplication::Run()
         int counter = 0;
         for (auto& model : moreModels)
         {
-            auto x = entities.size();
-            entities.emplace_back(EntityInfo{});
-            auto& ed = entities[x];
+            auto& ed = entities.emplace_back(EntityInfo{});
             ed.modelID = model->gfxIndex;
             ed.name = "model_" + std::to_string(counter);
             ed.entityID = FastRandomMagic();
@@ -379,7 +385,7 @@ void TestApplication::Run()
     }
 
     auto lastTime = std::chrono::high_resolution_clock::now();
-    static bool freezeLight = false;
+    static bool freezeLight = true;
 
     //----------------------------------------------------------------------------------------------------
     // Set graphics world before rendering
@@ -397,6 +403,8 @@ void TestApplication::Run()
             auto now = std::chrono::high_resolution_clock::now();
             float deltaTime = std::chrono::duration<float>(now - lastTime).count();
             lastTime = now;
+
+            gs_RenderEngine->renderClock += deltaTime;
 
             //reset keys
             Input::Begin();
@@ -728,10 +736,10 @@ void TestApplication::Run()
                             if (ImGui::BeginTabItem("Camera"))
                             {
                                 auto& camera = gs_RenderEngine->camera;
-                                ImGui::DragFloat3("Position", glm::value_ptr(camera.position));
-                                ImGui::DragFloat3("Rotation", glm::value_ptr(camera.rotation));
-                                ImGui::DragFloat3("Target", glm::value_ptr(camera.m_TargetPosition));
-                                ImGui::DragFloat("Distance", &camera.m_TargetDistance);
+                                ImGui::DragFloat3("Position", glm::value_ptr(camera.m_position), 0.01f);
+                                ImGui::DragFloat3("Rotation", glm::value_ptr(camera.m_rotation), 0.01f);
+                                ImGui::DragFloat3("Target", glm::value_ptr(camera.m_TargetPosition), 0.01f);
+                                ImGui::DragFloat("Distance", &camera.m_TargetDistance, 0.01f);
 
                                 bool fps = camera.m_CameraMovementType == Camera::CameraMovementType::firstperson;
                                 if (ImGui::Checkbox("FPS", &fps))

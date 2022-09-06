@@ -874,10 +874,12 @@ void VulkanRenderer::UploadLights()
 	if (currWorld == nullptr)
 		return;
 
+	PROFILE_SCOPED();
+
 	CB::LightUBO lightUBO{};
 
 	// Current view position
-	lightUBO.viewPos = glm::vec4(camera.position, 0.0f);
+	lightUBO.viewPos = glm::vec4(camera.m_position, 0.0f);
 
 	// Temporary reroute
 	auto& allLights = currWorld->m_HardcodedOmniLights;
@@ -1241,6 +1243,8 @@ void VulkanRenderer::DebugGUIcalls()
 
 void VulkanRenderer::DrawGUI()
 {
+	PROFILE_SCOPED();
+	
 	VkRenderPassBeginInfo GUIpassInfo = {};
 	GUIpassInfo.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	GUIpassInfo.renderPass  = m_imguiConfig.renderPass;
@@ -1272,6 +1276,15 @@ void VulkanRenderer::DestroyImGUI()
 		ImGui_ImplWin32_Shutdown();
 	}
 	m_imguiInitialized = false;
+}
+
+void VulkanRenderer::AddDebugLine(const glm::vec3& p0, const glm::vec3& p1, const oGFX::Color& col, size_t loc)
+{
+	auto sz = g_debugDrawVerts.size();
+	g_debugDrawVerts.push_back(oGFX::Vertex{ p0,{/*normal*/},col });
+	g_debugDrawVerts.push_back(oGFX::Vertex{ p1,{/*normal*/},col });
+	g_debugDrawIndices.push_back(0 + static_cast<uint32_t>(sz));
+	g_debugDrawIndices.push_back(1 + static_cast<uint32_t>(sz));
 }
 
 void VulkanRenderer::AddDebugBox(const AABB& aabb, const oGFX::Color& col, size_t loc)
@@ -1594,20 +1607,35 @@ void VulkanRenderer::UploadInstanceData()
 				uint32_t normal = ent.bindlessGlobalTextureIndex_Normal;
 				uint32_t roughness = ent.bindlessGlobalTextureIndex_Roughness;
 				uint32_t metallic = ent.bindlessGlobalTextureIndex_Metallic;
+				const uint8_t perInstanceData = ent.instanceData;
 				constexpr uint32_t invalidIndex = 0xFFFFFFFF;
 				if (albedo == invalidIndex)
-					albedo = 0;
+					albedo = 0; // TODO: Dont hardcode this bindless texture index
 				if (normal == invalidIndex)
-					normal = 1;
+					normal = 1; // TODO: Dont hardcode this bindless texture index
 				if (roughness == invalidIndex)
-					roughness = 0;
+					roughness = 0; // TODO: Dont hardcode this bindless texture index
 				if (metallic == invalidIndex)
-					metallic = 1;
+					metallic = 1; // TODO: Dont hardcode this bindless texture index
 
-				uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF) ;
-				uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
+				// Important: Make sure this index packing matches the unpacking in the shader
+				const uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF);
+				const uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
+				const uint32_t instanceID = uint32_t(sz + x);
+				const uint32_t unused = (uint32_t)perInstanceData; //matCnt;
+                // Putting these ranges here for easy reference:
+				// 9-bit:  [0 to 511]
+                // 10-bit: [0 to 1023]
+                // 11-bit: [0 to 2047]
+                // 12-bit: [0 to 4095]
+                // 13-bit: [0 to 8191]
+                // 14-bit: [0 to 16383]
+                // 15-bit: [0 to 32767]
+                // 16-bit: [0 to 65535]
 
-				id.instanceAttributes = uvec4(sz+x, matCnt, albedo_normal, roughness_metallic);
+				// TODO: This is the solution for now.
+				// In the future, we can just use an index for all the materials (indirection) to fetch from another buffer.
+				id.instanceAttributes = uvec4(instanceID, unused, albedo_normal, roughness_metallic);
 				instanceData.emplace_back(id);
 			}
 			++matCnt;
@@ -1701,9 +1729,11 @@ void VulkanRenderer::RenderFrame()
 	if (currWorld == nullptr)
 		return;
 
+	PROFILE_SCOPED();
+
 	this->BeginDraw(); // TODO: Clean this up...
 
-	UpdateDebugBuffers();
+	UploadDebugDrawBuffers();
     {
 		// Command list has already started inside VulkanRenderer::Draw
         PROFILE_GPU_CONTEXT(commandBuffers[swapchainIdx]);
@@ -1724,6 +1754,8 @@ void VulkanRenderer::Present()
 {
 	if (currWorld == nullptr) 
 		return;
+
+	PROFILE_SCOPED();
 
 	//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[swapchainImageIndex]);
 	//stop recording to command buffer
@@ -2129,13 +2161,20 @@ void VulkanRenderer::InitDebugBuffers()
 	g_debugDrawIndxBuffer.Init(&m_device,VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
-void VulkanRenderer::UpdateDebugBuffers()
+void VulkanRenderer::UploadDebugDrawBuffers()
 {
+	PROFILE_SCOPED();
+
 	g_debugDrawVertBuffer.reserve(g_debugDrawVerts.size() );
 	g_debugDrawIndxBuffer.reserve(g_debugDrawIndices.size());
 
+	// Copy CPU debug draw buffers to the GPU
 	g_debugDrawVertBuffer.writeTo(g_debugDrawVerts.size() , g_debugDrawVerts.data());
 	g_debugDrawIndxBuffer.writeTo(g_debugDrawIndices.size() , g_debugDrawIndices.data());
+
+	// Clear the CPU debug draw buffers for this frame
+	g_debugDrawVerts.clear();
+	g_debugDrawIndices.clear();
 }
 
 void VulkanRenderer::UpdateUniformBuffers()
@@ -2150,10 +2189,10 @@ void VulkanRenderer::UpdateUniformBuffers()
 	m_FrameContextUBO.projection = camera.matrices.perspective;
 	m_FrameContextUBO.view = camera.matrices.view;
 	m_FrameContextUBO.viewProjection = m_FrameContextUBO.projection * m_FrameContextUBO.view;
-	m_FrameContextUBO.cameraPosition = glm::vec4(camera.position,1.0);
-	m_FrameContextUBO.renderTimer.x += 1 / 60.0f; // Fake total time... (TODO: Fix me)
-	m_FrameContextUBO.renderTimer.y = glm::sin(m_FrameContextUBO.renderTimer.x * 0.5f * glm::pi<float>());
-	m_FrameContextUBO.renderTimer.z = glm::cos(m_FrameContextUBO.renderTimer.x * 0.5f * glm::pi<float>());
+	m_FrameContextUBO.cameraPosition = glm::vec4(camera.m_position,1.0);
+	m_FrameContextUBO.renderTimer.x = renderClock;
+    m_FrameContextUBO.renderTimer.y = std::sin(renderClock * glm::pi<float>());
+    m_FrameContextUBO.renderTimer.z = std::cos(renderClock * glm::pi<float>());
 	m_FrameContextUBO.renderTimer.w = 0.0f; // unused
 
 	void *data;
@@ -2167,7 +2206,6 @@ void VulkanRenderer::UpdateUniformBuffers()
 	VK_CHK(vkFlushMappedMemoryRanges(m_device.logicalDevice, 1, &memRng));
 
 	vkUnmapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx]);
-
 }
 
 uint32_t VulkanRenderer::CreateTextureImage(const std::string& fileName)

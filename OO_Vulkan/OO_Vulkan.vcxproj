@@ -37,12 +37,11 @@
     <ClCompile Include="src\DescriptorLayoutCache.cpp" />
     <ClCompile Include="src\DescriptorAllocator.cpp" />
     <ClCompile Include="src\Collision.cpp" />
-    <ClCompile Include="src\DDSLoader.cpp" />
+    <ClCompile Include="src\loader\DDSLoader.cpp" />
     <ClCompile Include="src\Geometry.cpp" />
     <ClCompile Include="src\GpuVector.cpp" />
     <ClCompile Include="src\Node.cpp" />
     <ClCompile Include="src\Camera.cpp" />
-    <ClCompile Include="src\Input.cpp" />
     <ClCompile Include="src\Mesh.cpp" />
     <ClCompile Include="src\MeshModel.cpp" />
     <ClCompile Include="src\OctTree.cpp" />
@@ -55,7 +54,7 @@
     <ClCompile Include="src\optick\optick_serialization.cpp" />
     <ClCompile Include="src\optick\optick_server.cpp" />
     <ClCompile Include="src\renderpass\ShadowPass.cpp" />
-    <ClCompile Include="src\stbi_impl.cpp" />
+    <ClCompile Include="src\loader\stbi_impl.cpp" />
     <ClCompile Include="src\Tests_Assignment1.cpp" />
     <ClCompile Include="src\VulkanFramebufferAttachment.cpp" />
     <ClCompile Include="src\VulkanInstance.cpp" />
@@ -66,7 +65,7 @@
     <ClCompile Include="src\VulkanUtils.cpp" />
     <ClCompile Include="src\VulkanSwapchain.cpp" />
     <ClCompile Include="src\VulkanBuffer.cpp" />
-    <ClCompile Include="src\tinyddsloader.cpp" />
+    <ClCompile Include="src\loader\tinyddsloader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\DelayedDeleter.h" />
@@ -87,7 +86,7 @@
     <ClInclude Include="src\DescriptorBuilder.h" />
     <ClInclude Include="src\DescriptorLayoutCache.h" />
     <ClInclude Include="src\DescriptorAllocator.h" />
-    <ClInclude Include="src\DDSLoader.h" />
+    <ClInclude Include="src\loader\DDSLoader.h" />
     <ClInclude Include="src\Geometry.h" />
     <ClInclude Include="src\Collision.h" />
     <ClInclude Include="src\GpuVector.h" />
@@ -116,12 +115,10 @@
     <ClInclude Include="src\VulkanFramebufferAttachment.h" />
     <ClInclude Include="src\Node.h" />
     <ClInclude Include="src\Camera.h" />
-    <ClInclude Include="src\Input.h" />
-    <ClInclude Include="src\keycodes.h" />
     <ClInclude Include="src\Mesh.h" />
     <ClInclude Include="src\MeshModel.h" />
     <ClInclude Include="src\gpuCommon.h" />
-    <ClInclude Include="src\stb_image.h" />
+    <ClInclude Include="src\loader\stb_image.h" />
     <ClInclude Include="src\Tests_Assignment1.h" />
     <ClInclude Include="src\VulkanInstance.h" />
     <ClInclude Include="src\VulkanRenderer.h" />
@@ -131,7 +128,7 @@
     <ClInclude Include="src\VulkanUtils.h" />
     <ClInclude Include="src\VulkanSwapchain.h" />
     <ClInclude Include="src\VulkanBuffer.h" />
-    <ClInclude Include="src\tinyddsloader.h" />
+    <ClInclude Include="src\loader\tinyddsloader.h" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="glm.natvis" />

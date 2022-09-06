@@ -16,8 +16,8 @@
 #pragma warning( disable : 26451 ) // arithmetic overflow
 #pragma warning( disable : 26495 ) // uninitialized
 #pragma warning( disable : 26819 ) // fallthrough
-#include "stb_image.h"
-#include "DDSLoader.h"
+#include "loader/stb_image.h"
+#include "loader/DDSLoader.h"
 #pragma warning( pop )
 #include <filesystem>
 
@@ -26,6 +26,13 @@
 #include "VulkanInstance.h"
 #include "VulkanDevice.h"
 #include "VulkanRenderer.h" // pfn
+
+#include <algorithm>
+#include <stdexcept>
+#include <fstream>
+#include <vector>
+#include <filesystem>
+
 namespace oGFX
 {
 	oGFX::QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
@@ -187,6 +194,8 @@ namespace oGFX
 
 	VkSurfaceFormatKHR ChooseBestSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats)
 	{
+		//return { VK_FORMAT_B8G8R8A8_SRGB,  VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+		
 		//If only 1 format available and is VK_FORMAT_UNDEFINED return what format we want.
 		// VK_FORMAT_UNDEFINED - means that all formats are available (no restrictions) so we can return what we want
 		if (formats.size() == 1 && formats[0].format == VK_FORMAT_UNDEFINED)
