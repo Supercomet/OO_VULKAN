@@ -1881,7 +1881,7 @@ Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		| aiProcess_TransformUVCoords          // preprocess UV transformations (scaling, translation ...)
 		| aiProcess_FindInstances              // search for instanced meshes and remove them by references to one master
 		| aiProcess_CalcTangentSpace           // calculate tangents and bitangents if possible
-		| aiProcess_JoinIdenticalVertices      // join identical vertices/ optimize indexing
+		//| aiProcess_JoinIdenticalVertices      // join identical vertices/ optimize indexing
 		| aiProcess_RemoveRedundantMaterials   // remove redundant materials
 		| aiProcess_FindInvalidData            // detect invalid model data, such as invalid normal vectors
 		| aiProcess_PreTransformVertices       // TODO: remove for skinning?

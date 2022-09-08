@@ -12,8 +12,6 @@
 #include "window.h"
 #include "input.h"
 
-#include "Tests_Assignment1.h"
-
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
 #include <crtdbg.h>
@@ -31,7 +29,6 @@
 #include "BoudingVolume.h"
 #include "DefaultMeshCreator.h"
 
-
 #include <iostream>
 #include <iomanip>
 #include <chrono>
@@ -46,6 +43,8 @@
 #include "AppUtils.h"
 
 #include "CameraController.h"
+
+//#include "anim/ModelLoader.h"
 
 static VulkanRenderer* gs_RenderEngine = nullptr;
 static GraphicsWorld gs_GraphicsWorld;
@@ -184,7 +183,8 @@ void TestApplication::Run()
     }
     catch (...)
     {
-        std::cout << "Fucked!" << std::endl;
+        std::cout << "Failed to create Vulkan instance!" << std::endl;
+        std::cout << "Possible reasons:\n\t- Did you recompile all the shader binaries?" << std::endl;
         getchar();
         return;
     }
@@ -224,7 +224,11 @@ void TestApplication::Run()
 
     std::unique_ptr<Model> character_diona{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx") };
     std::unique_ptr<Model> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
-
+    /* // WIP
+    std::unique_ptr<Model> character_dori{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/dori.fbx") };
+    std::unique_ptr<SkinnedMesh> skinnedMesh_dori = std::make_unique<SkinnedMesh>();
+    LoadModelFromFile_Skeleton("../Application/models/character/dori.fbx", LoadingConfig{}, character_dori.get(), skinnedMesh_dori.get());
+    */
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Scene Objects
     //----------------------------------------------------------------------------------------------------
@@ -302,7 +306,7 @@ void TestApplication::Run()
         ed.modelID = character_diona->gfxIndex;
         ed.name = "diona";
         ed.entityID = FastRandomMagic();
-        ed.position = { 0.0f,0.0f,0.0f };
+        ed.position = { 2.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
         ed.instanceData = 1;
@@ -319,6 +323,17 @@ void TestApplication::Run()
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
         ed.instanceData = 2;
     }
+    /* // WIP
+    if (character_dori)
+    {
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.modelID = character_dori->gfxIndex;
+        ed.name = "dori";
+        ed.entityID = FastRandomMagic();
+        ed.position = { 0.0f,0.0f,0.0f };
+        ed.scale = { 1.0f,1.0f,1.0f };
+        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+    }*/
 
     // Stress test more models
     std::vector<std::unique_ptr<Model>> moreModels;
@@ -429,9 +444,12 @@ void TestApplication::Run()
                 freezeLight = !freezeLight;
             }
 
-            ImGui_ImplVulkan_NewFrame();
-            ImGui_ImplWin32_NewFrame();
-            ImGui::NewFrame();
+            {
+                PROFILE_SCOPED("ImGui::NewFrame");
+                ImGui_ImplVulkan_NewFrame();
+                ImGui_ImplWin32_NewFrame();
+                ImGui::NewFrame();
+            }
 
             if (gs_RenderEngine->PrepareFrame() == true)
             {
@@ -489,12 +507,52 @@ void TestApplication::Run()
                 // Upload CPU light data to GPU. Ideally this should only contain lights that intersects the camera frustum.
                 gs_RenderEngine->UploadLights();
 
+                //gs_RenderEngine->AddDebugLine(glm::vec3{ 0.0f, 0.0f, 0.0f}, glm::vec3{ 2.0f, 2.0f, 2.0f }, oGFX::Colors::GREEN);
+
                 // We need to test debug draw...
-                AABB aabb;
-                aabb.center = { 0.0f,1.0f,0.0f };
-                aabb.halfExt = { 1.0f,1.0f,1.0f };
-                gs_RenderEngine->AddDebugBox(aabb, oGFX::Colors::GREEN);
-                // ^ Should see this by default, otherwise its fucked.
+                if constexpr (true)
+                {
+                    AABB aabb;
+                    aabb.center = { 0.0f,1.0f,0.0f };
+                    aabb.halfExt = { 1.0f,1.0f,1.0f };
+                    gs_RenderEngine->AddDebugBox(aabb, oGFX::Colors::GREEN);
+                }
+
+                // Debug Draw skeleton
+                /*
+                if constexpr (false)
+                {
+                    PROFILE_SCOPED("TEST_DrawSkeleton");
+
+                    // Update world space global skeleton pose.
+                    //UpdateLocalToGlobalSpace(skinnedMesh_dori.get());
+                    
+                    AABB aabb;
+                    aabb.halfExt = { 0.01f,0.01f,0.01f };
+
+                    // Trivial and unoptimized method
+                    auto DFS = [&](auto&& func, BoneNode* pBoneNode) -> void
+                    {
+                        if (pBoneNode->mChildren.empty())
+                            return;
+                        
+                        aabb.center = pBoneNode->mModelSpaceGlobalVqs.GetPosition();
+                        gs_RenderEngine->AddDebugBox(aabb, oGFX::Colors::GREEN);
+
+                        // Recursion through all children nodes, passing in the current global transform.
+                        for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
+                        {
+                            BoneNode* child = pBoneNode->mChildren[i].get();
+                            auto pos = child->mModelSpaceGlobalVqs.GetPosition();
+                            gs_RenderEngine->AddDebugLine(aabb.center, pos, oGFX::Colors::RED);
+                            func(func, child);
+                        }
+                    };
+
+                    BoneNode* pBoneNode = nullptr;// skinnedMesh_dori->mpRootNode.get();
+                    DFS(DFS, pBoneNode);
+                }
+                */
 
                 // Render the frame
                 gs_RenderEngine->RenderFrame();
@@ -510,6 +568,8 @@ void TestApplication::Run()
                 // ImGuizmo
                 if (gizmoHijack)
                 {
+                    PROFILE_SCOPED("Gizmo");
+
                     ImGuizmo::BeginFrame();
                     ImGuizmo::Enable(true);
                     ImGuizmo::AllowAxisFlip(false);
@@ -525,14 +585,20 @@ void TestApplication::Run()
                     const bool justReleaseGizmo = prevFrameUsingGizmo && !currFrameUsingGizmo;
 
                     ImGuiIO& io = ImGui::GetIO();
-                    ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
-                    const auto& viewMatrix = gs_RenderEngine->camera.matrices.view;
-                    const auto& projMatrix = gs_RenderEngine->camera.matrices.perspective;
+                    // WR: This is needed if imgui multi-viewport is used, as origin becomes the top left of monitor.
+                    const auto mainViewportPosition = ImGui::GetMainViewport()->Pos;
+                    ImGuizmo::SetRect(mainViewportPosition.x, mainViewportPosition.y, io.DisplaySize.x, io.DisplaySize.y);
+                    glm::mat4x4 viewMatrix = gs_RenderEngine->camera.matrices.view;
+                    glm::mat4x4 projMatrix = gs_RenderEngine->camera.matrices.perspective;
 
                     static glm::mat4x4 localToWorld{ 1.0f };
                     float* matrixPtr = glm::value_ptr(localToWorld);
 
-                    //if (gizmoHijack) // Fix me!
+                    // Draw cube/grid at the origin for debugging purpose and sanity check
+                    //ImGuizmo::DrawCubes(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix), matrixPtr, 1);
+                    //ImGuizmo::DrawGrid(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix), matrixPtr, 20);
+
+                    if (gizmoHijack) // Fix me!
                     {
                         glm::vec3 position = { gizmoHijack[0], gizmoHijack[1], gizmoHijack[2] };
                         localToWorld = glm::translate(glm::mat4{ 1.0f }, position);
@@ -772,7 +838,10 @@ void TestApplication::Run()
                 }
 
                 //
-                ImGui::Render();  // Rendering UI
+                {
+                    PROFILE_SCOPED("ImGui::Render");
+                    ImGui::Render();  // Rendering UI
+                }
                 gs_RenderEngine->DrawGUI();
 
                 gs_RenderEngine->Present();
