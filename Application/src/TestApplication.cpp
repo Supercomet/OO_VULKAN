@@ -826,6 +826,8 @@ void TestApplication::Run()
 
                             if (ImGui::BeginTabItem("Settings"))
                             {
+                                if (ImGui::Checkbox("m_DebugDrawDepthTest", &gs_RenderEngine->m_DebugDrawDepthTest));
+
                                 // TODO?
                                 ImGui::EndTabItem();
                             }

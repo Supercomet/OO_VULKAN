@@ -226,7 +226,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		GfxRenderpass* ptr;
 		ptr = new ShadowPass;
 		rpd->RegisterRenderPass(ptr);
-		 ptr = new DebugRenderpass;
+		 ptr = new DebugDrawRenderpass;
 		rpd->RegisterRenderPass(ptr);
 		 ptr = new GBufferRenderPass;
 		rpd->RegisterRenderPass(ptr);
@@ -1745,7 +1745,7 @@ void VulkanRenderer::RenderFrame()
             RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
             RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
 			RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
-			RenderPassDatabase::GetRenderPass<DebugRenderpass>()->Draw();
+			RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
 		}
     }
 }

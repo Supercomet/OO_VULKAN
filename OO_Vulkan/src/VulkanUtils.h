@@ -469,15 +469,16 @@ namespace oGFX
 				return pipelineVertexInputStateCreateInfo;
 			}
 
+			
+
 			inline VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo(
-				VkPrimitiveTopology topology,
-				VkPipelineInputAssemblyStateCreateFlags flags,
-				VkBool32 primitiveRestartEnable)
+				VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+				VkPipelineInputAssemblyStateCreateFlags flags = 0,
+				VkBool32 primitiveRestartEnable = VK_FALSE) // Typically unused
 			{
 				VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo{};
 				pipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-				pipelineInputAssemblyStateCreateInfo.topology = topology;// primitive type to assemble vertices as
-																		 //allow overriding of strip topology to start new primitives
+				pipelineInputAssemblyStateCreateInfo.topology = topology;
 				pipelineInputAssemblyStateCreateInfo.flags = flags;
 				pipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = primitiveRestartEnable;
 				return pipelineInputAssemblyStateCreateInfo;
@@ -504,7 +505,7 @@ namespace oGFX
 			}
 
 			inline VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo(
-				VkSampleCountFlagBits rasterizationSamples,
+				VkSampleCountFlagBits rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
 				VkPipelineMultisampleStateCreateFlags flags = 0)
 			{
 				VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo{};
@@ -567,8 +568,8 @@ namespace oGFX
 			}
 
 			inline VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo(
-				uint32_t viewportCount,
-				uint32_t scissorCount,
+				uint32_t viewportCount = 1,
+				uint32_t scissorCount = 1,
 				VkPipelineViewportStateCreateFlags flags = 0)
 			{
 				VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo{};
@@ -640,6 +641,24 @@ namespace oGFX
 				VkRenderPassBeginInfo renderPassBeginInfo{};
 				renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 				return renderPassBeginInfo;
+			}
+
+			// Acts as a rerouter for cleaner code
+			template<typename T, typename ... ARGS>
+			T Creator(ARGS&& ... args) // Intentionally spelling this way to avoid use of the common "Create" word
+			{
+			#define ENTRY(vkType, function) else if constexpr (std::is_same_v<T, vkType>) { return function(std::forward<ARGS>(args)...); }
+				if constexpr (std::is_same_v<T, int>) { static_assert(false, "Vulkan API struct creator not implemented!"); }
+
+				ENTRY(VkPipelineInputAssemblyStateCreateInfo, pipelineInputAssemblyStateCreateInfo)
+				ENTRY(VkPipelineViewportStateCreateInfo,      pipelineViewportStateCreateInfo)
+				ENTRY(VkPipelineVertexInputStateCreateInfo,   pipelineVertexInputStateCreateInfo)
+				ENTRY(VkPipelineMultisampleStateCreateInfo,   pipelineMultisampleStateCreateInfo)
+				ENTRY(VkPipelineRasterizationStateCreateInfo, pipelineRasterizationStateCreateInfo)
+				ENTRY(VkPipelineDynamicStateCreateInfo,	      pipelineDynamicStateCreateInfo)
+
+			#undef ENTRY
+				else { static_assert(false, "Vulkan API struct creator not implemented!"); }
 			}
 		}
 	}

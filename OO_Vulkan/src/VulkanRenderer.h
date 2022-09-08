@@ -336,6 +336,8 @@ public:
 
 public:
 	
+	bool m_DebugDrawDepthTest{ true };
+
 	// TODO: remove
 	struct EntityDetails
 	{
