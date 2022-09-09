@@ -129,6 +129,12 @@ namespace oGFX
 		glm::vec3 tangent{}; // Vertex normal (x, y, z)
 	};
 
+	struct DebugVertex
+	{
+		glm::vec3 pos{ 0.0f }; // Vertex position (x, y, z)
+		glm::vec3 col{ 0.0f,1.0f,0.0f }; // Vertex colour (r, g, b)
+	};
+
 	// Per-instance data block
 	struct InstanceData {
 		uvec4 instanceAttributes{}; // ID, material, ...
@@ -645,7 +651,7 @@ namespace oGFX
 
 			// Acts as a rerouter for cleaner code
 			template<typename T, typename ... ARGS>
-			T Creator(ARGS&& ... args) // Intentionally spelling this way to avoid use of the common "Create" word
+			constexpr T Creator(ARGS&& ... args) // Intentionally spelling this way to avoid use of the common "Create" word
 			{
 			#define ENTRY(vkType, function) else if constexpr (std::is_same_v<T, vkType>) { return function(std::forward<ARGS>(args)...); }
 				if constexpr (std::is_same_v<T, int>) { static_assert(false, "Vulkan API struct creator not implemented!"); }
@@ -656,10 +662,87 @@ namespace oGFX
 				ENTRY(VkPipelineMultisampleStateCreateInfo,   pipelineMultisampleStateCreateInfo)
 				ENTRY(VkPipelineRasterizationStateCreateInfo, pipelineRasterizationStateCreateInfo)
 				ENTRY(VkPipelineDynamicStateCreateInfo,	      pipelineDynamicStateCreateInfo)
+				ENTRY(VkPipelineDepthStencilStateCreateInfo,  pipelineDepthStencilStateCreateInfo)
 
 			#undef ENTRY
 				else { static_assert(false, "Vulkan API struct creator not implemented!"); }
 			}
+
+			// Ghetto, could be cleaner... Or just use VK HPP...
+			struct PSOCreatorWrapper
+			{
+				VkPipelineShaderStageCreateInfo pStages;
+				VkPipelineVertexInputStateCreateInfo pVertexInputState;
+				VkPipelineInputAssemblyStateCreateInfo pInputAssemblyState;
+				VkPipelineTessellationStateCreateInfo pTessellationState;
+				VkPipelineViewportStateCreateInfo pViewportState;
+				VkPipelineRasterizationStateCreateInfo pRasterizationState;
+				VkPipelineMultisampleStateCreateInfo pMultisampleState;
+				VkPipelineDepthStencilStateCreateInfo pDepthStencilState;
+				VkPipelineColorBlendStateCreateInfo pColorBlendState;
+				VkPipelineDynamicStateCreateInfo pDynamicState;
+
+				template<typename T, typename ... ARGS>
+				void Set(ARGS&& ... args)
+				{
+#define ENTRY(vkType, var) else if constexpr (std::is_same_v<T, vkType>) { var = Creator<vkType>(std::forward<ARGS>(args)...); }
+					if constexpr (std::is_same_v<T, int>) { static_assert(false, "Vulkan API struct creator not implemented!"); }
+
+					ENTRY(VkPipelineShaderStageCreateInfo, pStages)
+					ENTRY(VkPipelineVertexInputStateCreateInfo, pVertexInputState)
+					ENTRY(VkPipelineInputAssemblyStateCreateInfo, pInputAssemblyState)
+					ENTRY(VkPipelineTessellationStateCreateInfo, pTessellationState)
+					ENTRY(VkPipelineViewportStateCreateInfo, pViewportState)
+					ENTRY(VkPipelineRasterizationStateCreateInfo, pRasterizationState)
+					ENTRY(VkPipelineMultisampleStateCreateInfo, pMultisampleState)
+					ENTRY(VkPipelineDepthStencilStateCreateInfo, pDepthStencilState)
+					ENTRY(VkPipelineColorBlendStateCreateInfo, pColorBlendState)
+					ENTRY(VkPipelineDynamicStateCreateInfo, pDynamicState)
+					else static_assert(false, "PSOCreatorWrapper Get CreateInfo type invalid!");
+#undef ENTRY
+				}
+
+				template<typename T>
+				constexpr T& Get()
+				{
+					if constexpr (std::is_same_v<T, VkPipelineShaderStageCreateInfo>) return pStages;
+					else if constexpr (std::is_same_v<T, VkPipelineVertexInputStateCreateInfo>) return pVertexInputState;
+					else if constexpr (std::is_same_v<T, VkPipelineInputAssemblyStateCreateInfo>) return pInputAssemblyState;
+					else if constexpr (std::is_same_v<T, VkPipelineTessellationStateCreateInfo>) return pTessellationState;
+					else if constexpr (std::is_same_v<T, VkPipelineViewportStateCreateInfo>) return pViewportState;
+					else if constexpr (std::is_same_v<T, VkPipelineRasterizationStateCreateInfo>) return pRasterizationState;
+					else if constexpr (std::is_same_v<T, VkPipelineMultisampleStateCreateInfo>) return pMultisampleState;
+					else if constexpr (std::is_same_v<T, VkPipelineDepthStencilStateCreateInfo>) return pDepthStencilState;
+					else if constexpr (std::is_same_v<T, VkPipelineColorBlendStateCreateInfo>) return pColorBlendState;
+					else if constexpr (std::is_same_v<T, VkPipelineDynamicStateCreateInfo>) return pDynamicState;
+					else static_assert(false, "PSOCreatorWrapper Get CreateInfo type invalid!");
+				}
+
+				constexpr PSOCreatorWrapper& SetRenderPass(VkRenderPass renderPass) 
+				{
+					m_Data.renderPass = renderPass;
+					return *this;
+				}
+
+				void SetAndCompile()
+				{
+					// ???
+					m_Data.pStages = &pStages;
+					m_Data.pVertexInputState = &pVertexInputState;
+					m_Data.pInputAssemblyState = &pInputAssemblyState;
+					m_Data.pTessellationState = &pTessellationState;
+					m_Data.pViewportState = &pViewportState;
+					m_Data.pRasterizationState = &pRasterizationState;
+					m_Data.pMultisampleState = &pMultisampleState;
+					m_Data.pDepthStencilState = &pDepthStencilState;
+					m_Data.pColorBlendState = &pColorBlendState;
+					m_Data.pDynamicState = &pDynamicState;
+				}
+
+				// The actual one to compile only holds pointers
+				VkGraphicsPipelineCreateInfo m_Data;
+			};
+
 		}
 	}
 

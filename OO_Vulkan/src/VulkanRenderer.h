@@ -210,6 +210,7 @@ public:
     void InitDebugBuffers();
     void UploadDebugDrawBuffers();
 
+	// This naming is rather confusing... VertexBufferObject but it contains an index buffer inside?
     struct VertexBufferObject
     {
         GpuVector<oGFX::Vertex> VtxBuffer;
@@ -218,44 +219,12 @@ public:
         uint32_t IdxOffset{};
     };
 
-    VertexBufferObject g_GlobalMeshBuffers;
+	VertexBufferObject g_GlobalMeshBuffers;
 
-    VertexBufferObject g_AABBMeshBuffers;
-    std::vector<oGFX::Vertex> g_AABBMeshes;
-    VertexBufferObject g_SphereMeshBuffers;
-    std::vector<oGFX::Vertex> g_SphereMeshes;
-
-    GpuVector<oGFX::Vertex> g_debugDrawVertBuffer;
-    GpuVector<uint32_t> g_debugDrawIndxBuffer;
-    std::vector<oGFX::Vertex> g_debugDrawVerts;
-    std::vector<uint32_t> g_debugDrawIndices;
-
-	//TEMP
-	struct DebugDraw
-	{
-		GpuVector<oGFX::Vertex> vbo;
-		GpuVector<uint32_t> ibo;
-		std::vector<oGFX::Vertex> vertex;
-		std::vector<uint32_t> indices;
-		bool dirty = true;
-	};
-
-	
-	static constexpr size_t g_btmUp_AABB =0;
-	static constexpr size_t g_topDwn_AABB =1;
-	static constexpr size_t g_btmUp_Sphere=2;
-	static constexpr size_t g_topDwn_Sphere=3;
-	static constexpr size_t g_octTree_tris=4;
-	static constexpr size_t g_octTree_box=5;
-	static constexpr size_t g_BSP_tris=6;
-
-	static constexpr size_t debugDrawBufferCnt = 7;
-
-	 bool g_b_drawDebug[debugDrawBufferCnt];
-	 DebugDraw g_DebugDraws[debugDrawBufferCnt];
-	void InitTreeDebugDraws();
-	void ShutdownTreeDebug();
-
+    GpuVector<oGFX::DebugVertex> g_DebugDrawVertexBufferGPU;
+    GpuVector<uint32_t> g_DebugDrawIndexBufferGPU;
+    std::vector<oGFX::DebugVertex> g_DebugDrawVertexBufferCPU;
+    std::vector<uint32_t> g_DebugDrawIndexBufferCPU;
 
 	Model* LoadModelFromFile(const std::string& file);
 	Model* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, gfxModel* model);

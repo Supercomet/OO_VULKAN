@@ -77,8 +77,6 @@ VulkanRenderer::~VulkanRenderer()
 
 	DestroyRenderBuffers();
 
-	ShutdownTreeDebug();
-
 	samplerManager.Shutdown();
 
 	gpuTransformBuffer.destroy();
@@ -244,8 +242,6 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateDescriptorPool();
 		CreateSynchronisation();
 
-
-		InitTreeDebugDraws();
 		InitDebugBuffers();
 		g_GlobalMeshBuffers.IdxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 		g_GlobalMeshBuffers.VtxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -618,8 +614,8 @@ void VulkanRenderer::CreateGraphicsPipeline()
 	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
 	vertexInputCreateInfo.vertexAttributeDescriptionCount = 5;
 
-	shaderStages[0] = LoadShader(m_device,"Shaders/bin/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = LoadShader(m_device,"Shaders/bin/shader.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
+	shaderStages[0] = LoadShader(m_device,"Shaders/bin/debugdraw.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	shaderStages[1] = LoadShader(m_device,"Shaders/bin/debugdraw.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPSO);
 	VK_NAME(m_device.logicalDevice, "graphicsPSO", graphicsPSO);
@@ -1280,11 +1276,11 @@ void VulkanRenderer::DestroyImGUI()
 
 void VulkanRenderer::AddDebugLine(const glm::vec3& p0, const glm::vec3& p1, const oGFX::Color& col, size_t loc)
 {
-	auto sz = g_debugDrawVerts.size();
-	g_debugDrawVerts.push_back(oGFX::Vertex{ p0,{/*normal*/},col });
-	g_debugDrawVerts.push_back(oGFX::Vertex{ p1,{/*normal*/},col });
-	g_debugDrawIndices.push_back(0 + static_cast<uint32_t>(sz));
-	g_debugDrawIndices.push_back(1 + static_cast<uint32_t>(sz));
+	auto sz = g_DebugDrawVertexBufferCPU.size();
+	g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ p0, col });
+	g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ p1, col });
+	g_DebugDrawIndexBufferCPU.emplace_back(0 + static_cast<uint32_t>(sz));
+	g_DebugDrawIndexBufferCPU.emplace_back(1 + static_cast<uint32_t>(sz));
 }
 
 void VulkanRenderer::AddDebugBox(const AABB& aabb, const oGFX::Color& col, size_t loc)
@@ -1306,40 +1302,20 @@ void VulkanRenderer::AddDebugBox(const AABB& aabb, const oGFX::Color& col, size_
 		
 	if (loc == size_t(-1))
 	{
-		auto sz = g_debugDrawVerts.size();
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); //0
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 1
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 2
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 3
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 4
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 5
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 6
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 7
+		auto sz = g_DebugDrawVertexBufferCPU.size();
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },col }); //0
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },col }); // 1
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },col }); // 2
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },col }); // 3
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },col }); // 4
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },col }); // 5
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },col }); // 6
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },col }); // 7
 		for (auto x : boxindices)
 		{
-			g_debugDrawIndices.push_back(x + static_cast<uint32_t>(sz));
+			g_DebugDrawIndexBufferCPU.emplace_back(x + static_cast<uint32_t>(sz));
 		}
 	}
-	else
-	{
-		auto& debug = g_DebugDraws[loc];
-
-		auto sz = debug.vertex.size();
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); //0
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 1
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 2
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 3
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 4
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 5
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 6
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 7
-		for (auto x : boxindices)
-		{
-			debug.indices.push_back(x + static_cast<uint32_t>(sz));
-		}
-	}
-
-	
 }
 
 void VulkanRenderer::AddDebugSphere(const Sphere& sphere, const oGFX::Color& col, size_t loc)
@@ -1368,80 +1344,41 @@ void VulkanRenderer::AddDebugSphere(const Sphere& sphere, const oGFX::Color& col
 	
 	if (loc == size_t(-1))
 	{
-		auto currsz = g_debugDrawVerts.size();
-		g_debugDrawVerts.reserve(g_debugDrawVerts.size() + vertices.size());
+		auto currsz = g_DebugDrawVertexBufferCPU.size();
+		g_DebugDrawVertexBufferCPU.reserve(g_DebugDrawVertexBufferCPU.size() + vertices.size());
+		oGFX::DebugVertex vert;
 		for (const auto& v : vertices)
 		{
-			oGFX::Vertex vert{ v };
 			vert.pos = vert.pos*sphere.radius + sphere.center;
 			vert.col = col;
-			g_debugDrawVerts.push_back(vert);
+			g_DebugDrawVertexBufferCPU.push_back(vert);
 		}
 
-		g_debugDrawIndices.reserve( g_debugDrawIndices.size() + indices.size());
+		g_DebugDrawIndexBufferCPU.reserve( g_DebugDrawIndexBufferCPU.size() + indices.size());
 		for (const auto ind : indices) 
 		{
-			g_debugDrawIndices.emplace_back(ind+static_cast<uint32_t>(currsz));
+			g_DebugDrawIndexBufferCPU.emplace_back(ind+static_cast<uint32_t>(currsz));
 		}
-	}
-	else
-	{
-		auto& debug = g_DebugDraws[loc];
-		auto currsz = debug.vertex.size();
-		debug.vertex.reserve(debug.vertex.size() + vertices.size());
-		for (const auto& v : vertices)
-		{
-			oGFX::Vertex vert{ v };
-			vert.pos = vert.pos*sphere.radius + sphere.center;
-			vert.col = col;
-			debug.vertex.push_back(vert);
-		}
-		debug.indices.reserve( debug.indices.size() + indices.size());
-		for (const auto ind : indices) 
-		{
-			debug.indices.emplace_back(ind+static_cast<uint32_t>(currsz));
-		}
-	}
-	
+	}	
 }
 
 void VulkanRenderer::AddDebugTriangle(const Triangle& tri, const oGFX::Color& col, size_t loc)
 {
-
 	if (loc == size_t(-1))
 	{
-		auto sz = g_debugDrawVerts.size();
-		g_debugDrawVerts.push_back(oGFX::Vertex{ tri.v0,{/*normal*/},col }); //0
-		g_debugDrawVerts.push_back(oGFX::Vertex{ tri.v1,{/*normal*/},col }); //1
-		g_debugDrawVerts.push_back(oGFX::Vertex{ tri.v2,{/*normal*/},col }); //2
+		auto sz = g_DebugDrawVertexBufferCPU.size();
+		g_DebugDrawVertexBufferCPU.push_back(oGFX::DebugVertex{ tri.v0, col }); //0
+		g_DebugDrawVertexBufferCPU.push_back(oGFX::DebugVertex{ tri.v1, col }); //1
+		g_DebugDrawVertexBufferCPU.push_back(oGFX::DebugVertex{ tri.v2, col }); //2
 		
-		g_debugDrawIndices.push_back(0 + static_cast<uint32_t>(sz)); // E0
-		g_debugDrawIndices.push_back(1 + static_cast<uint32_t>(sz)); // E0
-		g_debugDrawIndices.push_back(1 + static_cast<uint32_t>(sz)); // E1
-		g_debugDrawIndices.push_back(2 + static_cast<uint32_t>(sz)); // E1
-		g_debugDrawIndices.push_back(2 + static_cast<uint32_t>(sz)); // E2
-		g_debugDrawIndices.push_back(0 + static_cast<uint32_t>(sz)); // E2
-		
-	}
-	else
-	{
-		auto& debug = g_DebugDraws[loc];
-
-		auto sz = debug.vertex.size();
-		debug.vertex.push_back(oGFX::Vertex{ tri.v0,{/*normal*/},col }); //0
-		debug.vertex.push_back(oGFX::Vertex{ tri.v1,{/*normal*/},col }); //1
-		debug.vertex.push_back(oGFX::Vertex{ tri.v2,{/*normal*/},col }); //2
-
-		debug.indices.push_back(0 + static_cast<uint32_t>(sz)); // E0
-		debug.indices.push_back(1 + static_cast<uint32_t>(sz)); // E0
-		debug.indices.push_back(1 + static_cast<uint32_t>(sz)); // E1
-		debug.indices.push_back(2 + static_cast<uint32_t>(sz)); // E1
-		debug.indices.push_back(2 + static_cast<uint32_t>(sz)); // E2
-		debug.indices.push_back(0 + static_cast<uint32_t>(sz)); // E2
+		g_DebugDrawIndexBufferCPU.push_back(0 + static_cast<uint32_t>(sz)); // E0
+		g_DebugDrawIndexBufferCPU.push_back(1 + static_cast<uint32_t>(sz)); // E0
+		g_DebugDrawIndexBufferCPU.push_back(1 + static_cast<uint32_t>(sz)); // E1
+		g_DebugDrawIndexBufferCPU.push_back(2 + static_cast<uint32_t>(sz)); // E1
+		g_DebugDrawIndexBufferCPU.push_back(2 + static_cast<uint32_t>(sz)); // E2
+		g_DebugDrawIndexBufferCPU.push_back(0 + static_cast<uint32_t>(sz)); // E2
 	}
 }
-
-
 
 void VulkanRenderer::InitializeRenderBuffers()
 {
@@ -1842,24 +1779,6 @@ bool VulkanRenderer::ResizeSwapchain()
 	return true;
 }
 
-void VulkanRenderer::InitTreeDebugDraws()
-{
-	for (size_t i = 0; i < debugDrawBufferCnt; i++)
-	{
-		g_DebugDraws[i].vbo.Init(&m_device,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		g_DebugDraws[i].ibo.Init(&m_device,VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-	}
-}
-
-void VulkanRenderer::ShutdownTreeDebug()
-{
-	for (size_t i = 0; i < debugDrawBufferCnt; i++)
-	{
-		g_DebugDraws[i].vbo.destroy();
-		g_DebugDraws[i].ibo.destroy();
-	}
-}
-
 Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
 {
 	// new model loader
@@ -2157,24 +2076,24 @@ VulkanRenderer::TextureInfo VulkanRenderer::GetTextureInfo(uint32_t handle)
 void VulkanRenderer::InitDebugBuffers()
 {
 	// TODO remove this
-	g_debugDrawVertBuffer.Init(&m_device,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-	g_debugDrawIndxBuffer.Init(&m_device,VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	g_DebugDrawVertexBufferGPU.Init(&m_device,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	g_DebugDrawIndexBufferGPU.Init(&m_device,VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
 void VulkanRenderer::UploadDebugDrawBuffers()
 {
 	PROFILE_SCOPED();
 
-	g_debugDrawVertBuffer.reserve(g_debugDrawVerts.size() );
-	g_debugDrawIndxBuffer.reserve(g_debugDrawIndices.size());
+	g_DebugDrawVertexBufferGPU.reserve(g_DebugDrawVertexBufferCPU.size() );
+	g_DebugDrawIndexBufferGPU.reserve(g_DebugDrawIndexBufferCPU.size());
 
 	// Copy CPU debug draw buffers to the GPU
-	g_debugDrawVertBuffer.writeTo(g_debugDrawVerts.size() , g_debugDrawVerts.data());
-	g_debugDrawIndxBuffer.writeTo(g_debugDrawIndices.size() , g_debugDrawIndices.data());
+	g_DebugDrawVertexBufferGPU.writeTo(g_DebugDrawVertexBufferCPU.size() , g_DebugDrawVertexBufferCPU.data());
+	g_DebugDrawIndexBufferGPU.writeTo(g_DebugDrawIndexBufferCPU.size() , g_DebugDrawIndexBufferCPU.data());
 
 	// Clear the CPU debug draw buffers for this frame
-	g_debugDrawVerts.clear();
-	g_debugDrawIndices.clear();
+	g_DebugDrawVertexBufferCPU.clear();
+	g_DebugDrawIndexBufferCPU.clear();
 }
 
 void VulkanRenderer::UpdateUniformBuffers()
