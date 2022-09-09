@@ -1550,9 +1550,13 @@ void VulkanRenderer::RenderFrame()
 		// Manually schedule the order of the render pass execution. (single threaded)
 		{
             RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
+            //RenderPassDatabase::GetRenderPass<ZPrepassRenderpass>()->Draw();
             RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
-			RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
-			RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
+            //RenderPassDatabase::GetRenderPass<DeferredDecalRenderpass>()->Draw();
+            RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
+            //RenderPassDatabase::GetRenderPass<ForwardRenderpass>()->Draw();
+            //RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
+            RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
 		}
     }
 }
