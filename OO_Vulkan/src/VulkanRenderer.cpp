@@ -137,12 +137,7 @@ VulkanRenderer::~VulkanRenderer()
 		vkDestroySemaphore(m_device.logicalDevice, imageAvailable[i], nullptr);
 	}
 
-	vkDestroyPipeline(m_device.logicalDevice, graphicsPSO, nullptr);
-	vkDestroyPipeline(m_device.logicalDevice, wireframePSO, nullptr);
-
-	vkDestroyPipeline(m_device.logicalDevice, indirectPSO, nullptr);
-	vkDestroyPipelineLayout(m_device.logicalDevice, indirectPSOLayout, nullptr);
-
+	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::indirectPSOLayout, nullptr);
 	
 	if (renderPass_default)
 	{
@@ -188,7 +183,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		InitializeRenderBuffers();
 
-		CreateRenderpass();
+		CreateDefaultRenderpass();
 		CreateUniformBuffers();
 		CreateDescriptorSetLayout();
 
@@ -207,7 +202,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		CreateDescriptorSets_GPUScene();
 
-		CreateGraphicsPipeline();
+		CreateDefaultPSOLayouts();
 
 		if (setupSpecs.useOwnImgui)
 		{
@@ -301,7 +296,7 @@ void VulkanRenderer::SetupSwapchain()
 	m_swapchain.Init(m_instance,m_device);
 }
 
-void VulkanRenderer::CreateRenderpass()
+void VulkanRenderer::CreateDefaultRenderpass()
 {
 	if (renderPass_default)
 	{
@@ -319,8 +314,8 @@ void VulkanRenderer::CreateRenderpass()
 	colourAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; //describes what do with with stencil before rendering
 	colourAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; //describes what do with with stencil before rendering
 
-																		//frame buffer data will be stored as image, but images can be given different data layouts
-																		//to give optimal use for certain operations
+	//frame buffer data will be stored as image, but images can be given different data layouts
+	//to give optimal use for certain operations
 	colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; //image data layout before render pass starts
 	//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
 	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL; //image data layout aftet render pass ( to change to)
@@ -328,12 +323,9 @@ void VulkanRenderer::CreateRenderpass()
 	// todo editor??
 	//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
 
-																	// Depth attachment of render pass
+	// Depth attachment of render pass
 	VkAttachmentDescription depthAttachment{};
-	depthAttachment.format = oGFX::ChooseSupportedFormat(m_device,
-		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	depthAttachment.format = G_DEPTH_FORMAT;
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -469,24 +461,17 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 	// Texture binding info
 	VkDescriptorSetLayoutBinding samplerLayoutBinding =
 		oGFX::vkutils::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, MAX_OBJECTS);
-	
-	// create a descriptor set layout with given bindings for texture
-	VkDescriptorSetLayoutCreateInfo textureLayoutCreateInfo = 
-		oGFX::vkutils::inits::descriptorSetLayoutCreateInfo(&samplerLayoutBinding,1);
 
-
-	VkDescriptorBindingFlags flags[3];
-	//flags[0] = 0;
-	//flags[1] = 0;
-	flags[0] = 	VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-
+	VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
 	VkDescriptorSetLayoutBindingFlagsCreateInfo flaginfo{};
 	flaginfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-	flaginfo.pBindingFlags = flags;
+	flaginfo.pBindingFlags = &flags;
 	flaginfo.bindingCount = 1;
 
+	// create a descriptor set layout with given bindings for texture
+	VkDescriptorSetLayoutCreateInfo textureLayoutCreateInfo =
+		oGFX::vkutils::inits::descriptorSetLayoutCreateInfo(&samplerLayoutBinding, 1);
 	textureLayoutCreateInfo.pNext = &flaginfo;
-
 
 	VkResult result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &textureLayoutCreateInfo, nullptr, &LayoutDB::bindless);
 	VK_NAME(m_device.logicalDevice, "samplerSetLayout", LayoutDB::bindless);
@@ -494,144 +479,29 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 	{
 		throw std::runtime_error("Failed to create a descriptor set layout!");
 	}
-
 }
 
-void VulkanRenderer::CreateGraphicsPipeline()
+void VulkanRenderer::CreateDefaultPSOLayouts()
 {
-	using namespace oGFX;
-	//create pipeline
-
-	//how the data for a single vertex (including infos such as pos, colour, texture, coords, normals etc) is as a whole
-	std::vector<VkVertexInputBindingDescription> bindingDescription = oGFX::GetGFXVertexInputBindings();
-
-	//how the data for an attirbute is define in the vertex
-	std::vector<VkVertexInputAttributeDescription>attributeDescriptions = oGFX::GetGFXVertexInputAttributes();
-	// -- VERTEX INPUT -- 
-	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = oGFX::vkutils::inits::pipelineVertexInputStateCreateInfo(bindingDescription,attributeDescriptions);
-	// __ INPUT ASSEMBLY __
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0 ,VK_FALSE);
-	VkPipelineViewportStateCreateInfo viewportStateCreateInfo = oGFX::vkutils::inits::pipelineViewportStateCreateInfo(1,1,0);
-	//Dynami states to enable	
-	std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-	VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = oGFX::vkutils::inits::pipelineDynamicStateCreateInfo(dynamicStateEnables);
-	// -- RASTERIZER --
-	VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL,VK_CULL_MODE_BACK_BIT,VK_FRONT_FACE_COUNTER_CLOCKWISE,0);
-	// -- MULTI SAMPLING --
-	VkPipelineMultisampleStateCreateInfo multisamplingCreateInfo = oGFX::vkutils::inits::pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT,0);
-
-	//-- BLENDING --
-	//Blending decies how to blend a new color being written to a a fragment with the old value
-	//blend attachment state (how blending is handled
-	
-	VkPipelineColorBlendAttachmentState colourState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0x0000000F,VK_TRUE);
-
-	//blending uses equation : (srcColourBlendFactor * new colour ) colourBlendOp ( dstColourBlendFActor*old colour)
-	colourState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	colourState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	colourState.colorBlendOp = VK_BLEND_OP_ADD;
-
-	//summarsed : (VK_BLEND_FACTOR_SRC_ALPHA * new colour) + (VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA * old colour)
-	//			  (new colour alpha * new colour) + ((1 - new colour alpha) * old colour)
-
-	colourState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colourState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colourState.alphaBlendOp = VK_BLEND_OP_ADD;
-	//summarised : (1 * new alpha) + (0 * old alpha) = new alpha
-
-
-	VkPipelineColorBlendStateCreateInfo colourBlendingCreateInfo = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1,&colourState);
-
-	// -- PIPELINE LAYOUT 
 	std::array<VkDescriptorSetLayout, 3> descriptorSetLayouts = 
 	{
 		LayoutDB::gpuscene, // (set = 0)
 		LayoutDB::uniform,  // (set = 1)
-		LayoutDB::bindless // (set = 2)
+		LayoutDB::bindless  // (set = 2)
 	};
 
-	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo =
-		oGFX::vkutils::inits::pipelineLayoutCreateInfo(descriptorSetLayouts.data(),static_cast<uint32_t>(descriptorSetLayouts.size()));
+	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = oGFX::vkutils::inits::pipelineLayoutCreateInfo(descriptorSetLayouts);
+	
 	VkPushConstantRange pushConstantRange{ VK_SHADER_STAGE_ALL, 0, 128 };
 	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
 	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 
-	// indirect pipeline
-	VkResult result = vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &indirectPSOLayout);
-	VK_NAME(m_device.logicalDevice, "indirectPipeLayout", indirectPSOLayout);
+	VkResult result = vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::indirectPSOLayout);
+	VK_NAME(m_device.logicalDevice, "indirectPSOLayout", PSOLayoutDB::indirectPSOLayout);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create Pipeline Layout!");
 	}
-	// go back to normal pipelines
-
-	// Create Pipeline Layout
-	//result = vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
-	//if (result != VK_SUCCESS)
-	//{
-	//	throw std::runtime_error("Failed to create Pipeline Layout!");
-	//}
-	std::array<VkPipelineShaderStageCreateInfo,2>shaderStages = {};
-	
-	// -- DEPTH STENCIL TESTING --	
-	VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo = oGFX::vkutils::inits::pipelineDepthStencilStateCreateInfo(VK_TRUE,VK_TRUE, VK_COMPARE_OP_LESS);
-
-																	// -- GRAPHICS PIPELINE CREATION --
-	VkGraphicsPipelineCreateInfo pipelineCreateInfo = oGFX::vkutils::inits::pipelineCreateInfo(indirectPSOLayout,renderPass_default);
-	pipelineCreateInfo.stageCount = 2;								//number of shader stages
-	pipelineCreateInfo.pStages = shaderStages.data();				//list of sader stages
-	pipelineCreateInfo.pVertexInputState = &vertexInputCreateInfo;	//all the fixed funciton pipeline states
-	pipelineCreateInfo.pInputAssemblyState = &inputAssembly;
-	pipelineCreateInfo.pViewportState = &viewportStateCreateInfo;
-	pipelineCreateInfo.pDynamicState = &dynamicStateCreateInfo;
-	pipelineCreateInfo.pRasterizationState = &rasterizerCreateInfo;
-	pipelineCreateInfo.pMultisampleState = &multisamplingCreateInfo;
-	pipelineCreateInfo.pColorBlendState = &colourBlendingCreateInfo;
-	pipelineCreateInfo.pDepthStencilState = &depthStencilCreateInfo;
-
-
-	//graphics pipeline creation requires array of shader stages create
-
-	//create graphics pipeline
-	shaderStages[0] = LoadShader(m_device,"Shaders/bin/indirect.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = LoadShader(m_device,"Shaders/bin/indirect.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
-
-	pipelineCreateInfo.layout = indirectPSOLayout;
-	// Indirect pipeline
-	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &indirectPSO);
-	VK_NAME(m_device.logicalDevice, "indirectPSO", indirectPSO);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create a Graphics Pipeline!");
-	}
-	//destroy indirect shader modules 
-	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
-	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
-
-
-	pipelineCreateInfo.layout = indirectPSOLayout;
-	// we use less for normal pipeline
-	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
-	vertexInputCreateInfo.vertexAttributeDescriptionCount = 5;
-
-	shaderStages[0] = LoadShader(m_device,"Shaders/bin/debugdraw.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = LoadShader(m_device,"Shaders/bin/debugdraw.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
-
-	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPSO);
-	VK_NAME(m_device.logicalDevice, "graphicsPSO", graphicsPSO);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create a Graphics Pipeline!");
-	}
-	rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
-	pipelineCreateInfo.renderPass = renderPass_default;
-	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &wireframePSO));
-	VK_NAME(m_device.logicalDevice, "wireframePSO", wireframePSO);
-
-	//destroy shader modules after pipeline is created
-	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
-	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
-
 }
 
 void VulkanRenderer::CreateFramebuffers()
@@ -1768,7 +1638,7 @@ bool VulkanRenderer::ResizeSwapchain()
 		if (windowPtr->windowShouldClose) return false;
 	}
 	m_swapchain.Init(m_instance, m_device);
-	CreateRenderpass();
+	CreateDefaultRenderpass();
 	//CreateDepthBufferImage();
 	CreateFramebuffers();
 

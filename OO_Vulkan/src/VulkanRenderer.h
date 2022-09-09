@@ -53,6 +53,11 @@ struct LayoutDB // Think of a better name? Very short and sweet for easy typing 
 	inline static VkDescriptorSetLayout ForwardDecal;
 };
 
+struct PSOLayoutDB
+{
+	inline static VkPipelineLayout indirectPSOLayout;
+};
+
 // Moving all constant buffer structures into this CB namespace.
 // Important: Take extra care of the alignment and memory layout. Must match the shader side.
 namespace CB
@@ -99,10 +104,10 @@ public:
 	void AcquirePhysicalDevice(const oGFX::SetupInfo& setupSpecs);
 	void CreateLogicalDevice(const oGFX::SetupInfo& setupSpecs);
 	void SetupSwapchain();
-	void CreateRenderpass();
+	void CreateDefaultRenderpass();
 	void CreateDescriptorSetLayout();
 
-	void CreateGraphicsPipeline();
+	void CreateDefaultPSOLayouts();
 	//void CreateDepthBufferImage();
 	void CreateFramebuffers(); 
 	void CreateCommandBuffers();
@@ -244,14 +249,10 @@ public:
 	 std::vector<VkFence> drawFences;
 	
 	// - Pipeline
-	VkPipeline graphicsPSO{};
-	VkPipeline wireframePSO{};
 	 VkRenderPass renderPass_default{};
 	 VkRenderPass renderPass_default2{};
 
 	 vkutils::Buffer indirectCommandsBuffer{};
-	 VkPipeline indirectPSO{};
-	 VkPipelineLayout indirectPSOLayout{};
 	 uint32_t indirectDrawCount{};
 
 	 vkutils::Buffer boneMatrixBuffer{};

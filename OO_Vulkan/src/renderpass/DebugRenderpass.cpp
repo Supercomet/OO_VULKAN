@@ -78,7 +78,7 @@ void DebugDrawRenderpass::Draw()
 			vr.descriptorSets_uniform[swapchainIdx],
 			vr.descriptorSet_bindless
 		};
-		vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, vr.indirectPSOLayout,
+		vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, PSOLayoutDB::indirectPSOLayout,
 			0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);
 
 		vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, vr.g_DebugDrawVertexBufferGPU.getBufferPtr(), offsets);
@@ -252,20 +252,7 @@ void DebugDrawRenderpass::CreatePipeline()
 	colourState.alphaBlendOp = VK_BLEND_OP_ADD;
 	VkPipelineColorBlendStateCreateInfo colourBlendingCreateInfo = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1,&colourState);
 
-	// -- PIPELINE LAYOUT 
-	std::array<VkDescriptorSetLayout, 3> descriptorSetLayouts = 
-	{
-		LayoutDB::gpuscene, // (set = 0)
-		LayoutDB::uniform, // (set = 1)
-		LayoutDB::bindless // (set = 2)
-	};
-
-	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = oGFX::vkutils::inits::pipelineLayoutCreateInfo(descriptorSetLayouts.data(),static_cast<uint32_t>(descriptorSetLayouts.size()));
-	VkPushConstantRange pushConstantRange{ VK_SHADER_STAGE_ALL, 0, 128 };
-	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
-
-	VkGraphicsPipelineCreateInfo pipelineCreateInfo = oGFX::vkutils::inits::pipelineCreateInfo(vr.indirectPSOLayout,vr.renderPass_default);
+	VkGraphicsPipelineCreateInfo pipelineCreateInfo = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::indirectPSOLayout,vr.renderPass_default);
 	pipelineCreateInfo.stageCount = 2;
 	pipelineCreateInfo.pStages = shaderStages.data();
 	pipelineCreateInfo.pVertexInputState = &vertexInputCreateInfo;
