@@ -79,6 +79,8 @@ struct gfxModel
     void loadNode(Node* parent, const aiScene* scene, const aiNode& node, uint32_t nodeIndex,
                   std::vector<oGFX::Vertex>& vertices, std::vector<uint32_t>& indices);
 
+    void updateOffsets(uint32_t idxOffset, uint32_t vertOffset);
+
     std::vector<Node*> nodes;
     uint32_t meshCount{};
 

@@ -1388,24 +1388,21 @@ void VulkanRenderer::UploadInstanceData()
 	{
 		for (auto& ent :  currWorld->GetAllObjectInstances())
 		{
-			// TODO: This needs urgent fixing..
+			// creates a single transform reference for each entity in the scene
 			size_t x = gpuTransform.size();
-			size_t len = x + models[ent.modelID].meshCount;
 			mat4 xform = ent.localToWorld;
-			for (; x < len; x++)
-			{
-				GPUTransform gpt;
-				gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
-				gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
-				gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
-				gpuTransform.emplace_back(gpt);
-			}
+			GPUTransform gpt;
+			gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
+			gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
+			gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
+			gpuTransform.emplace_back(gpt);
 		}
 	}
 	
 	gpuTransformBuffer.writeTo(gpuTransform.size(), gpuTransform.data());
 	// TODO: Must the entire buffer be uploaded every frame?
 
+	uint32_t indexCounter = 0;
 	std::vector<oGFX::InstanceData> instanceData;
 	instanceData.reserve(objectCount);
 	if (currWorld)
@@ -1414,8 +1411,8 @@ void VulkanRenderer::UploadInstanceData()
 		for (auto& ent: currWorld->GetAllObjectInstances())
 		{
 			oGFX::InstanceData id;
-			size_t sz = instanceData.size();
-			for (size_t x = 0; x < models[ent.modelID].meshCount; x++)
+			//size_t sz = instanceData.size();
+			//for (size_t x = 0; x < models[ent.modelID].meshCount; x++)
 			{
 				// This is per entity. Should be per material.
 				uint32_t albedo = ent.bindlessGlobalTextureIndex_Albedo;
@@ -1436,7 +1433,7 @@ void VulkanRenderer::UploadInstanceData()
 				// Important: Make sure this index packing matches the unpacking in the shader
 				const uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF);
 				const uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
-				const uint32_t instanceID = uint32_t(sz + x);
+				const uint32_t instanceID = uint32_t(indexCounter); // the instance id should point to the entity
 				const uint32_t unused = (uint32_t)perInstanceData; //matCnt;
                 // Putting these ranges here for easy reference:
 				// 9-bit:  [0 to 511]
@@ -1451,9 +1448,11 @@ void VulkanRenderer::UploadInstanceData()
 				// TODO: This is the solution for now.
 				// In the future, we can just use an index for all the materials (indirection) to fetch from another buffer.
 				id.instanceAttributes = uvec4(instanceID, unused, albedo_normal, roughness_metallic);
+				
 				instanceData.emplace_back(id);
 			}
 			++matCnt;
+			++indexCounter;
 		}
 		
 	}
@@ -1667,19 +1666,24 @@ Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	// new model loader
 	
 	Assimp::Importer importer;
-	const aiScene *scene = importer.ReadFile(file,
-		  aiProcess_Triangulate                // Make sure we get triangles rather than nvert polygons
-		| aiProcess_LimitBoneWeights           // 4 weights for skin model max
-		| aiProcess_GenUVCoords                // Convert any type of mapping to uv mapping
-		| aiProcess_TransformUVCoords          // preprocess UV transformations (scaling, translation ...)
-		| aiProcess_FindInstances              // search for instanced meshes and remove them by references to one master
-		| aiProcess_CalcTangentSpace           // calculate tangents and bitangents if possible
-		//| aiProcess_JoinIdenticalVertices      // join identical vertices/ optimize indexing
-		| aiProcess_RemoveRedundantMaterials   // remove redundant materials
-		| aiProcess_FindInvalidData            // detect invalid model data, such as invalid normal vectors
-		| aiProcess_PreTransformVertices       // TODO: remove for skinning?
-		| aiProcess_FlipUVs						// TODO: some mesh need
-		| aiProcess_GenNormals					// TODO: some mesh need
+	uint flags = 0;
+	flags |= aiProcess_Triangulate;
+	flags |= aiProcess_GenSmoothNormals;
+	flags |= aiProcess_ImproveCacheLocality;
+	flags |= aiProcess_CalcTangentSpace;
+	const aiScene *scene = importer.ReadFile(file,flags
+		//  aiProcess_Triangulate                // Make sure we get triangles rather than nvert polygons
+		//| aiProcess_LimitBoneWeights           // 4 weights for skin model max
+		//| aiProcess_GenUVCoords                // Convert any type of mapping to uv mapping
+		//| aiProcess_TransformUVCoords          // preprocess UV transformations (scaling, translation ...)
+		//| aiProcess_FindInstances              // search for instanced meshes and remove them by references to one master
+		//| aiProcess_CalcTangentSpace           // calculate tangents and bitangents if possible
+		////| aiProcess_JoinIdenticalVertices      // join identical vertices/ optimize indexing
+		//| aiProcess_RemoveRedundantMaterials   // remove redundant materials
+		//| aiProcess_FindInvalidData            // detect invalid model data, such as invalid normal vectors
+		////| aiProcess_PreTransformVertices       // TODO: remove for skinning?
+		//| aiProcess_FlipUVs						// TODO: some mesh need
+		//| aiProcess_GenNormals					// TODO: some mesh need
 	);
 
 	if (!scene)
@@ -1690,8 +1694,9 @@ Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
 
 	if (scene->HasAnimations())
 	{
-
+		std::cout << "Animated scene\n";
 	}
+
 
 	std::vector<std::string> textureNames = MeshContainer::LoadMaterials(scene);
 	std::vector<int> matToTex(textureNames.size());
@@ -1724,31 +1729,22 @@ Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	Model* m = new Model;
 	m->gfxIndex = static_cast<uint32_t>(modelResourceIndex);
 	model.cpuModel = m;
-	//std::vector<oGFX::Vertex> verticeBuffer;
-	//std::vector<uint32_t> indexBuffer;
+	m->fileName = file;
+
 	model.meshCount= 0 ;
 	model.loadNode(nullptr, scene, *scene->mRootNode, 0, m->vertices, m->indices);
-
-	for (auto& node : model.nodes)
-	{
-		for (auto& mesh : node->meshes)
-		{
-			model.meshCount += 1;
-			mesh->indicesOffset += g_GlobalMeshBuffers.IdxOffset;
-			mesh->vertexOffset += g_GlobalMeshBuffers.VtxOffset;
-		}
-		for (auto& child: node->children)
-		{
-			for (auto& mesh : child->meshes)
-			{
-				model.meshCount += 1;
-				mesh->indicesOffset += g_GlobalMeshBuffers.IdxOffset;
-				mesh->vertexOffset += g_GlobalMeshBuffers.VtxOffset;
-			}
-		}
-	}
+	model.updateOffsets(g_GlobalMeshBuffers.IdxOffset, g_GlobalMeshBuffers.VtxOffset);
 	
 	LoadMeshFromBuffers(m->vertices, m->indices, &model);
+
+	std::cout << file << std::endl;
+	for (size_t i = 0; i < 3; i++)
+	{
+		auto& pos = m->vertices[i].pos;
+		std::cout << pos.x << ", " << pos.y << ", " << pos.z << std::endl;
+	}
+	std::cout << std::endl;
+
 
 	return m;
 }
