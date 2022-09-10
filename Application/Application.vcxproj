@@ -139,6 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\anim\SimpleAnim.cpp" />
     <ClCompile Include="src\AppUtils.cpp" />
     <ClCompile Include="src\CameraController.cpp" />
     <ClCompile Include="src\ImGuizmo.cpp" />
@@ -151,6 +152,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\anim\SimpleAnim.h" />
     <ClInclude Include="src\CameraController.h" />
     <ClInclude Include="src\ImGuizmo.h" />
     <ClInclude Include="src\keycodes.h" />

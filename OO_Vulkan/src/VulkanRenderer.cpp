@@ -116,7 +116,7 @@ VulkanRenderer::~VulkanRenderer()
 
 	// global sampler pool
 	vkDestroyDescriptorPool(m_device.logicalDevice, samplerDescriptorPool, nullptr);
-	vkDestroyDescriptorSetLayout(m_device.logicalDevice, LayoutDB::bindless, nullptr);
+	vkDestroyDescriptorSetLayout(m_device.logicalDevice, SetLayoutDB::bindless, nullptr);
 
 	for (auto framebuffer : swapChainFramebuffers)
 	{
@@ -243,9 +243,10 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		
 		PROFILE_INIT_VULKAN(&m_device.logicalDevice, &m_device.physicalDevice, &m_device.graphicsQueue, (uint32_t*)&m_device.queueIndices.graphicsFamily, 1, nullptr);
 	}
-	catch (std::runtime_error e)
+	catch (const std::exception& e)
 	{
-		throw e;
+		std::cout << "VulkanRenderer::Init failed: " << e.what() << std::endl;
+		throw e; // ???? wtf?
 	}
 	catch (...)
 	{
@@ -259,8 +260,13 @@ void VulkanRenderer::CreateInstance(const oGFX::SetupInfo& setupSpecs)
 	{
 		m_instance.Init(setupSpecs);
 	}
+	catch (const std::exception& e)
+	{
+		std::cerr << "Exception caught: " << e.what() << std::endl;
+	}
 	catch(...)
 	{
+		std::cerr << "Caught something, re-throwing from : " << __FUNCSIG__ << std::endl;
 		throw;
 	}
 }
@@ -437,7 +443,7 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 
 		DescriptorBuilder::Begin(&DescLayoutCache, &DescAlloc)
 			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-			.Build(descriptorSets_uniform[i], LayoutDB::uniform);
+			.Build(descriptorSets_uniform[i], SetLayoutDB::uniform);
 	}
 	//UNIFORM VALUES DESCRIPTOR SET LAYOUT
 	// UboViewProejction binding info
@@ -473,8 +479,8 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 		oGFX::vkutils::inits::descriptorSetLayoutCreateInfo(&samplerLayoutBinding, 1);
 	textureLayoutCreateInfo.pNext = &flaginfo;
 
-	VkResult result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &textureLayoutCreateInfo, nullptr, &LayoutDB::bindless);
-	VK_NAME(m_device.logicalDevice, "samplerSetLayout", LayoutDB::bindless);
+	VkResult result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &textureLayoutCreateInfo, nullptr, &SetLayoutDB::bindless);
+	VK_NAME(m_device.logicalDevice, "samplerSetLayout", SetLayoutDB::bindless);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a descriptor set layout!");
@@ -485,9 +491,9 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 {
 	std::array<VkDescriptorSetLayout, 3> descriptorSetLayouts = 
 	{
-		LayoutDB::gpuscene, // (set = 0)
-		LayoutDB::uniform,  // (set = 1)
-		LayoutDB::bindless  // (set = 2)
+		SetLayoutDB::gpuscene, // (set = 0)
+		SetLayoutDB::uniform,  // (set = 1)
+		SetLayoutDB::bindless  // (set = 2)
 	};
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = oGFX::vkutils::inits::pipelineLayoutCreateInfo(descriptorSetLayouts);
@@ -524,9 +530,9 @@ void VulkanRenderer::CreateFramebuffers()
 
 		VkFramebufferCreateInfo framebufferCreateInfo = {};
 		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferCreateInfo.renderPass = renderPass_default;										//render pass layout the frame buffer will be used with
+		framebufferCreateInfo.renderPass = renderPass_default; //render pass layout the frame buffer will be used with
 		framebufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-		framebufferCreateInfo.pAttachments = attachments.data();							//list of attachments (1:1 with render pass)
+		framebufferCreateInfo.pAttachments = attachments.data(); //list of attachments (1:1 with render pass)
 		framebufferCreateInfo.width = m_swapchain.swapChainExtent.width;
 		framebufferCreateInfo.height = m_swapchain.swapChainExtent.height;
 		framebufferCreateInfo.layers = 1;
@@ -578,18 +584,15 @@ void VulkanRenderer::CreateOffscreenPass()
 	colourAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; //describes what do with with stencil before rendering
 	colourAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; //describes what do with with stencil before rendering
 
-																		//frame buffer data will be stored as image, but images can be given different data layouts
-																		//to give optimal use for certain operations
+	//frame buffer data will be stored as image, but images can be given different data layouts
+	//to give optimal use for certain operations
 	colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; //image data layout before render pass starts
 																//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
 	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; //image data layout aftet render pass ( to change to)
 
-																	   // Depth attachment of render pass
+	// Depth attachment of render pass
 	VkAttachmentDescription depthAttachment{};
-	depthAttachment.format = oGFX::ChooseSupportedFormat(m_device,
-		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	depthAttachment.format = G_DEPTH_FORMAT;
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -818,7 +821,7 @@ void VulkanRenderer::CreateUniformBuffers()
 	//create uniform buffers
 	for (size_t i = 0; i < m_swapchain.swapChainImages.size(); i++)
 	{
-		// TODO: Disasble host coherent bit and manuall flush buffers for application
+		// TODO: Disable host coherent bit and manuall flush buffers for application
 		oGFX::CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, vpBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT 
 			//| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
@@ -878,13 +881,14 @@ void VulkanRenderer::CreateDescriptorPool()
 	variableDescriptorCountAllocInfo.pDescriptorCounts  = variableDescCounts;
 
 	//Descriptor set allocation info
-	VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vkutils::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&LayoutDB::bindless,1);
+	VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vkutils::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&SetLayoutDB::bindless,1);
 	setAllocInfo.pNext = &variableDescriptorCountAllocInfo;
 
 	//Allocate our descriptor sets
 	result = vkAllocateDescriptorSets(m_device.logicalDevice, &setAllocInfo, &descriptorSet_bindless);
 	if (result != VK_SUCCESS)
 	{
+		std::cerr << "Failed to allocate texture descriptor sets!" << std::endl;
 		throw std::runtime_error("Failed to allocate texture descriptor sets!");
 	}
 }
@@ -898,7 +902,7 @@ void VulkanRenderer::CreateDescriptorSets_GPUScene()
 
 	DescriptorBuilder::Begin(&DescLayoutCache, &DescAlloc)
 		.BindBuffer(3, &info, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-		.Build(descriptorSet_gpuscene,LayoutDB::gpuscene);
+		.Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
 }
 
 void VulkanRenderer::InitImGUI()
@@ -1559,14 +1563,14 @@ void VulkanRenderer::RenderFrame()
 		// Manually schedule the order of the render pass execution. (single threaded)
 		if(currWorld)
 		{
-            RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
-            //RenderPassDatabase::GetRenderPass<ZPrepassRenderpass>()->Draw();
-            RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
-            //RenderPassDatabase::GetRenderPass<DeferredDecalRenderpass>()->Draw();
-            RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
-            //RenderPassDatabase::GetRenderPass<ForwardRenderpass>()->Draw();
-            //RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
-            RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
+			RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
+			//RenderPassDatabase::GetRenderPass<ZPrepassRenderpass>()->Draw();
+			RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
+			//RenderPassDatabase::GetRenderPass<DeferredDecalRenderpass>()->Draw();
+			RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
+			//RenderPassDatabase::GetRenderPass<ForwardRenderpass>()->Draw();
+			//RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
+			RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
 		}
     }
 }

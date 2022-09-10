@@ -39,7 +39,7 @@ struct Window;
 int Win32SurfaceCreator(ImGuiViewport* vp, ImU64 device, const void* allocator, ImU64* outSurface);
 
 // Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...
-struct LayoutDB // Think of a better name? Very short and sweet for easy typing productivity?
+struct SetLayoutDB // Think of a better name? Very short and sweet for easy typing productivity?
 {
     // For GPU Scene
     inline static VkDescriptorSetLayout gpuscene;

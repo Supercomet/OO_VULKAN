@@ -18,7 +18,8 @@ Mesh* MeshContainer::getMesh(size_t index)
 {
 	if (index >= meshList.size())
 	{
-		throw std::runtime_error("Attempted to access invad mesh index!");
+		std::cerr << "Attempted to access invalid mesh index!" << std::endl;
+		throw std::runtime_error("Attempted to access invalid mesh index!");
 	}
 
 	return &meshList[index];

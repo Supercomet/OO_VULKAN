@@ -115,7 +115,7 @@ void DeferredCompositionRenderpass::CreateDescriptors()
         .BindImage(4, &texDescriptorMaterial, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         //.BindImage(5, &texDescriptorDepth, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .BindBuffer(6, &vr.lightsBuffer.descriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .Build(vr.descriptorSet_DeferredComposition, LayoutDB::DeferredComposition);
+        .Build(vr.descriptorSet_DeferredComposition, SetLayoutDB::DeferredComposition);
 }
 
 void DeferredCompositionRenderpass::CreatePipeline()
@@ -123,7 +123,7 @@ void DeferredCompositionRenderpass::CreatePipeline()
 	auto& vr = *VulkanRenderer::get();
 	auto& m_device = vr.m_device;
 
-	std::vector<VkDescriptorSetLayout> setLayouts{ LayoutDB::DeferredComposition };
+	std::vector<VkDescriptorSetLayout> setLayouts{ SetLayoutDB::DeferredComposition };
 
 	VkPipelineLayoutCreateInfo plci = oGFX::vkutils::inits::pipelineLayoutCreateInfo(setLayouts.data(),static_cast<uint32_t>(setLayouts.size()));	
 	VkPushConstantRange pushConstantRange{ VK_SHADER_STAGE_ALL, 0, 128 };

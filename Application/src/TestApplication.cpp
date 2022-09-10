@@ -44,7 +44,7 @@
 
 #include "CameraController.h"
 
-//#include "anim/ModelLoader.h"
+//#include "anim/SimpleAnim.h" // WR ONLY
 
 static VulkanRenderer* gs_RenderEngine = nullptr;
 static GraphicsWorld gs_GraphicsWorld;
@@ -181,10 +181,10 @@ void TestApplication::Run()
 
         std::cout << "Created Vulkan instance!" << std::endl;
     }
-    catch (...)
+    catch (const std::exception& e)
     {
         std::cout << "Failed to create Vulkan instance!" << std::endl;
-        std::cout << "Possible reasons:\n\t- Did you recompile all the shader binaries?" << std::endl;
+        std::cout << e.what() << std::endl;
         getchar();
         return;
     }
@@ -224,6 +224,12 @@ void TestApplication::Run()
 
     std::unique_ptr<Model> character_diona{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx") };
     std::unique_ptr<Model> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
+
+    /* // WIP
+    std::unique_ptr<Model> alibaba{ gs_RenderEngine->LoadModelFromFile("../Application/models/anim/AnimationTest_Box.fbx") };
+	std::unique_ptr<simpleanim::SkinnedMesh> skinnedMesh_alibaba = std::make_unique<simpleanim::SkinnedMesh>();
+	simpleanim::LoadModelFromFile_Skeleton("../Application/models/anim/AnimationTest_Box.fbx", simpleanim::LoadingConfig{}, alibaba.get(), skinnedMesh_alibaba.get());
+    */
     /* // WIP
     std::unique_ptr<Model> character_dori{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/dori.fbx") };
     std::unique_ptr<SkinnedMesh> skinnedMesh_dori = std::make_unique<SkinnedMesh>();
@@ -323,17 +329,20 @@ void TestApplication::Run()
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
         ed.instanceData = 2;
     }
+
     /* // WIP
-    if (character_dori)
-    {
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.modelID = character_dori->gfxIndex;
-        ed.name = "dori";
-        ed.entityID = FastRandomMagic();
-        ed.position = { 0.0f,0.0f,0.0f };
-        ed.scale = { 1.0f,1.0f,1.0f };
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-    }*/
+	if (alibaba)
+	{
+		auto& ed = entities.emplace_back(EntityInfo{});
+		ed.modelID = alibaba->gfxIndex;
+		ed.name = "alibaba";
+		ed.entityID = FastRandomMagic();
+		ed.position = { 0.0f,0.0f,0.0f };
+		ed.scale = { 1.0f,1.0f,1.0f };
+		ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+		//ed.instanceData = 2;
+	}
+    */
 
     // Stress test more models
     std::vector<std::unique_ptr<Model>> moreModels;
@@ -525,13 +534,13 @@ void TestApplication::Run()
                     PROFILE_SCOPED("TEST_DrawSkeleton");
 
                     // Update world space global skeleton pose.
-                    //UpdateLocalToGlobalSpace(skinnedMesh_dori.get());
+                    simpleanim::UpdateLocalToGlobalSpace(skinnedMesh_alibaba.get());
                     
                     AABB aabb;
                     aabb.halfExt = { 0.01f,0.01f,0.01f };
 
                     // Trivial and unoptimized method
-                    auto DFS = [&](auto&& func, BoneNode* pBoneNode) -> void
+                    auto DFS = [&](auto&& func, simpleanim::BoneNode* pBoneNode) -> void
                     {
                         if (pBoneNode->mChildren.empty())
                             return;
@@ -542,14 +551,15 @@ void TestApplication::Run()
                         // Recursion through all children nodes, passing in the current global transform.
                         for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
                         {
-                            BoneNode* child = pBoneNode->mChildren[i].get();
+                            simpleanim::BoneNode* child = pBoneNode->mChildren[i].get();
                             auto pos = child->mModelSpaceGlobalVqs.GetPosition();
                             gs_RenderEngine->AddDebugLine(aabb.center, pos, oGFX::Colors::RED);
                             func(func, child);
                         }
                     };
 
-                    BoneNode* pBoneNode = nullptr;// skinnedMesh_dori->mpRootNode.get();
+                    //BoneNode* pBoneNode = nullptr;// skinnedMesh_dori->mpRootNode.get();
+                    simpleanim::BoneNode* pBoneNode = skinnedMesh_alibaba->mpRootNode.get();
                     DFS(DFS, pBoneNode);
                 }
                 */
