@@ -77,8 +77,6 @@ VulkanRenderer::~VulkanRenderer()
 
 	DestroyRenderBuffers();
 
-	ShutdownTreeDebug();
-
 	samplerManager.Shutdown();
 
 	gpuTransformBuffer.destroy();
@@ -139,12 +137,7 @@ VulkanRenderer::~VulkanRenderer()
 		vkDestroySemaphore(m_device.logicalDevice, imageAvailable[i], nullptr);
 	}
 
-	vkDestroyPipeline(m_device.logicalDevice, graphicsPSO, nullptr);
-	vkDestroyPipeline(m_device.logicalDevice, wireframePSO, nullptr);
-
-	vkDestroyPipeline(m_device.logicalDevice, indirectPSO, nullptr);
-	vkDestroyPipelineLayout(m_device.logicalDevice, indirectPSOLayout, nullptr);
-
+	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::indirectPSOLayout, nullptr);
 	
 	if (renderPass_default)
 	{
@@ -190,7 +183,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		InitializeRenderBuffers();
 
-		CreateRenderpass();
+		CreateDefaultRenderpass();
 		CreateUniformBuffers();
 		CreateDescriptorSetLayout();
 
@@ -209,7 +202,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		CreateDescriptorSets_GPUScene();
 
-		CreateGraphicsPipeline();
+		CreateDefaultPSOLayouts();
 
 		if (setupSpecs.useOwnImgui)
 		{
@@ -226,7 +219,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		GfxRenderpass* ptr;
 		ptr = new ShadowPass;
 		rpd->RegisterRenderPass(ptr);
-		 ptr = new DebugRenderpass;
+		 ptr = new DebugDrawRenderpass;
 		rpd->RegisterRenderPass(ptr);
 		 ptr = new GBufferRenderPass;
 		rpd->RegisterRenderPass(ptr);
@@ -244,8 +237,6 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateDescriptorPool();
 		CreateSynchronisation();
 
-
-		InitTreeDebugDraws();
 		InitDebugBuffers();
 		g_GlobalMeshBuffers.IdxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 		g_GlobalMeshBuffers.VtxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -305,7 +296,7 @@ void VulkanRenderer::SetupSwapchain()
 	m_swapchain.Init(m_instance,m_device);
 }
 
-void VulkanRenderer::CreateRenderpass()
+void VulkanRenderer::CreateDefaultRenderpass()
 {
 	if (renderPass_default)
 	{
@@ -323,8 +314,8 @@ void VulkanRenderer::CreateRenderpass()
 	colourAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; //describes what do with with stencil before rendering
 	colourAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; //describes what do with with stencil before rendering
 
-																		//frame buffer data will be stored as image, but images can be given different data layouts
-																		//to give optimal use for certain operations
+	//frame buffer data will be stored as image, but images can be given different data layouts
+	//to give optimal use for certain operations
 	colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; //image data layout before render pass starts
 	//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
 	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL; //image data layout aftet render pass ( to change to)
@@ -332,12 +323,9 @@ void VulkanRenderer::CreateRenderpass()
 	// todo editor??
 	//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
 
-																	// Depth attachment of render pass
+	// Depth attachment of render pass
 	VkAttachmentDescription depthAttachment{};
-	depthAttachment.format = oGFX::ChooseSupportedFormat(m_device,
-		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	depthAttachment.format = G_DEPTH_FORMAT;
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -473,24 +461,17 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 	// Texture binding info
 	VkDescriptorSetLayoutBinding samplerLayoutBinding =
 		oGFX::vkutils::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, MAX_OBJECTS);
-	
-	// create a descriptor set layout with given bindings for texture
-	VkDescriptorSetLayoutCreateInfo textureLayoutCreateInfo = 
-		oGFX::vkutils::inits::descriptorSetLayoutCreateInfo(&samplerLayoutBinding,1);
 
-
-	VkDescriptorBindingFlags flags[3];
-	//flags[0] = 0;
-	//flags[1] = 0;
-	flags[0] = 	VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-
+	VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
 	VkDescriptorSetLayoutBindingFlagsCreateInfo flaginfo{};
 	flaginfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-	flaginfo.pBindingFlags = flags;
+	flaginfo.pBindingFlags = &flags;
 	flaginfo.bindingCount = 1;
 
+	// create a descriptor set layout with given bindings for texture
+	VkDescriptorSetLayoutCreateInfo textureLayoutCreateInfo =
+		oGFX::vkutils::inits::descriptorSetLayoutCreateInfo(&samplerLayoutBinding, 1);
 	textureLayoutCreateInfo.pNext = &flaginfo;
-
 
 	VkResult result = vkCreateDescriptorSetLayout(m_device.logicalDevice, &textureLayoutCreateInfo, nullptr, &LayoutDB::bindless);
 	VK_NAME(m_device.logicalDevice, "samplerSetLayout", LayoutDB::bindless);
@@ -498,144 +479,29 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 	{
 		throw std::runtime_error("Failed to create a descriptor set layout!");
 	}
-
 }
 
-void VulkanRenderer::CreateGraphicsPipeline()
+void VulkanRenderer::CreateDefaultPSOLayouts()
 {
-	using namespace oGFX;
-	//create pipeline
-
-	//how the data for a single vertex (including infos such as pos, colour, texture, coords, normals etc) is as a whole
-	std::vector<VkVertexInputBindingDescription> bindingDescription = oGFX::GetGFXVertexInputBindings();
-
-	//how the data for an attirbute is define in the vertex
-	std::vector<VkVertexInputAttributeDescription>attributeDescriptions = oGFX::GetGFXVertexInputAttributes();
-	// -- VERTEX INPUT -- 
-	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = oGFX::vkutils::inits::pipelineVertexInputStateCreateInfo(bindingDescription,attributeDescriptions);
-	// __ INPUT ASSEMBLY __
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0 ,VK_FALSE);
-	VkPipelineViewportStateCreateInfo viewportStateCreateInfo = oGFX::vkutils::inits::pipelineViewportStateCreateInfo(1,1,0);
-	//Dynami states to enable	
-	std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-	VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = oGFX::vkutils::inits::pipelineDynamicStateCreateInfo(dynamicStateEnables);
-	// -- RASTERIZER --
-	VkPipelineRasterizationStateCreateInfo rasterizerCreateInfo = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL,VK_CULL_MODE_BACK_BIT,VK_FRONT_FACE_COUNTER_CLOCKWISE,0);
-	// -- MULTI SAMPLING --
-	VkPipelineMultisampleStateCreateInfo multisamplingCreateInfo = oGFX::vkutils::inits::pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT,0);
-
-	//-- BLENDING --
-	//Blending decies how to blend a new color being written to a a fragment with the old value
-	//blend attachment state (how blending is handled
-	
-	VkPipelineColorBlendAttachmentState colourState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0x0000000F,VK_TRUE);
-
-	//blending uses equation : (srcColourBlendFactor * new colour ) colourBlendOp ( dstColourBlendFActor*old colour)
-	colourState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	colourState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	colourState.colorBlendOp = VK_BLEND_OP_ADD;
-
-	//summarsed : (VK_BLEND_FACTOR_SRC_ALPHA * new colour) + (VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA * old colour)
-	//			  (new colour alpha * new colour) + ((1 - new colour alpha) * old colour)
-
-	colourState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colourState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colourState.alphaBlendOp = VK_BLEND_OP_ADD;
-	//summarised : (1 * new alpha) + (0 * old alpha) = new alpha
-
-
-	VkPipelineColorBlendStateCreateInfo colourBlendingCreateInfo = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1,&colourState);
-
-	// -- PIPELINE LAYOUT 
 	std::array<VkDescriptorSetLayout, 3> descriptorSetLayouts = 
 	{
 		LayoutDB::gpuscene, // (set = 0)
 		LayoutDB::uniform,  // (set = 1)
-		LayoutDB::bindless // (set = 2)
+		LayoutDB::bindless  // (set = 2)
 	};
 
-	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo =
-		oGFX::vkutils::inits::pipelineLayoutCreateInfo(descriptorSetLayouts.data(),static_cast<uint32_t>(descriptorSetLayouts.size()));
+	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = oGFX::vkutils::inits::pipelineLayoutCreateInfo(descriptorSetLayouts);
+	
 	VkPushConstantRange pushConstantRange{ VK_SHADER_STAGE_ALL, 0, 128 };
 	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
 	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 
-	// indirect pipeline
-	VkResult result = vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &indirectPSOLayout);
-	VK_NAME(m_device.logicalDevice, "indirectPipeLayout", indirectPSOLayout);
+	VkResult result = vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::indirectPSOLayout);
+	VK_NAME(m_device.logicalDevice, "indirectPSOLayout", PSOLayoutDB::indirectPSOLayout);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create Pipeline Layout!");
 	}
-	// go back to normal pipelines
-
-	// Create Pipeline Layout
-	//result = vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
-	//if (result != VK_SUCCESS)
-	//{
-	//	throw std::runtime_error("Failed to create Pipeline Layout!");
-	//}
-	std::array<VkPipelineShaderStageCreateInfo,2>shaderStages = {};
-	
-	// -- DEPTH STENCIL TESTING --	
-	VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo = oGFX::vkutils::inits::pipelineDepthStencilStateCreateInfo(VK_TRUE,VK_TRUE, VK_COMPARE_OP_LESS);
-
-																	// -- GRAPHICS PIPELINE CREATION --
-	VkGraphicsPipelineCreateInfo pipelineCreateInfo = oGFX::vkutils::inits::pipelineCreateInfo(indirectPSOLayout,renderPass_default);
-	pipelineCreateInfo.stageCount = 2;								//number of shader stages
-	pipelineCreateInfo.pStages = shaderStages.data();				//list of sader stages
-	pipelineCreateInfo.pVertexInputState = &vertexInputCreateInfo;	//all the fixed funciton pipeline states
-	pipelineCreateInfo.pInputAssemblyState = &inputAssembly;
-	pipelineCreateInfo.pViewportState = &viewportStateCreateInfo;
-	pipelineCreateInfo.pDynamicState = &dynamicStateCreateInfo;
-	pipelineCreateInfo.pRasterizationState = &rasterizerCreateInfo;
-	pipelineCreateInfo.pMultisampleState = &multisamplingCreateInfo;
-	pipelineCreateInfo.pColorBlendState = &colourBlendingCreateInfo;
-	pipelineCreateInfo.pDepthStencilState = &depthStencilCreateInfo;
-
-
-	//graphics pipeline creation requires array of shader stages create
-
-	//create graphics pipeline
-	shaderStages[0] = LoadShader(m_device,"Shaders/bin/indirect.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = LoadShader(m_device,"Shaders/bin/indirect.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
-
-	pipelineCreateInfo.layout = indirectPSOLayout;
-	// Indirect pipeline
-	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &indirectPSO);
-	VK_NAME(m_device.logicalDevice, "indirectPSO", indirectPSO);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create a Graphics Pipeline!");
-	}
-	//destroy indirect shader modules 
-	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
-	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
-
-
-	pipelineCreateInfo.layout = indirectPSOLayout;
-	// we use less for normal pipeline
-	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
-	vertexInputCreateInfo.vertexAttributeDescriptionCount = 5;
-
-	shaderStages[0] = LoadShader(m_device,"Shaders/bin/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = LoadShader(m_device,"Shaders/bin/shader.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
-
-	result = vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &graphicsPSO);
-	VK_NAME(m_device.logicalDevice, "graphicsPSO", graphicsPSO);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create a Graphics Pipeline!");
-	}
-	rasterizerCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
-	pipelineCreateInfo.renderPass = renderPass_default;
-	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &wireframePSO));
-	VK_NAME(m_device.logicalDevice, "wireframePSO", wireframePSO);
-
-	//destroy shader modules after pipeline is created
-	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
-	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
-
 }
 
 void VulkanRenderer::CreateFramebuffers()
@@ -1280,11 +1146,11 @@ void VulkanRenderer::DestroyImGUI()
 
 void VulkanRenderer::AddDebugLine(const glm::vec3& p0, const glm::vec3& p1, const oGFX::Color& col, size_t loc)
 {
-	auto sz = g_debugDrawVerts.size();
-	g_debugDrawVerts.push_back(oGFX::Vertex{ p0,{/*normal*/},col });
-	g_debugDrawVerts.push_back(oGFX::Vertex{ p1,{/*normal*/},col });
-	g_debugDrawIndices.push_back(0 + static_cast<uint32_t>(sz));
-	g_debugDrawIndices.push_back(1 + static_cast<uint32_t>(sz));
+	auto sz = g_DebugDrawVertexBufferCPU.size();
+	g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ p0, col });
+	g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ p1, col });
+	g_DebugDrawIndexBufferCPU.emplace_back(0 + static_cast<uint32_t>(sz));
+	g_DebugDrawIndexBufferCPU.emplace_back(1 + static_cast<uint32_t>(sz));
 }
 
 void VulkanRenderer::AddDebugBox(const AABB& aabb, const oGFX::Color& col, size_t loc)
@@ -1306,40 +1172,20 @@ void VulkanRenderer::AddDebugBox(const AABB& aabb, const oGFX::Color& col, size_
 		
 	if (loc == size_t(-1))
 	{
-		auto sz = g_debugDrawVerts.size();
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); //0
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 1
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 2
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 3
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 4
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 5
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 6
-		g_debugDrawVerts.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 7
+		auto sz = g_DebugDrawVertexBufferCPU.size();
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },col }); //0
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },col }); // 1
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },col }); // 2
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },col }); // 3
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },col }); // 4
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },col }); // 5
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },col }); // 6
+		g_DebugDrawVertexBufferCPU.emplace_back(oGFX::DebugVertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },col }); // 7
 		for (auto x : boxindices)
 		{
-			g_debugDrawIndices.push_back(x + static_cast<uint32_t>(sz));
+			g_DebugDrawIndexBufferCPU.emplace_back(x + static_cast<uint32_t>(sz));
 		}
 	}
-	else
-	{
-		auto& debug = g_DebugDraws[loc];
-
-		auto sz = debug.vertex.size();
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); //0
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 1
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 2
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 3
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{ -aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 4
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1], -aabb.halfExt[2] },{/*normal*/},col }); // 5
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0], -aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 6
-		debug.vertex.push_back(oGFX::Vertex{ aabb.center + Point3D{  aabb.halfExt[0],  aabb.halfExt[1],  aabb.halfExt[2] },{/*normal*/},col }); // 7
-		for (auto x : boxindices)
-		{
-			debug.indices.push_back(x + static_cast<uint32_t>(sz));
-		}
-	}
-
-	
 }
 
 void VulkanRenderer::AddDebugSphere(const Sphere& sphere, const oGFX::Color& col, size_t loc)
@@ -1368,80 +1214,41 @@ void VulkanRenderer::AddDebugSphere(const Sphere& sphere, const oGFX::Color& col
 	
 	if (loc == size_t(-1))
 	{
-		auto currsz = g_debugDrawVerts.size();
-		g_debugDrawVerts.reserve(g_debugDrawVerts.size() + vertices.size());
+		auto currsz = g_DebugDrawVertexBufferCPU.size();
+		g_DebugDrawVertexBufferCPU.reserve(g_DebugDrawVertexBufferCPU.size() + vertices.size());
+		oGFX::DebugVertex vert;
 		for (const auto& v : vertices)
 		{
-			oGFX::Vertex vert{ v };
 			vert.pos = vert.pos*sphere.radius + sphere.center;
 			vert.col = col;
-			g_debugDrawVerts.push_back(vert);
+			g_DebugDrawVertexBufferCPU.push_back(vert);
 		}
 
-		g_debugDrawIndices.reserve( g_debugDrawIndices.size() + indices.size());
+		g_DebugDrawIndexBufferCPU.reserve( g_DebugDrawIndexBufferCPU.size() + indices.size());
 		for (const auto ind : indices) 
 		{
-			g_debugDrawIndices.emplace_back(ind+static_cast<uint32_t>(currsz));
+			g_DebugDrawIndexBufferCPU.emplace_back(ind+static_cast<uint32_t>(currsz));
 		}
-	}
-	else
-	{
-		auto& debug = g_DebugDraws[loc];
-		auto currsz = debug.vertex.size();
-		debug.vertex.reserve(debug.vertex.size() + vertices.size());
-		for (const auto& v : vertices)
-		{
-			oGFX::Vertex vert{ v };
-			vert.pos = vert.pos*sphere.radius + sphere.center;
-			vert.col = col;
-			debug.vertex.push_back(vert);
-		}
-		debug.indices.reserve( debug.indices.size() + indices.size());
-		for (const auto ind : indices) 
-		{
-			debug.indices.emplace_back(ind+static_cast<uint32_t>(currsz));
-		}
-	}
-	
+	}	
 }
 
 void VulkanRenderer::AddDebugTriangle(const Triangle& tri, const oGFX::Color& col, size_t loc)
 {
-
 	if (loc == size_t(-1))
 	{
-		auto sz = g_debugDrawVerts.size();
-		g_debugDrawVerts.push_back(oGFX::Vertex{ tri.v0,{/*normal*/},col }); //0
-		g_debugDrawVerts.push_back(oGFX::Vertex{ tri.v1,{/*normal*/},col }); //1
-		g_debugDrawVerts.push_back(oGFX::Vertex{ tri.v2,{/*normal*/},col }); //2
+		auto sz = g_DebugDrawVertexBufferCPU.size();
+		g_DebugDrawVertexBufferCPU.push_back(oGFX::DebugVertex{ tri.v0, col }); //0
+		g_DebugDrawVertexBufferCPU.push_back(oGFX::DebugVertex{ tri.v1, col }); //1
+		g_DebugDrawVertexBufferCPU.push_back(oGFX::DebugVertex{ tri.v2, col }); //2
 		
-		g_debugDrawIndices.push_back(0 + static_cast<uint32_t>(sz)); // E0
-		g_debugDrawIndices.push_back(1 + static_cast<uint32_t>(sz)); // E0
-		g_debugDrawIndices.push_back(1 + static_cast<uint32_t>(sz)); // E1
-		g_debugDrawIndices.push_back(2 + static_cast<uint32_t>(sz)); // E1
-		g_debugDrawIndices.push_back(2 + static_cast<uint32_t>(sz)); // E2
-		g_debugDrawIndices.push_back(0 + static_cast<uint32_t>(sz)); // E2
-		
-	}
-	else
-	{
-		auto& debug = g_DebugDraws[loc];
-
-		auto sz = debug.vertex.size();
-		debug.vertex.push_back(oGFX::Vertex{ tri.v0,{/*normal*/},col }); //0
-		debug.vertex.push_back(oGFX::Vertex{ tri.v1,{/*normal*/},col }); //1
-		debug.vertex.push_back(oGFX::Vertex{ tri.v2,{/*normal*/},col }); //2
-
-		debug.indices.push_back(0 + static_cast<uint32_t>(sz)); // E0
-		debug.indices.push_back(1 + static_cast<uint32_t>(sz)); // E0
-		debug.indices.push_back(1 + static_cast<uint32_t>(sz)); // E1
-		debug.indices.push_back(2 + static_cast<uint32_t>(sz)); // E1
-		debug.indices.push_back(2 + static_cast<uint32_t>(sz)); // E2
-		debug.indices.push_back(0 + static_cast<uint32_t>(sz)); // E2
+		g_DebugDrawIndexBufferCPU.push_back(0 + static_cast<uint32_t>(sz)); // E0
+		g_DebugDrawIndexBufferCPU.push_back(1 + static_cast<uint32_t>(sz)); // E0
+		g_DebugDrawIndexBufferCPU.push_back(1 + static_cast<uint32_t>(sz)); // E1
+		g_DebugDrawIndexBufferCPU.push_back(2 + static_cast<uint32_t>(sz)); // E1
+		g_DebugDrawIndexBufferCPU.push_back(2 + static_cast<uint32_t>(sz)); // E2
+		g_DebugDrawIndexBufferCPU.push_back(0 + static_cast<uint32_t>(sz)); // E2
 	}
 }
-
-
 
 void VulkanRenderer::InitializeRenderBuffers()
 {
@@ -1754,9 +1561,13 @@ void VulkanRenderer::RenderFrame()
 		if(currWorld)
 		{
             RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
+            //RenderPassDatabase::GetRenderPass<ZPrepassRenderpass>()->Draw();
             RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
-			RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
-			RenderPassDatabase::GetRenderPass<DebugRenderpass>()->Draw();
+            //RenderPassDatabase::GetRenderPass<DeferredDecalRenderpass>()->Draw();
+            RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
+            //RenderPassDatabase::GetRenderPass<ForwardRenderpass>()->Draw();
+            //RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
+            RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
 		}
     }
 }
@@ -1840,7 +1651,7 @@ bool VulkanRenderer::ResizeSwapchain()
 		if (windowPtr->windowShouldClose) return false;
 	}
 	m_swapchain.Init(m_instance, m_device);
-	CreateRenderpass();
+	CreateDefaultRenderpass();
 	//CreateDepthBufferImage();
 	CreateFramebuffers();
 
@@ -1849,24 +1660,6 @@ bool VulkanRenderer::ResizeSwapchain()
 	ResizeDeferredFB();
 
 	return true;
-}
-
-void VulkanRenderer::InitTreeDebugDraws()
-{
-	for (size_t i = 0; i < debugDrawBufferCnt; i++)
-	{
-		g_DebugDraws[i].vbo.Init(&m_device,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		g_DebugDraws[i].ibo.Init(&m_device,VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-	}
-}
-
-void VulkanRenderer::ShutdownTreeDebug()
-{
-	for (size_t i = 0; i < debugDrawBufferCnt; i++)
-	{
-		g_DebugDraws[i].vbo.destroy();
-		g_DebugDraws[i].ibo.destroy();
-	}
 }
 
 Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
@@ -2166,24 +1959,24 @@ VulkanRenderer::TextureInfo VulkanRenderer::GetTextureInfo(uint32_t handle)
 void VulkanRenderer::InitDebugBuffers()
 {
 	// TODO remove this
-	g_debugDrawVertBuffer.Init(&m_device,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-	g_debugDrawIndxBuffer.Init(&m_device,VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	g_DebugDrawVertexBufferGPU.Init(&m_device,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	g_DebugDrawIndexBufferGPU.Init(&m_device,VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
 void VulkanRenderer::UploadDebugDrawBuffers()
 {
 	PROFILE_SCOPED();
 
-	g_debugDrawVertBuffer.reserve(g_debugDrawVerts.size() );
-	g_debugDrawIndxBuffer.reserve(g_debugDrawIndices.size());
+	g_DebugDrawVertexBufferGPU.reserve(g_DebugDrawVertexBufferCPU.size() );
+	g_DebugDrawIndexBufferGPU.reserve(g_DebugDrawIndexBufferCPU.size());
 
 	// Copy CPU debug draw buffers to the GPU
-	g_debugDrawVertBuffer.writeTo(g_debugDrawVerts.size() , g_debugDrawVerts.data());
-	g_debugDrawIndxBuffer.writeTo(g_debugDrawIndices.size() , g_debugDrawIndices.data());
+	g_DebugDrawVertexBufferGPU.writeTo(g_DebugDrawVertexBufferCPU.size() , g_DebugDrawVertexBufferCPU.data());
+	g_DebugDrawIndexBufferGPU.writeTo(g_DebugDrawIndexBufferCPU.size() , g_DebugDrawIndexBufferCPU.data());
 
 	// Clear the CPU debug draw buffers for this frame
-	g_debugDrawVerts.clear();
-	g_debugDrawIndices.clear();
+	g_DebugDrawVertexBufferCPU.clear();
+	g_DebugDrawIndexBufferCPU.clear();
 }
 
 void VulkanRenderer::UpdateUniformBuffers()

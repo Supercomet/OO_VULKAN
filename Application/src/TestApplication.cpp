@@ -826,6 +826,8 @@ void TestApplication::Run()
 
                             if (ImGui::BeginTabItem("Settings"))
                             {
+                                ImGui::Checkbox("m_DebugDrawDepthTest", &gs_RenderEngine->m_DebugDrawDepthTest);
+
                                 // TODO?
                                 ImGui::EndTabItem();
                             }
@@ -837,7 +839,6 @@ void TestApplication::Run()
                     ImGui::End();
                 }
 
-                //
                 {
                     PROFILE_SCOPED("ImGui::Render");
                     ImGui::Render();  // Rendering UI
