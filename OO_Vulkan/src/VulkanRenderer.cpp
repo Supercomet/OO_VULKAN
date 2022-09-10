@@ -861,7 +861,7 @@ void VulkanRenderer::CreateDescriptorPool()
 
 	// Create Sampler Descriptor pool
 	// Texture sampler pool
-	VkDescriptorPoolSize samplerPoolSize = oGFX::vkutils::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);// or MAX_OBJECTS?
+	VkDescriptorPoolSize samplerPoolSize = oGFX::vkutils::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_OBJECTS);// or MAX_OBJECTS?
 	std::vector<VkDescriptorPoolSize> samplerpoolSizes = { samplerPoolSize };
 
 	VkDescriptorPoolCreateInfo samplerPoolCreateInfo = oGFX::vkutils::inits::descriptorPoolCreateInfo(samplerpoolSizes,1); // or MAX_OBJECTS?
@@ -1001,7 +1001,7 @@ void VulkanRenderer::InitImGUI()
 	init_info.PipelineCache = VK_NULL_HANDLE;
 	init_info.DescriptorPool = m_imguiConfig.descriptorPools;
 	init_info.Allocator = nullptr;
-	init_info.MinImageCount = m_swapchain.minImageCount;
+	init_info.MinImageCount = m_swapchain.minImageCount + 1;
 	init_info.ImageCount = static_cast<uint32_t>(m_swapchain.swapChainImages.size());
 	init_info.CheckVkResultFn = VK_NULL_HANDLE; // can be used to handle the error checking
 
@@ -1319,6 +1319,11 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 {
 	PROFILE_SCOPED();
 
+	if (currWorld == nullptr)
+	{
+		return;
+	}
+
 	auto gb = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
 	gb.GenerateBatches();
 	auto& allObjectsCommands = gb.GetBatch(GraphicsBatch::ALL_OBJECTS);
@@ -1330,6 +1335,9 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 	}
 
 	auto* del = DelayedDeleter::get();
+
+	if (objectCount == 0)
+		return;
 
 	vkutils::Buffer stagingBuffer;	
 	m_device.CreateBuffer(
@@ -1455,6 +1463,11 @@ void VulkanRenderer::UploadInstanceData()
 	}
 	
 
+	if (instanceData.empty())
+	{
+		return;
+	}
+
 	vkutils::Buffer stagingBuffer;
 	m_device.CreateBuffer(
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -1492,19 +1505,18 @@ bool VulkanRenderer::PrepareFrame()
 
 void VulkanRenderer::BeginDraw()
 {
-	if (currWorld == nullptr) 
-		return;
 
 	PROFILE_SCOPED();
+
+	UpdateUniformBuffers();
+	UploadInstanceData();	
+	GenerateCPUIndirectDrawCommands();
 
 	//wait for given fence to signal from last draw before continuing
 	VK_CHK(vkWaitForFences(m_device.logicalDevice, 1, &drawFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max()));
 	//mainually reset fences
 	VK_CHK(vkResetFences(m_device.logicalDevice, 1, &drawFences[currentFrame]));
-	
-	UpdateUniformBuffers();
-	UploadInstanceData();	
-	GenerateCPUIndirectDrawCommands();
+
 
 	{
 		PROFILE_SCOPED("vkAcquireNextImageKHR");
@@ -1537,8 +1549,6 @@ void VulkanRenderer::BeginDraw()
 
 void VulkanRenderer::RenderFrame()
 {
-	if (currWorld == nullptr)
-		return;
 
 	PROFILE_SCOPED();
 
@@ -1552,6 +1562,7 @@ void VulkanRenderer::RenderFrame()
 
         //this->SimplePass(); // Unsued
 		// Manually schedule the order of the render pass execution. (single threaded)
+		if(currWorld)
 		{
 			RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
 			//RenderPassDatabase::GetRenderPass<ZPrepassRenderpass>()->Draw();
@@ -1567,8 +1578,6 @@ void VulkanRenderer::RenderFrame()
 
 void VulkanRenderer::Present()
 {
-	if (currWorld == nullptr) 
-		return;
 
 	PROFILE_SCOPED();
 
