@@ -238,6 +238,29 @@ void gfxModel::loadNode(Node* parent,const aiScene* scene, const aiNode& node, u
 	}
 }
 
+void offsetUpdateHelper(Node* parent, uint32_t& meshcount, uint32_t idxOffset, uint32_t vertOffset)
+{
+	for (auto& node : parent->children)
+	{
+		offsetUpdateHelper(node, meshcount, idxOffset, vertOffset);
+	}
+	for (auto& mesh :parent->meshes)
+	{
+		mesh->indicesOffset += idxOffset;
+		mesh->vertexOffset += vertOffset;
+
+		++meshcount;
+	}		
+}
+
+void gfxModel::updateOffsets(uint32_t idxOffset, uint32_t vertOffset)
+{
+	for (auto& node : nodes)
+	{
+		offsetUpdateHelper(node,this->meshCount, idxOffset, vertOffset);
+	}
+}
+
 inline glm::vec3 aiVector3D_to_glm(const aiVector3D& v)
 {
 	return glm::vec3{ v.x, v.y, v.z };
