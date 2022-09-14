@@ -1696,11 +1696,7 @@ Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		//throw std::runtime_error("Failed to load model! (" + file + ")");
 	}
 
-	if (scene->HasAnimations())
-	{
-		std::cout << "Animated scene\n";
-	}
-
+	std::cout <<"[Loading] " << file << std::endl;
 
 	std::vector<std::string> textureNames = MeshContainer::LoadMaterials(scene);
 	std::vector<int> matToTex(textureNames.size());
@@ -1735,20 +1731,38 @@ Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	model.cpuModel = m;
 	m->fileName = file;
 
-	model.meshCount= 0 ;
-	model.loadNode(nullptr, scene, *scene->mRootNode, 0, m->vertices, m->indices);
-	model.updateOffsets(g_GlobalMeshBuffers.IdxOffset, g_GlobalMeshBuffers.VtxOffset);
-	
-	LoadMeshFromBuffers(m->vertices, m->indices, &model);
-
-	std::cout << file << std::endl;
-	for (size_t i = 0; i < 3; i++)
+	if (scene->HasAnimations())
 	{
-		auto& pos = m->vertices[i].pos;
-		std::cout << pos.x << ", " << pos.y << ", " << pos.z << std::endl;
+		std::cout << "Animated scene\n";
+		for (size_t i = 0; i < scene->mNumAnimations; i++)
+		{
+			std::cout << "Anim name: " << scene->mAnimations[i]->mName.C_Str() << std::endl;
+			std::cout << "Anim frames: "<< scene->mAnimations[i]->mDuration << std::endl;
+			std::cout << "Anim ticksPerSecond: "<< scene->mAnimations[i]->mTicksPerSecond << std::endl;
+			std::cout << "Anim duration: "<< static_cast<float>(scene->mAnimations[i]->mDuration)/scene->mAnimations[i]->mTicksPerSecond << std::endl;
+			std::cout << "Anim numChannels: "<< scene->mAnimations[i]->mNumChannels << std::endl;
+			std::cout << "Anim numMeshChannels: "<< scene->mAnimations[i]->mNumMeshChannels << std::endl;
+			std::cout << "Anim numMeshChannels: "<< scene->mAnimations[i]->mNumMorphMeshChannels << std::endl;
+			for (size_t x = 0; x < scene->mAnimations[i]->mNumChannels; x++)
+			{
+				auto& channel = scene->mAnimations[i]->mChannels[x];
+				std::cout << "\tKeys name: " << channel->mNodeName.C_Str() << std::endl;
+				for (size_t y = 0; y < channel->mNumPositionKeys; y++)
+				{
+					std::cout << "\t Key_"<< std::to_string(y)<<" time: " << channel->mPositionKeys[y].mTime << std::endl;
+					auto& pos = channel->mPositionKeys[y].mValue;
+					std::cout << "\t Key_"<< std::to_string(y)<<" value: " <<pos.x <<", " << pos.y<<", " << pos.z << std::endl;
+				}
+			}
+		}
 	}
 	std::cout << std::endl;
 
+	model.meshCount= 0 ;
+	model.loadNode(nullptr, scene, *scene->mRootNode, 0, *m);
+	model.updateOffsets(g_GlobalMeshBuffers.IdxOffset, g_GlobalMeshBuffers.VtxOffset);
+	
+	LoadMeshFromBuffers(m->vertices, m->indices, &model);
 
 	return m;
 }
