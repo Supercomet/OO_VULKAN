@@ -57,6 +57,7 @@ void DeferredCompositionRenderpass::Draw()
 		vr.descriptorSet_bindless,
 	};
 
+	CreateDescriptors();
 	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_DeferredLightingComposition, 0, 1, &vr.descriptorSet_DeferredComposition, 0, nullptr);
 
 	DrawFullScreenQuad(cmdlist);

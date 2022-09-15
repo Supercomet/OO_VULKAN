@@ -151,5 +151,5 @@ void VulkanSwapchain::CreateDepthBuffer()
 	{
 		depthAttachment.destroy();
 	}
-	depthAttachment.forFrameBuffer(VulkanRenderer::get()->G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, swapChainExtent.width, swapChainExtent.height, m_devicePtr);
+	depthAttachment.forFrameBuffer(m_devicePtr, VulkanRenderer::get()->G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, swapChainExtent.width, swapChainExtent.height);
 }

@@ -47,8 +47,8 @@ void DebugDrawRenderpass::Draw()
 
 	VkFramebuffer fb;
 	FramebufferBuilder::Begin(&vr.fbCache)
-		.BindImage(vr.m_swapchain.swapChainImages[swapchainIdx])
-		.BindImage(depthAtt)
+		.BindImage(&vr.m_swapchain.swapChainImages[swapchainIdx])
+		.BindImage(&depthAtt)
 		.Build(fb,debugRenderpass);
 
 	renderPassBeginInfo.framebuffer = fb;

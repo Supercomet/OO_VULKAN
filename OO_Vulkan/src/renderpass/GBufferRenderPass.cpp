@@ -58,16 +58,16 @@ void GBufferRenderPass::Draw()
 	
 	VkFramebuffer currentFB;
 	FramebufferBuilder::Begin(&vr.fbCache)
-		.BindImage(attachments[GBufferAttachmentIndex::POSITION])
-		.BindImage(attachments[GBufferAttachmentIndex::NORMAL  ])
-		.BindImage(attachments[GBufferAttachmentIndex::ALBEDO  ])
-		.BindImage(attachments[GBufferAttachmentIndex::MATERIAL])
-		.BindImage(attachments[GBufferAttachmentIndex::DEPTH   ])
+		.BindImage(&attachments[GBufferAttachmentIndex::POSITION])
+		.BindImage(&attachments[GBufferAttachmentIndex::NORMAL  ])
+		.BindImage(&attachments[GBufferAttachmentIndex::ALBEDO  ])
+		.BindImage(&attachments[GBufferAttachmentIndex::MATERIAL])
+		.BindImage(&attachments[GBufferAttachmentIndex::DEPTH   ])
 		.Build(currentFB,renderpass_GBuffer);
 
 	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
 	renderPassBeginInfo.renderPass =  renderpass_GBuffer;
-	renderPassBeginInfo.framebuffer = framebuffer_GBuffer;
+	renderPassBeginInfo.framebuffer = currentFB;
 	renderPassBeginInfo.renderArea.extent.width = swapchain.swapChainExtent.width;
 	renderPassBeginInfo.renderArea.extent.height = swapchain.swapChainExtent.height;
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -114,8 +114,6 @@ void GBufferRenderPass::Shutdown()
 		att.destroy();
 	}
 
-	// TODO maybe not delete here?
-	vkDestroyFramebuffer(device, framebuffer_GBuffer, nullptr);
 	vkDestroyRenderPass(device,renderpass_GBuffer, nullptr);
 	vkDestroyPipeline(device, pso_GBufferDefault, nullptr);
 }
@@ -130,15 +128,15 @@ void GBufferRenderPass::SetupRenderpass()
 	const uint32_t height = m_swapchain.swapChainExtent.height;
 
 	attachments[GBufferAttachmentIndex::POSITION].name = "GB_Position";
-	attachments[GBufferAttachmentIndex::POSITION].forFrameBuffer(VK_FORMAT_R16G16B16A16_SFLOAT,VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height, &m_device);
-	attachments[GBufferAttachmentIndex::NORMAL].name = "GB_Normal";
-	attachments[GBufferAttachmentIndex::NORMAL  ].forFrameBuffer(VK_FORMAT_R16G16B16A16_SFLOAT,VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height, &m_device);
-	attachments[GBufferAttachmentIndex::ALBEDO].name = "GB_Albedo";
-	attachments[GBufferAttachmentIndex::ALBEDO  ].forFrameBuffer(VK_FORMAT_R8G8B8A8_UNORM,VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height, &m_device);
+	attachments[GBufferAttachmentIndex::POSITION].forFrameBuffer(&m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	attachments[GBufferAttachmentIndex::NORMAL	].name = "GB_Normal";
+	attachments[GBufferAttachmentIndex::NORMAL	].forFrameBuffer(&m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	attachments[GBufferAttachmentIndex::ALBEDO	].name = "GB_Albedo";
+	attachments[GBufferAttachmentIndex::ALBEDO	].forFrameBuffer(&m_device, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
 	attachments[GBufferAttachmentIndex::MATERIAL].name = "GB_Material";
-	attachments[GBufferAttachmentIndex::MATERIAL].forFrameBuffer(VK_FORMAT_R8G8B8A8_UNORM,VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height, &m_device);
-	attachments[GBufferAttachmentIndex::DEPTH].name = "GB_DEPTH";
-	attachments[GBufferAttachmentIndex::DEPTH   ].forFrameBuffer(vr.G_DEPTH_FORMAT,VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height, &m_device);
+	attachments[GBufferAttachmentIndex::MATERIAL].forFrameBuffer(&m_device, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	attachments[GBufferAttachmentIndex::DEPTH	].name = "GB_DEPTH";
+	attachments[GBufferAttachmentIndex::DEPTH	].forFrameBuffer(&m_device, vr.G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height);
 
 	// Set up separate renderpass with references to the color and depth attachments
 	std::array<VkAttachmentDescription, GBufferAttachmentIndex::MAX_ATTACHMENTS> attachmentDescs = {};
@@ -228,11 +226,11 @@ void GBufferRenderPass::SetupFramebuffer()
 	const uint32_t height = m_swapchain.swapChainExtent.height;
 	
 	FramebufferBuilder::Begin(&vr.fbCache)
-		.BindImage(attachments[GBufferAttachmentIndex::POSITION])
-		.BindImage(attachments[GBufferAttachmentIndex::NORMAL  ])
-		.BindImage(attachments[GBufferAttachmentIndex::ALBEDO  ])
-		.BindImage(attachments[GBufferAttachmentIndex::MATERIAL])
-		.BindImage(attachments[GBufferAttachmentIndex::DEPTH   ])
+		.BindImage(&attachments[GBufferAttachmentIndex::POSITION])
+		.BindImage(&attachments[GBufferAttachmentIndex::NORMAL  ])
+		.BindImage(&attachments[GBufferAttachmentIndex::ALBEDO  ])
+		.BindImage(&attachments[GBufferAttachmentIndex::MATERIAL])
+		.BindImage(&attachments[GBufferAttachmentIndex::DEPTH   ])
 		.Build(framebuffer_GBuffer,renderpass_GBuffer);
 
 	//VkFramebufferCreateInfo fbufCreateInfo = {};

@@ -75,6 +75,8 @@ VulkanRenderer::~VulkanRenderer()
 
 	RenderPassDatabase::Shutdown();
 
+	fbCache.Cleanup();
+
 	DestroyRenderBuffers();
 
 	samplerManager.Shutdown();
@@ -94,16 +96,6 @@ VulkanRenderer::~VulkanRenderer()
 	DescAlloc.Cleanup();
 
 	lightsBuffer.destroy();
-
-	vkDestroyFramebuffer(m_device.logicalDevice, offscreenFramebuffer, nullptr);
-	offscreenFB.destroy(m_device.logicalDevice);
-	offscreenDepth.destroy(m_device.logicalDevice);
-
-	if (offscreenPass)
-	{
-		vkDestroyRenderPass(m_device.logicalDevice, offscreenPass, nullptr);
-		offscreenPass = VK_NULL_HANDLE;
-	}
 
 	for (size_t i = 0; i < models.size(); i++)
 	{
@@ -229,9 +221,6 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		RenderPassDatabase::InitAllRegisteredPasses();
 
 		CreateFramebuffers();
-
-		CreateOffscreenPass();
-		CreateOffscreenFB();
 
 		CreateCommandBuffers();
 		CreateDescriptorPool();
@@ -404,7 +393,7 @@ void VulkanRenderer::CreateDefaultRenderpass()
 	VK_NAME(m_device.logicalDevice, "defaultRenderPass",renderPass_default);
 
 	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
-	VK_CHK(vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &renderPass_default2));
+	//VK_CHK(vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &renderPass_default2));
 	VK_NAME(m_device.logicalDevice, "defaultRenderPass_2",renderPass_default2);
 	//depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	//result = vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &compositionPass);
@@ -564,151 +553,6 @@ void VulkanRenderer::CreateCommandBuffers()
 	{
 		throw std::runtime_error("Failed to allocate Command Buffers!");
 	}
-}
-
-void VulkanRenderer::CreateOffscreenPass()
-{
-	if (offscreenPass)
-	{
-		vkDestroyRenderPass(m_device.logicalDevice, offscreenPass, nullptr);
-		offscreenPass = VK_NULL_HANDLE;
-	}
-
-	// ATTACHMENTS
-	// Colour attachment of render pass
-	VkAttachmentDescription colourAttachment = {};
-	colourAttachment.format = m_swapchain.swapChainImageFormat;  //format to use for attachment
-	colourAttachment.samples = VK_SAMPLE_COUNT_1_BIT;//number of samples to use for multisampling
-	colourAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;//descripts what to do with attachment before rendering
-	colourAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;//describes what to do with attachment after rendering
-	colourAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; //describes what do with with stencil before rendering
-	colourAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; //describes what do with with stencil before rendering
-
-	//frame buffer data will be stored as image, but images can be given different data layouts
-	//to give optimal use for certain operations
-	colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; //image data layout before render pass starts
-																//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
-	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; //image data layout aftet render pass ( to change to)
-
-	// Depth attachment of render pass
-	VkAttachmentDescription depthAttachment{};
-	depthAttachment.format = G_DEPTH_FORMAT;
-	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	// REFERENCES 
-	//Attachment reference uses an atttachment index that refers to index i nthe attachment list passed to renderPassCreataeInfo
-	VkAttachmentReference  colourAttachmentReference = {};
-	colourAttachmentReference.attachment = 0;
-	colourAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	// Depth attachment reference
-	VkAttachmentReference depthAttachmentReference{};
-	depthAttachmentReference.attachment = 1;
-	depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	//information about a particular subpass the render pass is using
-	VkSubpassDescription subpass = {};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; //pipeline type subpass is to be bound to
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &colourAttachmentReference;
-	subpass.pDepthStencilAttachment = &depthAttachmentReference;
-
-	// Need to determine when layout transitions occur using subpass dependancies
-	std::array<VkSubpassDependency, 2> subpassDependancies;
-
-	//conversion from VK_IMAGE_LAYOUT_UNDEFINED to VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-	// Transiotion msut happen after...
-	subpassDependancies[0].srcSubpass = VK_SUBPASS_EXTERNAL; //subpass index (VK_SUBPASS_EXTERNAL = special vallue meaning outside of renderpass)
-	subpassDependancies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT; // Pipeline stage
-	subpassDependancies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT; //Stage acces mas (memory access)
-																	  // but must happen before...
-	subpassDependancies[0].dstSubpass = 0;
-	subpassDependancies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	subpassDependancies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	subpassDependancies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-
-	//conversion from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-	// Transiotion msut happen after...
-	subpassDependancies[1].srcSubpass = 0;
-	subpassDependancies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	subpassDependancies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	// but must happen before...
-	subpassDependancies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-	subpassDependancies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	subpassDependancies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	subpassDependancies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-	std::array<VkAttachmentDescription, 2> renderpassAttachments = { colourAttachment,depthAttachment };
-
-	//create info for render pass
-	VkRenderPassCreateInfo renderPassCreateInfo = {};
-	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(renderpassAttachments.size());
-	renderPassCreateInfo.pAttachments = renderpassAttachments.data();
-	renderPassCreateInfo.subpassCount = 1;
-	renderPassCreateInfo.pSubpasses = &subpass;
-	renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(subpassDependancies.size());
-	renderPassCreateInfo.pDependencies = subpassDependancies.data();
-
-	VkResult result = vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &offscreenPass);
-	VK_NAME(m_device.logicalDevice, "offscreenPass", offscreenPass);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create Render Pass");
-	}
-}
-
-void VulkanRenderer::CreateOffscreenFB()
-{
-	
-	offscreenFB.createAttachment(m_device, m_swapchain.swapChainExtent.width, m_swapchain.swapChainExtent.height,
-		m_swapchain.swapChainImageFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);	
-	
-	
-	VkFormat attDepthFormat = oGFX::ChooseSupportedFormat(m_device,
-		{ VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-
-	offscreenDepth.createAttachment(m_device, m_swapchain.swapChainExtent.width, m_swapchain.swapChainExtent.height,
-		attDepthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-
-	std::vector<VkImageView> attachments{offscreenFB.view, offscreenDepth.view}; // color attachment
-
-	VkFramebufferCreateInfo framebufferCreateInfo = {};
-	framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	framebufferCreateInfo.renderPass = renderPass_default;										//render pass layout the frame buffer will be used with
-	framebufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-	framebufferCreateInfo.pAttachments = attachments.data();							//list of attachments (1:1 with render pass)
-	framebufferCreateInfo.width = m_swapchain.swapChainExtent.width;
-	framebufferCreateInfo.height = m_swapchain.swapChainExtent.height;
-	framebufferCreateInfo.layers = 1;
-
-
-	VkResult result = vkCreateFramebuffer(m_device.logicalDevice, &framebufferCreateInfo, nullptr, &offscreenFramebuffer);
-	VK_NAME(m_device.logicalDevice, "offscreenFramebuffer", offscreenFramebuffer);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create a Framebuffer!");
-	}
-	myImg = CreateImguiBinding(samplerManager.GetDefaultSampler(), offscreenFB.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	
-}
-
-void VulkanRenderer::ResizeOffscreenFB()
-{
-	vkDestroyFramebuffer(m_device.logicalDevice, offscreenFramebuffer,nullptr);
-	offscreenFB.destroy(m_device.logicalDevice);
-	offscreenDepth.destroy(m_device.logicalDevice);
-
-	CreateOffscreenFB();
 }
 
 void VulkanRenderer::ResizeDeferredFB()
@@ -1658,9 +1502,9 @@ bool VulkanRenderer::ResizeSwapchain()
 	//CreateDepthBufferImage();
 	CreateFramebuffers();
 
+	fbCache.ResizeSwapchain(m_swapchain.swapChainExtent.width, m_swapchain.swapChainExtent.height);
+
 	ResizeGUIBuffers();
-	ResizeOffscreenFB();
-	ResizeDeferredFB();
 
 	return true;
 }
