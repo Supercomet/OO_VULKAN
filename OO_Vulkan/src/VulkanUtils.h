@@ -111,12 +111,6 @@ namespace oGFX
 		SwapChainDetails() :surfaceCapabilities{} {}
 	};
 
-	struct SwapChainImage
-	{
-		VkImage image{};
-		VkImageView imageView{};
-	};
-
 	struct Vertex
 	{
 		//float pos[3] ; // Vertex position (x, y, z)

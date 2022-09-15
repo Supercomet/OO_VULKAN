@@ -524,7 +524,7 @@ void VulkanRenderer::CreateFramebuffers()
 	for (size_t i = 0; i < swapChainFramebuffers.size(); i++)
 	{
 		std::array<VkImageView, 2> attachments = {
-			m_swapchain.swapChainImages[i].imageView,
+			m_swapchain.swapChainImages[i].view,
 			m_swapchain.depthAttachment.view
 		};
 
@@ -1030,7 +1030,7 @@ void VulkanRenderer::InitImGUI()
 	for(uint32_t i = 0; i < m_swapchain.swapChainImages.size(); i++) 
 	{
 		// TODO make sure all images resize for imgui
-		fbattachments[0] = m_swapchain.swapChainImages[i].imageView;         // A color attachment from the swap chain
+		fbattachments[0] = m_swapchain.swapChainImages[i].view;         // A color attachment from the swap chain
 													//fbattachments[1] = m_depthImage.imageView;  // A depth attachment
 		VK_CHK(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i])); 
 		VK_NAME(m_device.logicalDevice, "imguiconfig_Framebuffer", m_imguiConfig.buffers[i]);
@@ -1061,7 +1061,7 @@ void VulkanRenderer::ResizeGUIBuffers()
 	for(uint32_t i = 0; i < m_swapchain.swapChainImages.size(); i++) 
 	{
 		// TODO make sure all images resize for imgui
-		fbattachments[0] = m_swapchain.swapChainImages[i].imageView;         // A color attachment from the swap chain
+		fbattachments[0] = m_swapchain.swapChainImages[i].view;         // A color attachment from the swap chain
 																			 //fbattachments[1] = m_depthImage.imageView;  // A depth attachment
 		VK_CHK(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i]));
 		VK_NAME(m_device.logicalDevice, "imguiconfig_buffers", m_imguiConfig.buffers[i]);
