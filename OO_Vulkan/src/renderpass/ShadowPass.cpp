@@ -31,6 +31,18 @@ void ShadowPass::CreatePSO()
 	CreatePipeline();
 }
 
+bool ShadowPass::SetupDependencies()
+{
+	// TODO: If shadows are disabled, return false.
+
+	// READ: Scene data SSBO
+	// READ: Instancing Data
+	// WRITE: Shadow Depth Map
+	// etc
+
+	return true;
+}
+
 void ShadowPass::Draw()
 {
 	auto& vr = *VulkanRenderer::get();

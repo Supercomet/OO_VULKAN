@@ -30,6 +30,22 @@ void GBufferRenderPass::CreatePSO()
 	CreatePipeline();
 }
 
+bool GBufferRenderPass::SetupDependencies()
+{
+	// TODO: If gbuffer rendering sis disabled, return false.
+
+	// READ: Scene data SSBO
+	// READ: Instancing Data
+	// READ: Bindless stuff
+	// WRITE: GBuffer Albedo
+	// WRITE: GBuffer Normal
+	// WRITE: GBuffer Material
+	// WRITE: GBuffer Depth
+	// etc
+	
+	return true;
+}
+
 void GBufferRenderPass::Draw()
 {
 	auto& vr = *VulkanRenderer::get();

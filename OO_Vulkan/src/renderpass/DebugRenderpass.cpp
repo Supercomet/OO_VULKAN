@@ -23,6 +23,17 @@ void DebugDrawRenderpass::Init()
 	InitDebugBuffers();
 }
 
+bool DebugDrawRenderpass::SetupDependencies()
+{
+	// TODO: If debug drawing is disabled, return false.
+	
+	// READ: Scene Depth
+	// WRITE: Color Output
+	// etc
+
+	return true;
+}
+
 void DebugDrawRenderpass::Draw()
 {
 	auto& vr = *VulkanRenderer::get();

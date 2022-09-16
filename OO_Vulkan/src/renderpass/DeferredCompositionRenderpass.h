@@ -15,6 +15,7 @@ struct DeferredCompositionRenderpass : public GfxRenderpass
 	void Draw() override;
 	void Shutdown() override;
 
+	bool SetupDependencies() override;
 	void CreatePSO() override;
 
 	VkRenderPass renderpass_DeferredLightingComposition{};

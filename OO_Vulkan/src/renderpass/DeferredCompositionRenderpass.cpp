@@ -21,6 +21,21 @@ void DeferredCompositionRenderpass::CreatePSO()
 	CreatePipeline(); // Dependency on GBuffer Init()
 }
 
+bool DeferredCompositionRenderpass::SetupDependencies()
+{
+	// TODO: If shadows are disabled, return false.
+
+	// READ: Lighting buffer (all the visible lights intersecting the camera frustum)
+	// READ: GBuffer Albedo
+	// READ: GBuffer Normal
+	// READ: GBuffer MAterial
+	// READ: GBuffer Depth
+	// WRITE: Color Output
+	// etc
+	
+	return true;
+}
+
 void DeferredCompositionRenderpass::Draw()
 {
 	auto& vr = *VulkanRenderer::get();
