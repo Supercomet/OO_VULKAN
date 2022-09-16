@@ -54,9 +54,14 @@ void ShadowPass::Draw()
 	VkClearValue clearValues;
 	clearValues.depthStencil = { 1.0f, 0 };
 	
+	VkFramebuffer fb_shadow;
+	FramebufferBuilder::Begin(&vr.fbCache)
+		.BindImage(&shadow_depth)
+		.Build(fb_shadow,renderpass_Shadow);
+
 	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
 	renderPassBeginInfo.renderPass =  renderpass_Shadow;
-	renderPassBeginInfo.framebuffer = framebuffer_Shadow;
+	renderPassBeginInfo.framebuffer = fb_shadow;
 	renderPassBeginInfo.renderArea.extent.width = shadowmapSize.width;
 	renderPassBeginInfo.renderArea.extent.height = shadowmapSize.height;
 	renderPassBeginInfo.clearValueCount = 1;
@@ -114,8 +119,7 @@ void ShadowPass::Shutdown()
 	auto& vr = *VulkanRenderer::get();
 	auto& device = vr.m_device.logicalDevice;
 
-	shadow_depth.destroy(device);
-	vkDestroyFramebuffer(device, framebuffer_Shadow, nullptr);
+	shadow_depth.destroy();
 	vkDestroyRenderPass(device, renderpass_Shadow, nullptr);
 	vkDestroyPipeline(device, pso_ShadowDefault, nullptr);
 }
@@ -129,7 +133,7 @@ void ShadowPass::SetupRenderpass()
 	const uint32_t width = shadowmapSize.width;
 	const uint32_t height = shadowmapSize.height;
 
-	shadow_depth.createAttachment(m_device, width, height, vr.G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, "shadowDepth");
+	shadow_depth.forFrameBuffer(&m_device, vr.G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height, false);
 	
 	vkutils::Texture2D tex;
 	tex.image = shadow_depth.image;
@@ -197,17 +201,10 @@ void ShadowPass::SetupFramebuffer()
 
 	VkImageView depthView = shadow_depth.view;
 
-	VkFramebufferCreateInfo fbufCreateInfo = {};
-	fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	fbufCreateInfo.pNext = NULL;
-	fbufCreateInfo.renderPass = renderpass_Shadow;
-	fbufCreateInfo.pAttachments = &depthView;
-	fbufCreateInfo.attachmentCount = 1;
-	fbufCreateInfo.width = shadowmapSize.width;
-	fbufCreateInfo.height = shadowmapSize.height;
-	fbufCreateInfo.layers = 1;
-	VK_CHK(vkCreateFramebuffer(m_device.logicalDevice, &fbufCreateInfo, nullptr, &framebuffer_Shadow));
-	VK_NAME(m_device.logicalDevice, "ShadowFB", framebuffer_Shadow);
+	VkFramebuffer fb;
+	FramebufferBuilder::Begin(&vr.fbCache)
+		.BindImage(&shadow_depth)
+		.Build(fb,renderpass_Shadow);
 
 	// TODO: Fix imgui depth rendering
 	//deferredImg[GBufferAttachmentIndex::DEPTH]    = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);

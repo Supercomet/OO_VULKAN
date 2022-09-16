@@ -61,7 +61,7 @@ struct BoneNode
 	std::string mName{ "BONE_NAME" };
 	uint32_t m_BoneIndex;
 	bool mbIsBoneNode{ false }; // Really a bone for skinning.
-	std::shared_ptr<BoneNode> mpParent{ nullptr };
+	std::weak_ptr<BoneNode> mpParent;
 	std::vector<std::shared_ptr<BoneNode>> mChildren;
 
 	VQS mModelSpaceLocalVqs{};	// Local transformation of the bone in model space

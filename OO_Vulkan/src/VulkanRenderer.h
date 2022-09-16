@@ -113,13 +113,6 @@ public:
 	void CreateCommandBuffers();
 
 	ImTextureID myImg;
-	VulkanFramebufferAttachment offscreenFB;
-	VulkanFramebufferAttachment offscreenDepth;
-	VkFramebuffer offscreenFramebuffer;
-	VkRenderPass offscreenPass;
-	void CreateOffscreenPass();
-	void CreateOffscreenFB();
-	void ResizeOffscreenFB();
 
     bool m_imguiInitialized = false;
 	bool m_initialized = false;
