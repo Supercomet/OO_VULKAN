@@ -104,7 +104,7 @@ void GBufferRenderPass::Draw()
 	};
 	
 	uint32_t dynamicOffset = 0;
-	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, PSOLayoutDB::indirectPSOLayout,
+	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, PSOLayoutDB::defaultPSOLayout,
 		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);
 	
 	// Bind merged mesh vertex & index buffers, instancing buffers.
@@ -292,7 +292,7 @@ void GBufferRenderPass::CreatePipeline()
 		vr.LoadShader(m_device, shaderPS, VK_SHADER_STAGE_FRAGMENT_BIT)
 	};
 
-	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::indirectPSOLayout, vr.renderPass_default);
+	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::defaultPSOLayout, vr.renderPass_default);
 	pipelineCI.pInputAssemblyState = &inputAssemblyState;
 	pipelineCI.pRasterizationState = &rasterizationState;
 	pipelineCI.pColorBlendState = &colorBlendState;

@@ -18,6 +18,7 @@ void DeferredCompositionRenderpass::Init()
 void DeferredCompositionRenderpass::CreatePSO()
 {
 	CreateDescriptors();
+	CreatePipelineLayout();
 	CreatePipeline(); // Dependency on GBuffer Init()
 }
 
@@ -66,14 +67,9 @@ void DeferredCompositionRenderpass::Draw()
 	SetDefaultViewportAndScissor(cmdlist);
 
 	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, pso_DeferredLightingComposition);
-	std::array<VkDescriptorSet, 2> descriptorSetGroup = 
-	{
-		vr.descriptorSets_uniform[swapchainIdx],
-		vr.descriptorSet_bindless,
-	};
 
 	CreateDescriptors();
-	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_DeferredLightingComposition, 0, 1, &vr.descriptorSet_DeferredComposition, 0, nullptr);
+	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, PSOLayoutDB::deferredLightingCompositionPSOLayout, 0, 1, &vr.descriptorSet_DeferredComposition, 0, nullptr);
 
 	DrawFullScreenQuad(cmdlist);
 
@@ -84,13 +80,18 @@ void DeferredCompositionRenderpass::Shutdown()
 {
 	auto& device = VulkanRenderer::get()->m_device.logicalDevice;
 	
-	vkDestroyPipelineLayout(device, layout_DeferredLightingComposition, nullptr);
+	vkDestroyPipelineLayout(device, PSOLayoutDB::deferredLightingCompositionPSOLayout, nullptr);
 	//vkDestroyRenderPass(device, renderpass_DeferredLightingComposition, nullptr);
 	vkDestroyPipeline(device, pso_DeferredLightingComposition, nullptr);
 }
 
 void DeferredCompositionRenderpass::CreateDescriptors()
 {
+	if (m_log)
+	{
+		std::cout << __FUNCSIG__ << std::endl;
+	}
+
 	auto& vr = *VulkanRenderer::get();
 	// At this point, all dependent resources (gbuffer etc) must be ready.
 	auto gbuffer = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
@@ -131,7 +132,26 @@ void DeferredCompositionRenderpass::CreateDescriptors()
         .BindImage(4, &texDescriptorMaterial, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         //.BindImage(5, &texDescriptorDepth, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .BindBuffer(6, &vr.lightsBuffer.descriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .Build(vr.descriptorSet_DeferredComposition, SetLayoutDB::DeferredComposition);
+        .Build(vr.descriptorSet_DeferredComposition, SetLayoutDB::DeferredLightingComposition);
+}
+
+void DeferredCompositionRenderpass::CreatePipelineLayout()
+{
+	auto& vr = *VulkanRenderer::get();
+	auto& m_device = vr.m_device;
+
+	std::vector<VkDescriptorSetLayout> setLayouts
+	{
+		SetLayoutDB::DeferredLightingComposition // (set = 0)
+	};
+
+	VkPipelineLayoutCreateInfo plci = oGFX::vkutils::inits::pipelineLayoutCreateInfo(setLayouts.data(), static_cast<uint32_t>(setLayouts.size()));
+	VkPushConstantRange pushConstantRange{ VK_SHADER_STAGE_ALL, 0, 128 };
+	plci.pushConstantRangeCount = 1;
+	plci.pPushConstantRanges = &pushConstantRange;
+
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::deferredLightingCompositionPSOLayout));
+	VK_NAME(m_device.logicalDevice, "deferredLightingCompositionPSOLayout", PSOLayoutDB::deferredLightingCompositionPSOLayout);
 }
 
 void DeferredCompositionRenderpass::CreatePipeline()
@@ -139,15 +159,13 @@ void DeferredCompositionRenderpass::CreatePipeline()
 	auto& vr = *VulkanRenderer::get();
 	auto& m_device = vr.m_device;
 
-	std::vector<VkDescriptorSetLayout> setLayouts{ SetLayoutDB::DeferredComposition };
-
-	VkPipelineLayoutCreateInfo plci = oGFX::vkutils::inits::pipelineLayoutCreateInfo(setLayouts.data(),static_cast<uint32_t>(setLayouts.size()));	
-	VkPushConstantRange pushConstantRange{ VK_SHADER_STAGE_ALL, 0, 128 };
-	plci.pushConstantRangeCount = 1;
-	plci.pPushConstantRanges = &pushConstantRange;
-
-	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &layout_DeferredLightingComposition));
-	VK_NAME(m_device.logicalDevice, "compositionPipeLayout", layout_DeferredLightingComposition);
+	const char* shaderVS = "Shaders/bin/deferredlighting.vert.spv";
+	const char* shaderPS = "Shaders/bin/deferredlighting.frag.spv";
+	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages
+	{
+		vr.LoadShader(m_device, shaderVS, VK_SHADER_STAGE_VERTEX_BIT),
+		vr.LoadShader(m_device, shaderPS, VK_SHADER_STAGE_FRAGMENT_BIT)
+	};
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
 	VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
@@ -158,9 +176,8 @@ void DeferredCompositionRenderpass::CreatePipeline()
 	VkPipelineMultisampleStateCreateInfo multisampleState = oGFX::vkutils::inits::pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT, 0);
 	std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 	VkPipelineDynamicStateCreateInfo dynamicState = oGFX::vkutils::inits::pipelineDynamicStateCreateInfo(dynamicStateEnables);
-	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
 
-	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::indirectPSOLayout, vr.renderPass_default);
+	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::defaultPSOLayout, vr.renderPass_default);
 	pipelineCI.pInputAssemblyState = &inputAssemblyState;
 	pipelineCI.pRasterizationState = &rasterizationState;
 	pipelineCI.pColorBlendState = &colorBlendState;
@@ -175,19 +192,17 @@ void DeferredCompositionRenderpass::CreatePipeline()
 
 	// Final fullscreen composition pass pipeline
 	rasterizationState.cullMode = VK_CULL_MODE_NONE;
-	shaderStages[0] = vr.LoadShader(m_device, "Shaders/bin/deferredlighting.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	shaderStages[1] = vr.LoadShader(m_device, "Shaders/bin/deferredlighting.frag.spv",VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Empty vertex input state, vertices are generated by the vertex shader
 	VkPipelineVertexInputStateCreateInfo emptyInputState = oGFX::vkutils::inits::pipelineVertexInputStateCreateInfo();
 	pipelineCI.pVertexInputState = &emptyInputState;
 	pipelineCI.renderPass = vr.renderPass_default;
-	pipelineCI.layout = layout_DeferredLightingComposition;
+	pipelineCI.layout = PSOLayoutDB::deferredLightingCompositionPSOLayout;
 	colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
 	blendAttachmentState= oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
 
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_DeferredLightingComposition));
-	VK_NAME(m_device.logicalDevice, "compositionPipe", pso_DeferredLightingComposition);
+	VK_NAME(m_device.logicalDevice, "deferredLightingCompositionPSO", pso_DeferredLightingComposition);
 
 	vkDestroyShaderModule(m_device.logicalDevice,shaderStages[0].module , nullptr);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);

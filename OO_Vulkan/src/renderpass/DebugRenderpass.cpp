@@ -81,7 +81,7 @@ void DebugDrawRenderpass::Draw()
 			vr.descriptorSets_uniform[swapchainIdx],
 			vr.descriptorSet_bindless
 		};
-		vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, PSOLayoutDB::indirectPSOLayout,
+		vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, PSOLayoutDB::defaultPSOLayout,
 			0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);
 
 		vkCmdBindVertexBuffers(cmdlist, VERTEX_BUFFER_ID, 1, vr.g_DebugDrawVertexBufferGPU.getBufferPtr(), offsets);
@@ -252,7 +252,7 @@ void DebugDrawRenderpass::CreatePipeline()
 	colourState.alphaBlendOp = VK_BLEND_OP_ADD;
 	VkPipelineColorBlendStateCreateInfo colourBlendingCreateInfo = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1,&colourState);
 
-	VkGraphicsPipelineCreateInfo pipelineCreateInfo = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::indirectPSOLayout,vr.renderPass_default);
+	VkGraphicsPipelineCreateInfo pipelineCreateInfo = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::defaultPSOLayout,vr.renderPass_default);
 	pipelineCreateInfo.stageCount = 2;
 	pipelineCreateInfo.pStages = shaderStages.data();
 	pipelineCreateInfo.pVertexInputState = &vertexInputCreateInfo;

@@ -97,7 +97,7 @@ void ShadowPass::Draw()
 	};
 	
 	uint32_t dynamicOffset = 0;
-	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, PSOLayoutDB::indirectPSOLayout,
+	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, PSOLayoutDB::defaultPSOLayout,
 		0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 1, &dynamicOffset);
 	
 	// Bind merged mesh vertex & index buffers, instancing buffers.
@@ -115,7 +115,7 @@ void ShadowPass::Draw()
 	glm::mat4 viewproj = light.projection * light.view[0] ;
 
 	vkCmdPushConstants(cmdlist,
-		PSOLayoutDB::indirectPSOLayout,
+		PSOLayoutDB::defaultPSOLayout,
 		VK_SHADER_STAGE_ALL,	    // stage to push constants to
 		0,							// offset of push constants to update
 		sizeof(glm::mat4),			// size of data being pushed
@@ -239,7 +239,7 @@ void ShadowPass::CreatePipeline()
 	VkPipelineDynamicStateCreateInfo dynamicState = oGFX::vkutils::inits::pipelineDynamicStateCreateInfo(dynamicStateEnables);
 	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
 
-	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::indirectPSOLayout, vr.renderPass_default);
+	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::defaultPSOLayout, vr.renderPass_default);
 	pipelineCI.pInputAssemblyState = &inputAssemblyState;
 	pipelineCI.pRasterizationState = &rasterizationState;
 	pipelineCI.pColorBlendState = &colorBlendState;
