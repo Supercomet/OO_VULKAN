@@ -101,6 +101,56 @@ struct EntityInfo
         return xform;
     }
 
+    void SyncToGraphicsWorld()
+    {
+        auto& gfxWorldObjectInstance = gs_GraphicsWorld.GetObjectInstance(gfxID);
+        gfxWorldObjectInstance.position = position;
+        gfxWorldObjectInstance.scale = scale;
+        gfxWorldObjectInstance.rot = rot;
+        gfxWorldObjectInstance.rotVec = rotVec;
+        gfxWorldObjectInstance.localToWorld = getLocalToWorld();
+    }
+};
+
+class GizmoContext
+{
+public:
+    void SelectEntityInfo(EntityInfo* ptr)
+    {
+        FreeSelection();
+        m_EntityInfo = ptr;
+    }
+
+	void SelectVector3Property(float* ptr)
+	{
+		m_Vector3Property = ptr;
+	}
+
+    EntityInfo* GetSelectedEntityInfo() const { return m_EntityInfo; }
+    float* GetSelectedVector3Property() const { return m_Vector3Property; }
+   
+	void FreeSelection()
+	{
+		m_EntityInfo = nullptr;
+		m_Vector3Property = nullptr;
+	}
+
+    bool AnyPropertySelected() { return m_Vector3Property; }
+
+    void SetVector3Property(const glm::vec3& value)
+    {
+        if (m_Vector3Property == nullptr)
+        {
+            std::cout << "[Gizmo] Trying to set value on null m_Vector3Property" << std::endl;
+            return;
+        }
+        glm::vec3* target = (glm::vec3*)m_Vector3Property;
+        *target = value;
+    }
+
+private:
+    EntityInfo* m_EntityInfo{ nullptr };
+    float* m_Vector3Property{ nullptr };
 };
 
 void CreateGraphicsEntityHelper(EntityInfo& ei)
@@ -111,6 +161,7 @@ void CreateGraphicsEntityHelper(EntityInfo& ei)
     //UpdateBV(gs_RenderEngine->models[e.modelID].cpuModel, e);
 
     auto id = gs_GraphicsWorld.CreateObjectInstance(
+        // Very unsafe to use initializer list, prone to mistakes...
         ObjectInstance{
             ei.name,
             ei.position,
@@ -136,7 +187,7 @@ static std::vector<EntityInfo> entities;
 
 static CameraController gs_CameraController;
 
-static float* gizmoHijack = nullptr; // TODO: Clean this up...
+static GizmoContext gs_GizmoContext{};
 
 void TestApplication::Run()
 {
@@ -576,7 +627,7 @@ void TestApplication::Run()
                 //ImGui::ShowDemoWindow();
 
                 // ImGuizmo
-                if (gizmoHijack)
+                if (gs_GizmoContext.AnyPropertySelected())
                 {
                     PROFILE_SCOPED("Gizmo");
 
@@ -608,6 +659,7 @@ void TestApplication::Run()
                     //ImGuizmo::DrawCubes(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix), matrixPtr, 1);
                     //ImGuizmo::DrawGrid(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix), matrixPtr, 20);
 
+                    float* gizmoHijack = gs_GizmoContext.GetSelectedVector3Property();
                     if (gizmoHijack) // Fix me!
                     {
                         glm::vec3 position = { gizmoHijack[0], gizmoHijack[1], gizmoHijack[2] };
@@ -642,9 +694,13 @@ void TestApplication::Run()
                             glm::quat q = glm::quat(glm::radians(euler_deg));
 
                             // Hacky and unsafe...
-                            gizmoHijack[0] = position[0];
-                            gizmoHijack[1] = position[1];
-                            gizmoHijack[2] = position[2];
+                            gs_GizmoContext.SetVector3Property(position);
+
+                            if (EntityInfo* entity = gs_GizmoContext.GetSelectedEntityInfo())
+                            {
+                                entity->SyncToGraphicsWorld();
+                            }
+                                
                         }
                     }
                 }
@@ -700,7 +756,7 @@ void TestApplication::Run()
 
                                 ImGui::Text("Total Entities: %u", entities.size());
 
-                                if (ImGui::TreeNode("Entity List"))
+                                if (ImGui::TreeNode("Entity"))
                                 {
                                     for (auto& entity : entities)
                                     {
@@ -716,8 +772,8 @@ void TestApplication::Run()
                                             {
                                                 if (ImGui::Selectable("Set ptr Gizmo"))
                                                 {
-                                                    // Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
-                                                    gizmoHijack = glm::value_ptr(entity.position);
+                                                    gs_GizmoContext.SelectEntityInfo(&entity);
+                                                    gs_GizmoContext.SelectVector3Property((float*)& entity.position);
                                                 }
                                                 ImGui::EndPopup();
                                             }
@@ -730,7 +786,7 @@ void TestApplication::Run()
 
                                         if (valuesModified)
                                         {
-                                            gs_GraphicsWorld.GetObjectInstance(entity.gfxID).localToWorld = entity.getLocalToWorld();
+                                            entity.SyncToGraphicsWorld();
                                         }
 
                                         ImGui::PopID();
@@ -762,8 +818,8 @@ void TestApplication::Run()
                                         {
                                             if (ImGui::Selectable("Set ptr Gizmo"))
                                             {
-                                                // Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
-                                                gizmoHijack = glm::value_ptr(light.position);
+												// Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
+                                                gs_GizmoContext.SelectVector3Property(glm::value_ptr(light.position));
                                             }
                                             ImGui::EndPopup();
                                         }
