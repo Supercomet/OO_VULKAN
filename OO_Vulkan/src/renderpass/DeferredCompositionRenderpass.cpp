@@ -67,7 +67,13 @@ void DeferredCompositionRenderpass::Draw()
 	cmd.SetDefaultViewportAndScissor();
 	
 	CreateDescriptors();
-	cmd.BindDescriptorSet(PSOLayoutDB::deferredLightingCompositionPSOLayout, 0, 1, &vr.descriptorSet_DeferredComposition);
+	cmd.BindDescriptorSet(PSOLayoutDB::deferredLightingCompositionPSOLayout, 0,
+		std::array<VkDescriptorSet, 2>
+		{
+			vr.descriptorSet_DeferredComposition,
+			vr.descriptorSets_uniform[swapchainIdx],
+		}
+	);
 	cmd.BindPSO(pso_DeferredLightingComposition);
 	cmd.DrawFullScreenQuad();
 
@@ -140,7 +146,8 @@ void DeferredCompositionRenderpass::CreatePipelineLayout()
 
 	std::vector<VkDescriptorSetLayout> setLayouts
 	{
-		SetLayoutDB::DeferredLightingComposition // (set = 0)
+		SetLayoutDB::DeferredLightingComposition, // (set = 0)
+		SetLayoutDB::uniform // (set = 1)
 	};
 
 	VkPipelineLayoutCreateInfo plci = oGFX::vkutils::inits::pipelineLayoutCreateInfo(setLayouts.data(), static_cast<uint32_t>(setLayouts.size()));
