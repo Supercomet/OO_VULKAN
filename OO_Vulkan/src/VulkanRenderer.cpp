@@ -47,6 +47,22 @@
 
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
+// vulkan debug callback
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	VkDebugUtilsMessageTypeFlagsEXT messageType,
+	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+	void* pUserData) {
+
+	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+	{
+		std::cerr << pCallbackData->pMessage << std::endl;
+		assert(false);
+	}
+
+	return VK_FALSE;
+}
+
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
 		auto* hdl = viewport->PlatformHandle;
@@ -74,6 +90,10 @@ VulkanRenderer::~VulkanRenderer()
 	DelayedDeleter::get()->Shutdown();
 
 	RenderPassDatabase::Shutdown();
+
+#ifdef _DEBUG
+	DestroyDebugMessenger();
+#endif // _DEBUG
 
 	fbCache.Cleanup();
 
@@ -157,6 +177,10 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	try
 	{	
 		CreateInstance(setupSpecs);
+
+#ifdef _DEBUG
+		CreateDebugCallback();
+#endif // _DEBUG
 
 		CreateSurface(setupSpecs,window);
 		// set surface for imgui
@@ -322,7 +346,7 @@ void VulkanRenderer::CreateDefaultRenderpass()
 	VkAttachmentDescription depthAttachment{};
 	depthAttachment.format = G_DEPTH_FORMAT;
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -499,6 +523,22 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	}
 }
 
+void VulkanRenderer::CreateDebugCallback()
+{
+	VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	createInfo.pfnUserCallback = debugCallback;
+	createInfo.pUserData = nullptr;
+
+	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance.instance, "vkCreateDebugUtilsMessengerEXT");
+	if (func != nullptr)
+	{
+		VK_CHK(func(m_instance.instance, &createInfo, nullptr, &m_debugMessenger));
+	}
+}
+
 void VulkanRenderer::CreateFramebuffers()
 {
 	for (size_t i = 0; i < swapChainFramebuffers.size(); i++)
@@ -532,6 +572,14 @@ void VulkanRenderer::CreateFramebuffers()
 		{
 			throw std::runtime_error("Failed to create a Framebuffer!");
 		}
+	}
+}
+
+void VulkanRenderer::DestroyDebugMessenger()
+{
+	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(m_instance.instance, "vkDestroyDebugUtilsMessengerEXT");
+	if (func != nullptr) {
+		func(m_instance.instance, m_debugMessenger, nullptr);
 	}
 }
 

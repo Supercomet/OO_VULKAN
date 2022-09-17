@@ -103,6 +103,8 @@ public:
 	void Init(const oGFX::SetupInfo& setupSpecs, Window& window);
 
 	void CreateInstance(const oGFX::SetupInfo& setupSpecs);
+	void CreateDebugCallback();
+	void DestroyDebugMessenger();
 	void CreateSurface(const oGFX::SetupInfo& setupSpecs, Window& window);
 	void AcquirePhysicalDevice(const oGFX::SetupInfo& setupSpecs);
 	void CreateLogicalDevice(const oGFX::SetupInfo& setupSpecs);
@@ -127,6 +129,7 @@ public:
 	VulkanSwapchain m_swapchain{};
 	std::vector<VkFramebuffer> swapChainFramebuffers;
 	uint32_t swapchainIdx{ 0 };
+	VkDebugUtilsMessengerEXT m_debugMessenger{};
 
 	//---------- DescriptorSet ----------
 
