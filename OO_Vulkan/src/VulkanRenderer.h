@@ -48,14 +48,17 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
     // For unbounded array of texture descriptors, used in bindless approach
     inline static VkDescriptorSetLayout bindless;
 	// For lighting
-	inline static VkDescriptorSetLayout DeferredComposition;
+	inline static VkDescriptorSetLayout DeferredLightingComposition;
 	// 
 	inline static VkDescriptorSetLayout ForwardDecal;
 };
 
+// Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...
 struct PSOLayoutDB
 {
-	inline static VkPipelineLayout indirectPSOLayout;
+	inline static VkPipelineLayout defaultPSOLayout;
+	inline static VkPipelineLayout deferredLightingCompositionPSOLayout;
+	inline static VkPipelineLayout forwardDecalPSOLayout;
 };
 
 // Moving all constant buffer structures into this CB namespace.
