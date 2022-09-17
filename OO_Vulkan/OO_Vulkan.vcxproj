@@ -32,6 +32,7 @@
     <ClCompile Include="src\renderpass\DebugRenderpass.cpp" />
     <ClCompile Include="src\renderpass\DeferredCompositionRenderpass.cpp" />
     <ClCompile Include="src\GfxRenderpass.cpp" />
+    <ClCompile Include="src\renderpass\ForwardDecalRenderpass.cpp" />
     <ClCompile Include="src\renderpass\GBufferRenderPass.cpp" />
     <ClCompile Include="src\BoudingVolume.cpp" />
     <ClCompile Include="src\DescriptorBuilder.cpp" />
@@ -56,6 +57,7 @@
     <ClCompile Include="src\optick\optick_server.cpp" />
     <ClCompile Include="src\renderpass\ShadowPass.cpp" />
     <ClCompile Include="src\loader\stbi_impl.cpp" />
+    <ClCompile Include="src\rhi\CommandList.cpp" />
     <ClCompile Include="src\Tests_Assignment1.cpp" />
     <ClCompile Include="src\VulkanFramebufferAttachment.cpp" />
     <ClCompile Include="src\VulkanInstance.cpp" />
@@ -83,6 +85,7 @@
     <ClInclude Include="src\renderpass\DebugRenderpass.h" />
     <ClInclude Include="src\renderpass\DeferredCompositionRenderpass.h" />
     <ClInclude Include="src\GfxRenderpass.h" />
+    <ClInclude Include="src\renderpass\ForwardDecalRenderpass.h" />
     <ClInclude Include="src\renderpass\GBufferRenderPass.h" />
     <ClInclude Include="src\BoudingVolume.h" />
     <ClInclude Include="src\DescriptorBuilder.h" />
@@ -113,6 +116,7 @@
     <ClInclude Include="src\optick\optick_server.h" />
     <ClInclude Include="src\Profiling.h" />
     <ClInclude Include="src\renderpass\ShadowPass.h" />
+    <ClInclude Include="src\rhi\CommandList.h" />
     <ClInclude Include="src\Tree.h" />
     <ClInclude Include="src\VulkanFramebufferAttachment.h" />
     <ClInclude Include="src\Node.h" />

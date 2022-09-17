@@ -58,6 +58,7 @@ struct PSOLayoutDB
 {
 	inline static VkPipelineLayout defaultPSOLayout;
 	inline static VkPipelineLayout deferredLightingCompositionPSOLayout;
+	inline static VkPipelineLayout forwardDecalPSOLayout;
 };
 
 // Moving all constant buffer structures into this CB namespace.

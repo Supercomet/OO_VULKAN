@@ -63,15 +63,13 @@ void DeferredCompositionRenderpass::Draw()
 	renderPassBeginInfo.framebuffer =  vr.swapChainFramebuffers[swapchainIdx];
 
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-	SetDefaultViewportAndScissor(cmdlist);
-
-	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, pso_DeferredLightingComposition);
-
+	rhi::CommandList cmd{ cmdlist };
+	cmd.SetDefaultViewportAndScissor();
+	
 	CreateDescriptors();
-	vkCmdBindDescriptorSets(cmdlist, VK_PIPELINE_BIND_POINT_GRAPHICS, PSOLayoutDB::deferredLightingCompositionPSOLayout, 0, 1, &vr.descriptorSet_DeferredComposition, 0, nullptr);
-
-	DrawFullScreenQuad(cmdlist);
+	cmd.BindDescriptorSet(PSOLayoutDB::deferredLightingCompositionPSOLayout, 0, 1, &vr.descriptorSet_DeferredComposition);
+	cmd.BindPSO(pso_DeferredLightingComposition);
+	cmd.DrawFullScreenQuad();
 
 	vkCmdEndRenderPass(cmdlist);
 }
@@ -79,7 +77,7 @@ void DeferredCompositionRenderpass::Draw()
 void DeferredCompositionRenderpass::Shutdown()
 {
 	auto& device = VulkanRenderer::get()->m_device.logicalDevice;
-	
+
 	vkDestroyPipelineLayout(device, PSOLayoutDB::deferredLightingCompositionPSOLayout, nullptr);
 	//vkDestroyRenderPass(device, renderpass_DeferredLightingComposition, nullptr);
 	vkDestroyPipeline(device, pso_DeferredLightingComposition, nullptr);

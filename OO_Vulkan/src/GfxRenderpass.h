@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Profiling.h"
+#include "rhi/CommandList.h"
 
 #include <vector>
 #include <memory>
