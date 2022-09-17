@@ -816,46 +816,9 @@ void VulkanRenderer::InitImGUI()
 	vkCreateDescriptorPool(m_device.logicalDevice, &dpci, nullptr, &m_imguiConfig.descriptorPools);
 	VK_NAME(m_device.logicalDevice, "imguiConfig_descriptorPools", m_imguiConfig.descriptorPools);
 
+	m_imguiInitialized = true;
+	RestartImgui();
 
-	
-	if (windowPtr->m_type == Window::WindowType::WINDOWS32)
-	{
-		ImGui_ImplWin32_Init(windowPtr->GetRawHandle());
-		//setup surface creator
-		ImGui::GetPlatformIO().Platform_CreateVkSurface = ImGui_ImplWin32_CreateVkSurface;
-	}
-	else
-	{
-		
-		if (ImGui::GetIO().BackendPlatformUserData == NULL)
-		{
-			std::cout << "Vulkan Imgui Error: you should handle the initialization of imgui::window_init before here"<< std::endl;
-			assert(true);
-		}		
-	}
-	ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
-	//pio.Platform_CreateVkSurface = Win32SurfaceCreator;
-
-	ImGui_ImplVulkan_InitInfo init_info = {};
-	init_info.Instance = m_instance.instance;
-	init_info.PhysicalDevice = m_device.physicalDevice;
-	init_info.Device = m_device.logicalDevice;
-	init_info.QueueFamily = m_device.queueIndices.graphicsFamily;
-	init_info.Queue = m_device.graphicsQueue;
-	init_info.PipelineCache = VK_NULL_HANDLE;
-	init_info.DescriptorPool = m_imguiConfig.descriptorPools;
-	init_info.Allocator = nullptr;
-	init_info.MinImageCount = m_swapchain.minImageCount + 1;
-	init_info.ImageCount = static_cast<uint32_t>(m_swapchain.swapChainImages.size());
-	init_info.CheckVkResultFn = VK_NULL_HANDLE; // can be used to handle the error checking
-
-	
-	ImGui_ImplVulkan_Init(&init_info, m_imguiConfig.renderPass);
-
-	// This uploads the ImGUI font package to the GPU
-	VkCommandBuffer command_buffer = beginSingleTimeCommands();
-	ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
-	endSingleTimeCommands(command_buffer); 
 
 	// Create frame buffers for every swap chain image
 	// We need to do this because ImGUI only cares about the colour attachment.
@@ -879,8 +842,6 @@ void VulkanRenderer::InitImGUI()
 		VK_CHK(vkCreateFramebuffer(m_device.logicalDevice, &_ci, nullptr, &m_imguiConfig.buffers[i])); 
 		VK_NAME(m_device.logicalDevice, "imguiconfig_Framebuffer", m_imguiConfig.buffers[i]);
 	}
-
-	m_imguiInitialized = true;
 
 }
 
@@ -972,6 +933,16 @@ void VulkanRenderer::DrawGUI()
 	vkCmdEndRenderPass(cmdlist);
 }
 
+void VulkanRenderer::ImguiSoftDestroy()
+{
+	vkDeviceWaitIdle(m_device.logicalDevice);
+	ImGui_ImplVulkan_Shutdown();
+	if (windowPtr->m_type == Window::WindowType::WINDOWS32)
+	{
+		ImGui_ImplWin32_Shutdown();
+	}
+}
+
 void VulkanRenderer::DestroyImGUI()
 {
 	if (m_imguiInitialized == false) return;
@@ -984,12 +955,62 @@ void VulkanRenderer::DestroyImGUI()
 	}
 	vkDestroyRenderPass(m_device.logicalDevice, m_imguiConfig.renderPass, nullptr);
 	vkDestroyDescriptorPool(m_device.logicalDevice, m_imguiConfig.descriptorPools, nullptr);
-	ImGui_ImplVulkan_Shutdown();
+	
+	ImguiSoftDestroy();
+
+	m_imguiInitialized = false;
+}
+
+void checkresult(VkResult checkresult)
+{
+	if (checkresult != VK_SUCCESS)
+	{
+		std::cout << oGFX::vkutils::tools::VkResultString(checkresult) << std::endl;
+	}
+
+}
+
+void VulkanRenderer::RestartImgui()
+{
 	if (windowPtr->m_type == Window::WindowType::WINDOWS32)
 	{
-		ImGui_ImplWin32_Shutdown();
+		ImGui_ImplWin32_Init(windowPtr->GetRawHandle());
+		//setup surface creator
+		ImGui::GetPlatformIO().Platform_CreateVkSurface = ImGui_ImplWin32_CreateVkSurface;
 	}
-	m_imguiInitialized = false;
+	else
+	{
+
+		if (ImGui::GetIO().BackendPlatformUserData == NULL)
+		{
+			std::cout << "Vulkan Imgui Error: you should handle the initialization of imgui::window_init before here"<< std::endl;
+			assert(true);
+		}		
+	}
+	ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
+	//pio.Platform_CreateVkSurface = Win32SurfaceCreator;
+
+	ImGui_ImplVulkan_InitInfo init_info = {};
+	init_info.Instance = m_instance.instance;
+	init_info.PhysicalDevice = m_device.physicalDevice;
+	init_info.Device = m_device.logicalDevice;
+	init_info.QueueFamily = m_device.queueIndices.graphicsFamily;
+	init_info.Queue = m_device.graphicsQueue;
+	init_info.PipelineCache = VK_NULL_HANDLE;
+	init_info.DescriptorPool = m_imguiConfig.descriptorPools;
+	init_info.Allocator = nullptr;
+	init_info.MinImageCount = m_swapchain.minImageCount + 1;
+	init_info.ImageCount = static_cast<uint32_t>(m_swapchain.swapChainImages.size());
+	init_info.CheckVkResultFn = VK_NULL_HANDLE; // can be used to handle the error checking
+	init_info.CheckVkResultFn = checkresult; // can be used to handle the error checking
+
+	ImGui_ImplVulkan_Init(&init_info, m_imguiConfig.renderPass);
+
+	// This uploads the ImGUI font package to the GPU
+	VkCommandBuffer command_buffer = beginSingleTimeCommands();
+	ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+	endSingleTimeCommands(command_buffer); 
+
 }
 
 void VulkanRenderer::AddDebugLine(const glm::vec3& p0, const glm::vec3& p1, const oGFX::Color& col, size_t loc)

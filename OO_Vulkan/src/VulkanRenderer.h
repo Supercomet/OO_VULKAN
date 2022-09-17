@@ -165,6 +165,8 @@ public:
 	void DebugGUIcalls();
 	void DrawGUI();
 	void DestroyImGUI();
+	void RestartImgui();
+	void ImguiSoftDestroy();
 
 	//---------- Debug Draw Interface ----------
 
