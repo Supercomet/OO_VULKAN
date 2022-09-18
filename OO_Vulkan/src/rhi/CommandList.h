@@ -9,12 +9,15 @@ namespace rhi
 class CommandList
 {
 public:
+
 	CommandList(const VkCommandBuffer& cmd)
 		: m_VkCommandBuffer{ cmd } 
 	{
 	}
 
-	void BindPSO(const VkPipeline& pso);
+	//----------------------------------------------------------------------------------------------------
+	// Binding Commands
+	//----------------------------------------------------------------------------------------------------
 
 	void BindVertexBuffer(
 		uint32_t firstBinding,
@@ -27,24 +30,7 @@ public:
 		VkDeviceSize offset,
 		VkIndexType indexType);
 
-	void DrawIndexed(
-		uint32_t indexCount,
-		uint32_t instanceCount,
-		uint32_t firstIndex = 0,
-		int32_t vertexOffset = 0 ,
-		uint32_t firstInstance = 0)
-	{
-		vkCmdDrawIndexed(m_VkCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
-	}
-
-	void DrawIndexedIndirect(
-			VkBuffer buffer,
-			VkDeviceSize offset,
-			uint32_t drawCount,
-			uint32_t stride = sizeof(VkDrawIndexedIndirectCommand));
-	
-	// Helper function to draw a Full Screen Quad, without binding vertex and index buffers.
-	void DrawFullScreenQuad();
+	void BindPSO(const VkPipeline& pso);
 
 	void BindDescriptorSet(
 		VkPipelineLayout layout,
@@ -72,6 +58,42 @@ public:
 			dynamicOffsetCount,
 			pDynamicOffsets);
 	}
+
+	//----------------------------------------------------------------------------------------------------
+	// Drawing Commands
+	//----------------------------------------------------------------------------------------------------
+
+	void Draw(
+		uint32_t vertexCount,
+		uint32_t instanceCount,
+		uint32_t firstVertex = 0,
+		uint32_t firstInstance = 0)
+	{
+		vkCmdDraw(m_VkCommandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
+	}
+
+	void DrawIndexed(
+		uint32_t indexCount,
+		uint32_t instanceCount,
+		uint32_t firstIndex = 0,
+		int32_t vertexOffset = 0 ,
+		uint32_t firstInstance = 0)
+	{
+		vkCmdDrawIndexed(m_VkCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+	}
+
+	void DrawIndexedIndirect(
+			VkBuffer buffer,
+			VkDeviceSize offset,
+			uint32_t drawCount,
+			uint32_t stride = sizeof(VkDrawIndexedIndirectCommand));
+	
+	// Helper function to draw a Full Screen Quad, without binding vertex and index buffers.
+	void DrawFullScreenQuad();
+
+	//----------------------------------------------------------------------------------------------------
+	// Pipeline State Commands
+	//----------------------------------------------------------------------------------------------------
 
 	void SetDefaultViewportAndScissor();
 
