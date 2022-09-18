@@ -41,7 +41,7 @@ oGFX::Color GenerateRandomColor()
     return col;
 }
 
-void UpdateBV(Model* model, VulkanRenderer::EntityDetails& entity, int i)
+void UpdateBV(ModelData* model, VulkanRenderer::EntityDetails& entity, int i)
 {
     std::vector<Point3D> vertPositions;
     vertPositions.resize(model->vertices.size());

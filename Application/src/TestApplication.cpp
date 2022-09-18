@@ -270,25 +270,28 @@ void TestApplication::Run()
 
     auto defaultPlaneMesh = CreateDefaultPlaneXZMesh();
     auto defaultCubeMesh = CreateDefaultCubeMesh();
-    std::unique_ptr<Model> model_plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
-    std::unique_ptr<Model> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
+    std::unique_ptr<ModelData> model_plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
+    std::unique_ptr<ModelData> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
 
-    std::unique_ptr<Model> character_diona{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx") };
-    std::unique_ptr<Model> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
+    std::unique_ptr<ModelData> character_diona{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx") };
+    std::unique_ptr<ModelData> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
 
     /* // WIP
-    std::unique_ptr<Model> alibaba{ gs_RenderEngine->LoadModelFromFile("../Application/models/anim/AnimationTest_Box.fbx") };
+    std::unique_ptr<ModelData> alibaba{ gs_RenderEngine->LoadModelFromFile("../Application/models/anim/AnimationTest_Box.fbx") };
 	std::unique_ptr<simpleanim::SkinnedMesh> skinnedMesh_alibaba = std::make_unique<simpleanim::SkinnedMesh>();
 	simpleanim::LoadModelFromFile_Skeleton("../Application/models/anim/AnimationTest_Box.fbx", simpleanim::LoadingConfig{}, alibaba.get(), skinnedMesh_alibaba.get());
     */
     /* // WIP
-    std::unique_ptr<Model> character_dori{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/dori.fbx") };
+    std::unique_ptr<ModelData> character_dori{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/dori.fbx") };
     std::unique_ptr<SkinnedMesh> skinnedMesh_dori = std::make_unique<SkinnedMesh>();
     LoadModelFromFile_Skeleton("../Application/models/character/dori.fbx", LoadingConfig{}, character_dori.get(), skinnedMesh_dori.get());
     */
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Scene Objects
     //----------------------------------------------------------------------------------------------------
+
+    std::unique_ptr<ModelData> test_scene{ gs_RenderEngine->LoadModelFromFile("../Application/models/testScene.fbx") };
+    
 
     std::array<uint32_t, 4> diffuseBindlessTextureIndexes =
     {
@@ -312,7 +315,7 @@ void TestApplication::Run()
         auto& ed = entities.emplace_back(EntityInfo{});
         ed.name = "Ground_Plane";
         ed.entityID = FastRandomMagic();
-        ed.modelID = model_plane->gfxIndex;
+        ed.modelID = model_plane->gfxMeshIndices.front();
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
     }
@@ -321,12 +324,26 @@ void TestApplication::Run()
         auto& ed = entities.emplace_back(EntityInfo{});
         ed.name = "Plane_Effects";
         ed.entityID = FastRandomMagic();
-        ed.modelID = model_plane->gfxIndex;
+        ed.modelID = model_plane->gfxMeshIndices.front();
         ed.position = { -2.0f,2.0f,0.0f };
         ed.scale = { 2.0f,1.0f,2.0f };
         ed.rot = 90.0f;
         ed.rotVec = { 1.0f,0.0f,0.0f };
         ed.instanceData = 3;
+    }
+
+
+    {
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.name = "TestSceneObject";
+        ed.entityID = FastRandomMagic();
+        ed.modelID = test_scene->gfxMeshIndices.front();
+        ed.position = {  };
+        ed.scale = { 0.1f,0.1f,0.1f };
+        ed.rot = 0.0f;
+        ed.rotVec = { 1.0f,0.0f,0.0f };
+        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        ed.instanceData = 0;
     }
 
     // Create 8 more surrounding planes
@@ -349,7 +366,7 @@ void TestApplication::Run()
             auto& ed = entities.emplace_back(EntityInfo{});
             ed.name = "Ground_Plane_" + std::to_string(i);
             ed.entityID = FastRandomMagic();
-            ed.modelID = model_plane->gfxIndex;
+            ed.modelID = model_plane->gfxMeshIndices.front();
             ed.position = positions[i];
             ed.scale = { 15.0f,1.0f,15.0f };
             ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[i / 2];
@@ -357,35 +374,62 @@ void TestApplication::Run()
         }
     }
 
+    std::function<void(ModelData*,Node*)> EntityHelper = [&](ModelData* model,Node* node) {
+        if (node->meshRef != static_cast<uint32_t>(-1))
+        {
+            auto& ed = entities.emplace_back(EntityInfo{});
+            ed.modelID = model->gfxMeshIndices[node->meshRef];
+            ed.name = node->name;
+            ed.entityID = FastRandomMagic();
+            glm::quat qt;
+            glm::vec3 skew;
+            glm::vec4 persp;
+            ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(node->transform), glm::value_ptr(ed.position), glm::value_ptr(ed.rotVec), glm::value_ptr(ed.scale));
+            //glm::decompose(node->transform, ed.scale, qt, ed.position, skew, persp);
+            //qt = glm::conjugate(qt);
+            ////glm::angle
+            //ed.rotVec = glm::eulerAngles(qt);
+            ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+            ed.instanceData = 0;
+        }
+        for (auto& child : node->children)
+        {
+            EntityHelper(model,child);
+        }            
+
+    };
     if (character_diona)
     {
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.modelID = character_diona->gfxIndex;
-        ed.name = "diona";
-        ed.entityID = FastRandomMagic();
-        ed.position = { 2.0f,0.0f,0.0f };
-        ed.scale = { 1.0f,1.0f,1.0f };
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        ed.instanceData = 1;
+        
+        EntityHelper(character_diona.get(),character_diona->sceneInfo);
+        //auto& ed = entities.emplace_back(EntityInfo{});
+        //ed.modelID = character_diona->gfxMeshIndices.front();
+        //ed.name = "diona";
+        //ed.entityID = FastRandomMagic();
+        //ed.position = { 2.0f,0.0f,0.0f };
+        //ed.scale = { 1.0f,1.0f,1.0f };
+        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        //ed.instanceData = 1;
     }
 
     if (character_qiqi)
     {
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.modelID = character_qiqi->gfxIndex;
-        ed.name = "qiqi";
-        ed.entityID = FastRandomMagic();
-        ed.position = { 1.0f,0.0f,0.0f };
-        ed.scale = { 1.0f,1.0f,1.0f };
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        ed.instanceData = 2;
+        EntityHelper(character_qiqi.get(), character_qiqi->sceneInfo);
+        //auto& ed = entities.emplace_back(EntityInfo{});
+        //ed.modelID = character_qiqi->gfxMeshIndices.front();
+        //ed.name = "qiqi";
+        //ed.entityID = FastRandomMagic();
+        //ed.position = { 1.0f,0.0f,0.0f };
+        //ed.scale = { 1.0f,1.0f,1.0f };
+        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        //ed.instanceData = 2;
     }
 
     /* // WIP
 	if (alibaba)
 	{
 		auto& ed = entities.emplace_back(EntityInfo{});
-		ed.modelID = alibaba->gfxIndex;
+		ed.modelID = alibaba->gfxMeshIndices.front();
 		ed.name = "alibaba";
 		ed.entityID = FastRandomMagic();
 		ed.position = { 0.0f,0.0f,0.0f };
@@ -394,9 +438,14 @@ void TestApplication::Run()
 		//ed.instanceData = 2;
 	}
     */
+    
+    if (test_scene)
+    {
+        EntityHelper(test_scene.get(), test_scene->sceneInfo);
+    }
 
     // Stress test more models
-    std::vector<std::unique_ptr<Model>> moreModels;
+    std::vector<std::unique_ptr<ModelData>> moreModels;
     moreModels.reserve(128);
 #define LOAD_MODEL(FILE) moreModels.emplace_back(gs_RenderEngine->LoadModelFromFile("../Application/models/" FILE))
     LOAD_MODEL("arrow.fbx");
@@ -427,7 +476,7 @@ void TestApplication::Run()
         for (auto& model : moreModels)
         {
             auto& ed = entities.emplace_back(EntityInfo{});
-            ed.modelID = model->gfxIndex;
+            ed.modelID = model->gfxMeshIndices.front();
             ed.name = "model_" + std::to_string(counter);
             ed.entityID = FastRandomMagic();
             ed.position = { 2.0f + 2.0 * float(counter % 4), 0.0f, -(2.0f + 2.0 * float(counter / 4)) };
@@ -720,7 +769,7 @@ void TestApplication::Run()
                                     auto& entity = entities[x];
                                     entity.position = { 2.0f,2.0f,2.0f };
                                     entity.scale = { 1.0f,1.0f,1.0f };
-                                    entity.modelID = model_box->gfxIndex;
+                                    entity.modelID = model_box->gfxMeshIndices.front();
                                     entity.entityID = FastRandomMagic();
 
                                     CreateGraphicsEntityHelper(entity);
@@ -747,7 +796,7 @@ void TestApplication::Run()
                                         auto& entity = entities[x];
                                         entity.position = { pos.x, glm::abs(pos.y), pos.z };
                                         entity.scale = { 1.0f,1.0f,1.0f };
-                                        entity.modelID = model_box->gfxIndex;
+                                        entity.modelID = model_box->gfxMeshIndices.front();
                                         entity.entityID = FastRandomMagic();
                                         
                                         CreateGraphicsEntityHelper(entity);
@@ -963,8 +1012,8 @@ void TestApplication::InitDefaultMeshes()
 {
     auto defaultPlaneMesh = CreateDefaultPlaneXZMesh();
     auto defaultCubeMesh = CreateDefaultCubeMesh();
-    std::unique_ptr<Model> plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
-    std::unique_ptr<Model> box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
+    std::unique_ptr<ModelData> plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
+    std::unique_ptr<ModelData> box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
 
 
 }

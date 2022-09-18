@@ -254,7 +254,10 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		InitDebugBuffers();
 		g_GlobalMeshBuffers.IdxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 		g_GlobalMeshBuffers.VtxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		
+		g_GlobalMeshBuffers.IdxBuffer.reserve(8 * 1000 * 1000);
+		g_GlobalMeshBuffers.VtxBuffer.reserve(8*1000*1000);
+
+
 		PROFILE_INIT_VULKAN(&m_device.logicalDevice, &m_device.physicalDevice, &m_device.graphicsQueue, (uint32_t*)&m_device.queueIndices.graphicsFamily, 1, nullptr);
 	}
 	catch (const std::exception& e)
@@ -1579,7 +1582,7 @@ bool VulkanRenderer::ResizeSwapchain()
 	return true;
 }
 
-Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
+ModelData* VulkanRenderer::LoadModelFromFile(const std::string& file)
 {
 	// new model loader
 	
@@ -1589,6 +1592,7 @@ Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	flags |= aiProcess_GenSmoothNormals;
 	flags |= aiProcess_ImproveCacheLocality;
 	flags |= aiProcess_CalcTangentSpace;
+	flags |= aiProcess_FindInstances; // this step is slow but it finds duplicate instances in FBX
 	const aiScene *scene = importer.ReadFile(file,flags
 		//  aiProcess_Triangulate                // Make sure we get triangles rather than nvert polygons
 		//| aiProcess_LimitBoneWeights           // 4 weights for skin model max
@@ -1612,38 +1616,12 @@ Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
 
 	std::cout <<"[Loading] " << file << std::endl;
 
-	std::vector<std::string> textureNames = MeshContainer::LoadMaterials(scene);
-	std::vector<int> matToTex(textureNames.size());
-	// Loop over textureNames and create textures for them
-	for (size_t i = 0; i < textureNames.size(); i++)
+	std::cout << "Meshes" << scene->mNumMeshes << std::endl;
+	for (size_t i = 0; i < scene->mNumMeshes; i++)
 	{
-		// if material had no texture, set '0' to indicate no texture, texture 0 will be reserved fora  default texture
-		if (textureNames[i].empty())
-		{
-			matToTex[i] = 0;
-		}
-		else
-		{
-			// otherwise create texture and set value to index of new texture
-			matToTex[i] = CreateTexture(textureNames[i]);
-		}
+		std::cout << "\tMesh" << i << " " << scene->mMeshes[i]->mName.C_Str() << std::endl;
+			std::cout << "\t\tverts:"  << scene->mMeshes[i]->mNumVertices << std::endl;
 	}
-
-	auto modelResourceIndex = models.size();
-	auto& model = models.emplace_back(std::move(gfxModel()));
-
-	for (auto& node : model.nodes)
-	{
-		for (auto& mesh : node->meshes)
-		{
-			mesh->textureIndex = matToTex[mesh->textureIndex];
-		}
-	}
-
-	Model* m = new Model;
-	m->gfxIndex = static_cast<uint32_t>(modelResourceIndex);
-	model.cpuModel = m;
-	m->fileName = file;
 
 	if (scene->HasAnimations())
 	{
@@ -1669,52 +1647,118 @@ Model* VulkanRenderer::LoadModelFromFile(const std::string& file)
 				}
 			}
 		}
+		std::cout << std::endl;
 	}
-	std::cout << std::endl;
 
-	model.meshCount= 0 ;
-	model.loadNode(nullptr, scene, *scene->mRootNode, 0, *m);
-	model.updateOffsets(g_GlobalMeshBuffers.IdxOffset, g_GlobalMeshBuffers.VtxOffset);
+	std::vector<std::string> textureNames = MeshContainer::LoadMaterials(scene);
+	std::vector<int> matToTex(textureNames.size());
+	// Loop over textureNames and create textures for them
+	for (size_t i = 0; i < textureNames.size(); i++)
+	{
+		// if material had no texture, set '0' to indicate no texture, texture 0 will be reserved fora  default texture
+		if (textureNames[i].empty())
+		{
+			matToTex[i] = 0;
+		}
+		else
+		{
+			// otherwise create texture and set value to index of new texture
+			matToTex[i] = CreateTexture(textureNames[i]);
+		}
+	}
+
+	ModelData* mData = new ModelData;
+
+	auto modelResourceIndex = models.size();
+	models.resize(modelResourceIndex + scene->mNumMeshes);
+	mData->gfxMeshIndices.resize(scene->mNumMeshes);
+
+	for (size_t i = 0; i < scene->mNumMeshes; i++)
+	{
+		auto& mdl = models[modelResourceIndex + i];
+		mdl.name = scene->mMeshes[i]->mName.C_Str();
+		mdl.cpuModel = mData;
+		mData->gfxMeshIndices[i] = modelResourceIndex + i;
+
+		auto cacheVoffset = mData->vertices.size();
+		auto cacheIoffset = mData->indices.size();
+		mdl.mesh = mdl.processMesh(scene->mMeshes[i], scene,
+			mData->vertices, mData->indices);
+
+		mdl.vertices.count = mdl.mesh->vertexCount;
+		mdl.vertices.offset = cacheVoffset;
+		mdl.indices.count = mdl.mesh->indicesCount;
+		mdl.indices.offset = cacheIoffset;
+	}
+
+	//mData->sceneInfo = new Node();
+	//always has one transform, root
+	mData->ModelSceneLoad(scene, *scene->mRootNode, nullptr, glm::mat4{ 1.0f });
+		
+	//model.loadNode(nullptr, scene, *scene->mRootNode, 0, *mData);
+	auto cI_offset = g_GlobalMeshBuffers.IdxOffset;
+	auto cV_offset = g_GlobalMeshBuffers.VtxOffset;
 	
-	LoadMeshFromBuffers(m->vertices, m->indices, &model);
+	for (size_t i = modelResourceIndex; i < models.size(); i++)
+	{
+		LoadMeshFromBuffers(mData->vertices, mData->indices, &models[i]);
 
-	return m;
+		//update indices by adding the cached offset
+		models[i].updateOffsets(cI_offset, cV_offset);
+		std::cout << "GPU pos " << models[i].vertices.offset
+			<< " size " << models[i].vertices.count
+			<< std::endl;
+	}
+
+	std::cout << "\t [Meshes loaded] " << mData->sceneMeshCount << std::endl;
+
+	return mData;
 }
 
-Model* VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model)
+ModelData* VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model)
 {
 	uint32_t index = 0;
-	Model* m{ nullptr };
+	ModelData* m{ nullptr };
 
 	if (model == nullptr)
 	{
+		// this is a file-less object, generate a model for it
 		index = static_cast<uint32_t>(models.size());
-		models.emplace_back(std::move(gfxModel()));
+		models.emplace_back(gfxModel());
 		model = &models[index];
+
+		model->indices.count = static_cast<uint32_t>(indices.size());
+		model->vertices.count = static_cast<uint32_t>(vertex.size());
+
 		Node* n = new Node{};
 		oGFX::Mesh* msh = new oGFX::Mesh{};
 		msh->indicesOffset = static_cast<uint32_t>(g_GlobalMeshBuffers.IdxOffset);
 		msh->vertexOffset = static_cast<uint32_t>(g_GlobalMeshBuffers.VtxOffset);
 		msh->indicesCount = static_cast<uint32_t>(indices.size());
 		msh->vertexCount = static_cast<uint32_t>(vertex.size());
-		model->meshCount= 1;
-		n->meshes.push_back(msh);
+		model->mesh = msh;
 		model->nodes.push_back(n);
 
-		m = new Model();
+		m = new ModelData();
 		m->vertices = vertex;
 		m->indices = indices;
-		m->gfxIndex = static_cast<uint32_t>(index);
+		m->gfxMeshIndices.push_back(static_cast<uint32_t>(index));
 
 		model->cpuModel = m;
-	}
+	}	
 
-	model->indices.count = static_cast<uint32_t>(indices.size());
-	model->vertices.count = static_cast<uint32_t>(vertex.size());
+	// these offsets are using local offset based on the buffer.
+	std::cout << "Writing to vtx from data " << model->vertices.offset 
+		<< " for " << model->vertices.count 
+		<<" total " << model->vertices.offset+model->vertices.count 
+		<< " at GPU buffer " << g_GlobalMeshBuffers.VtxOffset
+		<< std::endl;
+	g_GlobalMeshBuffers.IdxBuffer.writeTo(model->indices.count, indices.data() + model->indices.offset,
+		g_GlobalMeshBuffers.IdxOffset);
+	g_GlobalMeshBuffers.VtxBuffer.writeTo(model->vertices.count, vertex.data() + model->vertices.offset,
+		g_GlobalMeshBuffers.VtxOffset);
 
-	g_GlobalMeshBuffers.IdxBuffer.writeTo(indices.size(), indices.data(), g_GlobalMeshBuffers.IdxOffset);
-	g_GlobalMeshBuffers.VtxBuffer.writeTo(vertex.size(), vertex.data(), g_GlobalMeshBuffers.VtxOffset);
-
+	// now we update them to the global offset
 	model->indices.offset = g_GlobalMeshBuffers.IdxOffset;
 	model->vertices.offset = g_GlobalMeshBuffers.VtxOffset;
 
@@ -1722,77 +1766,8 @@ Model* VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, st
 	g_GlobalMeshBuffers.VtxOffset += model->vertices.count;
 
 	return m;
-
-	//{
-	//	using namespace oGFX;
-	//	//get size of buffer needed for vertices
-	//	VkDeviceSize bufferSize = sizeof(Vertex) * vertex.size();
-	//
-	//	//temporary buffer to stage vertex data before transferring to GPU
-	//	VkBuffer stagingBuffer;
-	//	VkDeviceMemory stagingBufferMemory; 
-	//	//create buffer and allocate memory to it
-	//
-	//	CreateBuffer(m_device.physicalDevice,m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-	//		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
-	//
-	//	//MAP MEMORY TO VERTEX BUFFER
-	//	void *data = nullptr;												//1. create a pointer to a point in normal memory
-	//	vkMapMemory(m_device.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);	//2. map the vertex buffer to that point
-	//	memcpy(data, vertex.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
-	//	vkUnmapMemory(m_device.logicalDevice, stagingBufferMemory);							//4. unmap the vertex buffer memory
-	//
-	//																						//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
-	//																						// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
-	//	CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-	//		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model->vertices.buffer, &model->vertices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
-	//
-	//																							  //copy staging buffer to vertex buffer on GPU
-	//	CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model->vertices.buffer, bufferSize);
-	//
-	//	//clean up staging buffer parts
-	//	vkDestroyBuffer(m_device.logicalDevice, stagingBuffer, nullptr);
-	//	vkFreeMemory(m_device.logicalDevice, stagingBufferMemory, nullptr);
-	//}
-	//
-	////CreateIndexBuffer
-	//{
-	//	using namespace oGFX;
-	//	//get size of buffer needed for vertices
-	//	VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
-	//
-	//	//temporary buffer to stage vertex data before transferring to GPU
-	//	VkBuffer stagingBuffer;
-	//	VkDeviceMemory stagingBufferMemory; 
-	//	//create buffer and allocate memory to it
-	//	CreateBuffer(m_device.physicalDevice,m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-	//		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
-	//
-	//	//MAP MEMORY TO VERTEX BUFFER
-	//	void *data = nullptr;												//1. create a pointer to a point in normal memory
-	//	vkMapMemory(m_device.logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);	//2. map the vertex buffer to that point
-	//	memcpy(data, indices.data(), (size_t)bufferSize);					//3. copy memory from vertices vector to the point
-	//	vkUnmapMemory(m_device.logicalDevice, stagingBufferMemory);				//4. unmap the vertex buffer memory
-	//
-	//																			//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
-	//																			// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
-	//	CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-	//		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &model->indices.buffer, &model->indices.memory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
-	//
-	//																							//copy staging buffer to vertex buffer on GPU
-	//	CopyBuffer(m_device.logicalDevice, m_device.graphicsQueue, m_device.commandPool, stagingBuffer, model->indices.buffer, bufferSize);
-	//
-	//	//clean up staging buffer parts
-	//	vkDestroyBuffer(m_device.logicalDevice, stagingBuffer, nullptr);
-	//	vkFreeMemory(m_device.logicalDevice, stagingBufferMemory, nullptr);
-	//}
-	//return m;
 }
 
-void VulkanRenderer::SetMeshTextures(uint32_t modelID, uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough)
-{
-	models[modelID].textures = { alb,norm,occlu,rough };
-}
 
 VkCommandBuffer VulkanRenderer::beginSingleTimeCommands()
 {

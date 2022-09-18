@@ -123,7 +123,7 @@ inline VQS operator*(const VQS& lhs, const VQS& rhs)
 	return res;
 }
 
-bool LoadModelFromFile_Skeleton(const std::string& file, const LoadingConfig& config, Model* model, SkinnedMesh* skinnedMesh);
+bool LoadModelFromFile_Skeleton(const std::string& file, const LoadingConfig& config, ModelData* model, SkinnedMesh* skinnedMesh);
 
 void UpdateLocalToGlobalSpace(SkinnedMesh* skinnedMesh);
 

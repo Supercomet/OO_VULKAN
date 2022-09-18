@@ -232,9 +232,8 @@ public:
     std::vector<oGFX::DebugVertex> g_DebugDrawVertexBufferCPU;
     std::vector<uint32_t> g_DebugDrawIndexBufferCPU;
 
-	Model* LoadModelFromFile(const std::string& file);
-	Model* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, gfxModel* model);
-	void SetMeshTextures(uint32_t modelID,uint32_t alb, uint32_t norm, uint32_t occlu, uint32_t rough);
+	ModelData* LoadModelFromFile(const std::string& file);
+	ModelData* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, gfxModel* model);
 
 	bool ResizeSwapchain();
 
