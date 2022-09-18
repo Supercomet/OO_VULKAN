@@ -37,7 +37,7 @@ int main(int argc, char argv[])
     // - As such, be careful when running from the .exe application directly.
     SetCurrentDirectory(L"../OO_Vulkan/");
 
-    std::unique_ptr<TestApplication> app;
+    auto app = std::make_unique<TestApplication>();
     app->Run();
 
     if constexpr (false) // Simulate a memory leak
