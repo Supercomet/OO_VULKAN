@@ -166,6 +166,9 @@ void gfxModel::destroy(VkDevice device)
 	vkFreeMemory(device, vertices.memory, nullptr);
 	vkDestroyBuffer(device, indices.buffer, nullptr);
 	vkFreeMemory(device, indices.memory, nullptr);
+
+	delete mesh;
+
 	for (auto& node : nodes)
 	{
 		delete node;
@@ -371,10 +374,13 @@ void ModelData::ModelSceneLoad(const aiScene* scene,
 	{
 		ModelSceneLoad(scene, *node.mChildren[i], targetParent, xform);
 	}
-
-	
-	
-
-	
-
 }
+
+ModelData::~ModelData()
+{
+	delete sceneInfo;
+}	
+	
+
+	
+

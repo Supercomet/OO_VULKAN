@@ -54,6 +54,8 @@ struct Bone
 
 struct ModelData
 {
+    ~ModelData();
+
     std::string fileName;
     std::vector<uint32_t> gfxMeshIndices;
 
