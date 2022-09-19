@@ -49,11 +49,14 @@ struct ObjectInstance
 
 struct DecalInstance
 {
+    glm::mat4x4 decalViewProjection{ 1.0f };
     glm::vec3 position{ 0.0f, 0.0f, 0.0f };
+    glm::vec3 direction{ 0.0f, -1.0f, 0.0f };
+    float rotation{ 0.0f };
     float projectorSize{ 1.0f };
     float testVar0{ 1.0f };
     float testVar1{ 1.0f };
-    glm::mat4x4 decalViewProjection{ 1.0f };
+    float nearZ{ -1.0f };
 };
 
 // TODO: Move all object storage here...
@@ -76,9 +79,9 @@ public:
 
     void ClearObjectInstances();
 
-    // TODO: Fix Me !
+    // TODO: Fix Me ! This is for testing
     std::array<OmniLightInstance, 6> m_HardcodedOmniLights;
-
+    // TODO: Fix Me ! This is for testing
     DecalInstance m_HardcodedDecalInstance;
 
 private:

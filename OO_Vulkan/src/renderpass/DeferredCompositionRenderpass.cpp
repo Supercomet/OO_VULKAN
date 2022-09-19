@@ -147,7 +147,7 @@ void DeferredCompositionRenderpass::CreatePipelineLayout()
 	std::vector<VkDescriptorSetLayout> setLayouts
 	{
 		SetLayoutDB::DeferredLightingComposition, // (set = 0)
-		SetLayoutDB::uniform // (set = 1)
+		SetLayoutDB::FrameUniform // (set = 1)
 	};
 
 	VkPipelineLayoutCreateInfo plci = oGFX::vkutils::inits::pipelineLayoutCreateInfo(setLayouts.data(), static_cast<uint32_t>(setLayouts.size()));
