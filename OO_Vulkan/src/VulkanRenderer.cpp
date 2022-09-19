@@ -28,7 +28,9 @@
 #include "renderpass/GBufferRenderPass.h"
 #include "renderpass/DebugRenderpass.h"
 #include "renderpass/ShadowPass.h"
-#include "renderpass/ForwardDecalRenderpass.h"
+#if defined (ENABLE_DECAL_IMPLEMENTATION)
+	#include "renderpass/ForwardDecalRenderpass.h"
+#endif
 
 #include "GraphicsBatch.h"
 #include "DelayedDeleter.h"
@@ -243,8 +245,10 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		rpd->RegisterRenderPass(ptr);
 		 ptr = new DeferredCompositionRenderpass;
 		rpd->RegisterRenderPass(ptr);
+#if defined (ENABLE_DECAL_IMPLEMENTATION)
 		ptr = new ForwardDecalRenderpass;
 		rpd->RegisterRenderPass(ptr);
+#endif
 
 		RenderPassDatabase::InitAllRegisteredPasses();
 
@@ -1488,8 +1492,9 @@ void VulkanRenderer::RenderFrame()
 			//RenderPassDatabase::GetRenderPass<DeferredDecalRenderpass>()->Draw();
 			RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
 			//RenderPassDatabase::GetRenderPass<ForwardRenderpass>()->Draw();
+#if defined (ENABLE_DECAL_IMPLEMENTATION)
 			RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
-			
+#endif			
 			if (shouldRunDebugDraw)
 			{
 				RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
