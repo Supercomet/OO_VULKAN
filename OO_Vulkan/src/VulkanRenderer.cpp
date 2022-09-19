@@ -28,6 +28,9 @@
 #include "renderpass/GBufferRenderPass.h"
 #include "renderpass/DebugRenderpass.h"
 #include "renderpass/ShadowPass.h"
+#if defined (ENABLE_DECAL_IMPLEMENTATION)
+	#include "renderpass/ForwardDecalRenderpass.h"
+#endif
 
 #include "GraphicsBatch.h"
 #include "DelayedDeleter.h"
@@ -206,7 +209,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		CreateDefaultRenderpass();
 		CreateUniformBuffers();
-		CreateDescriptorSetLayout();
+		CreateDefaultDescriptorSetLayout();
 
 		fbCache.Init(m_device.logicalDevice);
 
@@ -246,6 +249,10 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		rpd->RegisterRenderPass(ptr);
 		 ptr = new DeferredCompositionRenderpass;
 		rpd->RegisterRenderPass(ptr);
+#if defined (ENABLE_DECAL_IMPLEMENTATION)
+		ptr = new ForwardDecalRenderpass;
+		rpd->RegisterRenderPass(ptr);
+#endif
 
 		RenderPassDatabase::InitAllRegisteredPasses();
 
@@ -435,7 +442,7 @@ void VulkanRenderer::CreateDefaultRenderpass()
 	//}
 }
 
-void VulkanRenderer::CreateDescriptorSetLayout()
+void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 {
 	descAllocs.resize(m_swapchain.swapChainImages.size());
 	for (size_t i = 0; i < descAllocs.size(); i++)
@@ -469,7 +476,7 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 
 		DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[swapchainIdx])
 			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-			.Build(descriptorSets_uniform[i], SetLayoutDB::uniform);
+			.Build(descriptorSets_uniform[i], SetLayoutDB::FrameUniform);
 	}
 	//UNIFORM VALUES DESCRIPTOR SET LAYOUT
 	// UboViewProejction binding info
@@ -518,7 +525,7 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	std::array<VkDescriptorSetLayout, 3> descriptorSetLayouts = 
 	{
 		SetLayoutDB::gpuscene, // (set = 0)
-		SetLayoutDB::uniform,  // (set = 1)
+		SetLayoutDB::FrameUniform,  // (set = 1)
 		SetLayoutDB::bindless  // (set = 2)
 	};
 
@@ -1475,12 +1482,11 @@ void VulkanRenderer::BeginDraw()
 
 void VulkanRenderer::RenderFrame()
 {
-
 	PROFILE_SCOPED();
 
 	this->BeginDraw(); // TODO: Clean this up...
 
-	UploadDebugDrawBuffers();
+	bool shouldRunDebugDraw = UploadDebugDrawBuffers();
     {
 		// Command list has already started inside VulkanRenderer::Draw
         PROFILE_GPU_CONTEXT(commandBuffers[swapchainIdx]);
@@ -1496,8 +1502,13 @@ void VulkanRenderer::RenderFrame()
 			//RenderPassDatabase::GetRenderPass<DeferredDecalRenderpass>()->Draw();
 			RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
 			//RenderPassDatabase::GetRenderPass<ForwardRenderpass>()->Draw();
-			//RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
-			RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
+#if defined (ENABLE_DECAL_IMPLEMENTATION)
+			RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
+#endif			
+			if (shouldRunDebugDraw)
+			{
+				RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
+			}
 		}
     }
 }
@@ -1876,9 +1887,18 @@ void VulkanRenderer::InitDebugBuffers()
 	g_DebugDrawIndexBufferGPU.Init(&m_device,VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
-void VulkanRenderer::UploadDebugDrawBuffers()
+bool VulkanRenderer::UploadDebugDrawBuffers()
 {
 	PROFILE_SCOPED();
+
+	// Seriously...
+	if (g_DebugDrawVertexBufferCPU.empty() || g_DebugDrawIndexBufferCPU.empty())
+	{
+		// As long as the debug draw is not executed, clearing is not necessary.
+		//g_DebugDrawVertexBufferGPU.clear();
+		//g_DebugDrawIndexBufferGPU.clear();
+		return false; // Do not run any debug draw render pass
+	}
 
 	g_DebugDrawVertexBufferGPU.reserve(g_DebugDrawVertexBufferCPU.size() );
 	g_DebugDrawIndexBufferGPU.reserve(g_DebugDrawIndexBufferCPU.size());
@@ -1890,6 +1910,10 @@ void VulkanRenderer::UploadDebugDrawBuffers()
 	// Clear the CPU debug draw buffers for this frame
 	g_DebugDrawVertexBufferCPU.clear();
 	g_DebugDrawIndexBufferCPU.clear();
+
+	// TODO: By default, drawing only lasts 1 frame. To handle with duration.
+
+	return true;
 }
 
 void VulkanRenderer::UpdateUniformBuffers()
@@ -1900,19 +1924,36 @@ void VulkanRenderer::UpdateUniformBuffers()
 	float width = static_cast<float>(windowPtr->m_width);
 	float ar = width / height;
 
-	CB::FrameContextUBO m_FrameContextUBO;
-	m_FrameContextUBO.projection = camera.matrices.perspective;
-	m_FrameContextUBO.view = camera.matrices.view;
-	m_FrameContextUBO.viewProjection = m_FrameContextUBO.projection * m_FrameContextUBO.view;
-	m_FrameContextUBO.cameraPosition = glm::vec4(camera.m_position,1.0);
-	m_FrameContextUBO.renderTimer.x = renderClock;
-    m_FrameContextUBO.renderTimer.y = std::sin(renderClock * glm::pi<float>());
-    m_FrameContextUBO.renderTimer.z = std::cos(renderClock * glm::pi<float>());
-	m_FrameContextUBO.renderTimer.w = 0.0f; // unused
+	CB::FrameContextUBO frameContextUBO;
+	frameContextUBO.projection = camera.matrices.perspective;
+	frameContextUBO.view = camera.matrices.view;
+	frameContextUBO.viewProjection = frameContextUBO.projection * frameContextUBO.view;
+	frameContextUBO.inverseViewProjection = glm::inverse(frameContextUBO.viewProjection);
+	frameContextUBO.cameraPosition = glm::vec4(camera.m_position,1.0);
+	frameContextUBO.renderTimer.x = renderClock;
+    frameContextUBO.renderTimer.y = std::sin(renderClock * glm::pi<float>());
+    frameContextUBO.renderTimer.z = std::cos(renderClock * glm::pi<float>());
+	frameContextUBO.renderTimer.w = 0.0f; // unused
+
+	// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
+	// Bind this to every single shader possible.
+	// Remove this upon shipping the final product.
+	{
+		frameContextUBO.vector4_values0 = m_ShaderDebugValues.vector4_values0;
+		frameContextUBO.vector4_values1 = m_ShaderDebugValues.vector4_values1;
+		frameContextUBO.vector4_values2 = m_ShaderDebugValues.vector4_values2;
+		frameContextUBO.vector4_values3 = m_ShaderDebugValues.vector4_values3;
+		frameContextUBO.vector4_values4 = m_ShaderDebugValues.vector4_values4;
+		frameContextUBO.vector4_values5 = m_ShaderDebugValues.vector4_values5;
+		frameContextUBO.vector4_values6 = m_ShaderDebugValues.vector4_values6;
+		frameContextUBO.vector4_values7 = m_ShaderDebugValues.vector4_values7;
+		frameContextUBO.vector4_values8 = m_ShaderDebugValues.vector4_values8;
+		frameContextUBO.vector4_values9 = m_ShaderDebugValues.vector4_values9;
+	}
 
 	void *data;
 	vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx], 0, uboDynamicAlignment, 0, &data);
-	memcpy(data, &m_FrameContextUBO, sizeof(CB::FrameContextUBO));
+	memcpy(data, &frameContextUBO, sizeof(CB::FrameContextUBO));
 
 	VkMappedMemoryRange memRng{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
 	memRng.memory = vpUniformBufferMemory[swapchainIdx];

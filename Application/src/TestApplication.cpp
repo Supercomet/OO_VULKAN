@@ -121,19 +121,19 @@ public:
         m_EntityInfo = ptr;
     }
 
-	void SelectVector3Property(float* ptr)
-	{
-		m_Vector3Property = ptr;
-	}
+    void SelectVector3Property(float* ptr)
+    {
+        m_Vector3Property = ptr;
+    }
 
     EntityInfo* GetSelectedEntityInfo() const { return m_EntityInfo; }
     float* GetSelectedVector3Property() const { return m_Vector3Property; }
    
-	void FreeSelection()
-	{
-		m_EntityInfo = nullptr;
-		m_Vector3Property = nullptr;
-	}
+    void FreeSelection()
+    {
+        m_EntityInfo = nullptr;
+        m_Vector3Property = nullptr;
+    }
 
     bool AnyPropertySelected() { return m_Vector3Property; }
 
@@ -278,8 +278,8 @@ void TestApplication::Run()
 
     /* // WIP
     std::unique_ptr<ModelData> alibaba{ gs_RenderEngine->LoadModelFromFile("../Application/models/anim/AnimationTest_Box.fbx") };
-	std::unique_ptr<simpleanim::SkinnedMesh> skinnedMesh_alibaba = std::make_unique<simpleanim::SkinnedMesh>();
-	simpleanim::LoadModelFromFile_Skeleton("../Application/models/anim/AnimationTest_Box.fbx", simpleanim::LoadingConfig{}, alibaba.get(), skinnedMesh_alibaba.get());
+    std::unique_ptr<simpleanim::SkinnedMesh> skinnedMesh_alibaba = std::make_unique<simpleanim::SkinnedMesh>();
+    simpleanim::LoadModelFromFile_Skeleton("../Application/models/anim/AnimationTest_Box.fbx", simpleanim::LoadingConfig{}, alibaba.get(), skinnedMesh_alibaba.get());
     */
     /* // WIP
     std::unique_ptr<ModelData> character_dori{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/dori.fbx") };
@@ -290,8 +290,9 @@ void TestApplication::Run()
     // Setup Initial Scene Objects
     //----------------------------------------------------------------------------------------------------
 
+    // Comment/Uncomment as needed
     std::unique_ptr<ModelData> test_scene{ gs_RenderEngine->LoadModelFromFile("../Application/models/testScene.fbx") };
-    
+    //std::unique_ptr<ModelData> test_scene = nullptr;
 
     std::array<uint32_t, 4> diffuseBindlessTextureIndexes =
     {
@@ -333,6 +334,7 @@ void TestApplication::Run()
     }
 
 
+    if (test_scene)
     {
         auto& ed = entities.emplace_back(EntityInfo{});
         ed.name = "TestSceneObject";
@@ -426,17 +428,17 @@ void TestApplication::Run()
     }
 
     /* // WIP
-	if (alibaba)
-	{
-		auto& ed = entities.emplace_back(EntityInfo{});
-		ed.modelID = alibaba->gfxMeshIndices.front();
-		ed.name = "alibaba";
-		ed.entityID = FastRandomMagic();
-		ed.position = { 0.0f,0.0f,0.0f };
-		ed.scale = { 1.0f,1.0f,1.0f };
-		ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-		//ed.instanceData = 2;
-	}
+    if (alibaba)
+    {
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.modelID = alibaba->gfxMeshIndices.front();
+        ed.name = "alibaba";
+        ed.entityID = FastRandomMagic();
+        ed.position = { 0.0f,0.0f,0.0f };
+        ed.scale = { 1.0f,1.0f,1.0f };
+        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        //ed.instanceData = 2;
+    }
     */
     
     if (test_scene)
@@ -515,6 +517,8 @@ void TestApplication::Run()
     // Set graphics world before rendering
     //----------------------------------------------------------------------------------------------------
     gs_RenderEngine->SetWorld(&gs_GraphicsWorld);
+
+    gs_GraphicsWorld.m_HardcodedDecalInstance.position = glm::vec3{ 0.0f,0.0f,0.0f };
 
     //----------------------------------------------------------------------------------------------------
     // Application Loop
@@ -619,7 +623,7 @@ void TestApplication::Run()
                 //gs_RenderEngine->AddDebugLine(glm::vec3{ 0.0f, 0.0f, 0.0f}, glm::vec3{ 2.0f, 2.0f, 2.0f }, oGFX::Colors::GREEN);
 
                 // We need to test debug draw...
-                if constexpr (true)
+                if (m_TestDebugDrawBox)
                 {
                     AABB aabb;
                     aabb.center = { 0.0f,1.0f,0.0f };
@@ -867,7 +871,7 @@ void TestApplication::Run()
                                         {
                                             if (ImGui::Selectable("Set ptr Gizmo"))
                                             {
-												// Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
+                                                // Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
                                                 gs_GizmoContext.SelectVector3Property(glm::value_ptr(light.position));
                                             }
                                             ImGui::EndPopup();
@@ -941,7 +945,48 @@ void TestApplication::Run()
 
                             if (ImGui::BeginTabItem("Settings"))
                             {
+                                ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Application");
+                                ImGui::Checkbox("m_TestDebugDrawBox", &m_TestDebugDrawBox);
+                                ImGui::Separator();
+                                ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Render Engine");
                                 ImGui::Checkbox("m_DebugDrawDepthTest", &gs_RenderEngine->m_DebugDrawDepthTest);
+                                ImGui::Text("g_DebugDrawVertexBufferGPU.size() : %u", gs_RenderEngine->g_DebugDrawVertexBufferGPU.size());
+                                ImGui::Text("g_DebugDrawIndexBufferGPU.size()  : %u", gs_RenderEngine->g_DebugDrawIndexBufferGPU.size());
+                                ImGui::Text("g_Textures.size()                 : %u", gs_RenderEngine->g_Textures.size());
+                                ImGui::Text("g_GlobalMeshBuffers.VtxBuffer.size() : %u", gs_RenderEngine->g_GlobalMeshBuffers.VtxBuffer.size());
+                                ImGui::Text("g_GlobalMeshBuffers.IdxBuffer.size() : %u", gs_RenderEngine->g_GlobalMeshBuffers.IdxBuffer.size());
+                                ImGui::Separator();
+								ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Shader Debug Tool");
+                                ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);
+                                ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);
+                                ImGui::DragFloat4("vector4_values2", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values2), 0.01f);
+                                ImGui::DragFloat4("vector4_values3", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values3), 0.01f);
+                                ImGui::DragFloat4("vector4_values4", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values4), 0.01f);
+                                ImGui::DragFloat4("vector4_values5", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values5), 0.01f);
+                                ImGui::DragFloat4("vector4_values6", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values6), 0.01f);
+                                ImGui::DragFloat4("vector4_values7", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values7), 0.01f);
+                                ImGui::DragFloat4("vector4_values8", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values8), 0.01f);
+                                ImGui::DragFloat4("vector4_values9", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values9), 0.01f);
+								ImGui::Separator();
+                                ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Decals");
+                                ImGui::PushID("TESTDECAL");
+                                ImGui::DragFloat3("Position", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position), 0.01f);
+                                {
+                                    if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
+                                    {
+                                        if (ImGui::Selectable("Set ptr Gizmo"))
+                                        {
+                                            // Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
+                                            gs_GizmoContext.SelectVector3Property(glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position));
+                                        }
+                                        ImGui::EndPopup();
+                                    }
+                                }
+                                ImGui::DragFloat("Projector Size", &gs_GraphicsWorld.m_HardcodedDecalInstance.projectorSize, 0.01f);
+                                ImGui::DragFloat("nearZ", &gs_GraphicsWorld.m_HardcodedDecalInstance.nearZ, 0.01f);
+                                ImGui::DragFloat("testVar0", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar0, 0.01f);
+                                ImGui::DragFloat("testVar1", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar1, 0.01f);
+                                ImGui::PopID();
 
                                 // TODO?
                                 ImGui::EndTabItem();

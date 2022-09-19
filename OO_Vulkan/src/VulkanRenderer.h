@@ -44,7 +44,7 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
     // For GPU Scene
     inline static VkDescriptorSetLayout gpuscene;
     // For UBO with the corresponding swap chain image
-    inline static VkDescriptorSetLayout uniform;
+    inline static VkDescriptorSetLayout FrameUniform;
     // For unbounded array of texture descriptors, used in bindless approach
     inline static VkDescriptorSetLayout bindless;
 	// For lighting
@@ -70,8 +70,23 @@ namespace CB
 		glm::mat4 projection{ 1.0f };
 		glm::mat4 view{ 1.0f };
 		glm::mat4 viewProjection{ 1.0f };
+		glm::mat4 inverseViewProjection{ 1.0f };
 		glm::vec4 cameraPosition{ 1.0f };
 		glm::vec4 renderTimer{ 0.0f, 0.0f, 0.0f, 0.0f };
+
+		// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
+		// Bind this to every single shader possible.
+		// Remove this upon shipping the final product.
+		glm::vec4 vector4_values0;
+		glm::vec4 vector4_values1;
+		glm::vec4 vector4_values2;
+		glm::vec4 vector4_values3;
+		glm::vec4 vector4_values4;
+		glm::vec4 vector4_values5;
+		glm::vec4 vector4_values6;
+		glm::vec4 vector4_values7;
+		glm::vec4 vector4_values8;
+		glm::vec4 vector4_values9;
 	};
 
     struct LightUBO
@@ -110,7 +125,7 @@ public:
 	void CreateLogicalDevice(const oGFX::SetupInfo& setupSpecs);
 	void SetupSwapchain();
 	void CreateDefaultRenderpass();
-	void CreateDescriptorSetLayout();
+	void CreateDefaultDescriptorSetLayout();
 
 	void CreateDefaultPSOLayouts();
 	//void CreateDepthBufferImage();
@@ -214,7 +229,7 @@ public:
     TextureInfo GetTextureInfo(uint32_t handle);
 
     void InitDebugBuffers();
-    void UploadDebugDrawBuffers();
+    bool UploadDebugDrawBuffers();
 
 	// This naming is rather confusing... VertexBufferObject but it contains an index buffer inside?
     struct VertexBufferObject
@@ -297,12 +312,27 @@ public:
 	uint64_t uboDynamicAlignment;
 	uint32_t numCameras;
 
-    
-
 	bool resizeSwapchain = false;
 	bool m_prepared = false;
 
 	Camera camera;
+
+	// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
+	// Bind this to every single shader possible.
+	// Remove this upon shipping the final product.
+	struct ShaderDebugValues
+	{
+		glm::vec4 vector4_values0{};
+		glm::vec4 vector4_values1{};
+		glm::vec4 vector4_values2{};
+		glm::vec4 vector4_values3{};
+		glm::vec4 vector4_values4{};
+		glm::vec4 vector4_values5{};
+		glm::vec4 vector4_values6{};
+		glm::vec4 vector4_values7{};
+		glm::vec4 vector4_values8{};
+		glm::vec4 vector4_values9{};
+	}m_ShaderDebugValues;
 
 public:
 	
