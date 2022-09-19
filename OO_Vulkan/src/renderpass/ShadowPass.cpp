@@ -101,7 +101,7 @@ void ShadowPass::Draw()
 	vpBufferInfo.range = sizeof(CB::FrameContextUBO);			// size of data
 	DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[vr.swapchainIdx])
 		.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-		.Build(vr.descriptorSets_uniform[vr.swapchainIdx], SetLayoutDB::uniform);
+		.Build(vr.descriptorSets_uniform[vr.swapchainIdx], SetLayoutDB::FrameUniform);
 
 	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
 		std::array<VkDescriptorSet, 3>
