@@ -114,7 +114,11 @@ VulkanRenderer::~VulkanRenderer()
 	}
 
 	DescLayoutCache.Cleanup();
-	DescAlloc.Cleanup();
+
+	for (size_t i = 0; i < descAllocs.size(); i++)
+	{
+		descAllocs[i].Cleanup();
+	}
 
 	lightsBuffer.destroy();
 
@@ -433,7 +437,12 @@ void VulkanRenderer::CreateDefaultRenderpass()
 
 void VulkanRenderer::CreateDescriptorSetLayout()
 {
-	DescAlloc.Init(m_device.logicalDevice);
+	descAllocs.resize(m_swapchain.swapChainImages.size());
+	for (size_t i = 0; i < descAllocs.size(); i++)
+	{
+		descAllocs[i].Init(m_device.logicalDevice);
+	}
+
 	DescLayoutCache.Init(m_device.logicalDevice);
 
 	VkPhysicalDeviceProperties props;
@@ -458,7 +467,7 @@ void VulkanRenderer::CreateDescriptorSetLayout()
 		vpBufferInfo.offset = 0;					// position of start of data
 		vpBufferInfo.range = sizeof(CB::FrameContextUBO);			// size of data
 
-		DescriptorBuilder::Begin(&DescLayoutCache, &DescAlloc)
+		DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[swapchainIdx])
 			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 			.Build(descriptorSets_uniform[i], SetLayoutDB::uniform);
 	}
@@ -796,7 +805,7 @@ void VulkanRenderer::CreateDescriptorSets_GPUScene()
 	info.offset = 0;
 	info.range = VK_WHOLE_SIZE;
 
-	DescriptorBuilder::Begin(&DescLayoutCache, &DescAlloc)
+	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[swapchainIdx])
 		.BindBuffer(3, &info, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
 }
@@ -1433,6 +1442,7 @@ void VulkanRenderer::BeginDraw()
 	//mainually reset fences
 	VK_CHK(vkResetFences(m_device.logicalDevice, 1, &drawFences[currentFrame]));
 
+	descAllocs[swapchainIdx].ResetPools();
 
 	{
 		PROFILE_SCOPED("vkAcquireNextImageKHR");

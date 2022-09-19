@@ -89,6 +89,20 @@ void ShadowPass::Draw()
 	cmd.SetViewport(VkViewport{ 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f });
 	cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpWidth , (uint32_t)vpHeight } });
 
+	auto dbi = vr.gpuTransformBuffer.GetDescriptorBufferInfo();
+	DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[vr.swapchainIdx])
+		.BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		.Build(VulkanRenderer::get()->descriptorSet_gpuscene, SetLayoutDB::gpuscene);
+	vr.gpuTransformBuffer.Updated();
+
+	VkDescriptorBufferInfo vpBufferInfo{};
+	vpBufferInfo.buffer = vr.vpUniformBuffer[vr.swapchainIdx];	// buffer to get data from
+	vpBufferInfo.offset = 0;					// position of start of data
+	vpBufferInfo.range = sizeof(CB::FrameContextUBO);			// size of data
+	DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[vr.swapchainIdx])
+		.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+		.Build(vr.descriptorSets_uniform[vr.swapchainIdx], SetLayoutDB::uniform);
+
 	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
 		std::array<VkDescriptorSet, 3>
 		{

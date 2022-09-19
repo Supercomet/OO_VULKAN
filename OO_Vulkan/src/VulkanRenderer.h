@@ -278,7 +278,7 @@ public:
 	 std::vector<VkBuffer> vpUniformBuffer{};
 	 std::vector<VkDeviceMemory> vpUniformBufferMemory{};
 
-	 DescriptorAllocator DescAlloc;
+	 std::vector<DescriptorAllocator> descAllocs;
 	 DescriptorLayoutCache DescLayoutCache;
 
 	 FramebufferCache fbCache;
