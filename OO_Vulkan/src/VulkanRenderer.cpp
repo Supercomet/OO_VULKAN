@@ -1913,6 +1913,7 @@ void VulkanRenderer::UpdateUniformBuffers()
 	frameContextUBO.projection = camera.matrices.perspective;
 	frameContextUBO.view = camera.matrices.view;
 	frameContextUBO.viewProjection = frameContextUBO.projection * frameContextUBO.view;
+	frameContextUBO.inverseViewProjection = glm::inverse(frameContextUBO.viewProjection);
 	frameContextUBO.cameraPosition = glm::vec4(camera.m_position,1.0);
 	frameContextUBO.renderTimer.x = renderClock;
     frameContextUBO.renderTimer.y = std::sin(renderClock * glm::pi<float>());

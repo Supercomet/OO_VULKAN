@@ -70,6 +70,7 @@ namespace CB
 		glm::mat4 projection{ 1.0f };
 		glm::mat4 view{ 1.0f };
 		glm::mat4 viewProjection{ 1.0f };
+		glm::mat4 inverseViewProjection{ 1.0f };
 		glm::vec4 cameraPosition{ 1.0f };
 		glm::vec4 renderTimer{ 0.0f, 0.0f, 0.0f, 0.0f };
 
