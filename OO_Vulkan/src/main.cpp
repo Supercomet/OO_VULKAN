@@ -1,6 +1,8 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #if defined(_WIN32)
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
 #endif
 
