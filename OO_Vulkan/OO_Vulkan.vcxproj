@@ -18,6 +18,7 @@
     <ClCompile Include="..\vendor\imgui\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="src\DebugDraw.cpp" />
     <ClCompile Include="src\DelayedDeleter.cpp" />
     <ClCompile Include="src\BspTree.cpp" />
     <ClCompile Include="src\DefaultMeshCreator.cpp" />
@@ -70,6 +71,7 @@
     <ClCompile Include="src\loader\tinyddsloader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\DebugDraw.h" />
     <ClInclude Include="src\DelayedDeleter.h" />
     <ClInclude Include="src\BitContainer.h" />
     <ClInclude Include="src\BspTree.h" />
