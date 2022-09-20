@@ -163,3 +163,35 @@ void DebugDraw::AddDisc(const glm::vec3& center, float radius, const glm::vec3& 
 		               center + s_UnitCircleVertices[0             ].x * b0 + s_UnitCircleVertices[0             ].y * b1,
 		               color);
 }
+
+//----------------------------------------------------------------------------------------------------
+template<typename T>
+void CalculateTangentSpace(const T& normal, T& out0, T& out1)
+{
+	if (fabsf(normal[2]) > 0.7071067811865475244008443621048490f)
+	{
+		// out0 in y-z plane
+		float a = normal[1] * normal[1] + normal[2] * normal[2];
+		float k = 1.0f / sqrtf(a);
+		out0 = { 0.0f, -normal[2] * k, normal[1] * k };
+		// out1 = n x out1
+		out1 = { a * k, -normal[0] * out0[2], normal[0] * out0[1] };
+	}
+	else
+    {
+		// out0 in x-y plane
+		float a = normal[0] * normal[0] + normal[1] * normal[1];
+		float k = 1.0f / sqrtf(a);
+		out0 = { -normal[1] * k, normal[0] * k, 0.0f };
+		// out1 = n x out1
+		out1 = { -normal[2] * out0[1], normal[2] * out0[0], a * k };
+	}
+}
+
+void DebugDraw::AddDisc(const glm::vec3& center, float radius, const glm::vec3& normal, const oGFX::Color& color)
+{
+    glm::vec3 basis0;
+	glm::vec3 basis1;
+    CalculateTangentSpace(normal, basis0, basis1);
+    DebugDraw::AddDisc(center, radius, basis0, basis1, color);
+}
