@@ -1483,7 +1483,14 @@ bool VulkanRenderer::ResizeSwapchain()
 {
 	while (windowPtr->m_height == 0 || windowPtr->m_width == 0)
 	{
-		Window::PollEvents();
+		if (windowPtr->m_type == Window::WINDOWS32)
+		{
+			Window::PollEvents();
+		}
+		else
+		{
+			return false;
+		}
 		if (windowPtr->windowShouldClose) return false;
 	}
 	m_swapchain.Init(m_instance, m_device);
