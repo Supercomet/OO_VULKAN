@@ -43,6 +43,7 @@
 #include "AppUtils.h"
 
 #include "CameraController.h"
+#include "DebugDraw.h"
 
 //#include "anim/SimpleAnim.h" // WR ONLY
 
@@ -630,6 +631,17 @@ void TestApplication::Run()
                     aabb.halfExt = { 1.0f,1.0f,1.0f };
                     gs_RenderEngine->AddDebugBox(aabb, oGFX::Colors::GREEN);
                 }
+                if (m_TestDebugDrawDisc)
+                {
+                    DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
+                    DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
+                    DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
+                    DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
+					DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::RED);
+					DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::GREEN);
+					DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 3.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,1.0f }, oGFX::Colors::YELLOW);
+                }
+
 
                 // Debug Draw skeleton
                 /*
@@ -947,6 +959,8 @@ void TestApplication::Run()
                             {
                                 ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Application");
                                 ImGui::Checkbox("m_TestDebugDrawBox", &m_TestDebugDrawBox);
+                                ImGui::Checkbox("m_TestDebugDrawDisc", &m_TestDebugDrawDisc);
+                                ImGui::Checkbox("m_TestDebugDrawDecal (not done)", &m_TestDebugDrawDecal);
                                 ImGui::Separator();
                                 ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Render Engine");
                                 ImGui::Checkbox("m_DebugDrawDepthTest", &gs_RenderEngine->m_DebugDrawDepthTest);
