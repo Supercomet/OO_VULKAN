@@ -1,4 +1,6 @@
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include "VulkanRenderer.h"
 
 #include "MathCommon.h"
@@ -61,7 +63,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT && !(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
 	{
 		std::cerr << pCallbackData->pMessage << std::endl;
-		assert(false);
+		//assert(false); temp comment out
 	}
 
 	return VK_FALSE;
@@ -1483,7 +1485,14 @@ bool VulkanRenderer::ResizeSwapchain()
 {
 	while (windowPtr->m_height == 0 || windowPtr->m_width == 0)
 	{
-		Window::PollEvents();
+		if (windowPtr->m_type == Window::WINDOWS32)
+		{
+			Window::PollEvents();
+		}
+		else
+		{
+			return false;
+		}
 		if (windowPtr->windowShouldClose) return false;
 	}
 	m_swapchain.Init(m_instance, m_device);
