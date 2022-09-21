@@ -1,5 +1,7 @@
 #pragma once
 
+#include "MathCommon.h"
+
 #include <vector>
 #include <memory>
 
@@ -12,10 +14,27 @@ public:
 
 private:
 
+    glm::ivec2 m_WindowSize{};
+
+    uint32_t m_ApplicationFrame{ 0 };
+    float m_ApplicationTimer{ 0.0f };
+    float m_ApplicationDT{ 0.0f };
+    bool m_ShowImGuiDemoWindow{ false };
+
     void InitDefaultTextures();
     void InitDefaultMeshes();
 
+    void RunTest_DebugDraw();
+    bool m_TestDebugDrawLine{ false };
     bool m_TestDebugDrawBox{ false };
     bool m_TestDebugDrawDisc{ false };
     bool m_TestDebugDrawDecal{ false };
+
+    bool m_debugDrawLightPosition{ false };
+
+    void Tool_HandleGizmoManipulation();
+    void Tool_HandleUI();
+
+    void ToolUI_Camera();
+    void ToolUI_Settings();
 };
