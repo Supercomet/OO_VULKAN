@@ -80,7 +80,7 @@ struct EntityInfo
     glm::vec3 position{};
     glm::vec3 scale{1.0f};
     float rot{};
-    glm::vec3 rotVec{0.0f,1.0f,0.0f};
+    glm::vec3 rotVec{0.0f,0.0f,0.0f};
 
     uint32_t modelID{}; // Index for the mesh
     uint32_t entityID{}; // Unique ID for this entity instance // THIS IS THE ECS UUID
@@ -99,7 +99,8 @@ struct EntityInfo
     {
         glm::mat4 xform{ 1.0f };
         xform = glm::translate(xform, position);
-        xform = glm::rotate(xform, glm::radians(rot), rotVec);
+        xform =  glm::orientate4(rotVec) * xform;
+        //xform = glm::rotate(xform, glm::radians(rot), rotVec);
         xform = glm::scale(xform, scale);
         return xform;
     }
@@ -162,26 +163,22 @@ void CreateGraphicsEntityHelper(EntityInfo& ei)
     auto& model = gs_RenderEngine->models[ei.modelID];
 
     //UpdateBV(gs_RenderEngine->models[e.modelID].cpuModel, e);
+    ObjectInstance o{};
+	o.name = ei.name;
+	o.position = ei.position;
+	o.scale = ei.scale;
+	o.rot = ei.rot;
+	o.rotVec = ei.rotVec;
+	o.bindlessGlobalTextureIndex_Albedo = ei.bindlessGlobalTextureIndex_Albedo;
+	o.bindlessGlobalTextureIndex_Normal = ei.bindlessGlobalTextureIndex_Normal;
+	o.bindlessGlobalTextureIndex_Roughness = ei.bindlessGlobalTextureIndex_Roughness;
+	o.bindlessGlobalTextureIndex_Metallic = ei.bindlessGlobalTextureIndex_Metallic;
+    o.instanceData = ei.instanceData;
+	o.localToWorld = ei.getLocalToWorld();
+	o.modelID = ei.modelID;
+	o.entityID = ei.entityID;
 
-    auto id = gs_GraphicsWorld.CreateObjectInstance(
-        // Very unsafe to use initializer list, prone to mistakes...
-        ObjectInstance{
-            ei.name,
-            ei.position,
-            ei.scale,
-            ei.rot,
-            ei.rotVec,
-            ei.bindlessGlobalTextureIndex_Albedo,
-            ei.bindlessGlobalTextureIndex_Normal,
-            ei.bindlessGlobalTextureIndex_Roughness,
-            ei.bindlessGlobalTextureIndex_Metallic,
-            ei.instanceData,
-            ei.getLocalToWorld(),
-            {},
-            ei.modelID,
-            ei.entityID
-        }
-    );
+	auto id = gs_GraphicsWorld.CreateObjectInstance(o);
     // assign id
     ei.gfxID = id;
 }
@@ -294,7 +291,7 @@ void TestApplication::Run()
     //----------------------------------------------------------------------------------------------------
 
     // Comment/Uncomment as needed
-    std::unique_ptr<ModelData> test_scene{ gs_RenderEngine->LoadModelFromFile("../Application/models/testScene.fbx") };
+    std::unique_ptr<ModelData> test_scene{ gs_RenderEngine->LoadModelFromFile("../Application/models/Map_Meshes_greybox.fbx") };
     //std::unique_ptr<ModelData> test_scene = nullptr;
 
     std::array<uint32_t, 4> diffuseBindlessTextureIndexes =
@@ -379,7 +376,7 @@ void TestApplication::Run()
         }
     }
 
-    std::function<void(ModelData*,Node*)> EntityHelper = [&](ModelData* model,Node* node) {
+    std::function<void(ModelData*,Node*,bool)> EntityHelper = [&](ModelData* model,Node* node, bool rotateYup) {
         if (node->meshRef != static_cast<uint32_t>(-1))
         {
             auto& ed = entities.emplace_back(EntityInfo{});
@@ -389,45 +386,28 @@ void TestApplication::Run()
             glm::quat qt;
             glm::vec3 skew;
             glm::vec4 persp;
-            ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(node->transform), glm::value_ptr(ed.position), glm::value_ptr(ed.rotVec), glm::value_ptr(ed.scale));
-            //glm::decompose(node->transform, ed.scale, qt, ed.position, skew, persp);
-            //qt = glm::conjugate(qt);
-            ////glm::angle
-            //ed.rotVec = glm::eulerAngles(qt);
+            glm::decompose(node->transform, ed.scale, qt, ed.position, skew, persp);
+            qt = glm::conjugate(qt);
+            auto angles = glm::eulerAngles(qt);
+            if (rotateYup) angles.x -= glm::radians(90.0f);
+            ed.rotVec = angles;
             ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
             ed.instanceData = 0;
         }
         for (auto& child : node->children)
         {
-            EntityHelper(model,child);
+            EntityHelper(model,child,rotateYup);
         }            
 
     };
     if (character_diona)
-    {
-        
-        EntityHelper(character_diona.get(),character_diona->sceneInfo);
-        //auto& ed = entities.emplace_back(EntityInfo{});
-        //ed.modelID = character_diona->gfxMeshIndices.front();
-        //ed.name = "diona";
-        //ed.entityID = FastRandomMagic();
-        //ed.position = { 2.0f,0.0f,0.0f };
-        //ed.scale = { 1.0f,1.0f,1.0f };
-        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        //ed.instanceData = 1;
+    {        
+        EntityHelper(character_diona.get(),character_diona->sceneInfo,true);
     }
 
     if (character_qiqi)
     {
-        EntityHelper(character_qiqi.get(), character_qiqi->sceneInfo);
-        //auto& ed = entities.emplace_back(EntityInfo{});
-        //ed.modelID = character_qiqi->gfxMeshIndices.front();
-        //ed.name = "qiqi";
-        //ed.entityID = FastRandomMagic();
-        //ed.position = { 1.0f,0.0f,0.0f };
-        //ed.scale = { 1.0f,1.0f,1.0f };
-        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        //ed.instanceData = 2;
+        EntityHelper(character_qiqi.get(), character_qiqi->sceneInfo,true);
     }
 
     /* // WIP
@@ -446,7 +426,7 @@ void TestApplication::Run()
     
     if (test_scene)
     {
-        EntityHelper(test_scene.get(), test_scene->sceneInfo);
+        EntityHelper(test_scene.get(), test_scene->sceneInfo,true);
     }
 
     // Stress test more models
