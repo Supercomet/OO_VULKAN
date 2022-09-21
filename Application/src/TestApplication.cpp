@@ -68,10 +68,20 @@ struct DummyTestMaterial
     BindlessTextureIndex metallic;
 };
 
+// Temporary solution to assign random numbers... Shamelessly stolen from Intel.
+inline uint32_t FastRandomMagic()
+{
+	static uint32_t seed = 0xDEADBEEF;
+	seed = (214013 * seed + 2531011);
+	return (seed >> 16) & 0x7FFF;
+};
+
 void TestApplication::Init()
 {
 
 }
+
+static uint32_t gs_ModelID_Box = 0;
 
 // this is to pretend we have an ECS system
 struct EntityInfo
@@ -201,8 +211,8 @@ void TestApplication::Run()
     //----------------------------------------------------------------------------------------------------
 
     AppWindowSizeTypes appWindowSizeType = AppWindowSizeTypes::HD_900P_16_10;
-    const glm::ivec2 windowSize = gs_AppWindowSizes[(int)appWindowSizeType];
-    Window mainWindow(windowSize.x, windowSize.y);
+    m_WindowSize = gs_AppWindowSizes[(int)appWindowSizeType];
+    Window mainWindow(m_WindowSize.x, m_WindowSize.y);
     mainWindow.Init();
 
     oGFX::SetupInfo setupSpec;
@@ -275,6 +285,7 @@ void TestApplication::Run()
     auto defaultCubeMesh = CreateDefaultCubeMesh();
     std::unique_ptr<ModelData> model_plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
     std::unique_ptr<ModelData> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
+    gs_ModelID_Box = model_box->gfxMeshIndices.front();
 
     std::unique_ptr<ModelData> character_diona{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx") };
     std::unique_ptr<ModelData> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
@@ -305,14 +316,6 @@ void TestApplication::Run()
     std::array<uint32_t, 4> roughnessBindlessTextureIndexes =
     {
         roughnessTexture0, roughnessTexture1, roughnessTexture2, roughnessTexture3
-    };
-
-    // Temporary solution to assign random numbers... Shamelessly stolen from Intel.
-    auto FastRandomMagic = []() -> uint32_t
-    {
-        static uint32_t seed = 0xDEADBEEF;
-        seed = (214013 * seed + 2531011);
-        return (seed >> 16) & 0x7FFF;
     };
 
     {
@@ -514,7 +517,7 @@ void TestApplication::Run()
     }
 
     auto lastTime = std::chrono::high_resolution_clock::now();
-    static bool freezeLight = true;
+    
 
     //----------------------------------------------------------------------------------------------------
     // Set graphics world before rendering
@@ -527,14 +530,19 @@ void TestApplication::Run()
     // Application Loop
     //----------------------------------------------------------------------------------------------------
     {
-        while (mainWindow.windowShouldClose == false)  // infinite loop
+        while (mainWindow.windowShouldClose == false)
         {
             PROFILE_FRAME("MainThread");
 
-            auto now = std::chrono::high_resolution_clock::now();
-            float deltaTime = std::chrono::duration<float>(now - lastTime).count();
-            lastTime = now;
+			auto now = std::chrono::high_resolution_clock::now();
+			float deltaTime = std::chrono::duration<float>(now - lastTime).count();
+			lastTime = now;
 
+            // Increment the frame number, increase the running timer, set the delta time.
+            m_ApplicationFrame++;
+            m_ApplicationTimer += deltaTime;
+            m_ApplicationDT = deltaTime;
+            // Pass frame information to the render engine
             gs_RenderEngine->renderClock += deltaTime;
 
             //reset keys
@@ -555,11 +563,6 @@ void TestApplication::Run()
                 gs_CameraController.Update(deltaTime);
             }
 
-            if (Input::GetKeyTriggered(KEY_SPACE))
-            {
-                freezeLight = !freezeLight;
-            }
-
             {
                 PROFILE_SCOPED("ImGui::NewFrame");
                 ImGui_ImplVulkan_NewFrame();
@@ -571,123 +574,58 @@ void TestApplication::Run()
             {
                 PROFILE_SCOPED("gs_RenderEngine->PrepareFrame() == true");
 
-                if (freezeLight == false)
+                //if (freezeLight == false)
                 {
-                    {
-                        auto& lights = gs_GraphicsWorld.m_HardcodedOmniLights;
+					auto& lights = gs_GraphicsWorld.m_HardcodedOmniLights;
 
-                        static float lightTimer = 0.0f;
-                        lightTimer += deltaTime * 0.25f;
+					static float lightTimer = 0.0f;
+					lightTimer += deltaTime * 0.25f;
 
-                        lights[0].position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
-                        lights[0].color = glm::vec4(1.5f);
-                        lights[0].radius.x = 15.0f;
-                        // Red
-                        lights[1].position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
-                        lights[1].color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
-                        lights[1].radius.x = 15.0f;
-                        // Blue
-                        lights[2].position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
-                        lights[2].color = glm::vec4(0.0f, 0.0f, 2.5f, 0.0f);
-                        lights[2].radius.x = 5.0f;
-                        // Yellow
-                        lights[3].position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
-                        lights[3].color = glm::vec4(1.0f, 1.0f, 0.0f, 0.0f);
-                        lights[3].radius.x = 2.0f;
-                        // Green
-                        lights[4].position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
-                        lights[4].color = glm::vec4(0.0f, 1.0f, 0.2f, 0.0f);
-                        lights[4].radius.x = 5.0f;
-                        // Yellow
-                        lights[5].position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
-                        lights[5].color = glm::vec4(1.0f, 0.7f, 0.3f, 0.0f);
-                        lights[5].radius.x = 25.0f;
+					lights[0].position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+					lights[0].color = glm::vec4(1.5f);
+					lights[0].radius.x = 15.0f;
+					// Red
+					lights[1].position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
+					lights[1].color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+					lights[1].radius.x = 15.0f;
+					// Blue
+					lights[2].position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
+					lights[2].color = glm::vec4(0.0f, 0.0f, 2.5f, 0.0f);
+					lights[2].radius.x = 5.0f;
+					// Yellow
+					lights[3].position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
+					lights[3].color = glm::vec4(1.0f, 1.0f, 0.0f, 0.0f);
+					lights[3].radius.x = 2.0f;
+					// Green
+					lights[4].position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
+					lights[4].color = glm::vec4(0.0f, 1.0f, 0.2f, 0.0f);
+					lights[4].radius.x = 5.0f;
+					// Yellow
+					lights[5].position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
+					lights[5].color = glm::vec4(1.0f, 0.7f, 0.3f, 0.0f);
+					lights[5].radius.x = 25.0f;
 
-                        lights[0].position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
-                        lights[0].position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
+					lights[0].position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
+					lights[0].position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
 
-                        lights[1].position.x = -4.0f + sin(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
-                        lights[1].position.z = 0.0f + cos(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
+					lights[1].position.x = -4.0f + sin(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
+					lights[1].position.z = 0.0f + cos(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
 
-                        lights[2].position.x = 4.0f + sin(glm::radians(360.0f * lightTimer)) * 2.0f;
-                        lights[2].position.z = 0.0f + cos(glm::radians(360.0f * lightTimer)) * 2.0f;
+					lights[2].position.x = 4.0f + sin(glm::radians(360.0f * lightTimer)) * 2.0f;
+					lights[2].position.z = 0.0f + cos(glm::radians(360.0f * lightTimer)) * 2.0f;
 
-                        lights[4].position.x = 0.0f + sin(glm::radians(360.0f * lightTimer + 90.0f)) * 5.0f;
-                        lights[4].position.z = 0.0f - cos(glm::radians(360.0f * lightTimer + 45.0f)) * 5.0f;
+					lights[4].position.x = 0.0f + sin(glm::radians(360.0f * lightTimer + 90.0f)) * 5.0f;
+					lights[4].position.z = 0.0f - cos(glm::radians(360.0f * lightTimer + 45.0f)) * 5.0f;
 
-                        lights[5].position.x = 0.0f + sin(glm::radians(-360.0f * lightTimer + 135.0f)) * 10.0f;
-                        lights[5].position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
-                    }
+					lights[5].position.x = 0.0f + sin(glm::radians(-360.0f * lightTimer + 135.0f)) * 10.0f;
+					lights[5].position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
                 }
 
                 // Upload CPU light data to GPU. Ideally this should only contain lights that intersects the camera frustum.
                 gs_RenderEngine->UploadLights();
 
-                //gs_RenderEngine->AddDebugLine(glm::vec3{ 0.0f, 0.0f, 0.0f}, glm::vec3{ 2.0f, 2.0f, 2.0f }, oGFX::Colors::GREEN);
-
                 // We need to test debug draw...
-                if (m_TestDebugDrawBox)
-                {
-                    AABB aabb;
-                    aabb.center = { 0.0f,1.0f,0.0f };
-                    aabb.halfExt = { 1.0f,1.0f,1.0f };
-                    DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
-                }
-                if (m_TestDebugDrawDisc)
-                {
-                    DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
-                    DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
-                    DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
-                    DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
-					DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::RED);
-					DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::GREEN);
-					DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 3.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,1.0f }, oGFX::Colors::YELLOW);
-
-                    DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,1.0f,0.0f }, oGFX::Colors::YELLOW);
-                    DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,0.0f,1.0f }, oGFX::Colors::BLUE);
-                    DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 1.0f,0.0f,0.0f }, oGFX::Colors::VIOLET);
-
-                    DebugDraw::AddSphereAs3Disc1HorizonDisc({ -3.0f, 1.0f, -5.0f }, 1.0f, gs_RenderEngine->camera.m_position, oGFX::Colors::GREEN);
-                    DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_RenderEngine->camera.m_position, oGFX::Colors::RED);
-                }
-
-
-                // Debug Draw skeleton
-                /*
-                if constexpr (false)
-                {
-                    PROFILE_SCOPED("TEST_DrawSkeleton");
-
-                    // Update world space global skeleton pose.
-                    simpleanim::UpdateLocalToGlobalSpace(skinnedMesh_alibaba.get());
-                    
-                    AABB aabb;
-                    aabb.halfExt = { 0.01f,0.01f,0.01f };
-
-                    // Trivial and unoptimized method
-                    auto DFS = [&](auto&& func, simpleanim::BoneNode* pBoneNode) -> void
-                    {
-                        if (pBoneNode->mChildren.empty())
-                            return;
-                        
-                        aabb.center = pBoneNode->mModelSpaceGlobalVqs.GetPosition();
-                        gs_RenderEngine->AddDebugBox(aabb, oGFX::Colors::GREEN);
-
-                        // Recursion through all children nodes, passing in the current global transform.
-                        for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
-                        {
-                            simpleanim::BoneNode* child = pBoneNode->mChildren[i].get();
-                            auto pos = child->mModelSpaceGlobalVqs.GetPosition();
-                            gs_RenderEngine->AddDebugLine(aabb.center, pos, oGFX::Colors::RED);
-                            func(func, child);
-                        }
-                    };
-
-                    //BoneNode* pBoneNode = nullptr;// skinnedMesh_dori->mpRootNode.get();
-                    simpleanim::BoneNode* pBoneNode = skinnedMesh_alibaba->mpRootNode.get();
-                    DFS(DFS, pBoneNode);
-                }
-                */
+                RunTest_DebugDraw();
 
                 // Render the frame
                 gs_RenderEngine->RenderFrame();
@@ -698,328 +636,19 @@ void TestApplication::Run()
                     | ImGuiDockNodeFlags_NoDockingInCentralNode // dont allow docking in the central area
                 );
 
-                //ImGui::ShowDemoWindow();
+                if (m_ShowImGuiDemoWindow)
+                {
+                    PROFILE_SCOPED("ImGui::ShowDemoWindow");
+                    ImGui::ShowDemoWindow();
+                }
 
                 // ImGuizmo
-                if (gs_GizmoContext.AnyPropertySelected())
-                {
-                    PROFILE_SCOPED("Gizmo");
-
-                    ImGuizmo::BeginFrame();
-                    ImGuizmo::Enable(true);
-                    ImGuizmo::AllowAxisFlip(false);
-                    ImGuizmo::SetGizmoSizeClipSpace(0.1f);
-
-                    static bool prevFrameUsingGizmo = false;
-                    static bool currFrameUsingGizmo = false;
-
-                    // Save the state of the gizmos in the previous frame.
-                    prevFrameUsingGizmo = currFrameUsingGizmo;
-                    currFrameUsingGizmo = ImGuizmo::IsUsing();
-                    const bool firstUseGizmo = currFrameUsingGizmo && !prevFrameUsingGizmo;
-                    const bool justReleaseGizmo = prevFrameUsingGizmo && !currFrameUsingGizmo;
-
-                    ImGuiIO& io = ImGui::GetIO();
-                    // WR: This is needed if imgui multi-viewport is used, as origin becomes the top left of monitor.
-                    const auto mainViewportPosition = ImGui::GetMainViewport()->Pos;
-                    ImGuizmo::SetRect(mainViewportPosition.x, mainViewportPosition.y, io.DisplaySize.x, io.DisplaySize.y);
-                    glm::mat4x4 viewMatrix = gs_RenderEngine->camera.matrices.view;
-                    glm::mat4x4 projMatrix = gs_RenderEngine->camera.matrices.perspective;
-
-                    static glm::mat4x4 localToWorld{ 1.0f };
-                    float* matrixPtr = glm::value_ptr(localToWorld);
-
-                    // Draw cube/grid at the origin for debugging purpose and sanity check
-                    //ImGuizmo::DrawCubes(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix), matrixPtr, 1);
-                    //ImGuizmo::DrawGrid(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix), matrixPtr, 20);
-
-                    float* gizmoHijack = gs_GizmoContext.GetSelectedVector3Property();
-                    if (gizmoHijack) // Fix me!
-                    {
-                        glm::vec3 position = { gizmoHijack[0], gizmoHijack[1], gizmoHijack[2] };
-                        localToWorld = glm::translate(glm::mat4{ 1.0f }, position);
-                        matrixPtr = glm::value_ptr(localToWorld);
-                    }
-
-                    const ImGuizmo::OPERATION gizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
-                    const ImGuizmo::MODE gizmoMode = ImGuizmo::MODE::WORLD;
-                    const bool gizmoMoved = ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix), gizmoOperation, gizmoMode, matrixPtr);
-
-                    if (firstUseGizmo)
-                    {
-                        // TODO: What can you do here?
-                        // - Save the state of the transform? For undo/redo feature?
-                    }
-                    else if (justReleaseGizmo)
-                    {
-                        // TODO: What can you do here?
-                        // - Save the state of the transform? For undo/redo feature?
-                    }
-
-                    if (currFrameUsingGizmo)
-                    {
-                        if (gizmoMoved)
-                        {
-                            // TODO: What can you do here?
-                            // - Update transform because the gizmo have moved.
-
-                            glm::vec3 position, euler_deg, scale; // World Space.
-                            ImGuizmo::DecomposeMatrixToComponents(matrixPtr, glm::value_ptr(position), glm::value_ptr(euler_deg), glm::value_ptr(scale));
-                            glm::quat q = glm::quat(glm::radians(euler_deg));
-
-                            // Hacky and unsafe...
-                            gs_GizmoContext.SetVector3Property(position);
-
-                            if (EntityInfo* entity = gs_GizmoContext.GetSelectedEntityInfo())
-                            {
-                                entity->SyncToGraphicsWorld();
-                            }
-                                
-                        }
-                    }
-                }
+                Tool_HandleGizmoManipulation();
+                
                 // Display ImGui Window
                 {
                     PROFILE_SCOPED("ImGuiSceneHelper");
-                    if (ImGui::Begin("Scene Helper"))
-                    {                       
-                        if (ImGui::BeginTabBar("SceneHelperTabBar"))
-                        {
-                            if (ImGui::BeginTabItem("Entity"))
-                            {
-                                if (ImGui::SmallButton("Create Cube"))
-                                {
-                                    auto x = entities.size();
-                                    entities.emplace_back(EntityInfo{});
-                                    auto& entity = entities[x];
-                                    entity.position = { 2.0f,2.0f,2.0f };
-                                    entity.scale = { 1.0f,1.0f,1.0f };
-                                    entity.modelID = model_box->gfxMeshIndices.front();
-                                    entity.entityID = FastRandomMagic();
-
-                                    CreateGraphicsEntityHelper(entity);
-                                }
-
-                                int addRandomEntityCount = 0;
-                                ImGui::Text("Add Random Entity: ");
-                                if (ImGui::SmallButton("+10")) { addRandomEntityCount = 10; }
-                                ImGui::SameLine();
-                                if (ImGui::SmallButton("+50")) { addRandomEntityCount = 50; }
-                                ImGui::SameLine();
-                                if (ImGui::SmallButton("+100")) { addRandomEntityCount = 100; }
-                                ImGui::SameLine();
-                                if (ImGui::SmallButton("+250")) { addRandomEntityCount = 250; }
-
-                                if (addRandomEntityCount)
-                                {
-                                    for (int i = 0; i < addRandomEntityCount; ++i)
-                                    {
-                                        const glm::vec3 pos = glm::sphericalRand(20.0f);
-
-                                        auto x = entities.size();
-                                        entities.emplace_back(EntityInfo{});
-                                        auto& entity = entities[x];
-                                        entity.position = { pos.x, glm::abs(pos.y), pos.z };
-                                        entity.scale = { 1.0f,1.0f,1.0f };
-                                        entity.modelID = model_box->gfxMeshIndices.front();
-                                        entity.entityID = FastRandomMagic();
-                                        
-                                        CreateGraphicsEntityHelper(entity);
-                                    }
-                                }
-
-                                ImGui::Text("Total Entities: %u", entities.size());
-
-                                if (ImGui::TreeNode("Entity"))
-                                {
-                                    for (auto& entity : entities)
-                                    {
-                                        bool valuesModified = false;
-                                        ImGui::PushID(entity.entityID);
-
-                                        ImGui::BulletText("[ID:%u] ", entity.entityID);
-                                        ImGui::SameLine();
-                                        ImGui::Text(entity.name.c_str());
-                                        valuesModified |= ImGui::DragFloat3("Position", glm::value_ptr(entity.position), 0.01f);
-                                        {
-                                            if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
-                                            {
-                                                if (ImGui::Selectable("Set ptr Gizmo"))
-                                                {
-                                                    gs_GizmoContext.SelectEntityInfo(&entity);
-                                                    gs_GizmoContext.SelectVector3Property((float*)& entity.position);
-                                                }
-                                                ImGui::EndPopup();
-                                            }
-                                        }
-
-                                        valuesModified |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
-                                        valuesModified |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
-                                        valuesModified |= ImGui::DragFloat("Theta", &entity.rot);
-                                        // TODO: We should be using quaternions.........
-
-                                        if (valuesModified)
-                                        {
-                                            entity.SyncToGraphicsWorld();
-                                        }
-
-                                        ImGui::PopID();
-                                    }
-
-                                    ImGui::TreePop();
-                                }//ImGui::TreeNode
-
-                                ImGui::EndTabItem();
-                            }//ImGui::BeginTabItem
-
-                            if (ImGui::BeginTabItem("Light"))
-                            {
-                                ImGui::BeginDisabled(); // TODO remove once implemented
-                                if (ImGui::SmallButton("Create PointLight")) {} // TODO Implement me!
-                                ImGui::EndDisabled(); // TODO remove once implemented
-
-                                static bool debugDrawPosition = false;
-                                ImGui::Checkbox("Freeze Lights", &freezeLight);
-                                ImGui::Checkbox("Debug Draw Position", &debugDrawPosition);
-                                ImGui::Separator();
-                                for (int i = 0; i < 6; ++i)
-                                {
-                                    ImGui::PushID(i);
-                                    auto& light = gs_RenderEngine->currWorld->m_HardcodedOmniLights[i];
-                                    ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.01f);
-                                    {
-                                        if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
-                                        {
-                                            if (ImGui::Selectable("Set ptr Gizmo"))
-                                            {
-                                                // Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
-                                                gs_GizmoContext.SelectVector3Property(glm::value_ptr(light.position));
-                                            }
-                                            ImGui::EndPopup();
-                                        }
-                                    }
-
-                                    ImGui::DragFloat3("Color", glm::value_ptr(light.color));
-                                    ImGui::DragFloat("Radius", &light.radius.x);
-                                    ImGui::PopID();
-                                }
-
-                                // Shamelessly hijack ImGui for debugging tools
-                                if (debugDrawPosition)
-                                {
-                                    if (ImDrawList* bgDrawList = ImGui::GetBackgroundDrawList())
-                                    {
-                                        auto WorldToScreen = [&](const glm::vec3& worldPosition) -> ImVec2
-                                        {
-                                            const int screenWidth = (int)windowSize.x;
-                                            const int screenHeight = (int)windowSize.y;
-                                            const glm::mat4& viewMatrix = gs_RenderEngine->camera.matrices.view;
-                                            const glm::mat4& projectionMatrix = gs_RenderEngine->camera.matrices.perspective;
-                                            // World Space to NDC Space
-                                            glm::vec4 ndcPosition = projectionMatrix * viewMatrix * glm::vec4{ worldPosition, 1.0f };
-                                            // Perspective Division
-                                            ndcPosition /= ndcPosition.w;
-                                            // NDC Space to Viewport Space
-                                            const float winX = glm::round(((ndcPosition.x + 1.0f) / 2.0f) * (float)screenWidth);
-                                            const float winY = glm::round(((1.0f - ndcPosition.y) / 2.0f) * (float)screenHeight);
-                                            return ImVec2{ winX, winY };
-                                        };
-
-                                        for (int i = 0; i < 6; ++i)
-                                        {
-                                            auto& light = gs_RenderEngine->currWorld->m_HardcodedOmniLights[i];
-                                            auto& pos = light.position;
-                                            const auto screenPosition = WorldToScreen(pos);
-                                            constexpr float circleSize = 10.0f;
-                                            bgDrawList->AddCircle(ImVec2(screenPosition.x - 0.5f * circleSize, screenPosition.y - 0.5f * circleSize), circleSize, IM_COL32(light.color.r * 0xFF, light.color.g * 0xFF, light.color.b * 0xFF, 0xFF), 0, 2.0f);
-                                        }
-                                    }
-                                }
-
-                                ImGui::EndTabItem();
-                            }//ImGui::BeginTabItem
-
-                            if (ImGui::BeginTabItem("Camera"))
-                            {
-                                auto& camera = gs_RenderEngine->camera;
-                                ImGui::DragFloat3("Position", glm::value_ptr(camera.m_position), 0.01f);
-                                ImGui::DragFloat3("Rotation", glm::value_ptr(camera.m_rotation), 0.01f);
-                                ImGui::DragFloat3("Target", glm::value_ptr(camera.m_TargetPosition), 0.01f);
-                                ImGui::DragFloat("Distance", &camera.m_TargetDistance, 0.01f);
-
-                                bool fps = camera.m_CameraMovementType == Camera::CameraMovementType::firstperson;
-                                if (ImGui::Checkbox("FPS", &fps))
-                                {
-                                    camera.m_CameraMovementType = fps ? Camera::CameraMovementType::firstperson : Camera::CameraMovementType::lookat;
-                                }
-
-                                ImGui::DragFloat("RotationSpeed", &camera.rotationSpeed);
-                                ImGui::DragFloat("MovementSpeed", &camera.movementSpeed);
-
-                                if (ImGui::Button("Shake"))
-                                {
-                                    gs_CameraController.ShakeCamera();
-                                }
-
-                                ImGui::EndTabItem();
-                            }//ImGui::BeginTabItem
-
-                            if (ImGui::BeginTabItem("Settings"))
-                            {
-                                ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Application");
-                                ImGui::Checkbox("m_TestDebugDrawBox", &m_TestDebugDrawBox);
-                                ImGui::Checkbox("m_TestDebugDrawDisc", &m_TestDebugDrawDisc);
-                                ImGui::Checkbox("m_TestDebugDrawDecal (not done)", &m_TestDebugDrawDecal);
-                                ImGui::Separator();
-                                ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Render Engine");
-                                ImGui::Checkbox("m_DebugDrawDepthTest", &gs_RenderEngine->m_DebugDrawDepthTest);
-                                ImGui::Text("g_DebugDrawVertexBufferGPU.size() : %u", gs_RenderEngine->g_DebugDrawVertexBufferGPU.size());
-                                ImGui::Text("g_DebugDrawIndexBufferGPU.size()  : %u", gs_RenderEngine->g_DebugDrawIndexBufferGPU.size());
-                                ImGui::Text("g_Textures.size()                 : %u", gs_RenderEngine->g_Textures.size());
-                                ImGui::Text("g_GlobalMeshBuffers.VtxBuffer.size() : %u", gs_RenderEngine->g_GlobalMeshBuffers.VtxBuffer.size());
-                                ImGui::Text("g_GlobalMeshBuffers.IdxBuffer.size() : %u", gs_RenderEngine->g_GlobalMeshBuffers.IdxBuffer.size());
-                                ImGui::Separator();
-								ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Shader Debug Tool");
-                                ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);
-                                ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);
-                                ImGui::DragFloat4("vector4_values2", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values2), 0.01f);
-                                ImGui::DragFloat4("vector4_values3", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values3), 0.01f);
-                                ImGui::DragFloat4("vector4_values4", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values4), 0.01f);
-                                ImGui::DragFloat4("vector4_values5", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values5), 0.01f);
-                                ImGui::DragFloat4("vector4_values6", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values6), 0.01f);
-                                ImGui::DragFloat4("vector4_values7", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values7), 0.01f);
-                                ImGui::DragFloat4("vector4_values8", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values8), 0.01f);
-                                ImGui::DragFloat4("vector4_values9", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values9), 0.01f);
-								ImGui::Separator();
-                                ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Decals");
-                                ImGui::PushID("TESTDECAL");
-                                ImGui::DragFloat3("Position", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position), 0.01f);
-                                {
-                                    if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
-                                    {
-                                        if (ImGui::Selectable("Set ptr Gizmo"))
-                                        {
-                                            // Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
-                                            gs_GizmoContext.SelectVector3Property(glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position));
-                                        }
-                                        ImGui::EndPopup();
-                                    }
-                                }
-                                ImGui::DragFloat("Projector Size", &gs_GraphicsWorld.m_HardcodedDecalInstance.projectorSize, 0.01f);
-                                ImGui::DragFloat("nearZ", &gs_GraphicsWorld.m_HardcodedDecalInstance.nearZ, 0.01f);
-                                ImGui::DragFloat("testVar0", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar0, 0.01f);
-                                ImGui::DragFloat("testVar1", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar1, 0.01f);
-                                ImGui::PopID();
-
-                                // TODO?
-                                ImGui::EndTabItem();
-                            }
-
-                            ImGui::EndTabBar();
-                        }//ImGui::BeginTabBar
-                    }//ImGui::Begin
-
-                    ImGui::End();
+                    Tool_HandleUI();
                 }
 
                 {
@@ -1082,6 +711,412 @@ void TestApplication::InitDefaultMeshes()
     auto defaultCubeMesh = CreateDefaultCubeMesh();
     std::unique_ptr<ModelData> plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
     std::unique_ptr<ModelData> box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
+}
 
+void TestApplication::RunTest_DebugDraw()
+{
+    if (m_TestDebugDrawLine)
+    {
+        DebugDraw::AddLine(glm::vec3{ 2.0f, 0.0f, 2.0f}, glm::vec3{ 0.0f, 10.0f, 0.0f }, oGFX::Colors::GREEN);
+    }
 
+    if (m_TestDebugDrawBox)
+	{
+		AABB aabb;
+		aabb.center = { 0.0f,1.0f,0.0f };
+		aabb.halfExt = { 1.0f,1.0f,1.0f };
+		DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
+	}
+
+	if (m_TestDebugDrawDisc)
+	{
+        DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
+		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
+		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
+		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
+		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::RED);
+		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::GREEN);
+		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 3.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,1.0f }, oGFX::Colors::YELLOW);
+
+		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,1.0f,0.0f }, oGFX::Colors::YELLOW);
+		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,0.0f,1.0f }, oGFX::Colors::BLUE);
+		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 1.0f,0.0f,0.0f }, oGFX::Colors::VIOLET);
+
+		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -3.0f, 1.0f, -5.0f }, 1.0f, gs_RenderEngine->camera.m_position, oGFX::Colors::GREEN);
+		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_RenderEngine->camera.m_position, oGFX::Colors::RED);
+	}
+
+    // Debug Draw skeleton
+    /*
+    if constexpr (false)
+    {
+        PROFILE_SCOPED("TEST_DrawSkeleton");
+
+        // Update world space global skeleton pose.
+        simpleanim::UpdateLocalToGlobalSpace(skinnedMesh_alibaba.get());
+
+        AABB aabb;
+        aabb.halfExt = { 0.01f,0.01f,0.01f };
+
+        // Trivial and unoptimized method
+        auto DFS = [&](auto&& func, simpleanim::BoneNode* pBoneNode) -> void
+        {
+            if (pBoneNode->mChildren.empty())
+                return;
+
+            aabb.center = pBoneNode->mModelSpaceGlobalVqs.GetPosition();
+            gs_RenderEngine->AddDebugBox(aabb, oGFX::Colors::GREEN);
+
+            // Recursion through all children nodes, passing in the current global transform.
+            for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
+            {
+                simpleanim::BoneNode* child = pBoneNode->mChildren[i].get();
+                auto pos = child->mModelSpaceGlobalVqs.GetPosition();
+                gs_RenderEngine->AddDebugLine(aabb.center, pos, oGFX::Colors::RED);
+                func(func, child);
+            }
+        };
+
+        //BoneNode* pBoneNode = nullptr;// skinnedMesh_dori->mpRootNode.get();
+        simpleanim::BoneNode* pBoneNode = skinnedMesh_alibaba->mpRootNode.get();
+        DFS(DFS, pBoneNode);
+    }
+    */
+
+	// Shamelessly hijack ImGui for debugging tools
+	if (m_debugDrawLightPosition)
+	{
+		if (ImDrawList* bgDrawList = ImGui::GetBackgroundDrawList())
+		{
+			auto WorldToScreen = [&](const glm::vec3& worldPosition) -> ImVec2
+			{
+				const int screenWidth = (int)m_WindowSize.x;
+				const int screenHeight = (int)m_WindowSize.y;
+				const glm::mat4& viewMatrix = gs_RenderEngine->camera.matrices.view;
+				const glm::mat4& projectionMatrix = gs_RenderEngine->camera.matrices.perspective;
+				// World Space to NDC Space
+				glm::vec4 ndcPosition = projectionMatrix * viewMatrix * glm::vec4{ worldPosition, 1.0f };
+				// Perspective Division
+				ndcPosition /= ndcPosition.w;
+				// NDC Space to Viewport Space
+				const float winX = glm::round(((ndcPosition.x + 1.0f) / 2.0f) * (float)screenWidth);
+				const float winY = glm::round(((1.0f - ndcPosition.y) / 2.0f) * (float)screenHeight);
+				return ImVec2{ winX, winY };
+			};
+
+			for (int i = 0; i < 6; ++i)
+			{
+				auto& light = gs_RenderEngine->currWorld->m_HardcodedOmniLights[i];
+				auto& pos = light.position;
+				const auto screenPosition = WorldToScreen(pos);
+				constexpr float circleSize = 10.0f;
+				bgDrawList->AddCircle(ImVec2(screenPosition.x - 0.5f * circleSize, screenPosition.y - 0.5f * circleSize), circleSize, IM_COL32(light.color.r * 0xFF, light.color.g * 0xFF, light.color.b * 0xFF, 0xFF), 0, 2.0f);
+			}
+		}
+	}
+}
+
+void TestApplication::ToolUI_Camera()
+{
+	auto& camera = gs_RenderEngine->camera;
+	ImGui::DragFloat3("Position", glm::value_ptr(camera.m_position), 0.01f);
+	ImGui::DragFloat3("Rotation", glm::value_ptr(camera.m_rotation), 0.01f);
+	ImGui::DragFloat3("Target", glm::value_ptr(camera.m_TargetPosition), 0.01f);
+	ImGui::DragFloat("Distance", &camera.m_TargetDistance, 0.01f);
+
+	bool fps = camera.m_CameraMovementType == Camera::CameraMovementType::firstperson;
+	if (ImGui::Checkbox("FPS", &fps))
+	{
+		camera.m_CameraMovementType = fps ? Camera::CameraMovementType::firstperson : Camera::CameraMovementType::lookat;
+	}
+
+	ImGui::DragFloat("RotationSpeed", &camera.rotationSpeed);
+	ImGui::DragFloat("MovementSpeed", &camera.movementSpeed);
+
+	if (ImGui::Button("Shake"))
+	{
+		gs_CameraController.ShakeCamera();
+	}
+}
+
+void TestApplication::ToolUI_Settings()
+{
+	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Application");
+	ImGui::Text("m_ApplicationFrame : %u", &m_ApplicationFrame);
+	ImGui::Text("m_ApplicationTimer : %f", &m_ApplicationTimer);
+	ImGui::Text("m_ApplicationDT    : %f", &m_ApplicationDT);
+	ImGui::Checkbox("m_TestDebugDrawLine", &m_TestDebugDrawLine);
+	ImGui::Checkbox("m_TestDebugDrawBox", &m_TestDebugDrawBox);
+	ImGui::Checkbox("m_TestDebugDrawDisc", &m_TestDebugDrawDisc);
+	ImGui::Checkbox("m_TestDebugDrawDecal (not done)", &m_TestDebugDrawDecal);
+	ImGui::Separator();
+	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Render Engine");
+	ImGui::Checkbox("m_DebugDrawDepthTest", &gs_RenderEngine->m_DebugDrawDepthTest);
+	ImGui::Text("g_DebugDrawVertexBufferGPU.size() : %u", gs_RenderEngine->g_DebugDrawVertexBufferGPU.size());
+	ImGui::Text("g_DebugDrawIndexBufferGPU.size()  : %u", gs_RenderEngine->g_DebugDrawIndexBufferGPU.size());
+	ImGui::Text("g_Textures.size()                 : %u", gs_RenderEngine->g_Textures.size());
+	ImGui::Text("g_GlobalMeshBuffers.VtxBuffer.size() : %u", gs_RenderEngine->g_GlobalMeshBuffers.VtxBuffer.size());
+	ImGui::Text("g_GlobalMeshBuffers.IdxBuffer.size() : %u", gs_RenderEngine->g_GlobalMeshBuffers.IdxBuffer.size());
+	ImGui::Separator();
+	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Shader Debug Tool");
+	ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);
+	ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);
+	ImGui::DragFloat4("vector4_values2", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values2), 0.01f);
+	ImGui::DragFloat4("vector4_values3", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values3), 0.01f);
+	ImGui::DragFloat4("vector4_values4", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values4), 0.01f);
+	ImGui::DragFloat4("vector4_values5", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values5), 0.01f);
+	ImGui::DragFloat4("vector4_values6", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values6), 0.01f);
+	ImGui::DragFloat4("vector4_values7", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values7), 0.01f);
+	ImGui::DragFloat4("vector4_values8", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values8), 0.01f);
+	ImGui::DragFloat4("vector4_values9", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values9), 0.01f);
+	ImGui::Separator();
+	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Decals");
+	ImGui::PushID("TESTDECAL");
+	ImGui::DragFloat3("Position", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position), 0.01f);
+	{
+		if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
+		{
+			if (ImGui::Selectable("Set ptr Gizmo"))
+			{
+				// Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
+				gs_GizmoContext.SelectVector3Property(glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position));
+			}
+			ImGui::EndPopup();
+		}
+	}
+	ImGui::DragFloat("Projector Size", &gs_GraphicsWorld.m_HardcodedDecalInstance.projectorSize, 0.01f);
+	ImGui::DragFloat("nearZ", &gs_GraphicsWorld.m_HardcodedDecalInstance.nearZ, 0.01f);
+	ImGui::DragFloat("testVar0", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar0, 0.01f);
+	ImGui::DragFloat("testVar1", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar1, 0.01f);
+	ImGui::PopID();
+}
+
+void TestApplication::Tool_HandleGizmoManipulation()
+{
+	if (gs_GizmoContext.AnyPropertySelected())
+	{
+		PROFILE_SCOPED("Gizmo");
+
+		ImGuizmo::BeginFrame();
+		ImGuizmo::Enable(true);
+		ImGuizmo::AllowAxisFlip(false);
+		ImGuizmo::SetGizmoSizeClipSpace(0.1f);
+
+		static bool prevFrameUsingGizmo = false;
+		static bool currFrameUsingGizmo = false;
+
+		// Save the state of the gizmos in the previous frame.
+		prevFrameUsingGizmo = currFrameUsingGizmo;
+		currFrameUsingGizmo = ImGuizmo::IsUsing();
+		const bool firstUseGizmo = currFrameUsingGizmo && !prevFrameUsingGizmo;
+		const bool justReleaseGizmo = prevFrameUsingGizmo && !currFrameUsingGizmo;
+
+		ImGuiIO& io = ImGui::GetIO();
+		// WR: This is needed if imgui multi-viewport is used, as origin becomes the top left of monitor.
+		const auto mainViewportPosition = ImGui::GetMainViewport()->Pos;
+		ImGuizmo::SetRect(mainViewportPosition.x, mainViewportPosition.y, io.DisplaySize.x, io.DisplaySize.y);
+		glm::mat4x4 viewMatrix = gs_RenderEngine->camera.matrices.view;
+		glm::mat4x4 projMatrix = gs_RenderEngine->camera.matrices.perspective;
+
+		static glm::mat4x4 localToWorld{ 1.0f };
+		float* matrixPtr = glm::value_ptr(localToWorld);
+
+		// Draw cube/grid at the origin for debugging purpose and sanity check
+		//ImGuizmo::DrawCubes(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix), matrixPtr, 1);
+		//ImGuizmo::DrawGrid(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix), matrixPtr, 20);
+
+		float* gizmoHijack = gs_GizmoContext.GetSelectedVector3Property();
+		if (gizmoHijack) // Fix me!
+		{
+			glm::vec3 position = { gizmoHijack[0], gizmoHijack[1], gizmoHijack[2] };
+			localToWorld = glm::translate(glm::mat4{ 1.0f }, position);
+			matrixPtr = glm::value_ptr(localToWorld);
+		}
+
+		const ImGuizmo::OPERATION gizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
+		const ImGuizmo::MODE gizmoMode = ImGuizmo::MODE::WORLD;
+		const bool gizmoMoved = ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix), gizmoOperation, gizmoMode, matrixPtr);
+
+		if (firstUseGizmo)
+		{
+			// TODO: What can you do here?
+			// - Save the state of the transform? For undo/redo feature?
+		}
+		else if (justReleaseGizmo)
+		{
+			// TODO: What can you do here?
+			// - Save the state of the transform? For undo/redo feature?
+		}
+
+		if (currFrameUsingGizmo)
+		{
+			if (gizmoMoved)
+			{
+				// TODO: What can you do here?
+				// - Update transform because the gizmo have moved.
+
+				glm::vec3 position, euler_deg, scale; // World Space.
+				ImGuizmo::DecomposeMatrixToComponents(matrixPtr, glm::value_ptr(position), glm::value_ptr(euler_deg), glm::value_ptr(scale));
+				glm::quat q = glm::quat(glm::radians(euler_deg));
+
+				// Hacky and unsafe...
+				gs_GizmoContext.SetVector3Property(position);
+
+				if (EntityInfo* entity = gs_GizmoContext.GetSelectedEntityInfo())
+				{
+					entity->SyncToGraphicsWorld();
+				}
+
+			}
+		}
+	}
+}
+
+void TestApplication::Tool_HandleUI()
+{
+	if (ImGui::Begin("Scene Helper"))
+	{
+		if (ImGui::BeginTabBar("SceneHelperTabBar"))
+		{
+			if (ImGui::BeginTabItem("Entity"))
+			{
+				if (ImGui::SmallButton("Create Cube"))
+				{
+					auto x = entities.size();
+					entities.emplace_back(EntityInfo{});
+					auto& entity = entities[x];
+					entity.position = { 2.0f,2.0f,2.0f };
+					entity.scale = { 1.0f,1.0f,1.0f };
+					entity.modelID = gs_ModelID_Box;
+					entity.entityID = FastRandomMagic();
+
+					CreateGraphicsEntityHelper(entity);
+				}
+
+				int addRandomEntityCount = 0;
+				ImGui::Text("Add Random Entity: ");
+				if (ImGui::SmallButton("+10")) { addRandomEntityCount = 10; }
+				ImGui::SameLine();
+				if (ImGui::SmallButton("+50")) { addRandomEntityCount = 50; }
+				ImGui::SameLine();
+				if (ImGui::SmallButton("+100")) { addRandomEntityCount = 100; }
+				ImGui::SameLine();
+				if (ImGui::SmallButton("+250")) { addRandomEntityCount = 250; }
+
+				if (addRandomEntityCount)
+				{
+					for (int i = 0; i < addRandomEntityCount; ++i)
+					{
+						const glm::vec3 pos = glm::sphericalRand(20.0f);
+
+						auto x = entities.size();
+						entities.emplace_back(EntityInfo{});
+						auto& entity = entities[x];
+						entity.position = { pos.x, glm::abs(pos.y), pos.z };
+						entity.scale = { 1.0f,1.0f,1.0f };
+						entity.modelID = gs_ModelID_Box;
+						entity.entityID = FastRandomMagic();
+
+						CreateGraphicsEntityHelper(entity);
+					}
+				}
+
+				ImGui::Text("Total Entities: %u", entities.size());
+
+				if (ImGui::TreeNode("Entity"))
+				{
+					for (auto& entity : entities)
+					{
+						bool valuesModified = false;
+						ImGui::PushID(entity.entityID);
+
+						ImGui::BulletText("[ID:%u] ", entity.entityID);
+						ImGui::SameLine();
+						ImGui::Text(entity.name.c_str());
+						valuesModified |= ImGui::DragFloat3("Position", glm::value_ptr(entity.position), 0.01f);
+						{
+							if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
+							{
+								if (ImGui::Selectable("Set ptr Gizmo"))
+								{
+									gs_GizmoContext.SelectEntityInfo(&entity);
+									gs_GizmoContext.SelectVector3Property((float*)&entity.position);
+								}
+								ImGui::EndPopup();
+							}
+						}
+
+						valuesModified |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
+						valuesModified |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
+						valuesModified |= ImGui::DragFloat("Theta", &entity.rot);
+						// TODO: We should be using quaternions.........
+
+						if (valuesModified)
+						{
+							entity.SyncToGraphicsWorld();
+						}
+
+						ImGui::PopID();
+					}
+
+					ImGui::TreePop();
+				}//ImGui::TreeNode
+
+				ImGui::EndTabItem();
+			}//ImGui::BeginTabItem
+
+			if (ImGui::BeginTabItem("Light"))
+			{
+				ImGui::BeginDisabled(); // TODO remove once implemented
+				if (ImGui::SmallButton("Create PointLight")) {} // TODO Implement me!
+				ImGui::EndDisabled(); // TODO remove once implemented
+
+                static bool freezeLight = true;
+				ImGui::Checkbox("Freeze Lights", &freezeLight);
+				ImGui::Checkbox("Debug Draw Position", &m_debugDrawLightPosition);
+				ImGui::Separator();
+				for (int i = 0; i < 6; ++i)
+				{
+					ImGui::PushID(i);
+					auto& light = gs_RenderEngine->currWorld->m_HardcodedOmniLights[i];
+					ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.01f);
+					{
+						if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
+						{
+							if (ImGui::Selectable("Set ptr Gizmo"))
+							{
+								// Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
+								gs_GizmoContext.SelectVector3Property(glm::value_ptr(light.position));
+							}
+							ImGui::EndPopup();
+						}
+					}
+
+					ImGui::DragFloat3("Color", glm::value_ptr(light.color));
+					ImGui::DragFloat("Radius", &light.radius.x);
+					ImGui::PopID();
+				}
+
+				ImGui::EndTabItem();
+			}//ImGui::BeginTabItem
+
+			if (ImGui::BeginTabItem("Camera"))
+			{
+				ToolUI_Camera();
+
+				ImGui::EndTabItem();
+			}//ImGui::BeginTabItem
+
+			if (ImGui::BeginTabItem("Settings"))
+			{
+				ToolUI_Settings();
+
+				ImGui::EndTabItem();
+			}
+
+			ImGui::EndTabBar();
+		}//ImGui::BeginTabBar
+	}//ImGui::Begin
+
+	ImGui::End();
 }
