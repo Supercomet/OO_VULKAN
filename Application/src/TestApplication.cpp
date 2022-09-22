@@ -51,6 +51,8 @@
 
 static VulkanRenderer* gs_RenderEngine = nullptr;
 static GraphicsWorld gs_GraphicsWorld;
+static constexpr int hardCodedLights = 6;
+
 
 using BindlessTextureIndex = uint32_t;
 static constexpr BindlessTextureIndex INVALID_BINDLESS_TEXTURE_INDEX = 0xFFFFFFFF;
@@ -80,6 +82,8 @@ void TestApplication::Init()
 {
 
 }
+
+void InitLights(int32_t* someLights);
 
 static uint32_t gs_ModelID_Box = 0;
 
@@ -302,7 +306,7 @@ void TestApplication::Run()
     //----------------------------------------------------------------------------------------------------
 
     // Comment/Uncomment as needed
-    std::unique_ptr<ModelData> test_scene{ gs_RenderEngine->LoadModelFromFile("../Application/models/Map_Meshes_greybox.fbx") };
+    std::unique_ptr<ModelData> test_scene{ gs_RenderEngine->LoadModelFromFile("../Application/models/Luna_Walk_Redone.fbx") };
     //std::unique_ptr<ModelData> test_scene = nullptr;
 
     std::array<uint32_t, 4> diffuseBindlessTextureIndexes =
@@ -480,6 +484,11 @@ void TestApplication::Run()
         CreateGraphicsEntityHelper(e);
     }
 
+    int32_t someLights[hardCodedLights];
+    InitLights(someLights);
+
+        
+
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Camera
     //----------------------------------------------------------------------------------------------------
@@ -550,55 +559,62 @@ void TestApplication::Run()
                 ImGui::NewFrame();
             }
 
+            {
+
+            AABB ab;
+            ab.halfExt = glm::vec3{ 0.02f };
+            Point3D prevpos;
+            for (size_t i = 0; i < test_scene->bones.size(); i++)
+            {
+                ab.center = {};
+                ab.center = test_scene->bones[i].transform * glm::vec4{ ab.center, 1.0f };
+                DebugDraw::AddLine(ab.center, prevpos);
+                prevpos = ab.center;
+                DebugDraw::AddAABB(ab);
+            }
+            prevpos = {};
+            for (size_t i = 0; i < test_scene->boneOffsets.size(); i++)
+            {
+                ab.center = {};
+                ab.center = test_scene->boneOffsets[i].transform * glm::vec4{ ab.center, 1.0f };
+                DebugDraw::AddLine(ab.center, prevpos, oGFX::Colors::RED);
+                prevpos = ab.center;
+                DebugDraw::AddAABB(ab, oGFX::Colors::RED);
+            }
+            }
+
             if (gs_RenderEngine->PrepareFrame() == true)
             {
                 PROFILE_SCOPED("gs_RenderEngine->PrepareFrame() == true");
 
                 //if (freezeLight == false)
                 {
-					auto& lights = gs_GraphicsWorld.m_HardcodedOmniLights;
+					OmniLightInstance* lights[hardCodedLights];
+                    for (size_t i = 0; i < hardCodedLights; i++)
+                    {
+                        lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
+                    }
+
 
 					static float lightTimer = 0.0f;
 					lightTimer += deltaTime * 0.25f;
 
-					lights[0].position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
-					lights[0].color = glm::vec4(1.5f);
-					lights[0].radius.x = 15.0f;
-					// Red
-					lights[1].position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
-					lights[1].color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
-					lights[1].radius.x = 15.0f;
-					// Blue
-					lights[2].position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
-					lights[2].color = glm::vec4(0.0f, 0.0f, 2.5f, 0.0f);
-					lights[2].radius.x = 5.0f;
-					// Yellow
-					lights[3].position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
-					lights[3].color = glm::vec4(1.0f, 1.0f, 0.0f, 0.0f);
-					lights[3].radius.x = 2.0f;
-					// Green
-					lights[4].position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
-					lights[4].color = glm::vec4(0.0f, 1.0f, 0.2f, 0.0f);
-					lights[4].radius.x = 5.0f;
-					// Yellow
-					lights[5].position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
-					lights[5].color = glm::vec4(1.0f, 0.7f, 0.3f, 0.0f);
-					lights[5].radius.x = 25.0f;
+                             
+					lights[0]->position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
+					lights[0]->position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
+                             
+					lights[1]->position.x = -4.0f + sin(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
+					lights[1]->position.z = 0.0f + cos(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
+                             
+					lights[2]->position.x = 4.0f + sin(glm::radians(360.0f * lightTimer)) * 2.0f;
+					lights[2]->position.z = 0.0f + cos(glm::radians(360.0f * lightTimer)) * 2.0f;
+                             
+					lights[4]->position.x = 0.0f + sin(glm::radians(360.0f * lightTimer + 90.0f)) * 5.0f;
+					lights[4]->position.z = 0.0f - cos(glm::radians(360.0f * lightTimer + 45.0f)) * 5.0f;
+                             
+					lights[5]->position.x = 0.0f + sin(glm::radians(-360.0f * lightTimer + 135.0f)) * 10.0f;
+					lights[5]->position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
 
-					lights[0].position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
-					lights[0].position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
-
-					lights[1].position.x = -4.0f + sin(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
-					lights[1].position.z = 0.0f + cos(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
-
-					lights[2].position.x = 4.0f + sin(glm::radians(360.0f * lightTimer)) * 2.0f;
-					lights[2].position.z = 0.0f + cos(glm::radians(360.0f * lightTimer)) * 2.0f;
-
-					lights[4].position.x = 0.0f + sin(glm::radians(360.0f * lightTimer + 90.0f)) * 5.0f;
-					lights[4].position.z = 0.0f - cos(glm::radians(360.0f * lightTimer + 45.0f)) * 5.0f;
-
-					lights[5].position.x = 0.0f + sin(glm::radians(-360.0f * lightTimer + 135.0f)) * 10.0f;
-					lights[5].position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
                 }
 
                 // Upload CPU light data to GPU. Ideally this should only contain lights that intersects the camera frustum.
@@ -763,6 +779,7 @@ void TestApplication::RunTest_DebugDraw()
     }
     */
 
+
 	// Shamelessly hijack ImGui for debugging tools
 	if (m_debugDrawLightPosition)
 	{
@@ -784,9 +801,8 @@ void TestApplication::RunTest_DebugDraw()
 				return ImVec2{ winX, winY };
 			};
 
-			for (int i = 0; i < 6; ++i)
+			for (auto& light : gs_GraphicsWorld.GetAllOmniLightInstances())
 			{
-				auto& light = gs_RenderEngine->currWorld->m_HardcodedOmniLights[i];
 				auto& pos = light.position;
 				const auto screenPosition = WorldToScreen(pos);
 				constexpr float circleSize = 10.0f;
@@ -1047,34 +1063,43 @@ void TestApplication::Tool_HandleUI()
 
 			if (ImGui::BeginTabItem("Light"))
 			{
-				ImGui::BeginDisabled(); // TODO remove once implemented
-				if (ImGui::SmallButton("Create PointLight")) {} // TODO Implement me!
-				ImGui::EndDisabled(); // TODO remove once implemented
+				
+				if (ImGui::SmallButton("Create PointLight")) 
+                {
+                    int32_t lightId = gs_GraphicsWorld.CreateLightInstance();
+                    auto& newLight = gs_GraphicsWorld.GetLightInstance(lightId);
+                    newLight.position = {};
+                    newLight.radius.x = 3.0f;
+                    newLight.color = { 1.0f,1.0f,1.0f,1.0f };
+
+                }
 
                 static bool freezeLight = true;
 				ImGui::Checkbox("Freeze Lights", &freezeLight);
 				ImGui::Checkbox("Debug Draw Position", &m_debugDrawLightPosition);
 				ImGui::Separator();
-				for (int i = 0; i < 6; ++i)
+				
 				{
-					ImGui::PushID(i);
-					auto& light = gs_RenderEngine->currWorld->m_HardcodedOmniLights[i];
-					ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.01f);
-					{
-						if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
-						{
-							if (ImGui::Selectable("Set ptr Gizmo"))
-							{
-								// Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
-								gs_GizmoContext.SelectVector3Property(glm::value_ptr(light.position));
-							}
-							ImGui::EndPopup();
-						}
-					}
-
-					ImGui::DragFloat3("Color", glm::value_ptr(light.color));
-					ImGui::DragFloat("Radius", &light.radius.x);
-					ImGui::PopID();
+                    int i = 0;
+                    for (auto& light : gs_RenderEngine->currWorld->GetAllOmniLightInstances())
+                    {
+					ImGui::PushID(i++);
+                        ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.01f);
+                        {
+                            if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
+                            {
+                                if (ImGui::Selectable("Set ptr Gizmo"))
+                                {
+                                    // Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
+                                    gs_GizmoContext.SelectVector3Property(glm::value_ptr(light.position));
+                                }
+                                ImGui::EndPopup();
+                            }
+                        }
+                        ImGui::DragFloat3("Color", glm::value_ptr(light.color),0.1f,0.0f,1.0f);
+                        ImGui::DragFloat("Radius", &light.radius.x,0.1f,0.0f);
+                        ImGui::PopID();
+                    }				
 				}
 
 				ImGui::EndTabItem();
@@ -1099,4 +1124,43 @@ void TestApplication::Tool_HandleUI()
 	}//ImGui::Begin
 
 	ImGui::End();
+}
+
+void InitLights(int32_t* someLights)
+{    
+    for (size_t i = 0; i < hardCodedLights; i++)
+    {
+        someLights[i] = gs_GraphicsWorld.CreateLightInstance();
+    }
+    {
+        OmniLightInstance* lights[hardCodedLights];
+        for (size_t i = 0; i < hardCodedLights; i++)
+        {
+            lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
+        }
+        // put here so we can edit the light values
+        lights[0]->position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+        lights[0]->color = glm::vec4(1.5f);
+        lights[0]->radius.x = 15.0f;
+        // Red   
+        lights[1]->position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
+        lights[1]->color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+        lights[1]->radius.x = 15.0f;
+        // Blue  
+        lights[2]->position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
+        lights[2]->color = glm::vec4(0.0f, 0.0f, 2.5f, 0.0f);
+        lights[2]->radius.x = 5.0f;
+        // Yellow
+        lights[3]->position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
+        lights[3]->color = glm::vec4(1.0f, 1.0f, 0.0f, 0.0f);
+        lights[3]->radius.x = 2.0f;
+        // Green 
+        lights[4]->position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
+        lights[4]->color = glm::vec4(0.0f, 1.0f, 0.2f, 0.0f);
+        lights[4]->radius.x = 5.0f;
+        // Yellow
+        lights[5]->position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
+        lights[5]->color = glm::vec4(1.0f, 0.7f, 0.3f, 0.0f);
+        lights[5]->radius.x = 25.0f;
+    }
 }
