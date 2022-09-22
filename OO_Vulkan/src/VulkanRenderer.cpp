@@ -1518,6 +1518,7 @@ ModelData* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	flags |= aiProcess_ImproveCacheLocality;
 	flags |= aiProcess_CalcTangentSpace;
 	flags |= aiProcess_FindInstances; // this step is slow but it finds duplicate instances in FBX
+	flags |= aiProcess_LimitBoneWeights; // limmits bones to 4
 	const aiScene *scene = importer.ReadFile(file,flags
 		//  aiProcess_Triangulate                // Make sure we get triangles rather than nvert polygons
 		//| aiProcess_LimitBoneWeights           // 4 weights for skin model max
@@ -1550,47 +1551,49 @@ ModelData* VulkanRenderer::LoadModelFromFile(const std::string& file)
 
 	if (scene->HasAnimations())
 	{
-		std::cout << "Animated scene\n";
-		for (size_t i = 0; i < scene->mNumAnimations; i++)
-		{
-			std::cout << "Anim name: " << scene->mAnimations[i]->mName.C_Str() << std::endl;
-			std::cout << "Anim frames: "<< scene->mAnimations[i]->mDuration << std::endl;
-			std::cout << "Anim ticksPerSecond: "<< scene->mAnimations[i]->mTicksPerSecond << std::endl;
-			std::cout << "Anim duration: "<< static_cast<float>(scene->mAnimations[i]->mDuration)/scene->mAnimations[i]->mTicksPerSecond << std::endl;
-			std::cout << "Anim numChannels: "<< scene->mAnimations[i]->mNumChannels << std::endl;
-			std::cout << "Anim numMeshChannels: "<< scene->mAnimations[i]->mNumMeshChannels << std::endl;
-			std::cout << "Anim numMeshChannels: "<< scene->mAnimations[i]->mNumMorphMeshChannels << std::endl;
-			for (size_t x = 0; x < scene->mAnimations[i]->mNumChannels; x++)
-			{
-				auto& channel = scene->mAnimations[i]->mChannels[x];
-				std::cout << "\tKeys name: " << channel->mNodeName.C_Str() << std::endl;
-				for (size_t y = 0; y < channel->mNumPositionKeys; y++)
-				{
-					std::cout << "\t Key_"<< std::to_string(y)<<" time: " << channel->mPositionKeys[y].mTime << std::endl;
-					auto& pos = channel->mPositionKeys[y].mValue;
-					std::cout << "\t Key_"<< std::to_string(y)<<" value: " <<pos.x <<", " << pos.y<<", " << pos.z << std::endl;
-				}
-			}
-		}
-		std::cout << std::endl;
+		//std::cout << "Animated scene\n";
+		//for (size_t i = 0; i < scene->mNumAnimations; i++)
+		//{
+		//	std::cout << "Anim name: " << scene->mAnimations[i]->mName.C_Str() << std::endl;
+		//	std::cout << "Anim frames: "<< scene->mAnimations[i]->mDuration << std::endl;
+		//	std::cout << "Anim ticksPerSecond: "<< scene->mAnimations[i]->mTicksPerSecond << std::endl;
+		//	std::cout << "Anim duration: "<< static_cast<float>(scene->mAnimations[i]->mDuration)/scene->mAnimations[i]->mTicksPerSecond << std::endl;
+		//	std::cout << "Anim numChannels: "<< scene->mAnimations[i]->mNumChannels << std::endl;
+		//	std::cout << "Anim numMeshChannels: "<< scene->mAnimations[i]->mNumMeshChannels << std::endl;
+		//	std::cout << "Anim numMeshChannels: "<< scene->mAnimations[i]->mNumMorphMeshChannels << std::endl;
+		//	for (size_t x = 0; x < scene->mAnimations[i]->mNumChannels; x++)
+		//	{
+		//		auto& channel = scene->mAnimations[i]->mChannels[x];
+		//		std::cout << "\tKeys name: " << channel->mNodeName.C_Str() << std::endl;
+		//		for (size_t y = 0; y < channel->mNumPositionKeys; y++)
+		//		{
+		//			std::cout << "\t Key_"<< std::to_string(y)<<" time: " << channel->mPositionKeys[y].mTime << std::endl;
+		//			auto& pos = channel->mPositionKeys[y].mValue;
+		//			std::cout << "\t Key_"<< std::to_string(y)<<" value: " <<pos.x <<", " << pos.y<<", " << pos.z << std::endl;
+		//		}
+		//	}
+		//}
+		//std::cout << std::endl;
 	}
 
 	std::vector<std::string> textureNames = MeshContainer::LoadMaterials(scene);
 	std::vector<int> matToTex(textureNames.size());
+	
+	// TODO: Maybe fix this after materials..
 	// Loop over textureNames and create textures for them
-	for (size_t i = 0; i < textureNames.size(); i++)
-	{
-		// if material had no texture, set '0' to indicate no texture, texture 0 will be reserved fora  default texture
-		if (textureNames[i].empty())
-		{
-			matToTex[i] = 0;
-		}
-		else
-		{
-			// otherwise create texture and set value to index of new texture
-			matToTex[i] = CreateTexture(textureNames[i]);
-		}
-	}
+	//for (size_t i = 0; i < textureNames.size(); i++)
+	//{
+	//	// if material had no texture, set '0' to indicate no texture, texture 0 will be reserved fora  default texture
+	//	if (textureNames[i].empty())
+	//	{
+	//		matToTex[i] = 0;
+	//	}
+	//	else
+	//	{
+	//		// otherwise create texture and set value to index of new texture
+	//		matToTex[i] = CreateTexture(textureNames[i]);
+	//	}
+	//}
 
 	ModelData* mData = new ModelData;
 
@@ -1608,7 +1611,7 @@ ModelData* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		auto cacheVoffset = mData->vertices.size();
 		auto cacheIoffset = mData->indices.size();
 		mdl.mesh = mdl.processMesh(scene->mMeshes[i], scene,
-			mData->vertices, mData->indices);
+			*mData);
 
 		mdl.vertices.count = mdl.mesh->vertexCount;
 		mdl.vertices.offset = cacheVoffset;
@@ -1619,6 +1622,12 @@ ModelData* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	//mData->sceneInfo = new Node();
 	//always has one transform, root
 	mData->ModelSceneLoad(scene, *scene->mRootNode, nullptr, glm::mat4{ 1.0f });
+	
+	if (scene->HasAnimations())
+	{
+		mData->boneWeights.resize(mData->vertices.size());
+		mData->ModelBoneLoad(scene, *scene->mRootNode,0);
+	}
 		
 	//model.loadNode(nullptr, scene, *scene->mRootNode, 0, *mData);
 	auto cI_offset = g_GlobalMeshBuffers.IdxOffset;
