@@ -34,7 +34,7 @@ int main(int argc, char argv[])
 
     // !! IMPORTANT !!
     // !! THIS IS A HACK !!
-    // - Hijacking the directory So that all the models/shaders/textures folder can be accessed
+    // - Hijacking the directory So that all the g_globalModels/shaders/textures folder can be accessed
     // - This is a quick workaround so that this .exe from this project can be run from Visual Studio.
     // - As such, be careful when running from the .exe application directly.
     SetCurrentDirectory(L"../OO_Vulkan/");

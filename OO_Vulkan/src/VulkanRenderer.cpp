@@ -125,9 +125,9 @@ VulkanRenderer::~VulkanRenderer()
 		descAllocs[i].Cleanup();
 	}
 
-	for (size_t i = 0; i < models.size(); i++)
+	for (size_t i = 0; i < g_globalModels.size(); i++)
 	{
-		models[i].destroy(m_device.logicalDevice);
+		g_globalModels[i].destroy(m_device.logicalDevice);
 	}	
 	for (size_t i = 0; i < g_Textures.size(); i++)
 	{
@@ -1252,6 +1252,10 @@ void VulkanRenderer::UploadInstanceData()
 	{
 		for (auto& ent :  currWorld->GetAllObjectInstances())
 		{
+			auto& mdl = g_globalModels[ent.modelID];
+			for (size_t i = 0; i < mdl.m_subMeshes.size(); i++)
+			{
+
 			// creates a single transform reference for each entity in the scene
 			size_t x = gpuTransform.size();
 			mat4 xform = ent.localToWorld;
@@ -1260,6 +1264,7 @@ void VulkanRenderer::UploadInstanceData()
 			gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
 			gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
 			gpuTransform.emplace_back(gpt);
+			}
 		}
 	}
 	
@@ -1274,9 +1279,13 @@ void VulkanRenderer::UploadInstanceData()
 		uint32_t matCnt = 0;
 		for (auto& ent: currWorld->GetAllObjectInstances())
 		{
+			auto& mdl = g_globalModels[ent.modelID];
+			for (size_t i = 0; i < mdl.m_subMeshes.size(); i++)
+			{
+
 			oGFX::InstanceData id;
 			//size_t sz = instanceData.size();
-			//for (size_t x = 0; x < models[ent.modelID].meshCount; x++)
+			//for (size_t x = 0; x < g_globalModels[ent.modelID].meshCount; x++)
 			{
 				// This is per entity. Should be per material.
 				uint32_t albedo = ent.bindlessGlobalTextureIndex_Albedo;
@@ -1314,6 +1323,8 @@ void VulkanRenderer::UploadInstanceData()
 				id.instanceAttributes = uvec4(instanceID, unused, albedo_normal, roughness_metallic);
 				
 				instanceData.emplace_back(id);
+			}
+
 			}
 			++matCnt;
 			++indexCounter;
@@ -1559,7 +1570,9 @@ bool VulkanRenderer::ResizeSwapchain()
 	return true;
 }
 
-ModelData* VulkanRenderer::LoadModelFromFile(const std::string& file)
+oGFX::Vertex aiVertexToGfxVertex(int);
+
+ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 {
 	// new model loader
 	
@@ -1628,9 +1641,6 @@ ModelData* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		//std::cout << std::endl;
 	}
 
-	std::vector<std::string> textureNames = MeshContainer::LoadMaterials(scene);
-	std::vector<int> matToTex(textureNames.size());
-	
 	// TODO: Maybe fix this after materials..
 	// Loop over textureNames and create textures for them
 	//for (size_t i = 0; i < textureNames.size(); i++)
@@ -1647,109 +1657,162 @@ ModelData* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	//	}
 	//}
 
-	ModelData* mData = new ModelData;
+	ModelFileResource* modelFile = new ModelFileResource;
+	modelFile->fileName = file;
 
-	auto modelResourceIndex = models.size();
-	models.resize(modelResourceIndex + scene->mNumMeshes);
-	mData->gfxMeshIndices.resize(scene->mNumMeshes);
+	auto mdlResourceIdx = g_globalModels.size();
+	modelFile->meshResource = mdlResourceIdx;
+	auto& mdl = g_globalModels.emplace_back(gfxModel{});
+
+	mdl.m_subMeshes.resize(scene->mNumMeshes);
+	modelFile->numSubmesh =scene->mNumMeshes;
+	mdl.cpuModel = modelFile;
 
 	for (size_t i = 0; i < scene->mNumMeshes; i++)
 	{
-		auto& mdl = models[modelResourceIndex + i];
-		mdl.name = scene->mMeshes[i]->mName.C_Str();
-		mdl.cpuModel = mData;
-		mData->gfxMeshIndices[i] = static_cast<uint32_t>(modelResourceIndex + i);
+		auto& submesh = mdl.m_subMeshes[i];
+		auto& aimesh = scene->mMeshes[i];
+		submesh.name = aimesh->mName.C_Str();		
 
-		auto cacheVoffset = mData->vertices.size();
-		auto cacheIoffset = mData->indices.size();
-		mdl.mesh = mdl.processMesh(scene->mMeshes[i], scene,
-			*mData);
+		auto cacheVoffset = modelFile->vertices.size();
+		auto cacheIoffset = modelFile->indices.size();
 
-		mdl.vertices.count = mdl.mesh->vertexCount;
-		mdl.vertices.offset = static_cast<uint32_t>(cacheVoffset);
-		mdl.indices.count = mdl.mesh->indicesCount;
-		mdl.indices.offset = static_cast<uint32_t>(cacheIoffset);
+		auto& vertices = modelFile->vertices;
+		auto& indices = modelFile->indices;
+
+		vertices.reserve(vertices.size() + aimesh->mNumVertices);
+		for (size_t i = 0; i < aimesh->mNumVertices; i++)
+		{
+			oGFX::Vertex vertex;
+			vertex.pos = aiVector3D_to_glm(aimesh->mVertices[i]);
+			if (aimesh->HasTextureCoords(0)) // does the mesh contain texture coordinates?
+			{
+				vertex.tex = glm::vec2{ aimesh->mTextureCoords[0][i].x, aimesh->mTextureCoords[0][i].y };
+			}
+			if (aimesh->HasNormals())
+			{
+				vertex.norm = aiVector3D_to_glm(aimesh->mNormals[i]);
+			}
+			if (aimesh->HasTangentsAndBitangents())
+			{
+				vertex.tangent = aiVector3D_to_glm(aimesh->mTangents[i]);
+			}
+			if (aimesh->HasVertexColors(0))
+			{
+				const auto& color = aimesh->mColors[0][i];
+				vertex.col = glm::vec4{ color.r, color.g, color.b, color.a };
+			}
+			vertices.emplace_back(vertex);	
+		}
+
+		uint32_t indicesCnt{};
+		for(uint32_t i = 0; i < aimesh->mNumFaces; i++)
+		{
+			const aiFace& face = aimesh->mFaces[i];
+			indicesCnt += face.mNumIndices;
+			for (uint32_t j = 0; j < face.mNumIndices; j++)
+			{
+				indices.push_back(face.mIndices[j]);
+			}
+		} 
+
+		submesh.vertexCount= aimesh->mNumVertices;
+		submesh.baseVertex= static_cast<uint32_t>(cacheVoffset);
+		submesh.indicesCount = indicesCnt;
+		submesh.baseIndices = static_cast<uint32_t>(cacheIoffset);
+	}
+
+	for (auto& sm : mdl.m_subMeshes)
+	{
+		mdl.vertexCount += sm.vertexCount;
+		mdl.indicesCount += sm.indicesCount;
 	}
 
 	//mData->sceneInfo = new Node();
 	//always has one transform, root
-	mData->ModelSceneLoad(scene, *scene->mRootNode, nullptr, glm::mat4{ 1.0f });
+	modelFile->ModelSceneLoad(scene, *scene->mRootNode, nullptr, glm::mat4{ 1.0f });
 	
 	if (scene->HasAnimations())
 	{
-		mData->boneWeights.resize(mData->vertices.size());
-		mData->ModelBoneLoad(scene, *scene->mRootNode,0);
+		modelFile->skeleton = new oGFX::Skeleton();
+		for (size_t i = 0; i < 1; i++)
+		{
+
+		}
+		modelFile->skeleton->boneWeights.resize(modelFile->vertices.size());
+		modelFile->ModelBoneLoad(scene, *scene->mRootNode,0);
 	}
 		
 	//model.loadNode(nullptr, scene, *scene->mRootNode, 0, *mData);
 	auto cI_offset = g_GlobalMeshBuffers.IdxOffset;
 	auto cV_offset = g_GlobalMeshBuffers.VtxOffset;
 	
-	for (size_t i = modelResourceIndex; i < models.size(); i++)
 	{
-		LoadMeshFromBuffers(mData->vertices, mData->indices, &models[i]);
+		LoadMeshFromBuffers(modelFile->vertices, modelFile->indices, &mdl);
 
 		//update indices by adding the cached offset
-		models[i].updateOffsets(cI_offset, cV_offset);
-		std::cout << "GPU pos " << models[i].vertices.offset
-			<< " size " << models[i].vertices.count
-			<< std::endl;
+		//mdl.updateOffsets(cI_offset, cV_offset);
+		//std::cout << "GPU pos " << g_globalModels[i].vertices.offset
+		//	<< " size " << g_globalModels[i].vertices.count
+		//	<< std::endl;
 	}
 
-	std::cout << "\t [Meshes loaded] " << mData->sceneMeshCount << std::endl;
+	std::cout << "\t [Meshes loaded] " << modelFile->sceneMeshCount << std::endl;
 
-	return mData;
+	return modelFile;
 }
 
-ModelData* VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model)
+ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model)
 {
 	uint32_t index = 0;
-	ModelData* m{ nullptr };
+	ModelFileResource* m{ nullptr };
 
 	if (model == nullptr)
 	{
 		// this is a file-less object, generate a model for it
-		index = static_cast<uint32_t>(models.size());
-		models.emplace_back(gfxModel());
-		model = &models[index];
+		index = static_cast<uint32_t>(g_globalModels.size());
+		g_globalModels.emplace_back(gfxModel());
+		model = &g_globalModels[index];
 
-		model->indices.count = static_cast<uint32_t>(indices.size());
-		model->vertices.count = static_cast<uint32_t>(vertex.size());
+		model->indicesCount = static_cast<uint32_t>(indices.size());
+		model->vertexCount = static_cast<uint32_t>(vertex.size());
 
+		SubMesh sm;
+		sm.baseIndices = static_cast<uint32_t>(g_GlobalMeshBuffers.IdxOffset);
+		sm.baseVertex = static_cast<uint32_t>(g_GlobalMeshBuffers.VtxOffset);
+		sm.indicesCount = static_cast<uint32_t>(indices.size());
+		sm.vertexCount = static_cast<uint32_t>(vertex.size());
+
+		model->m_subMeshes.push_back(sm);
+
+		m = new ModelFileResource();
 		Node* n = new Node{};
-		oGFX::Mesh* msh = new oGFX::Mesh{};
-		msh->indicesOffset = static_cast<uint32_t>(g_GlobalMeshBuffers.IdxOffset);
-		msh->vertexOffset = static_cast<uint32_t>(g_GlobalMeshBuffers.VtxOffset);
-		msh->indicesCount = static_cast<uint32_t>(indices.size());
-		msh->vertexCount = static_cast<uint32_t>(vertex.size());
-		model->mesh = msh;
-		model->nodes.push_back(n);
-
-		m = new ModelData();
+		m->sceneInfo = n;
 		m->vertices = vertex;
 		m->indices = indices;
-		m->gfxMeshIndices.push_back(static_cast<uint32_t>(index));
+		m->numSubmesh = 1;
+		m->meshResource = index;
 
 		model->cpuModel = m;
 	}	
 
 	// these offsets are using local offset based on the buffer.
-	std::cout << "Writing to vtx from data " << model->vertices.offset 
-		<< " for " << model->vertices.count 
-		<<" total " << model->vertices.offset+model->vertices.count 
+	std::cout << "Writing to vtx from data " << model->baseVertex
+		<< " for " << model->vertexCount
+		<<" total " << model->baseVertex+model->vertexCount
 		<< " at GPU buffer " << g_GlobalMeshBuffers.VtxOffset
 		<< std::endl;
-	g_GlobalMeshBuffers.IdxBuffer.writeTo(model->indices.count, indices.data() + model->indices.offset,
+	g_GlobalMeshBuffers.IdxBuffer.writeTo(model->indicesCount, indices.data() + model->baseIndices,
 		g_GlobalMeshBuffers.IdxOffset);
-	g_GlobalMeshBuffers.VtxBuffer.writeTo(model->vertices.count, vertex.data() + model->vertices.offset,
+	g_GlobalMeshBuffers.VtxBuffer.writeTo(model->vertexCount, vertex.data() + model->baseVertex,
 		g_GlobalMeshBuffers.VtxOffset);
 
 	// now we update them to the global offset
-	model->indices.offset = g_GlobalMeshBuffers.IdxOffset;
-	model->vertices.offset = g_GlobalMeshBuffers.VtxOffset;
+	model->baseIndices= g_GlobalMeshBuffers.IdxOffset;
+	model->baseVertex= g_GlobalMeshBuffers.VtxOffset;
 
-	g_GlobalMeshBuffers.IdxOffset += model->indices.count ;
-	g_GlobalMeshBuffers.VtxOffset += model->vertices.count;
+	g_GlobalMeshBuffers.IdxOffset += model->indicesCount;
+	g_GlobalMeshBuffers.VtxOffset += model->vertexCount;
 
 	return m;
 }

@@ -42,32 +42,41 @@ void GraphicsBatch::GenerateBatches()
 	}
 
 	int32_t currModelID{ -1 };
+	int32_t cnt{ 0 };
 	for (auto& ent: entities)
 	{
-		auto& model = m_renderer->models[ent.modelID];
-
+		auto& model = m_renderer->g_globalModels[ent.modelID];		
+		
 		if (ent.modelID != currModelID) // check if we are using the same model
 		{
-			// clear the buffer to prepare for this model
 			s_scratchBuffer.clear();
+			for (auto& subMesh : model.m_subMeshes)
+			{
+				// clear the buffer to prepare for this model
 
-			oGFX::IndirectCommand indirectCmd{};
-			indirectCmd.instanceCount = 1;
+				oGFX::IndirectCommand indirectCmd{};
+				indirectCmd.instanceCount = 1;
 
-			// this is the number invoked by the graphics pipeline as the instance id (location = 15) etc..
-			// the number is flattened in GraphicsBatches
-			indirectCmd.firstInstance = 0;
+				// this is the number invoked by the graphics pipeline as the instance id (location = 15) etc..
+				// the number is flattened in GraphicsBatches
+				indirectCmd.firstInstance = cnt++;
 
-			indirectCmd.firstIndex = model.mesh->indicesOffset;
-			indirectCmd.indexCount = model.mesh->indicesCount;
-			indirectCmd.vertexOffset = model.mesh->vertexOffset;
+				indirectCmd.firstIndex = model.baseIndices + subMesh.baseIndices;
+				indirectCmd.indexCount = subMesh.indicesCount;
+				indirectCmd.vertexOffset = model.baseVertex + subMesh.baseVertex;
 
-			s_scratchBuffer.emplace_back(indirectCmd);
-			//for (auto& node :model.nodes)
-			//{
-			//	uint32_t counter = 0;
-			//	oGFX::IndirectCommandsHelper(node, s_scratchBuffer,counter);
-			//}
+				//std::cout << "Draw:" << subMesh.name.c_str() <<
+				//	" FI: " << indirectCmd.firstIndex <<
+				//	" IC: " << indirectCmd.indexCount <<
+				//	" VO: " << indirectCmd.vertexOffset << std::endl;
+				s_scratchBuffer.emplace_back(indirectCmd);
+				//for (auto& node :model.nodes)
+				//{
+				//	uint32_t counter = 0;
+				//	oGFX::IndirectCommandsHelper(node, s_scratchBuffer,counter);
+				//}
+			}
+			
 		}
 		
 		if (ent.flags & Flags::SHADOW_CASTER)
@@ -99,15 +108,16 @@ void GraphicsBatch::GenerateBatches()
 
 		// append to the batches
 		AppendBatch(m_batches[Batch::ALL_OBJECTS], s_scratchBuffer);
+		//cnt++;
 	}
 
 	for (auto& batch : m_batches)
 	{
 		// set up first instance index
-		std::for_each(batch.begin(), batch.end(),
-			[x = uint32_t{ 0 }](oGFX::IndirectCommand& c) mutable { 
-			c.firstInstance = c.firstInstance == 0 ? x++ : x - 1;
-		});
+		//std::for_each(batch.begin(), batch.end(),
+		//	[x = uint32_t{ 0 }](oGFX::IndirectCommand& c) mutable { 
+		//	c.firstInstance = c.firstInstance == 0 ? x++ : x - 1;
+		//});
 	}
 
 }

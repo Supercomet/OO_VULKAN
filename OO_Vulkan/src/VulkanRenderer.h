@@ -242,8 +242,8 @@ public:
     std::vector<oGFX::DebugVertex> g_DebugDrawVertexBufferCPU;
     std::vector<uint32_t> g_DebugDrawIndexBufferCPU;
 
-	ModelData* LoadModelFromFile(const std::string& file);
-	ModelData* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, gfxModel* model);
+	ModelFileResource* LoadModelFromFile(const std::string& file);
+	ModelFileResource* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, gfxModel* model);
 
 	bool ResizeSwapchain();
 
@@ -300,7 +300,7 @@ public:
 	// Store the indirect draw commands containing index offsets and instance count per object
 
 	//Scene objects
-	 std::vector<gfxModel> models;
+	 std::vector<gfxModel> g_globalModels;
 
 	uint32_t currentFrame = 0;
 
