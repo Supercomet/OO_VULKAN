@@ -1658,7 +1658,7 @@ ModelData* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		auto& mdl = models[modelResourceIndex + i];
 		mdl.name = scene->mMeshes[i]->mName.C_Str();
 		mdl.cpuModel = mData;
-		mData->gfxMeshIndices[i] = modelResourceIndex + i;
+		mData->gfxMeshIndices[i] = static_cast<uint32_t>(modelResourceIndex + i);
 
 		auto cacheVoffset = mData->vertices.size();
 		auto cacheIoffset = mData->indices.size();
@@ -1666,9 +1666,9 @@ ModelData* VulkanRenderer::LoadModelFromFile(const std::string& file)
 			*mData);
 
 		mdl.vertices.count = mdl.mesh->vertexCount;
-		mdl.vertices.offset = cacheVoffset;
+		mdl.vertices.offset = static_cast<uint32_t>(cacheVoffset);
 		mdl.indices.count = mdl.mesh->indicesCount;
-		mdl.indices.offset = cacheIoffset;
+		mdl.indices.offset = static_cast<uint32_t>(cacheIoffset);
 	}
 
 	//mData->sceneInfo = new Node();
