@@ -244,6 +244,9 @@ public:
 
 	ModelFileResource* LoadModelFromFile(const std::string& file);
 	ModelFileResource* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, gfxModel* model);
+	void LoadSubmesh(gfxModel& mdl, SubMesh& submesh, aiMesh* aimesh, ModelFileResource* modelFile);
+	void LoadBoneInformation(ModelFileResource& fileData,oGFX::Skeleton& skeleton, aiMesh& aimesh, std::vector<oGFX::BoneWeight>& boneWeights);
+	void BuildSkeletonRecursive(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiNode* ainode, oGFX::BoneNode* node);
 
 	bool ResizeSwapchain();
 

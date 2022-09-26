@@ -53,28 +53,18 @@ void GraphicsBatch::GenerateBatches()
 			for (auto& subMesh : model.m_subMeshes)
 			{
 				// clear the buffer to prepare for this model
-
 				oGFX::IndirectCommand indirectCmd{};
 				indirectCmd.instanceCount = 1;
 
 				// this is the number invoked by the graphics pipeline as the instance id (location = 15) etc..
-				// the number is flattened in GraphicsBatches
+				// the number represents the index into the InstanceData array see VulkanRenderer::UploadInstanceData();
 				indirectCmd.firstInstance = cnt++;
 
 				indirectCmd.firstIndex = model.baseIndices + subMesh.baseIndices;
 				indirectCmd.indexCount = subMesh.indicesCount;
 				indirectCmd.vertexOffset = model.baseVertex + subMesh.baseVertex;
 
-				//std::cout << "Draw:" << subMesh.name.c_str() <<
-				//	" FI: " << indirectCmd.firstIndex <<
-				//	" IC: " << indirectCmd.indexCount <<
-				//	" VO: " << indirectCmd.vertexOffset << std::endl;
 				s_scratchBuffer.emplace_back(indirectCmd);
-				//for (auto& node :model.nodes)
-				//{
-				//	uint32_t counter = 0;
-				//	oGFX::IndirectCommandsHelper(node, s_scratchBuffer,counter);
-				//}
 			}
 			
 		}

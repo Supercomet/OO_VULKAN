@@ -205,7 +205,7 @@ static CameraController gs_CameraController;
 static GizmoContext gs_GizmoContext{};
 
 std::unique_ptr<ModelFileResource> gs_test_scene;
-
+std::unique_ptr<ModelFileResource> character_diona;
 
 void TestApplication::Run()
 {
@@ -292,7 +292,7 @@ void TestApplication::Run()
     std::unique_ptr<ModelFileResource> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
     gs_ModelID_Box = model_box->indices.front();
 
-    std::unique_ptr<ModelFileResource> character_diona{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx") };
+    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx"));
     std::unique_ptr<ModelFileResource> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
 
     /* // WIP
@@ -310,7 +310,7 @@ void TestApplication::Run()
     //----------------------------------------------------------------------------------------------------
 
     // Comment/Uncomment as needed
-    //gs_test_scene.reset( gs_RenderEngine->LoadModelFromFile("../Application/models/Luna_Walk_Redone.fbx") );
+    gs_test_scene.reset( gs_RenderEngine->LoadModelFromFile("../Application/models/AnimationTest_Box.fbx") );
     //std::unique_ptr<ModelFileResource> test_scene = nullptr;
 
     std::array<uint32_t, 4> diffuseBindlessTextureIndexes =
@@ -433,6 +433,17 @@ void TestApplication::Run()
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
     }
 
+    if (gs_test_scene)
+    {
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.modelID = gs_test_scene->meshResource;
+        ed.name = "frog";
+        ed.entityID = FastRandomMagic();
+        ed.position = { 0.0f,0.0f,0.0f };
+        ed.scale = glm::vec3{ 0.01f };
+        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+    }
+
     /* // WIP
     if (alibaba)
     {
@@ -483,14 +494,14 @@ void TestApplication::Run()
         int counter = 0;
         for (auto& model : moreModels)
         {
-            auto& ed = entities.emplace_back(EntityInfo{});
-            ed.modelID = model->meshResource;
-            ed.name = "model_" + std::to_string(counter);
-            ed.entityID = FastRandomMagic();
-            ed.position = { 2.0f + 2.0 * float(counter % 4), 0.0f, -(2.0f + 2.0 * float(counter / 4)) };
-            ed.scale = { 0.1f,0.1f,0.1f};
-            ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-            ++counter;
+            //auto& ed = entities.emplace_back(EntityInfo{});
+            //ed.modelID = model->meshResource;
+            //ed.name = "model_" + std::to_string(counter);
+            //ed.entityID = FastRandomMagic();
+            //ed.position = { 2.0f + 2.0 * float(counter % 4), 0.0f, -(2.0f + 2.0 * float(counter / 4)) };
+            //ed.scale = { 0.1f,0.1f,0.1f};
+            //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+            //++counter;
         }
     }
 
@@ -743,48 +754,54 @@ void TestApplication::RunTest_DebugDraw()
 		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_RenderEngine->camera.m_position, oGFX::Colors::RED);
 	}
 
-    {
 
-        AABB ab;
-        ab.halfExt = glm::vec3{ 0.02f };
+    if(character_diona)
+    {
+        AABB aabb;
+        aabb.halfExt = glm::vec3{ 0.02f };
         Point3D prevpos;
 
-       // auto DFS = [&](auto&& func, BoneOffset* pBoneNode, const glm::mat4& parentTransform) -> void
-       // {
-       //     const VQS node_local_transform = pBoneNode->mModelSpaceLocalVqs;
-       //     const VQS node_global_transform = parentTransform * node_local_transform;
-       //     pBoneNode->mModelSpaceGlobalVqs = node_global_transform; // Update global space
-       //
-       //                                                              // If the node isn't a bone then we don't care.
-       //     if (pBoneNode->mbIsBoneNode && pBoneNode->m_BoneIndex >= 0)
-       //     {
-       //         //outputBoneModelSpaceBuffer[pBoneNode->m_BoneIndex] = pBoneNode->GetModelSpaceGlobalVqs();
-       //     }
-       //
-       //     // Recursion through all children nodes, passing in the current global transform.
-       //     for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
-       //     {
-       //         func(func, pBoneNode->mChildren[i].get(), node_global_transform);
-       //     }
-       // };
-       //
-       // for (size_t i = 0; i < gs_test_scene->bones.size(); i++)
-       // {
-       //     ab.center = {};
-       //     ab.center = gs_test_scene->bones[i].transform * glm::vec4{ ab.center, 1.0f };
-       //     DebugDraw::AddLine(ab.center, prevpos);
-       //     prevpos = ab.center;
-       //     DebugDraw::AddAABB(ab);
-       // }
-       // prevpos = {};
-       // for (size_t i = 0; i < gs_test_scene->boneOffsets.size(); i++)
-       // {
-       //     ab.center = {};
-       //     ab.center = gs_test_scene->boneOffsets[i].transform * glm::vec4{ ab.center, 1.0f };
-       //     DebugDraw::AddLine(ab.center, prevpos, oGFX::Colors::RED);
-       //     prevpos = ab.center;
-       //     DebugDraw::AddAABB(ab, oGFX::Colors::RED);
-       // }
+       auto DFS = [&](auto&& func, oGFX::BoneNode* pBoneNode, const glm::mat4& parentTransform) -> void
+       {
+           const glm::mat4 node_local_transform = pBoneNode->mModelSpaceLocal;
+           const glm::mat4 node_global_transform = parentTransform * node_local_transform;
+           pBoneNode->mModelSpaceGlobal = node_global_transform; // Update global space       
+                                                                   
+           // If the node isn't a bone then we don't care.
+           if (pBoneNode->mbIsBoneNode && pBoneNode->m_BoneIndex >= 0)
+           {
+               //outputBoneModelSpaceBuffer[pBoneNode->m_BoneIndex] = pBoneNode->GetModelSpaceGlobalVqs();
+           }
+       
+           // Recursion through all children nodes, passing in the current global transform.
+           for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
+           {
+               func(func, pBoneNode->mChildren[i], node_global_transform);
+           }
+       };
+       DFS(DFS, character_diona->skeleton->m_boneNodes, glm::mat4{ 1.0f });
+
+       {
+           auto DrawDFS = [&](auto&& func, oGFX::BoneNode* pBoneNode) -> void
+           {
+               if (pBoneNode->mChildren.empty())
+                   return;
+
+               aabb.center = pBoneNode->mModelSpaceGlobal * glm::vec4(0.0f,0.0f,0.0f,1.0f);
+               DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
+
+               // Recursion through all children nodes, passing in the current global transform.
+               for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
+               {
+                   oGFX::BoneNode* child = pBoneNode->mChildren[i];
+                   auto pos = child->mModelSpaceGlobal * glm::vec4(0.0f,0.0f,0.0f,1.0f);
+                   DebugDraw::AddLine(aabb.center, pos, oGFX::Colors::RED);
+                   func(func, child);
+               }
+           };
+
+           DrawDFS(DrawDFS,  character_diona->skeleton->m_boneNodes);
+       }
     }
 
     // Debug Draw skeleton

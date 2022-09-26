@@ -1570,8 +1570,6 @@ bool VulkanRenderer::ResizeSwapchain()
 	return true;
 }
 
-oGFX::Vertex aiVertexToGfxVertex(int);
-
 ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 {
 	// new model loader
@@ -1669,58 +1667,34 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	modelFile->numSubmesh =scene->mNumMeshes;
 	mdl.cpuModel = modelFile;
 
+	uint32_t totalBones{ 0 };
 	for (size_t i = 0; i < scene->mNumMeshes; i++)
 	{
-		auto& submesh = mdl.m_subMeshes[i];
+		totalBones += scene->mMeshes[i]->mNumBones;
+	}
+	bool hasBone = totalBones > 0;
+
+	if (hasBone)
+	{
+		mdl.skeleton = new oGFX::Skeleton();
+		modelFile->skeleton = mdl.skeleton;
+	}
+
+
+	for (size_t i = 0; i < scene->mNumMeshes; i++)
+	{
 		auto& aimesh = scene->mMeshes[i];
-		submesh.name = aimesh->mName.C_Str();	
-
-		auto& vertices = modelFile->vertices;
-		auto& indices = modelFile->indices;
-
-		auto cacheVoffset = vertices.size();
-		auto cacheIoffset = indices.size();		
-
-		vertices.reserve(vertices.size() + aimesh->mNumVertices);
-		for (size_t i = 0; i < aimesh->mNumVertices; i++)
-		{
-			oGFX::Vertex vertex;
-			vertex.pos = aiVector3D_to_glm(aimesh->mVertices[i]);
-			if (aimesh->HasTextureCoords(0)) // does the mesh contain texture coordinates?
-			{
-				vertex.tex = glm::vec2{ aimesh->mTextureCoords[0][i].x, aimesh->mTextureCoords[0][i].y };
-			}
-			if (aimesh->HasNormals())
-			{
-				vertex.norm = aiVector3D_to_glm(aimesh->mNormals[i]);
-			}
-			if (aimesh->HasTangentsAndBitangents())
-			{
-				vertex.tangent = aiVector3D_to_glm(aimesh->mTangents[i]);
-			}
-			if (aimesh->HasVertexColors(0))
-			{
-				const auto& color = aimesh->mColors[0][i];
-				vertex.col = glm::vec4{ color.r, color.g, color.b, color.a };
-			}
-			vertices.emplace_back(vertex);	
+		LoadSubmesh(mdl, mdl.m_subMeshes[i], aimesh, modelFile);
+		if (hasBone)
+		{			
+			mdl.skeleton->boneWeights.resize(modelFile->vertices.size());
+			LoadBoneInformation(*modelFile,*mdl.skeleton, *aimesh, mdl.skeleton->boneWeights );
 		}
-
-		uint32_t indicesCnt{};
-		for(uint32_t i = 0; i < aimesh->mNumFaces; i++)
-		{
-			const aiFace& face = aimesh->mFaces[i];
-			indicesCnt += face.mNumIndices;
-			for (uint32_t j = 0; j < face.mNumIndices; j++)
-			{
-				indices.push_back(face.mIndices[j]);
-			}
-		} 
-
-		submesh.vertexCount= aimesh->mNumVertices;
-		submesh.baseVertex= static_cast<uint32_t>(cacheVoffset);
-		submesh.indicesCount = indicesCnt;
-		submesh.baseIndices = static_cast<uint32_t>(cacheIoffset);
+	}
+	if (hasBone)
+	{
+		mdl.skeleton->m_boneNodes = new oGFX::BoneNode();
+		BuildSkeletonRecursive(*modelFile, *mdl.skeleton, scene->mRootNode, mdl.skeleton->m_boneNodes);
 	}
 
 	for (auto& sm : mdl.m_subMeshes)
@@ -1735,13 +1709,12 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	
 	if (scene->HasAnimations())
 	{
-		modelFile->skeleton = new oGFX::Skeleton();
+		
 		for (size_t i = 0; i < 1; i++)
 		{
 
 		}
-		modelFile->skeleton->boneWeights.resize(modelFile->vertices.size());
-		modelFile->ModelBoneLoad(scene, *scene->mRootNode,0);
+		
 	}
 		
 	//model.loadNode(nullptr, scene, *scene->mRootNode, 0, *mData);
@@ -1750,12 +1723,6 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	
 	{
 		LoadMeshFromBuffers(modelFile->vertices, modelFile->indices, &mdl);
-
-		//update indices by adding the cached offset
-		//mdl.updateOffsets(cI_offset, cV_offset);
-		//std::cout << "GPU pos " << g_globalModels[i].vertices.offset
-		//	<< " size " << g_globalModels[i].vertices.count
-		//	<< std::endl;
 	}
 
 	std::cout << "\t [Meshes loaded] " << modelFile->sceneMeshCount << std::endl;
@@ -1763,7 +1730,67 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	return modelFile;
 }
 
-ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model)
+void VulkanRenderer::LoadSubmesh(gfxModel& mdl,
+	SubMesh& submesh,
+	aiMesh* aimesh,
+	ModelFileResource* modelFile
+)
+{
+	submesh.name = aimesh->mName.C_Str();
+
+	auto& vertices = modelFile->vertices;
+	auto& indices = modelFile->indices;
+
+	auto cacheVoffset = vertices.size();
+	auto cacheIoffset = indices.size();
+
+	vertices.reserve(vertices.size() + aimesh->mNumVertices);
+	for (size_t i = 0; i < aimesh->mNumVertices; i++)
+	{
+		oGFX::Vertex vertex;
+		vertex.pos = aiVector3D_to_glm(aimesh->mVertices[i]);
+		if (aimesh->HasTextureCoords(0)) // does the mesh contain texture coordinates?
+		{
+			vertex.tex = glm::vec2{ aimesh->mTextureCoords[0][i].x, aimesh->mTextureCoords[0][i].y };
+		}
+		if (aimesh->HasNormals())
+		{
+			vertex.norm = aiVector3D_to_glm(aimesh->mNormals[i]);
+		}
+		if (aimesh->HasTangentsAndBitangents())
+		{
+			vertex.tangent = aiVector3D_to_glm(aimesh->mTangents[i]);
+		}
+		if (aimesh->HasVertexColors(0))
+		{
+			const auto& color = aimesh->mColors[0][i];
+			vertex.col = glm::vec4{ color.r, color.g, color.b, color.a };
+		}
+		vertices.emplace_back(vertex);
+	}
+
+	uint32_t indicesCnt{};
+	for (uint32_t i = 0; i < aimesh->mNumFaces; i++)
+	{
+		const aiFace& face = aimesh->mFaces[i];
+		indicesCnt += face.mNumIndices;
+		for (uint32_t j = 0; j < face.mNumIndices; j++)
+		{
+			indices.push_back(face.mIndices[j]);
+		}
+	}
+
+	submesh.vertexCount = aimesh->mNumVertices;
+	submesh.baseVertex = static_cast<uint32_t>(cacheVoffset);
+	submesh.indicesCount = indicesCnt;
+	submesh.baseIndices = static_cast<uint32_t>(cacheIoffset);
+}
+
+ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
+	std::vector<oGFX::Vertex>& vertex,
+	std::vector<uint32_t>& indices,
+	gfxModel* model
+)
 {
 	uint32_t index = 0;
 	ModelFileResource* m{ nullptr };
@@ -1816,6 +1843,123 @@ ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(std::vector<oGFX::Vertex>
 	g_GlobalMeshBuffers.VtxOffset += model->vertexCount;
 
 	return m;
+}
+
+void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
+	oGFX::Skeleton& skeleton,
+	aiMesh& aimesh,
+	std::vector<oGFX::BoneWeight>& boneWeights
+)
+{
+	uint32_t numBones = 0;
+
+	for (size_t i = 0; i < aimesh.mNumBones; i++)
+	{
+		auto& currBone = aimesh.mBones[i];
+		uint32_t boneIndex = 0;
+		std::string boneName = currBone->mName.C_Str();
+
+
+		if (fileData.strToBone.find(boneName) == fileData.strToBone.end())
+		{
+			// bone doesnt exist, allocate
+			boneIndex = numBones++;
+
+			oGFX::BoneInverseBindPoseInfo& invBindPoseInfo = skeleton.inverseBindPose.emplace_back(oGFX::BoneInverseBindPoseInfo{});
+
+			// Map the name of this bone to this index. (map<string,int>)
+			fileData.strToBone[boneName] = boneIndex;
+
+			// Setup information
+			// TODO: quaternions?
+			invBindPoseInfo.transform = aiMat4_to_glm(currBone->mOffsetMatrix);
+			invBindPoseInfo.boneIdx = boneIndex;
+		}
+		else
+		{
+			// bone already exists!
+			boneIndex = fileData.strToBone[boneName];
+		}
+
+		// Add the bone weights for the vertices for the current bone
+		for (size_t j = 0; j < currBone->mNumWeights; ++j)
+		{
+			const unsigned vertexID = currBone->mWeights[j].mVertexId;
+			const float weight = currBone->mWeights[j].mWeight;
+
+			bool success = false;
+
+			auto& vertex = boneWeights[vertexID];
+			for (int slot = 0; slot < 4; ++slot)
+			{
+
+				if (vertex.boneWeights[slot] == 0.0f)
+				{
+					vertex.boneIdx[slot] = boneIndex;
+					vertex.boneWeights[slot] = weight;
+					success = true;
+					break;
+				}
+			}
+
+			// Check if the number of weights is >4, just in case, since we dont support
+			if (!success)
+			{
+				// Vertex already has 4 bone weights assigned.
+				//assert(false && "Bone weights >4 is not supported.");
+			}
+		}
+
+	} // end bone for
+
+}
+
+void VulkanRenderer::BuildSkeletonRecursive(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiNode* ainode, oGFX::BoneNode* node)
+{
+	std::string node_name{ ainode->mName.data };
+	glm::mat4x4 node_transform = aiMat4_to_glm(ainode->mTransformation);
+
+	std::string cName = node_name.substr(node_name.find_last_of("_") + 1);
+
+	// Save the bone index
+	bool bIsBoneNode = false;
+	auto iter = fileData.strToBone.find(node_name);
+	if (iter != fileData.strToBone.end())
+	{
+		bIsBoneNode = true;
+		node->m_BoneIndex = iter->second;
+	}
+
+	// Leaving this here to check the scale
+	aiVector3D pos, scale;
+	aiQuaternion qua;
+	ainode->mTransformation.Decompose(scale, qua, pos);
+
+	if ((scale.x - scale.y) > 0.0001f || (scale.x - scale.z) > 0.0001f)
+	{
+		static bool firstTime = true;
+		if (firstTime)
+		{
+			// Non-uniform scale bone detected...
+			__debugbreak();
+			firstTime = false;
+		}
+	}
+
+	// Copy information from assimp to our nodes.
+	node->mName = node_name;
+	node->mbIsBoneNode = bIsBoneNode;
+	// TODO: quat?
+	node->mModelSpaceLocal = aiMat4_to_glm(ainode->mTransformation);
+	node->mChildren.reserve(ainode->mNumChildren);
+
+	// Recursion through all children
+	for (size_t i = 0; i < ainode->mNumChildren; i++)
+	{
+		node->mChildren.push_back(new oGFX::BoneNode()); // Create the child node.
+		BuildSkeletonRecursive(fileData,skeleton, ainode->mChildren[i], node->mChildren[i]);
+		node->mChildren[i]->mpParent = node; // Link the child to the parent node.
+	}
 }
 
 

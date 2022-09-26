@@ -48,8 +48,9 @@ struct BoneNode
     glm::mat4 mModelSpaceGlobal{};	// Global transformation of the bone in model space
 };
 
-struct BoneOffset
+struct BoneInverseBindPoseInfo
 {
+    uint32_t boneIdx{ 0 };
     glm::mat4 transform{ 1.0f };
 };
 
@@ -62,7 +63,7 @@ struct BoneWeight
 struct Skeleton
 {
     oGFX::BoneNode* m_boneNodes{ nullptr };
-    std::vector<oGFX::BoneOffset>boneOffsets;
+    std::vector<oGFX::BoneInverseBindPoseInfo>inverseBindPose;
     std::vector<oGFX::BoneWeight>boneWeights;
 };
 
@@ -82,8 +83,7 @@ struct ModelFileResource
     Node* sceneInfo{ nullptr };
     uint32_t sceneMeshCount{};
 
-    oGFX::Skeleton* skeleton{ nullptr };
-
+    const oGFX::Skeleton* skeleton{ nullptr };
     std::unordered_map<std::string, uint32_t> strToBone;
 
     void ModelSceneLoad(const aiScene* scene, const aiNode& node, Node* parent,const glm::mat4 accMat);
@@ -118,13 +118,6 @@ struct gfxModel
     oGFX::Skeleton* skeleton{ nullptr };
 
     void destroy(VkDevice device);
-
-    void loadNode(Node* parent, const aiScene* scene, const aiNode& node, uint32_t nodeIndex,
-        ModelFileResource& cpumodel);
-    void loadNode(const aiScene* scene,const aiNode& node, Node* parent, ModelFileResource& cpuModel, glm::mat4 accMat);
-
-    void updateOffsets(uint32_t idxOffset, uint32_t vertOffset);
-    oGFX::Mesh* processMesh(aiMesh* mesh, const aiScene* scene, ModelFileResource& mData);
 private:
 
 };
