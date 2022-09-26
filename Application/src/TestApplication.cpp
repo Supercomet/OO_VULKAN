@@ -292,8 +292,8 @@ void TestApplication::Run()
     std::unique_ptr<ModelFileResource> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
     gs_ModelID_Box = model_box->indices.front();
 
-    //std::unique_ptr<ModelFileResource> character_diona{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx") };
-    //std::unique_ptr<ModelFileResource> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
+    std::unique_ptr<ModelFileResource> character_diona{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx") };
+    std::unique_ptr<ModelFileResource> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
 
     /* // WIP
     std::unique_ptr<ModelFileResource> alibaba{ gs_RenderEngine->LoadModelFromFile("../Application/models/anim/AnimationTest_Box.fbx") };
@@ -411,15 +411,27 @@ void TestApplication::Run()
     //    }            
     //
     //};
-    //if (character_diona)
-    //{        
-    //    EntityHelper(character_diona.get(),character_diona->sceneInfo,true);
-    //}
-    //
-    //if (character_qiqi)
-    //{
-    //    EntityHelper(character_qiqi.get(), character_qiqi->sceneInfo,true);
-    //}
+    if (character_diona)
+    {        
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.modelID = character_diona->meshResource;
+        ed.name = "diona";
+        ed.entityID = FastRandomMagic();
+        ed.position = { 0.0f,0.0f,0.0f };
+        ed.scale = { 1.0f,1.0f,1.0f };
+        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+    }
+    
+    if (character_qiqi)
+    {
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.modelID = character_qiqi->meshResource;
+        ed.name = "qiqi";
+        ed.entityID = FastRandomMagic();
+        ed.position = { 0.0f,0.0f,0.0f };
+        ed.scale = { 1.0f,1.0f,1.0f };
+        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+    }
 
     /* // WIP
     if (alibaba)
@@ -479,6 +491,15 @@ void TestApplication::Run()
             ed.scale = { 0.1f,0.1f,0.1f};
             ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
             ++counter;
+        }
+    }
+
+    for (auto& mdl: gs_RenderEngine->g_globalModels)
+    {
+        std::cout << "model:" << mdl.name << ", " << mdl.baseVertex <<", " << mdl.baseVertex+mdl.vertexCount <<  " diff-"<< mdl.baseVertex+mdl.vertexCount- mdl.baseVertex  << std::endl;
+        for (auto& sm : mdl.m_subMeshes)
+        {
+            std::cout << "\tsm:" << sm.name << ", " << sm.baseVertex <<", " << sm.baseVertex+sm.vertexCount << std::endl;
         }
     }
 

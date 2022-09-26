@@ -1253,7 +1253,7 @@ void VulkanRenderer::UploadInstanceData()
 		for (auto& ent :  currWorld->GetAllObjectInstances())
 		{
 			auto& mdl = g_globalModels[ent.modelID];
-			for (size_t i = 0; i < mdl.m_subMeshes.size(); i++)
+			//for (size_t i = 0; i < mdl.m_subMeshes.size(); i++)
 			{
 
 			// creates a single transform reference for each entity in the scene
@@ -1663,6 +1663,7 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	auto mdlResourceIdx = g_globalModels.size();
 	modelFile->meshResource = mdlResourceIdx;
 	auto& mdl = g_globalModels.emplace_back(gfxModel{});
+	mdl.name = std::filesystem::path(file).stem().u8string();
 
 	mdl.m_subMeshes.resize(scene->mNumMeshes);
 	modelFile->numSubmesh =scene->mNumMeshes;
@@ -1672,13 +1673,13 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	{
 		auto& submesh = mdl.m_subMeshes[i];
 		auto& aimesh = scene->mMeshes[i];
-		submesh.name = aimesh->mName.C_Str();		
-
-		auto cacheVoffset = modelFile->vertices.size();
-		auto cacheIoffset = modelFile->indices.size();
+		submesh.name = aimesh->mName.C_Str();	
 
 		auto& vertices = modelFile->vertices;
 		auto& indices = modelFile->indices;
+
+		auto cacheVoffset = vertices.size();
+		auto cacheIoffset = indices.size();		
 
 		vertices.reserve(vertices.size() + aimesh->mNumVertices);
 		for (size_t i = 0; i < aimesh->mNumVertices; i++)

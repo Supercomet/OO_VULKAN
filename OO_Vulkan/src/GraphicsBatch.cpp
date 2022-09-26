@@ -108,7 +108,7 @@ void GraphicsBatch::GenerateBatches()
 
 		// append to the batches
 		AppendBatch(m_batches[Batch::ALL_OBJECTS], s_scratchBuffer);
-		//cnt++;
+		
 	}
 
 	for (auto& batch : m_batches)
