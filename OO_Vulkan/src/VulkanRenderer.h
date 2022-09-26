@@ -54,6 +54,8 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout lights;
 	// 
 	inline static VkDescriptorSetLayout ForwardDecal;
+
+	inline static VkDescriptorSetLayout gpuBone;
 };
 
 // Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...
@@ -137,8 +139,8 @@ public:
 
 	//---------- Device ----------
 
-    VulkanInstance m_instance{};
-    VulkanDevice m_device{};
+	VulkanInstance m_instance{};
+	VulkanDevice m_device{};
 	VulkanSwapchain m_swapchain{};
 	std::vector<VkFramebuffer> swapChainFramebuffers;
 	uint32_t swapchainIdx{ 0 };
@@ -155,7 +157,7 @@ public:
 
 	VkDescriptorSet descriptorSet_lights;
 	// For UBO with the corresponding swap chain image
-    std::vector<VkDescriptorSet> descriptorSets_uniform;
+	std::vector<VkDescriptorSet> descriptorSets_uniform;
 
 	void ResizeDeferredFB();
 
@@ -167,14 +169,16 @@ public:
 
 	bool deferredRendering = true;
 
-	void CreateLightingBuffers(); 
+	void CreateLightingBuffers();
 	void UploadLights();
+	void UploadBones();
 
 	void CreateSynchronisation();
 	void CreateUniformBuffers();
 	void CreateDescriptorPool();
 	void CreateDescriptorSets_GPUScene();
 	void CreateDescriptorSets_Lights();
+	void CreateDescriptorSets_Bones();
 
 	struct ImGUIStructures
 	{
@@ -182,7 +186,7 @@ public:
 		VkRenderPass renderPass{};
 		std::vector<VkFramebuffer> buffers;
 	}m_imguiConfig{};
-	 
+
 	void InitImGUI();
 	void ResizeGUIBuffers();
 	void DebugGUIcalls();
@@ -197,7 +201,7 @@ public:
 	void UploadInstanceData();
 	uint32_t objectCount{};
 	// Contains the instanced data
-	 vkutils::Buffer instanceBuffer;
+	vkutils::Buffer instanceBuffer;
 
 	bool PrepareFrame();
 	void BeginDraw();
@@ -211,99 +215,96 @@ public:
 	// Immediate command sending helper
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
-    uint32_t CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData);
-    uint32_t CreateTexture(const std::string& fileName);
-    struct TextureInfo
-    {
-        std::string name;
-        uint32_t width;
-        uint32_t height;
-        VkFormat format;
-        uint32_t mips;
-    };
-    TextureInfo GetTextureInfo(uint32_t handle);
+	uint32_t CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData);
+	uint32_t CreateTexture(const std::string& fileName);
+	struct TextureInfo
+	{
+		std::string name;
+		uint32_t width;
+		uint32_t height;
+		VkFormat format;
+		uint32_t mips;
+	};
+	TextureInfo GetTextureInfo(uint32_t handle);
 
-    void InitDebugBuffers();
-    bool UploadDebugDrawBuffers();
+	void InitDebugBuffers();
+	bool UploadDebugDrawBuffers();
 
 	// This naming is rather confusing... VertexBufferObject but it contains an index buffer inside?
-    struct VertexBufferObject
-    {
-        GpuVector<oGFX::Vertex> VtxBuffer;
-        GpuVector<uint32_t> IdxBuffer;
-        uint32_t VtxOffset{};
-        uint32_t IdxOffset{};
-    };
+	struct IndexedVertexBuffer
+	{
+		GpuVector<oGFX::Vertex> VtxBuffer;
+		GpuVector<uint32_t> IdxBuffer;
+		uint32_t VtxOffset{};
+		uint32_t IdxOffset{};
+	};
 
-	VertexBufferObject g_GlobalMeshBuffers;
+	IndexedVertexBuffer g_GlobalMeshBuffers;
 
-    GpuVector<oGFX::DebugVertex> g_DebugDrawVertexBufferGPU;
-    GpuVector<uint32_t> g_DebugDrawIndexBufferGPU;
-    std::vector<oGFX::DebugVertex> g_DebugDrawVertexBufferCPU;
-    std::vector<uint32_t> g_DebugDrawIndexBufferCPU;
+	GpuVector<oGFX::DebugVertex> g_DebugDrawVertexBufferGPU;
+	GpuVector<uint32_t> g_DebugDrawIndexBufferGPU;
+	std::vector<oGFX::DebugVertex> g_DebugDrawVertexBufferCPU;
+	std::vector<uint32_t> g_DebugDrawIndexBufferCPU;
 
 	ModelFileResource* LoadModelFromFile(const std::string& file);
-	ModelFileResource* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex,std::vector<uint32_t>& indices, gfxModel* model);
+	ModelFileResource* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model);
 	void LoadSubmesh(gfxModel& mdl, SubMesh& submesh, aiMesh* aimesh, ModelFileResource* modelFile);
-	void LoadBoneInformation(ModelFileResource& fileData,oGFX::Skeleton& skeleton, aiMesh& aimesh, std::vector<oGFX::BoneWeight>& boneWeights);
+	void LoadBoneInformation(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiMesh& aimesh, std::vector<oGFX::BoneWeight>& boneWeights);
 	void BuildSkeletonRecursive(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiNode* ainode, oGFX::BoneNode* node);
 
 	bool ResizeSwapchain();
 
-	 Window* windowPtr{nullptr};
+	Window* windowPtr{ nullptr };
 
 	//textures
 	std::vector<vkutils::Texture2D> g_Textures;
 	std::vector<ImTextureID> g_imguiIDs;
 
 	// - Synchronisation
-	 std::vector<VkSemaphore> imageAvailable;
-	 std::vector<VkSemaphore> renderFinished;
-	 std::vector<VkFence> drawFences;
-	
+	std::vector<VkSemaphore> imageAvailable;
+	std::vector<VkSemaphore> renderFinished;
+	std::vector<VkFence> drawFences;
+
 	// - Pipeline
-	 VkRenderPass renderPass_default{};
-	 VkRenderPass renderPass_default2{};
+	VkRenderPass renderPass_default{};
+	VkRenderPass renderPass_default2{};
 
-	 vkutils::Buffer indirectCommandsBuffer{};
-	 uint32_t indirectDrawCount{};
+	vkutils::Buffer indirectCommandsBuffer{};
+	uint32_t indirectDrawCount{};
 
-	 vkutils::Buffer boneMatrixBuffer{};
-	 vkutils::Buffer skinningVertexBuffer{};
-	 GpuVector<SpotLightInstance> globalLightBuffer{};
+	GpuVector<oGFX::BoneInfo> boneMatrixBuffer{};
+	GpuVector<oGFX::BoneWeight> skinningVertexBuffer{};
+	GpuVector<SpotLightInstance> globalLightBuffer{};
 
 	// - Descriptors
-	
+
 	VkDescriptorPool descriptorPool{};
 	VkDescriptorPool samplerDescriptorPool{};
-	
+
 	//std::vector<VkDescriptorSet> samplerDescriptorSets;
 	uint32_t bindlessGlobalTexturesNextIndex = 0;
 
 	// SSBO
-	 std::vector<GPUTransform> gpuTransform{};
+	std::vector<GPUTransform> gpuTransform{};
 	GpuVector<GPUTransform> gpuTransformBuffer;
 
-	 std::vector<GPUTransform> debugTransform;
-	GpuVector<GPUTransform> debugTransformBuffer;
-	
 	// SSBO
-	 std::vector<VkBuffer> vpUniformBuffer{};
-	 std::vector<VkDeviceMemory> vpUniformBufferMemory{};
+	std::vector<VkBuffer> vpUniformBuffer{};
+	std::vector<VkDeviceMemory> vpUniformBufferMemory{};
 
-	 std::vector<DescriptorAllocator> descAllocs;
-	 DescriptorLayoutCache DescLayoutCache;
+	std::vector<DescriptorAllocator> descAllocs;
+	DescriptorLayoutCache DescLayoutCache;
 
-	 FramebufferCache fbCache;
+	FramebufferCache fbCache;
 
 	GfxSamplerManager samplerManager;
 
-	 std::vector<VkCommandBuffer> commandBuffers;
+	std::vector<VkCommandBuffer> commandBuffers;
 
 	// Store the indirect draw commands containing index offsets and instance count per object
 
 	//Scene objects
-	 std::vector<gfxModel> g_globalModels;
+	std::vector<gfxModel> g_globalModels;
 
 	uint32_t currentFrame = 0;
 

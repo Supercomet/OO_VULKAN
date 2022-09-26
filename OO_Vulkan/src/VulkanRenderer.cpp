@@ -108,7 +108,6 @@ VulkanRenderer::~VulkanRenderer()
 	samplerManager.Shutdown();
 
 	gpuTransformBuffer.destroy();
-	debugTransformBuffer.destroy();
 
 	g_GlobalMeshBuffers.IdxBuffer.destroy();
 	g_GlobalMeshBuffers.VtxBuffer.destroy();
@@ -213,19 +212,13 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		fbCache.Init(m_device.logicalDevice);
 
-		*const_cast<VkBuffer*>(gpuTransformBuffer.getBufferPtr()) = VK_NULL_HANDLE;
-		std::cout << "gpu xform :" << gpuTransformBuffer.m_size << " " << gpuTransformBuffer.m_capacity << std::endl;
 		gpuTransformBuffer.Init(&m_device,VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 		gpuTransformBuffer.reserve(MAX_OBJECTS);
 
-		// TEMP debug drawing code
-		std::cout << "debug xform :" << debugTransformBuffer.m_size << " " << debugTransformBuffer.m_capacity << std::endl;
-		*const_cast<VkBuffer*>(debugTransformBuffer.getBufferPtr()) = VK_NULL_HANDLE;
-		debugTransformBuffer.Init(&m_device,VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		debugTransformBuffer.reserve(MAX_OBJECTS);
 
 		CreateDescriptorSets_GPUScene();
 		CreateDescriptorSets_Lights();
+		CreateDescriptorSets_Bones();
 
 		CreateDefaultPSOLayouts();
 
@@ -523,12 +516,13 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 
 void VulkanRenderer::CreateDefaultPSOLayouts()
 {
-	std::array<VkDescriptorSetLayout, 4> descriptorSetLayouts = 
+	std::array<VkDescriptorSetLayout, 5> descriptorSetLayouts = 
 	{
 		SetLayoutDB::gpuscene, // (set = 0)
 		SetLayoutDB::FrameUniform,  // (set = 1)
 		SetLayoutDB::bindless,  // (set = 2)
-		SetLayoutDB::lights
+		SetLayoutDB::lights,
+		SetLayoutDB::gpuBone,
 	};
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = oGFX::vkutils::inits::pipelineLayoutCreateInfo(descriptorSetLayouts);
@@ -697,6 +691,11 @@ void VulkanRenderer::UploadLights()
 
 }
 
+void VulkanRenderer::UploadBones()
+{
+
+}
+
 void VulkanRenderer::CreateSynchronisation()
 {
 	imageAvailable.resize(MAX_FRAME_DRAWS);
@@ -851,6 +850,18 @@ void VulkanRenderer::CreateDescriptorSets_Lights()
 			.Build(descriptorSet_lights,SetLayoutDB::lights);
 	}
 	
+}
+
+void VulkanRenderer::CreateDescriptorSets_Bones()
+{
+	VkDescriptorBufferInfo info{};
+	info.buffer = boneMatrixBuffer.getBuffer();
+	info.offset = 0;
+	info.range = VK_WHOLE_SIZE;
+
+	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[swapchainIdx])
+		.BindBuffer(5, &info, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		.Build(descriptorSet_lights,SetLayoutDB::gpuBone);
 }
 
 void VulkanRenderer::InitImGUI()
@@ -1149,19 +1160,13 @@ void VulkanRenderer::InitializeRenderBuffers()
 	constexpr uint32_t MAX_GLOBAL_BONES = 2048;
 	constexpr uint32_t MAX_SKINNING_VERTEX_BUFFER_SIZE = 4 * 1024 * 1024; // 4MB
 
-    m_device.CreateBuffer(
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        &boneMatrixBuffer,
-		MAX_GLOBAL_BONES * sizeof(glm::mat4x4));
-    VK_NAME(m_device.logicalDevice, "Bone Matrix Buffer", boneMatrixBuffer.buffer);
+	boneMatrixBuffer.Init(&m_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	boneMatrixBuffer.reserve(MAX_GLOBAL_BONES * sizeof(glm::mat4x4));
+    VK_NAME(m_device.logicalDevice, "Bone Matrix Buffer", boneMatrixBuffer.getBuffer());
 
-    m_device.CreateBuffer(
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        &skinningVertexBuffer,
-		MAX_SKINNING_VERTEX_BUFFER_SIZE);
-    VK_NAME(m_device.logicalDevice, "Skinning Vertex Buffer", skinningVertexBuffer.buffer);
+	skinningVertexBuffer.Init(&m_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	skinningVertexBuffer.reserve(MAX_SKINNING_VERTEX_BUFFER_SIZE);  
+    VK_NAME(m_device.logicalDevice, "Skinning Vertex Buffer", skinningVertexBuffer.getBuffer());
 
 
 	// TODO: Move other global GPU buffer initialization here...
@@ -1307,7 +1312,8 @@ void VulkanRenderer::UploadInstanceData()
 				const uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF);
 				const uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
 				const uint32_t instanceID = uint32_t(indexCounter); // the instance id should point to the entity
-				const uint32_t unused = (uint32_t)perInstanceData; //matCnt;
+				const uint32_t unused = (uint32_t)perInstanceData | (ent.flags & ObjectInstanceFlags::SKINNED)<<8; //matCnt;
+				
                 // Putting these ranges here for easy reference:
 				// 9-bit:  [0 to 511]
                 // 10-bit: [0 to 1023]
@@ -1406,6 +1412,8 @@ void VulkanRenderer::BeginDraw()
 
 
 		auto dbi = gpuTransformBuffer.GetDescriptorBufferInfo();
+		auto bonesdbi = boneMatrixBuffer.GetDescriptorBufferInfo();
+		auto weightsdbi = skinningVertexBuffer.GetDescriptorBufferInfo();
 		DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[swapchainIdx])
 			.BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 			.Build(VulkanRenderer::get()->descriptorSet_gpuscene, SetLayoutDB::gpuscene);
@@ -1841,6 +1849,12 @@ ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
 
 	g_GlobalMeshBuffers.IdxOffset += model->indicesCount;
 	g_GlobalMeshBuffers.VtxOffset += model->vertexCount;
+
+	if (model->skeleton)
+	{
+		auto& sk = model->skeleton;
+		skinningVertexBuffer.writeTo(sk->boneWeights.size(), sk->boneWeights.data(), model->baseVertex);
+	}
 
 	return m;
 }

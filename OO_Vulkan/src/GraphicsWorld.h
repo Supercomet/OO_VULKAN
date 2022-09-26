@@ -18,14 +18,14 @@ enum ObjectInstanceFlags : uint32_t // fuck enum class
     SHADOW_RECEIVER  = 0x10, // Object receives shadows (a mask for lighting pass)
     ENABLE_ZPREPASS  = 0x20, // Object is added to Z-Prepass
     TRANSPARENT      = 0x40, // Object is added to forward pass
-    EMITTER          = 0x80 // Object is added to forward pass
+    EMITTER          = 0x80, // Object is an emitter ??
+    SKINNED          = 0x100, // Object is added to skinned pass
                              // etc
 };
 
 struct ObjectInstance
 {
     std::string name;
-
     // Begin These are temp until its fully integrated
     glm::vec3 position{};
     glm::vec3 scale{1.0f};

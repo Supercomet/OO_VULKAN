@@ -91,6 +91,7 @@ void main()
     const uint textureIndex_Roughness = inInstanceData.w >> 16;
     const uint textureIndex_Metallic  = inInstanceData.w & 0xFFFF;
     uint perInstanceData              = inInstanceData.y & 0xFF;
+    uint skinned                       = inInstanceData.y & 0xFF00;
 
     {
         outAlbedo.rgb = texture(textureDescriptorArray[textureIndex_Albedo], inUV.xy).rgb;

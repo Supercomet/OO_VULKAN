@@ -3,12 +3,18 @@
 
 #include "shared_structs.h"
 #include "instancing.shader"
+#include "skinning.shader"
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec3 inColor;
 layout(location = 3) in vec3 inTangent;
 layout(location = 4) in vec2 inUV;
+
+layout(location = 5)in uvec4 boneIdx;
+layout(location = 6)in uvec4 boneIdx;
+
+
 layout(location = 15) in uvec4 inInstanceData;
 
 // Note: Sending too much stuff from VS to FS can result in bottleneck...
