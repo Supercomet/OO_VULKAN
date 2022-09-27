@@ -760,6 +760,10 @@ void TestApplication::RunTest_DebugDraw()
 		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_RenderEngine->camera.m_position, oGFX::Colors::RED);
 	}
 
+    if (m_TestDebugDrawGrid)
+    {
+        DebugDraw::DrawYGrid(100.0f,10.0f);
+    }
 
     if(character_diona)
     {
@@ -912,6 +916,7 @@ void TestApplication::ToolUI_Settings()
 	ImGui::Checkbox("m_TestDebugDrawLine", &m_TestDebugDrawLine);
 	ImGui::Checkbox("m_TestDebugDrawBox", &m_TestDebugDrawBox);
 	ImGui::Checkbox("m_TestDebugDrawDisc", &m_TestDebugDrawDisc);
+	ImGui::Checkbox("m_TestDebugDrawGrid", &m_TestDebugDrawGrid);
 	ImGui::Checkbox("m_TestDebugDrawDecal (not done)", &m_TestDebugDrawDecal);
 	ImGui::Separator();
 	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Render Engine");
