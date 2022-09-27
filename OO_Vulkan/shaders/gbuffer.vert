@@ -3,7 +3,6 @@
 
 #include "shared_structs.h"
 #include "instancing.shader"
-#include "skinning.shader"
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;
@@ -13,9 +12,6 @@ layout(location = 4) in vec2 inUV;
 
 layout(location = 5)in uvec4 inBoneIdx;
 layout(location = 6)in vec4 inBoneWeights;
-
-layout(location = 5)flat out uvec4 outBoneIdx;
-layout(location = 6)flat out vec4 outBoneWeights;
 
 
 layout(location = 15) in uvec4 inInstanceData;
@@ -43,12 +39,12 @@ layout(std430, set = 0, binding = 3) readonly buffer GPUScene
 	GPUTransform GPUScene_SSBO[];
 };
 
-/* // TODO: Non-precomputed skinning
-layout(std430, set = 0, binding = 4) readonly buffer BoneBuffer
+#include "skinning.shader"
+
+layout(std430, set = 0, binding = 5) readonly buffer GPUobject
 {
-	mat4x4 BoneBuffer_SSBO[];
+	GPUObjectInformation GPUobjectInfo[];
 };
-*/
 
 layout(push_constant) uniform PushLight
 {
@@ -59,13 +55,12 @@ layout(push_constant) uniform PushLight
 void main()
 {
 
-outBoneIdx = inBoneIdx;
- outBoneWeights =inBoneWeights;
+	const uint instanceIndex = inInstanceData.x;
 
-	const uint localToWorldMatrixIndex = inInstanceData.x;
-
+	GPUObjectInformation objectInfo = GPUobjectInfo[inInstanceData.x];
 	//decode the matrix into transform matrix
-	const mat4 dInsMatrix = GPUTransformToMatrix4x4(GPUScene_SSBO[localToWorldMatrixIndex]);
+	mat4 dInsMatrix = GPUTransformToMatrix4x4(GPUScene_SSBO[instanceIndex]);
+	
 	// inefficient
 	const mat4 inverseMat = inverse(dInsMatrix);
 
@@ -73,7 +68,17 @@ outBoneIdx = inBoneIdx;
 	
 	outLightData.btn = mat3(inTangent, binormal, mat3(transpose(inverseMat))*inNormal);
 
-	outPosition = dInsMatrix * vec4(inPosition,1.0);
+	 bool skinned = (inInstanceData.y & 0xFF00 ) > 1;
+    if(skinned)
+	{
+		mat4x4 boneToModel; // what do i do with this
+		outPosition = ComputeSkinnedVertexPosition(dInsMatrix,inPosition,inBoneIdx,inBoneWeights,objectInfo.boneStartIdx,boneToModel);
+	}
+	else{
+		outPosition = dInsMatrix * vec4(inPosition,1.0);
+	}
+
+
 	gl_Position = uboFrameContext.viewProjection * outPosition;
 	
 	outUV = inUV;

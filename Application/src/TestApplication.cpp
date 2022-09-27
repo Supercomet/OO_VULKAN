@@ -296,7 +296,7 @@ void TestApplication::Run()
     std::unique_ptr<ModelFileResource> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
     gs_ModelID_Box = model_box->indices.front();
 
-    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx"));
+    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/AnimationTest_Box.fbx"));
     std::unique_ptr<ModelFileResource> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
 
     /* // WIP
@@ -337,30 +337,30 @@ void TestApplication::Run()
     }
 
     {
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.name = "Plane_Effects";
-        ed.entityID = FastRandomMagic();
-        ed.modelID = model_plane->meshResource;
-        ed.position = { -2.0f,2.0f,0.0f };
-        ed.scale = { 2.0f,1.0f,2.0f };
-        ed.rot = 90.0f;
-        ed.rotVec = { 1.0f,0.0f,0.0f };
-        ed.instanceData = 3;
+        //auto& ed = entities.emplace_back(EntityInfo{});
+        //ed.name = "Plane_Effects";
+        //ed.entityID = FastRandomMagic();
+        //ed.modelID = model_plane->meshResource;
+        //ed.position = { -2.0f,2.0f,0.0f };
+        //ed.scale = { 2.0f,1.0f,2.0f };
+        //ed.rot = 90.0f;
+        //ed.rotVec = { 1.0f,0.0f,0.0f };
+        //ed.instanceData = 3;
     }
 
 
     if (gs_test_scene)
     {
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.name = "TestSceneObject";
-        ed.entityID = FastRandomMagic();
-        ed.modelID = gs_test_scene->meshResource;
-        ed.position = {  };
-        ed.scale = { 0.1f,0.1f,0.1f };
-        ed.rot = 0.0f;
-        ed.rotVec = { 1.0f,0.0f,0.0f };
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        ed.instanceData = 0;
+        //auto& ed = entities.emplace_back(EntityInfo{});
+        //ed.name = "TestSceneObject";
+        //ed.entityID = FastRandomMagic();
+        //ed.modelID = gs_test_scene->meshResource;
+        //ed.position = {  };
+        //ed.scale = { 0.1f,0.1f,0.1f };
+        //ed.rot = 0.0f;
+        //ed.rotVec = { 1.0f,0.0f,0.0f };
+        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        //ed.instanceData = 0;
     }
 
     // Create 8 more surrounding planes
@@ -424,30 +424,29 @@ void TestApplication::Run()
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        ed.flags = ObjectInstanceFlags::SKINNED;
-        
+        ed.flags = ObjectInstanceFlags::SKINNED;        
     }
     
     if (character_qiqi)
     {
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.modelID = character_qiqi->meshResource;
-        ed.name = "qiqi";
-        ed.entityID = FastRandomMagic();
-        ed.position = { 0.0f,0.0f,0.0f };
-        ed.scale = { 1.0f,1.0f,1.0f };
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        //auto& ed = entities.emplace_back(EntityInfo{});
+        //ed.modelID = character_qiqi->meshResource;
+        //ed.name = "qiqi";
+        //ed.entityID = FastRandomMagic();
+        //ed.position = { 0.0f,0.0f,0.0f };
+        //ed.scale = { 1.0f,1.0f,1.0f };
+        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
     }
 
     if (gs_test_scene)
     {
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.modelID = gs_test_scene->meshResource;
-        ed.name = "frog";
-        ed.entityID = FastRandomMagic();
-        ed.position = { 0.0f,0.0f,0.0f };
-        ed.scale = glm::vec3{ 0.01f };
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        //auto& ed = entities.emplace_back(EntityInfo{});
+        //ed.modelID = gs_test_scene->meshResource;
+        //ed.name = "frog";
+        //ed.entityID = FastRandomMagic();
+        //ed.position = { 0.0f,0.0f,0.0f };
+        //ed.scale = glm::vec3{ 0.01f };
+        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
     }
 
     /* // WIP
@@ -1118,14 +1117,50 @@ void TestApplication::Tool_HandleUI()
 						valuesModified |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
 						valuesModified |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
 						valuesModified |= ImGui::DragFloat("Theta", &entity.rot);
-						// TODO: We should be using quaternions.........
-
+						// TODO: We should be using quaternions.........                        
 						if (valuesModified)
 						{
 							entity.SyncToGraphicsWorld();
 						}
 
 						ImGui::PopID();
+
+
+                        if (entity.flags & ObjectInstanceFlags::SKINNED)
+                        {
+                            ImGui::Text("Bones");
+                            {
+                                auto& gfx = gs_GraphicsWorld.GetObjectInstance(entity.gfxID);
+                                for (size_t i = 0; i < gfx.bones.size(); i++)
+                                {
+                                    ImGui::PushID(entity.entityID+i + 1);
+                                    ImGui::Text(("Bones_" + std::to_string(i)).c_str());
+                                    {                                    
+                                        glm::vec3 scale;
+                                        glm::vec3 rot;
+                                        glm::vec3 xlate;
+                                        ImGuizmo::DecomposeMatrixToComponents(
+                                            glm::value_ptr(gfx.bones[i].offset),
+                                            glm::value_ptr(xlate), 
+                                            glm::value_ptr(rot),
+                                            glm::value_ptr(scale));
+                                        ImGui::DragFloat3("trans", glm::value_ptr(xlate));
+                                        ImGui::DragFloat3("rot", glm::value_ptr(rot));
+                                        ImGui::DragFloat3("scale", glm::value_ptr(scale));
+                                        scale.y = scale.z = scale.x; //uniform
+
+                                        ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(xlate),
+                                            glm::value_ptr(rot),
+                                            glm::value_ptr(scale),
+                                            glm::value_ptr(gfx.bones[i].offset));
+
+                                    ImGui::PopID();
+                                    }
+                                }
+                            }
+
+                        }
+
 					}
 
 					ImGui::TreePop();

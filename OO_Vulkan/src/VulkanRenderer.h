@@ -54,8 +54,6 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout lights;
 	// 
 	inline static VkDescriptorSetLayout ForwardDecal;
-
-	inline static VkDescriptorSetLayout gpuBone;
 };
 
 // Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...
@@ -158,6 +156,8 @@ public:
 	VkDescriptorSet descriptorSet_lights;
 
 	VkDescriptorSet descriptorSet_bones;
+
+	VkDescriptorSet descriptorSet_objInfos;
 	// For UBO with the corresponding swap chain image
 	std::vector<VkDescriptorSet> descriptorSets_uniform;
 
@@ -180,7 +180,6 @@ public:
 	void CreateDescriptorPool();
 	void CreateDescriptorSets_GPUScene();
 	void CreateDescriptorSets_Lights();
-	void CreateDescriptorSets_Bones();
 
 	struct ImGUIStructures
 	{
@@ -287,15 +286,15 @@ public:
 
 	// SSBO
 	std::vector<oGFX::BoneInfo> boneMatrices{};
-	GpuVector<oGFX::BoneInfo> boneMatrixBuffer{};
+	GpuVector<oGFX::BoneInfo> gpuBoneMatrixBuffer{};
 
 	// SSBO
 	std::vector<GPUTransform> gpuTransform{};
 	GpuVector<GPUTransform> gpuTransformBuffer;
 
 	// SSBO
-	std::vector<ObjectInformation> objectInformation;
-	GpuVector<ObjectInformation> objectInformationBuffer{};
+	std::vector<GPUObjectInformation> objectInformation;
+	GpuVector<GPUObjectInformation> objectInformationBuffer{};
 	
 	// SSBO
 	std::vector<VkBuffer> vpUniformBuffer{};

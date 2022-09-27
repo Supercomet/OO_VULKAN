@@ -6,8 +6,6 @@ layout(location = 0) in vec4 inPosition;
 layout(location = 1) in vec2 inUV;
 layout(location = 2) in vec3 inColor;
 
-layout(location = 5)flat in uvec4 inBoneIdx;
-layout(location = 6)flat in vec4 inBoneWeights;
 
 layout(location = 15) in flat uvec4 inInstanceData;
 layout(location = 7) in struct
@@ -95,14 +93,11 @@ void main()
     const uint textureIndex_Roughness = inInstanceData.w >> 16;
     const uint textureIndex_Metallic  = inInstanceData.w & 0xFFFF;
     uint perInstanceData              = inInstanceData.y & 0xFF;
-    bool skinned                       = (inInstanceData.y & 0xFF00 )>1;
+   
 
     {
         outAlbedo.rgb = texture(textureDescriptorArray[textureIndex_Albedo], inUV.xy).rgb;
         
-        if(skinned){
-        outAlbedo.rgb = vec3(1.0,0.6,0.2);
-        }
         // !! DANGER !! - Dont ever learn this... Look at assembly/performance first.
         Jump(perInstanceData, outAlbedo.rgb);
     }

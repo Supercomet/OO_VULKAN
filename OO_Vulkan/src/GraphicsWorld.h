@@ -49,14 +49,7 @@ struct ObjectInstance
     uint32_t entityID{}; // Unique ID for this entity instance
 };
 
-// struct represents perobject information in gpu
-struct ObjectInformation
-{
-    uint32_t boneStartIdx;
-    uint32_t boneCnt;
-    uint32_t materialIdx;
-    uint32_t unused;
-};
+
 
 struct DecalInstance
 {

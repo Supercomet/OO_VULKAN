@@ -100,7 +100,8 @@ void GBufferRenderPass::Draw()
 		std::array<VkDescriptorSet, 3>{
 			vr.descriptorSet_gpuscene,
 			vr.descriptorSets_uniform[swapchainIdx],
-			vr.descriptorSet_bindless}
+			vr.descriptorSet_bindless,
+	}
 	);
 
 	cmd.BindPSO(pso_GBufferDefault);

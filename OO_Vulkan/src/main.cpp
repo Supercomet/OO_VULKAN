@@ -686,9 +686,11 @@ int main(int argc, char argv[])
             //    3,
             //    &dbi);
             //vkUpdateDescriptorSets(renderer->m_device.logicalDevice, 1, &write, 0, 0);
-            DescriptorBuilder::Begin(&VulkanRenderer::get()->DescLayoutCache, &VulkanRenderer::get()->DescAlloc)
-                .BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-                .Build(VulkanRenderer::get()->descriptorSet_gpuscene,LayoutDB::gpuscene);
+            DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[0])
+                .BindBuffer(3, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+                .BindBuffer(4, boneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+                .BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+                .Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
             renderer->gpuTransformBuffer.Updated();
         }
 

@@ -62,8 +62,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	// Ignore all performance related warnings for now..
 	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT && !(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
 	{
+		int x;
 		std::cerr << pCallbackData->pMessage << std::endl;
 		//assert(false); temp comment out
+		x= 5; // for breakpoint
 	}
 
 	return VK_FALSE;
@@ -218,7 +220,6 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 		CreateDescriptorSets_GPUScene();
 		CreateDescriptorSets_Lights();
-		CreateDescriptorSets_Bones();
 
 		CreateDefaultPSOLayouts();
 
@@ -516,13 +517,13 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 
 void VulkanRenderer::CreateDefaultPSOLayouts()
 {
-	std::array<VkDescriptorSetLayout, 5> descriptorSetLayouts = 
+	
+	std::array<VkDescriptorSetLayout,4> descriptorSetLayouts = 
 	{
 		SetLayoutDB::gpuscene, // (set = 0)
 		SetLayoutDB::FrameUniform,  // (set = 1)
 		SetLayoutDB::bindless,  // (set = 2)
-		SetLayoutDB::lights,
-		SetLayoutDB::gpuBone,
+		SetLayoutDB::lights, // (set = 3)
 	};
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = oGFX::vkutils::inits::pipelineLayoutCreateInfo(descriptorSetLayouts);
@@ -531,12 +532,9 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
 	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 
-	VkResult result = vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::defaultPSOLayout);
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::defaultPSOLayout));
 	VK_NAME(m_device.logicalDevice, "defaultPSOLayout", PSOLayoutDB::defaultPSOLayout);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create Pipeline Layout!");
-	}
+	
 }
 
 void VulkanRenderer::CreateDebugCallback()
@@ -832,7 +830,9 @@ void VulkanRenderer::CreateDescriptorSets_GPUScene()
 	info.range = VK_WHOLE_SIZE;
 
 	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[swapchainIdx])
-		.BindBuffer(3, &info, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		.BindBuffer(3, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		.BindBuffer(4, gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		.BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
 }
 
@@ -850,18 +850,6 @@ void VulkanRenderer::CreateDescriptorSets_Lights()
 			.Build(descriptorSet_lights,SetLayoutDB::lights);
 	}
 	
-}
-
-void VulkanRenderer::CreateDescriptorSets_Bones()
-{
-	VkDescriptorBufferInfo info{};
-	info.buffer = boneMatrixBuffer.getBuffer();
-	info.offset = 0;
-	info.range = VK_WHOLE_SIZE;
-
-	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[swapchainIdx])
-		.BindBuffer(5, &info, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-		.Build(descriptorSet_bones,SetLayoutDB::gpuBone);
 }
 
 void VulkanRenderer::InitImGUI()
@@ -1164,9 +1152,9 @@ void VulkanRenderer::InitializeRenderBuffers()
 	constexpr uint32_t MAX_GLOBAL_BONES = 2048;
 	constexpr uint32_t MAX_SKINNING_VERTEX_BUFFER_SIZE = 4 * 1024 * 1024; // 4MB
 
-	boneMatrixBuffer.Init(&m_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	boneMatrixBuffer.reserve(MAX_GLOBAL_BONES * sizeof(glm::mat4x4));
-    VK_NAME(m_device.logicalDevice, "Bone Matrix Buffer", boneMatrixBuffer.getBuffer());
+	gpuBoneMatrixBuffer.Init(&m_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	gpuBoneMatrixBuffer.reserve(MAX_GLOBAL_BONES * sizeof(glm::mat4x4));
+    VK_NAME(m_device.logicalDevice, "Bone Matrix Buffer", gpuBoneMatrixBuffer.getBuffer());
 
 	skinningVertexBuffer.Init(&m_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	skinningVertexBuffer.reserve(MAX_SKINNING_VERTEX_BUFFER_SIZE);  
@@ -1181,7 +1169,7 @@ void VulkanRenderer::DestroyRenderBuffers()
 	instanceBuffer.destroy();
 	objectInformationBuffer.destroy();
 	globalLightBuffer.destroy();
-	boneMatrixBuffer.destroy();
+	gpuBoneMatrixBuffer.destroy();
 	skinningVertexBuffer.destroy();
 }
 
@@ -1282,11 +1270,20 @@ void VulkanRenderer::UploadInstanceData()
 			if ((ent.flags & ObjectInstanceFlags::SKINNED) == ObjectInstanceFlags::SKINNED)
 			{
 				auto& mdl = g_globalModels[ent.modelID];
-				ent.bones.resize(mdl.skeleton->inverseBindPose.size());
+
+				if (ent.bones.empty())
+				{
+					ent.bones.resize(mdl.skeleton->inverseBindPose.size());
+					for (auto& b:ent.bones )
+					{
+						b.offset = mat4(1.0f);
+					}
+				}
+				
 				ent.instanceData |= 1 << 8;
 				// skined mesh
-				ObjectInformation oi;
-				oi.boneStartIdx = boneMatrixBuffer.size();
+				GPUObjectInformation oi;
+				oi.boneStartIdx = boneMatrices.size();
 				oi.boneCnt = ent.bones.size();
 				oi.materialIdx = 7; // tem,p
 				objectInformation.push_back(oi);
@@ -1301,7 +1298,7 @@ void VulkanRenderer::UploadInstanceData()
 	}
 	
 	gpuTransformBuffer.writeTo(gpuTransform.size(), gpuTransform.data());
-	boneMatrixBuffer.writeTo(boneMatrices.size(), boneMatrices.data());
+	gpuBoneMatrixBuffer.writeTo(boneMatrices.size(), boneMatrices.data());
 
 	objectInformationBuffer.writeTo(objectInformation.size(), objectInformation.data());
 	
@@ -1418,20 +1415,10 @@ void VulkanRenderer::BeginDraw()
 
 	PROFILE_SCOPED();
 
-	batches = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
-	batches.GenerateBatches();
-
-	UpdateUniformBuffers();
-	UploadInstanceData();	
-	UploadLights();
-	GenerateCPUIndirectDrawCommands();
-
 	//wait for given fence to signal from last draw before continuing
 	VK_CHK(vkWaitForFences(m_device.logicalDevice, 1, &drawFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max()));
 	//mainually reset fences
 	VK_CHK(vkResetFences(m_device.logicalDevice, 1, &drawFences[currentFrame]));
-
-
 
 	{
 		PROFILE_SCOPED("vkAcquireNextImageKHR");
@@ -1444,14 +1431,19 @@ void VulkanRenderer::BeginDraw()
 
 		descAllocs[swapchainIdx].ResetPools();
 
+		batches = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
+		batches.GenerateBatches();
 
-		auto dbi = gpuTransformBuffer.GetDescriptorBufferInfo();
-		auto bonesdbi = boneMatrixBuffer.GetDescriptorBufferInfo();
-		auto weightsdbi = skinningVertexBuffer.GetDescriptorBufferInfo();
+		UpdateUniformBuffers();
+		UploadInstanceData();	
+		UploadLights();
+		GenerateCPUIndirectDrawCommands();
+
 		DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[swapchainIdx])
-			.BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-			.Build(VulkanRenderer::get()->descriptorSet_gpuscene, SetLayoutDB::gpuscene);
-		gpuTransformBuffer.Updated();
+			.BindBuffer(3, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+			.BindBuffer(4, gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+			.BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+			.Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
 
 		VkDescriptorBufferInfo vpBufferInfo{};
 		vpBufferInfo.buffer = vpUniformBuffer[swapchainIdx];	// buffer to get data from

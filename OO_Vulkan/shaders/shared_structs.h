@@ -60,4 +60,13 @@ struct GPUTransform
 	vec4 colour; // temp
 };
 
+// struct represents perobject information in gpu
+struct GPUObjectInformation
+{
+    uint boneStartIdx;
+    uint boneCnt;
+    uint materialIdx;
+    uint unused;
+};
+
 #endif //! COMMON_HOST_DEVICE
