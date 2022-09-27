@@ -14,6 +14,9 @@ layout(location = 4) in vec2 inUV;
 layout(location = 5)in uvec4 inBoneIdx;
 layout(location = 6)in vec4 inBoneWeights;
 
+layout(location = 5)flat out uvec4 outBoneIdx;
+layout(location = 6)flat out vec4 outBoneWeights;
+
 
 layout(location = 15) in uvec4 inInstanceData;
 
@@ -55,6 +58,10 @@ layout(push_constant) uniform PushLight
 
 void main()
 {
+
+outBoneIdx = inBoneIdx;
+ outBoneWeights =inBoneWeights;
+
 	const uint localToWorldMatrixIndex = inInstanceData.x;
 
 	//decode the matrix into transform matrix

@@ -3,6 +3,7 @@
 #include "MathCommon.h"
 #include "../shaders/shared_structs.h"
 #include "BitContainer.h"
+#include "MeshModel.h"
 
 #include <vector>
 #include <array>
@@ -39,13 +40,22 @@ struct ObjectInstance
     // End temp stuff
 
     uint8_t instanceData{ 0 }; // Per Instance unique data (not to be in material)
-
     glm::mat4x4 localToWorld{ 1.0f };
-    
     ObjectInstanceFlags flags{};
+
+    std::vector<oGFX::BoneInfo> bones;
 
     uint32_t modelID{}; // Index for the mesh
     uint32_t entityID{}; // Unique ID for this entity instance
+};
+
+// struct represents perobject information in gpu
+struct ObjectInformation
+{
+    uint32_t boneStartIdx;
+    uint32_t boneCnt;
+    uint32_t materialIdx;
+    uint32_t unused;
 };
 
 struct DecalInstance

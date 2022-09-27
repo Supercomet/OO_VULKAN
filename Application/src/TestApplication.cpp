@@ -110,6 +110,8 @@ struct EntityInfo
     int32_t gfxID; // gfxworld id
     int32_t submesID; // gfxworld id
 
+    ObjectInstanceFlags flags;
+
     mat4 getLocalToWorld()
     {
         glm::mat4 xform{ 1.0f };
@@ -128,6 +130,7 @@ struct EntityInfo
         gfxWorldObjectInstance.rot = rot;
         gfxWorldObjectInstance.rotVec = rotVec;
         gfxWorldObjectInstance.localToWorld = getLocalToWorld();
+        gfxWorldObjectInstance.flags = flags;
     }
 };
 
@@ -192,6 +195,7 @@ void CreateGraphicsEntityHelper(EntityInfo& ei)
 	o.localToWorld = ei.getLocalToWorld();
 	o.modelID = ei.modelID;
 	o.entityID = ei.entityID;
+    o.flags = ei.flags;
 
 	auto id = gs_GraphicsWorld.CreateObjectInstance(o);
     // assign id
@@ -361,7 +365,7 @@ void TestApplication::Run()
 
     // Create 8 more surrounding planes
     {
-        for (int i = 0; i < 8; ++i)
+        for (int i = 0; i < 0; ++i)
         {
             constexpr float offset = 16.0f;
             static std::array<glm::vec3, 8> positions =
@@ -420,6 +424,8 @@ void TestApplication::Run()
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        ed.flags = ObjectInstanceFlags::SKINNED;
+        
     }
     
     if (character_qiqi)

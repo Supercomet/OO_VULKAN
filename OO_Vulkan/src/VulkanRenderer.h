@@ -156,6 +156,8 @@ public:
 	VkDescriptorSet descriptorSet_gpuscene;
 
 	VkDescriptorSet descriptorSet_lights;
+
+	VkDescriptorSet descriptorSet_bones;
 	// For UBO with the corresponding swap chain image
 	std::vector<VkDescriptorSet> descriptorSets_uniform;
 
@@ -272,7 +274,6 @@ public:
 	vkutils::Buffer indirectCommandsBuffer{};
 	uint32_t indirectDrawCount{};
 
-	GpuVector<oGFX::BoneInfo> boneMatrixBuffer{};
 	GpuVector<oGFX::BoneWeight> skinningVertexBuffer{};
 	GpuVector<SpotLightInstance> globalLightBuffer{};
 
@@ -285,9 +286,17 @@ public:
 	uint32_t bindlessGlobalTexturesNextIndex = 0;
 
 	// SSBO
+	std::vector<oGFX::BoneInfo> boneMatrices{};
+	GpuVector<oGFX::BoneInfo> boneMatrixBuffer{};
+
+	// SSBO
 	std::vector<GPUTransform> gpuTransform{};
 	GpuVector<GPUTransform> gpuTransformBuffer;
 
+	// SSBO
+	std::vector<ObjectInformation> objectInformation;
+	GpuVector<ObjectInformation> objectInformationBuffer{};
+	
 	// SSBO
 	std::vector<VkBuffer> vpUniformBuffer{};
 	std::vector<VkDeviceMemory> vpUniformBufferMemory{};
