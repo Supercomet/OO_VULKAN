@@ -1276,7 +1276,7 @@ void VulkanRenderer::UploadInstanceData()
 					ent.bones.resize(mdl.skeleton->inverseBindPose.size());
 					for (auto& b:ent.bones )
 					{
-						b.offset = mat4(1.0f);
+						b = mat4(1.0f);
 					}
 				}
 				
@@ -1615,7 +1615,7 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	flags |= aiProcess_ImproveCacheLocality;
 	flags |= aiProcess_CalcTangentSpace;
 	flags |= aiProcess_FindInstances; // this step is slow but it finds duplicate instances in FBX
-	flags |= aiProcess_LimitBoneWeights; // limmits bones to 4
+	//flags |= aiProcess_LimitBoneWeights; // limmits bones to 4
 	const aiScene *scene = importer.ReadFile(file,flags
 		//  aiProcess_Triangulate                // Make sure we get triangles rather than nvert polygons
 		//| aiProcess_LimitBoneWeights           // 4 weights for skin model max
@@ -1644,6 +1644,25 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	{
 		std::cout << "\tMesh" << i << " " << scene->mMeshes[i]->mName.C_Str() << std::endl;
 			std::cout << "\t\tverts:"  << scene->mMeshes[i]->mNumVertices << std::endl;
+			std::cout << "\t\tbones:"  << scene->mMeshes[i]->mNumBones << std::endl;
+			//int sum = 0;
+			//for (size_t x = 0; x <  scene->mMeshes[i]->mNumBones; x++)
+			//{
+			//	std::map<uint32_t, float> wts;
+			//	std::cout << "\t\t\tweights:"  << scene->mMeshes[i]->mBones[x]->mNumWeights << std::endl;
+			//	for (size_t y = 0; y < scene->mMeshes[i]->mBones[x]->mNumWeights; y++)
+			//	{
+			//		auto& weight = scene->mMeshes[i]->mBones[x]->mWeights[y];
+			//		assert(wts.find(weight.mVertexId) == wts.end());
+			//		wts[weight.mVertexId] = weight.mWeight;
+			//	}
+			//	for (auto [v,w] :wts)
+			//	{
+			//		std::cout << "\t\t\t\t"  <<":["<<v <<"," << w << "]" << std::endl;
+			//	}
+			//	sum += scene->mMeshes[i]->mBones[x]->mNumWeights;
+			//}
+			//std::cout << "\t\t\t|sum weights:"  << sum << std::endl;
 	}
 
 #if 0
@@ -1705,18 +1724,32 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	{
 		auto& aimesh = scene->mMeshes[i];
 		LoadSubmesh(mdl, mdl.m_subMeshes[i], aimesh, modelFile);
-		if (hasBone)
-		{			
-			mdl.skeleton->boneWeights.resize(modelFile->vertices.size());
-			LoadBoneInformation(*modelFile,*mdl.skeleton, *aimesh, mdl.skeleton->boneWeights );
-		}
 	}
+	
 	if (hasBone)
 	{
+		mdl.skeleton->boneWeights.resize(modelFile->vertices.size());
+		uint32_t verticesCnt = 0;
+		for (size_t i = 0; i < scene->mNumMeshes; i++)
+		{
+			auto& aimesh = scene->mMeshes[i];
+			LoadBoneInformation(*modelFile,*mdl.skeleton, *aimesh, mdl.skeleton->boneWeights, verticesCnt);
+		}
 		mdl.skeleton->m_boneNodes = new oGFX::BoneNode();
 		BuildSkeletonRecursive(*modelFile, *mdl.skeleton, scene->mRootNode, mdl.skeleton->m_boneNodes);
-	}
+		for (size_t i = 0; i < mdl.skeleton->boneWeights.size(); i++)
+		{
+			//auto& ref = mdl.skeleton->boneWeights[i];
+			//std::cout << i;
+			//for (size_t x = 0; x < 4; x++)
+			//{
+			//	std::cout << " [" << ref.boneIdx[x] << "," << ref.boneWeights[x] <<"]";
+			//}
+			//std::cout << std::endl;
+		}
 
+	}
+	
 	for (auto& sm : mdl.m_subMeshes)
 	{
 		mdl.vertexCount += sm.vertexCount;
@@ -1864,7 +1897,8 @@ ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
 void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
 	oGFX::Skeleton& skeleton,
 	aiMesh& aimesh,
-	std::vector<oGFX::BoneWeight>& boneWeights
+	std::vector<oGFX::BoneWeight>& boneWeights,
+	uint32_t& vCnt
 )
 {
 	uint32_t numBones = 0;
@@ -1900,7 +1934,7 @@ void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
 		// Add the bone weights for the vertices for the current bone
 		for (size_t j = 0; j < currBone->mNumWeights; ++j)
 		{
-			const unsigned vertexID = currBone->mWeights[j].mVertexId;
+			const unsigned vertexID = currBone->mWeights[j].mVertexId + vCnt;
 			const float weight = currBone->mWeights[j].mWeight;
 
 			bool success = false;
@@ -1908,6 +1942,10 @@ void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
 			auto& vertex = boneWeights[vertexID];
 			for (int slot = 0; slot < 4; ++slot)
 			{
+				if (vertex.boneIdx[slot] == boneIndex && boneIndex != 0) {
+					success = true;
+					break;
+				}
 
 				if (vertex.boneWeights[slot] == 0.0f)
 				{
@@ -1922,12 +1960,12 @@ void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
 			if (!success)
 			{
 				// Vertex already has 4 bone weights assigned.
-				//assert(false && "Bone weights >4 is not supported.");
+				assert(false && "Bone weights >4 is not supported.");
 			}
 		}
 
 	} // end bone for
-
+	vCnt += aimesh.mNumVertices;
 }
 
 void VulkanRenderer::BuildSkeletonRecursive(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiNode* ainode, oGFX::BoneNode* node)

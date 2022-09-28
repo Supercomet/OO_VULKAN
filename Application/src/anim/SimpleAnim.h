@@ -75,6 +75,7 @@ public:
 	VQS mBoneOffsetVQS; // The bone offset, aka inverse bind pose
 };
 
+constexpr uint32_t MAX_BONE_NUM = 4;
 struct BoneWeights
 {
 	BoneWeights() :
@@ -82,8 +83,8 @@ struct BoneWeights
 		bone_weights{ 0.0f,0.0f,0.0f,0.0f }
 	{}
 
-	uint32_t bone_idx[4];
-	float bone_weights[4];
+	uint32_t bone_idx[MAX_BONE_NUM];
+	float bone_weights[MAX_BONE_NUM];
 };
 
 struct SkinnedMesh

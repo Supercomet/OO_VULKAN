@@ -86,6 +86,7 @@ void TestApplication::Init()
 void InitLights(int32_t* someLights);
 
 static uint32_t gs_ModelID_Box = 0;
+bool resetBones = false;
 
 // this is to pretend we have an ECS system
 struct EntityInfo
@@ -111,6 +112,8 @@ struct EntityInfo
     int32_t submesID; // gfxworld id
 
     ObjectInstanceFlags flags;
+
+    oGFX::Skeleton* localSkeleton;
 
     mat4 getLocalToWorld()
     {
@@ -296,8 +299,9 @@ void TestApplication::Run()
     std::unique_ptr<ModelFileResource> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
     gs_ModelID_Box = model_box->indices.front();
 
-    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/AnimationTest_Box.fbx"));
-    std::unique_ptr<ModelFileResource> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
+    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx"));
+    //std::unique_ptr<ModelFileResource> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
+    std::unique_ptr<ModelFileResource> character_qiqi{ nullptr};
 
     /* // WIP
     std::unique_ptr<ModelFileResource> alibaba{ gs_RenderEngine->LoadModelFromFile("../Application/models/anim/AnimationTest_Box.fbx") };
@@ -424,7 +428,8 @@ void TestApplication::Run()
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        ed.flags = ObjectInstanceFlags::SKINNED;        
+        ed.flags = ObjectInstanceFlags::SKINNED;      
+
     }
     
     if (character_qiqi)
@@ -770,18 +775,56 @@ void TestApplication::RunTest_DebugDraw()
         aabb.halfExt = glm::vec3{ 0.02f };
         Point3D prevpos;
 
+        auto& diona = entities[1];
+        auto& gfxO = gs_GraphicsWorld.GetObjectInstance(diona.gfxID);
+
+        auto& skeleton = *gs_RenderEngine->g_globalModels[gfxO.modelID].skeleton;
+        int i = 0;
+
+
+        ImGui::Begin("BONE LA");
+
        auto DFS = [&](auto&& func, oGFX::BoneNode* pBoneNode, const glm::mat4& parentTransform) -> void
        {
+
            const glm::mat4 node_local_transform = pBoneNode->mModelSpaceLocal;
            const glm::mat4 node_global_transform = parentTransform * node_local_transform;
-           pBoneNode->mModelSpaceGlobal = node_global_transform; // Update global space       
-                                                                   
-           // If the node isn't a bone then we don't care.
+           pBoneNode->mModelSpaceGlobal = node_global_transform; // Update global 
            if (pBoneNode->mbIsBoneNode && pBoneNode->m_BoneIndex >= 0)
            {
-               //outputBoneModelSpaceBuffer[pBoneNode->m_BoneIndex] = pBoneNode->GetModelSpaceGlobalVqs();
+           ImGui::PushID(i++);
+           ImGui::Text(("BONENAME_" + std::to_string(i)).c_str());
+           auto& local= pBoneNode->mModelSpaceLocal;
+           glm::vec3 xlate;
+           glm::vec3 scale;
+           glm::vec3 rot;
+           ImGuizmo::DecomposeMatrixToComponents(
+               glm::value_ptr(local),
+               glm::value_ptr(xlate), 
+               glm::value_ptr(rot),
+               glm::value_ptr(scale));
+           ImGui::DragFloat3("trans", glm::value_ptr(xlate));
+           ImGui::DragFloat3("rot", glm::value_ptr(rot));
+           ImGui::DragFloat3("scale", glm::value_ptr(scale));
+           scale.y = scale.z = scale.x; //uniform
+
+           ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(xlate),
+               glm::value_ptr(rot),
+               glm::value_ptr(scale),
+               glm::value_ptr(local));
+           ImGui::PopID();
+
+
+           // If the node isn't a bone then we don't care.
+          
+               if (gfxO.bones.size())
+               {                   
+                    gfxO.bones[pBoneNode->m_BoneIndex] = pBoneNode->mModelSpaceGlobal * skeleton.inverseBindPose[pBoneNode->m_BoneIndex].transform;
+               }
            }
-       
+          
+          
+           ++i;
            // Recursion through all children nodes, passing in the current global transform.
            for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
            {
@@ -789,6 +832,7 @@ void TestApplication::RunTest_DebugDraw()
            }
        };
        DFS(DFS, character_diona->skeleton->m_boneNodes, glm::mat4{ 1.0f });
+       ImGui::End();
 
        {
            auto DrawDFS = [&](auto&& func, oGFX::BoneNode* pBoneNode) -> void
@@ -812,6 +856,7 @@ void TestApplication::RunTest_DebugDraw()
            DrawDFS(DrawDFS,  character_diona->skeleton->m_boneNodes);
        }
     }
+    resetBones = false;
 
     // Debug Draw skeleton
     /*
@@ -925,6 +970,8 @@ void TestApplication::ToolUI_Settings()
 	ImGui::Text("g_Textures.size()                 : %u", gs_RenderEngine->g_Textures.size());
 	ImGui::Text("g_GlobalMeshBuffers.VtxBuffer.size() : %u", gs_RenderEngine->g_GlobalMeshBuffers.VtxBuffer.size());
 	ImGui::Text("g_GlobalMeshBuffers.IdxBuffer.size() : %u", gs_RenderEngine->g_GlobalMeshBuffers.IdxBuffer.size());
+	ImGui::Text("g_BoneMatrixBuffers.size() : %u", gs_RenderEngine->gpuBoneMatrixBuffer.size());
+	ImGui::Text("boneMatrices.size() : %u", gs_RenderEngine->boneMatrices.size());
 	ImGui::Separator();
 	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Shader Debug Tool");
 	ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);
@@ -1044,6 +1091,8 @@ void TestApplication::Tool_HandleUI()
 {
 	if (ImGui::Begin("Scene Helper"))
 	{
+        
+        resetBones = ImGui::Button("ResetBones");
 		if (ImGui::BeginTabBar("SceneHelperTabBar"))
 		{
 			if (ImGui::BeginTabItem("Entity"))
@@ -1128,35 +1177,37 @@ void TestApplication::Tool_HandleUI()
 
                         if (entity.flags & ObjectInstanceFlags::SKINNED)
                         {
-                            ImGui::Text("Bones");
+                            if(ImGui::TreeNode("Bones"))
                             {
+                                
                                 auto& gfx = gs_GraphicsWorld.GetObjectInstance(entity.gfxID);
                                 for (size_t i = 0; i < gfx.bones.size(); i++)
                                 {
-                                    ImGui::PushID(entity.entityID+i + 1);
-                                    ImGui::Text(("Bones_" + std::to_string(i)).c_str());
-                                    {                                    
-                                        glm::vec3 scale;
-                                        glm::vec3 rot;
-                                        glm::vec3 xlate;
-                                        ImGuizmo::DecomposeMatrixToComponents(
-                                            glm::value_ptr(gfx.bones[i].offset),
-                                            glm::value_ptr(xlate), 
-                                            glm::value_ptr(rot),
-                                            glm::value_ptr(scale));
-                                        ImGui::DragFloat3("trans", glm::value_ptr(xlate));
-                                        ImGui::DragFloat3("rot", glm::value_ptr(rot));
-                                        ImGui::DragFloat3("scale", glm::value_ptr(scale));
-                                        scale.y = scale.z = scale.x; //uniform
-
-                                        ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(xlate),
-                                            glm::value_ptr(rot),
-                                            glm::value_ptr(scale),
-                                            glm::value_ptr(gfx.bones[i].offset));
-
-                                    ImGui::PopID();
-                                    }
+                                    //ImGui::PushID(entity.entityID+i + 1);
+                                    //ImGui::Text(("Bones_" + std::to_string(i)).c_str());
+                                    //{                                    
+                                    //    glm::vec3 scale;
+                                    //    glm::vec3 rot;
+                                    //    glm::vec3 xlate;
+                                    //    ImGuizmo::DecomposeMatrixToComponents(
+                                    //        glm::value_ptr(gfx.bones[i]),
+                                    //        glm::value_ptr(xlate), 
+                                    //        glm::value_ptr(rot),
+                                    //        glm::value_ptr(scale));
+                                    //    ImGui::DragFloat3("trans", glm::value_ptr(xlate));
+                                    //    ImGui::DragFloat3("rot", glm::value_ptr(rot));
+                                    //    ImGui::DragFloat3("scale", glm::value_ptr(scale));
+                                    //    scale.y = scale.z = scale.x; //uniform
+                                    //    
+                                    //    ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(xlate),
+                                    //        glm::value_ptr(rot),
+                                    //        glm::value_ptr(scale),
+                                    //        glm::value_ptr(gfx.bones[i]));
+                                    //    
+                                    //ImGui::PopID();
+                                    //}
                                 }
+                                ImGui::TreePop();
                             }
 
                         }

@@ -29,13 +29,6 @@ inline glm::mat4 aiMat4_to_glm(const aiMatrix4x4& m)
 namespace oGFX
 {
 
-struct BoneInfo
-{
-    //int id;
-    /*offset matrix transforms vertex from model space to bone space*/
-    glm::mat4 offset;
-};
-
 struct BoneNode
 {
     std::string mName{ "BONE_NAME" };
@@ -54,10 +47,11 @@ struct BoneInverseBindPoseInfo
     glm::mat4 transform{ 1.0f };
 };
 
+constexpr uint32_t MAX_BONE_NUM = 4;
 struct BoneWeight
 {
-    uint32_t boneIdx[4];
-    glm::vec4 boneWeights;
+    uint32_t boneIdx[MAX_BONE_NUM];
+    float boneWeights[MAX_BONE_NUM];
 };
 
 struct Skeleton

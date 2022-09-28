@@ -250,7 +250,7 @@ public:
 	ModelFileResource* LoadModelFromFile(const std::string& file);
 	ModelFileResource* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model);
 	void LoadSubmesh(gfxModel& mdl, SubMesh& submesh, aiMesh* aimesh, ModelFileResource* modelFile);
-	void LoadBoneInformation(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiMesh& aimesh, std::vector<oGFX::BoneWeight>& boneWeights);
+	void LoadBoneInformation(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiMesh& aimesh, std::vector<oGFX::BoneWeight>& boneWeights, uint32_t& vCnt);
 	void BuildSkeletonRecursive(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiNode* ainode, oGFX::BoneNode* node);
 
 	bool ResizeSwapchain();
@@ -285,8 +285,8 @@ public:
 	uint32_t bindlessGlobalTexturesNextIndex = 0;
 
 	// SSBO
-	std::vector<oGFX::BoneInfo> boneMatrices{};
-	GpuVector<oGFX::BoneInfo> gpuBoneMatrixBuffer{};
+	std::vector<glm::mat4> boneMatrices{};
+	GpuVector<glm::mat4> gpuBoneMatrixBuffer{};
 
 	// SSBO
 	std::vector<GPUTransform> gpuTransform{};
