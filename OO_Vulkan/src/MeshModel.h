@@ -61,6 +61,13 @@ struct Skeleton
     std::vector<oGFX::BoneWeight>boneWeights;
 };
 
+struct CPUSkeletonInstance
+{
+    oGFX::BoneNode* m_boneNodes{ nullptr };
+};
+
+[[nodiscard]] CPUSkeletonInstance* CreateCPUSkeleton(const Skeleton* skeleton);
+
 } // end namespace oGFX
 
 struct ModelFileResource

@@ -113,7 +113,7 @@ struct EntityInfo
 
     ObjectInstanceFlags flags;
 
-    oGFX::Skeleton* localSkeleton;
+    oGFX::CPUSkeletonInstance* localSkeleton;
 
     mat4 getLocalToWorld()
     {
@@ -181,7 +181,6 @@ private:
 void CreateGraphicsEntityHelper(EntityInfo& ei)
 {
     AABB ab;
-    auto& model = gs_RenderEngine->g_globalModels[ei.modelID];
 
     //UpdateBV(gs_RenderEngine->models[e.modelID].cpuModel, e);
     ObjectInstance o{};
@@ -299,7 +298,7 @@ void TestApplication::Run()
     std::unique_ptr<ModelFileResource> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
     gs_ModelID_Box = model_box->indices.front();
 
-    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx"));
+    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/Luna_Walk_Redone.fbx"));
     //std::unique_ptr<ModelFileResource> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
     std::unique_ptr<ModelFileResource> character_qiqi{ nullptr};
 
@@ -428,8 +427,9 @@ void TestApplication::Run()
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        ed.flags = ObjectInstanceFlags::SKINNED;      
-
+        ed.flags = ObjectInstanceFlags::SKINNED;
+     
+        ed.localSkeleton = gs_RenderEngine->CreateSkeletonInstance(ed.modelID);
     }
     
     if (character_qiqi)
@@ -777,8 +777,9 @@ void TestApplication::RunTest_DebugDraw()
 
         auto& diona = entities[1];
         auto& gfxO = gs_GraphicsWorld.GetObjectInstance(diona.gfxID);
+        const auto& refSkeleton = gs_RenderEngine->GetSkeleton(diona.modelID);
 
-        auto& skeleton = *gs_RenderEngine->g_globalModels[gfxO.modelID].skeleton;
+        auto& skeleton = diona.localSkeleton;
         int i = 0;
 
 
@@ -819,7 +820,7 @@ void TestApplication::RunTest_DebugDraw()
           
                if (gfxO.bones.size())
                {                   
-                    gfxO.bones[pBoneNode->m_BoneIndex] = pBoneNode->mModelSpaceGlobal * skeleton.inverseBindPose[pBoneNode->m_BoneIndex].transform;
+                    gfxO.bones[pBoneNode->m_BoneIndex] = pBoneNode->mModelSpaceGlobal * refSkeleton->inverseBindPose[pBoneNode->m_BoneIndex].transform;
                }
            }
           

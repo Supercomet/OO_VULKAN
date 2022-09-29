@@ -252,6 +252,8 @@ public:
 	void LoadSubmesh(gfxModel& mdl, SubMesh& submesh, aiMesh* aimesh, ModelFileResource* modelFile);
 	void LoadBoneInformation(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiMesh& aimesh, std::vector<oGFX::BoneWeight>& boneWeights, uint32_t& vCnt);
 	void BuildSkeletonRecursive(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiNode* ainode, oGFX::BoneNode* node);
+	const oGFX::Skeleton* GetSkeleton(uint32_t modelID);
+	oGFX::CPUSkeletonInstance* CreateSkeletonInstance(uint32_t modelID);
 
 	bool ResizeSwapchain();
 

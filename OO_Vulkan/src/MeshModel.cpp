@@ -134,7 +134,33 @@ ModelFileResource::~ModelFileResource()
 {
 	delete sceneInfo;
 }	
-	
 
-	
+oGFX::BoneNode* CopyBoneNode(const oGFX::BoneNode* rhs) {
+	if (rhs == nullptr) return nullptr;
 
+	auto bone = new oGFX::BoneNode();
+	bone->mbIsBoneNode = rhs->mbIsBoneNode;
+	bone->mModelSpaceGlobal = rhs->mModelSpaceGlobal;
+	bone->mModelSpaceLocal = rhs->mModelSpaceLocal;
+	bone->mName = rhs->mName;
+	bone->m_BoneIndex = rhs->m_BoneIndex;
+	
+	bone->mChildren.reserve(rhs->mChildren.size());
+	for (auto& child: rhs->mChildren)
+	{
+		auto newChild = bone->mChildren.emplace_back(CopyBoneNode(child));
+		newChild->mpParent = bone;
+	}
+	return bone;
+}
+
+oGFX::CPUSkeletonInstance * oGFX::CreateCPUSkeleton(const Skeleton * rhs)
+{
+	if (rhs == nullptr)
+		return nullptr;
+
+	auto* skel = new oGFX::CPUSkeletonInstance();
+	skel->m_boneNodes = CopyBoneNode(rhs->m_boneNodes);
+
+	return skel;
+}

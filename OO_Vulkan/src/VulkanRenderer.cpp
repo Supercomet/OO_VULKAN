@@ -2016,6 +2016,16 @@ void VulkanRenderer::BuildSkeletonRecursive(ModelFileResource& fileData, oGFX::S
 	}
 }
 
+const oGFX::Skeleton* VulkanRenderer::GetSkeleton(uint32_t modelID)
+{
+	return g_globalModels[modelID].skeleton;
+}
+
+oGFX::CPUSkeletonInstance* VulkanRenderer::CreateSkeletonInstance(uint32_t modelID)
+{
+	return oGFX::CreateCPUSkeleton(g_globalModels[modelID].skeleton);
+}
+
 
 VkCommandBuffer VulkanRenderer::beginSingleTimeCommands()
 {
