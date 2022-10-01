@@ -1250,59 +1250,6 @@ void VulkanRenderer::UploadInstanceData()
 	boneMatrices.clear();
 	boneMatrices.reserve(MAX_OBJECTS); // TODO:: change to better max value
 
-	if (currWorld)
-	{
-		for (auto& ent : currWorld->GetAllObjectInstances())
-		{
-			auto& mdl = g_globalModels[ent.modelID];
-
-			//for (size_t i = 0; i < mdl.m_subMeshes.size(); i++)
-			{
-				// creates a single transform reference for each entity in the scene
-				size_t x = gpuTransform.size();
-				mat4 xform = ent.localToWorld;
-				GPUTransform gpt;
-				gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
-				gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
-				gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
-				gpuTransform.emplace_back(gpt);
-			}
-			if ((ent.flags & ObjectInstanceFlags::SKINNED) == ObjectInstanceFlags::SKINNED)
-			{
-				auto& mdl = g_globalModels[ent.modelID];
-
-				if (ent.bones.empty())
-				{
-					ent.bones.resize(mdl.skeleton->inverseBindPose.size());
-					for (auto& b:ent.bones )
-					{
-						b = mat4(1.0f);
-					}
-				}
-				
-				ent.instanceData |= 1 << 8;
-				// skined mesh
-				GPUObjectInformation oi;
-				oi.boneStartIdx = boneMatrices.size();
-				oi.boneCnt = ent.bones.size();
-				oi.materialIdx = 7; // tem,p
-				objectInformation.push_back(oi);
-
-				for (size_t i = 0; i < ent.bones.size(); i++)
-				{
-					boneMatrices.push_back(ent.bones[i]);
-				}
-			}
-
-		}
-	}
-	
-	gpuTransformBuffer.writeTo(gpuTransform.size(), gpuTransform.data());
-	gpuBoneMatrixBuffer.writeTo(boneMatrices.size(), boneMatrices.data());
-
-	objectInformationBuffer.writeTo(objectInformation.size(), objectInformation.data());
-	
-
 	// TODO: Must the entire buffer be uploaded every frame?
 
 	uint32_t indexCounter = 0;
@@ -1361,12 +1308,49 @@ void VulkanRenderer::UploadInstanceData()
 					instanceData.emplace_back(id);
 				}
 
+			} // end m_subMeshes loop
 
+			//for (size_t i = 0; i < mdl.m_subMeshes.size(); i++)
+			{
+				// creates a single transform reference for each entity in the scene
+				size_t x = gpuTransform.size();
+				mat4 xform = ent.localToWorld;
+				GPUTransform gpt;
+				gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
+				gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
+				gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
+				gpuTransform.emplace_back(gpt);
 			}
-			++matCnt;
-			++indexCounter;
-		}// end of entity instance loop
+			// skined mesh
+			GPUObjectInformation oi;
+			oi.materialIdx = 7; // tem,p
+			if ((ent.flags & ObjectInstanceFlags::SKINNED) == ObjectInstanceFlags::SKINNED)
+			{
+				auto& mdl = g_globalModels[ent.modelID];
 
+				if (ent.bones.empty())
+				{
+					ent.bones.resize(mdl.skeleton->inverseBindPose.size());
+					for (auto& b:ent.bones )
+					{
+						b = mat4(1.0f);
+					}
+				}
+				
+				oi.boneStartIdx = boneMatrices.size();
+				oi.boneCnt = ent.bones.size();
+
+				for (size_t i = 0; i < ent.bones.size(); i++)
+				{
+					boneMatrices.push_back(ent.bones[i]);
+				}
+			}
+
+			objectInformation.push_back(oi);
+
+			++indexCounter;
+			++matCnt;
+		}// end of entity instance loop
 	}
 	
 
@@ -1374,6 +1358,12 @@ void VulkanRenderer::UploadInstanceData()
 	{
 		return;
 	}
+
+	gpuTransformBuffer.writeTo(gpuTransform.size(), gpuTransform.data());
+	gpuBoneMatrixBuffer.writeTo(boneMatrices.size(), boneMatrices.data());
+
+	objectInformationBuffer.writeTo(objectInformation.size(), objectInformation.data());
+
 
 	vkutils::Buffer stagingBuffer;
 	m_device.CreateBuffer(

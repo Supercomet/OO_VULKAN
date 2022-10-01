@@ -62,6 +62,8 @@ static BindlessTextureIndex gs_BlackTexture  = INVALID_BINDLESS_TEXTURE_INDEX;
 static BindlessTextureIndex gs_NormalTexture = INVALID_BINDLESS_TEXTURE_INDEX;
 static BindlessTextureIndex gs_PinkTexture   = INVALID_BINDLESS_TEXTURE_INDEX;
 
+static uint32_t globalDionaID{ 0 };
+
 struct DummyTestMaterial
 {
     BindlessTextureIndex albedo;
@@ -434,6 +436,7 @@ void TestApplication::Run()
     //};
     if (character_diona)
     {        
+        globalDionaID = entities.size();
         auto& ed = entities.emplace_back(EntityInfo{});
         ed.modelID = character_diona->meshResource;
         ed.name = "diona";
@@ -789,16 +792,16 @@ void TestApplication::RunTest_DebugDraw()
         aabb.halfExt = glm::vec3{ 0.02f };
         Point3D prevpos;
 
-        auto& diona = entities[1];
+        auto& diona = entities[globalDionaID];
         auto& gfxO = gs_GraphicsWorld.GetObjectInstance(diona.gfxID);
         const auto& refSkeleton = gs_RenderEngine->GetSkeleton(diona.modelID);
 
-        auto& skeleton = diona.localSkeleton;
+        auto* skeleton = diona.localSkeleton;
         int i = 0;
 
 
-        ImGui::Begin("BONE LA");
 
+        ImGui::Begin("BONE LA");
        auto DFS = [&](auto&& func, oGFX::BoneNode* pBoneNode, const glm::mat4& parentTransform) -> void
        {
 
@@ -846,9 +849,13 @@ void TestApplication::RunTest_DebugDraw()
                func(func, pBoneNode->mChildren[i], node_global_transform);
            }
        };
-       DFS(DFS, character_diona->skeleton->m_boneNodes, glm::mat4{ 1.0f });
+       if (skeleton)
+       {
+        DFS(DFS, skeleton->m_boneNodes, glm::mat4{ 1.0f });
+       }
        ImGui::End();
 
+       if(skeleton)
        {
            auto DrawDFS = [&](auto&& func, oGFX::BoneNode* pBoneNode) -> void
            {
@@ -867,8 +874,7 @@ void TestApplication::RunTest_DebugDraw()
                    func(func, child);
                }
            };
-
-           DrawDFS(DrawDFS,  character_diona->skeleton->m_boneNodes);
+           DrawDFS(DrawDFS, skeleton->m_boneNodes);
        }
     }
     resetBones = false;
