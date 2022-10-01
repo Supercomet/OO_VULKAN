@@ -288,6 +288,7 @@ void TestApplication::Run()
     const BindlessTextureIndex roughnessTexture2 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
     const BindlessTextureIndex roughnessTexture3 = gs_RenderEngine->CreateTexture("Textures/23/r.png");
 
+    const BindlessTextureIndex normalTexture0 = gs_RenderEngine->CreateTexture("Textures/7/n.png");
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Models
     //----------------------------------------------------------------------------------------------------
@@ -364,6 +365,19 @@ void TestApplication::Run()
         //ed.rotVec = { 1.0f,0.0f,0.0f };
         //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
         //ed.instanceData = 0;
+    }
+
+    {
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.name = "Box";
+        ed.entityID = FastRandomMagic();
+        ed.modelID = model_box->meshResource;
+        ed.position = { 0.0f,0.0f,0.0f };
+        ed.scale = { 1.0f,1.0f,1.0f };
+
+        ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
+        ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
+        ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
     }
 
     // Create 8 more surrounding planes

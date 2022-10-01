@@ -46,12 +46,6 @@ layout(std430, set = 0, binding = 5) readonly buffer GPUobject
 	GPUObjectInformation GPUobjectInfo[];
 };
 
-layout(push_constant) uniform PushLight
-{
-	mat4 instanceMatrix;
-	vec3 pos;
-}pushLight;
-
 void main()
 {
 

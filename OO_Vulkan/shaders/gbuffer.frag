@@ -101,10 +101,14 @@ void main()
         // !! DANGER !! - Dont ever learn this... Look at assembly/performance first.
         Jump(perInstanceData, outAlbedo.rgb);
     }
-
+	
     {
-        outNormal = vec4(inLightData.btn[2], 1.0f);
+        outNormal = vec4(inLightData.btn[2], 0.0f);
     }
+	if(textureIndex_Normal != 1)
+	{
+		outNormal.rgb = normalize(outNormal.rgb+texture(textureDescriptorArray[textureIndex_Normal], inUV.xy).rgb);
+	}
 
     {
         // Commented out because unused.
