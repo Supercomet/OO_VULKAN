@@ -1849,8 +1849,8 @@ ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
 		model->vertexCount = static_cast<uint32_t>(vertex.size());
 
 		SubMesh sm;
-		sm.baseIndices = static_cast<uint32_t>(g_GlobalMeshBuffers.IdxOffset);
-		sm.baseVertex = static_cast<uint32_t>(g_GlobalMeshBuffers.VtxOffset);
+		sm.baseIndices = static_cast<uint32_t>(0);
+		sm.baseVertex = static_cast<uint32_t>(0);
 		sm.indicesCount = static_cast<uint32_t>(indices.size());
 		sm.vertexCount = static_cast<uint32_t>(vertex.size());
 
