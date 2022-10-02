@@ -1,3 +1,16 @@
+/************************************************************************************//*!
+\file           GraphicsBatch.cpp
+\project        Ouroboros
+\author         Jamie Kong, j.kong, 390004720 | code contribution (100%)
+\par            email: j.kong\@digipen.edu
+\date           Oct 02, 2022
+\brief              Defines GraphicsBatch, a generator for command lists for objects that require to be rendered.
+
+Copyright (C) 2022 DigiPen Institute of Technology.
+Reproduction or disclosure of this file or its contents
+without the prior written consent of DigiPen Institute of
+Technology is prohibited.
+*//*************************************************************************************/
 #include "GraphicsBatch.h"
 
 #include "VulkanRenderer.h"
@@ -50,23 +63,26 @@ void GraphicsBatch::GenerateBatches()
 		if (ent.modelID != currModelID) // check if we are using the same model
 		{
 			s_scratchBuffer.clear();
-			for (auto& subMesh : model.m_subMeshes)
+			for (size_t i = 0; i < model.m_subMeshes.size(); i++)
 			{
-				// clear the buffer to prepare for this model
-				oGFX::IndirectCommand indirectCmd{};
-				indirectCmd.instanceCount = 1;
+				if (ent.submesh[i] == true)
+				{
+					const auto& subMesh = model.m_subMeshes[i];
+					// clear the buffer to prepare for this model
+					oGFX::IndirectCommand indirectCmd{};
+					indirectCmd.instanceCount = 1;
 
-				// this is the number invoked by the graphics pipeline as the instance id (location = 15) etc..
-				// the number represents the index into the InstanceData array see VulkanRenderer::UploadInstanceData();
-				indirectCmd.firstInstance = cnt++;
+					// this is the number invoked by the graphics pipeline as the instance id (location = 15) etc..
+					// the number represents the index into the InstanceData array see VulkanRenderer::UploadInstanceData();
+					indirectCmd.firstInstance = cnt++;
 
-				indirectCmd.firstIndex = model.baseIndices + subMesh.baseIndices;
-				indirectCmd.indexCount = subMesh.indicesCount;
-				indirectCmd.vertexOffset = model.baseVertex + subMesh.baseVertex;
+					indirectCmd.firstIndex = model.baseIndices + subMesh.baseIndices;
+					indirectCmd.indexCount = subMesh.indicesCount;
+					indirectCmd.vertexOffset = model.baseVertex + subMesh.baseVertex;
 
-				s_scratchBuffer.emplace_back(indirectCmd);
-			}
-			
+					s_scratchBuffer.emplace_back(indirectCmd);
+				}
+			}			
 		}
 		
 		if (ent.flags & Flags::SHADOW_CASTER)

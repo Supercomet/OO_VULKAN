@@ -40,6 +40,7 @@
 #include <random>
 #include <numeric>
 #include <algorithm>
+#include <bitset>
 
 #include "ImGuizmo.h"
 #include "AppUtils.h"
@@ -93,6 +94,11 @@ bool resetBones = false;
 // this is to pretend we have an ECS system
 struct EntityInfo
 {
+    //helper to set the first bitset for trivial mesh
+    EntityInfo() {
+        submeshes[0] = true;
+    }
+
     std::string name;
     glm::vec3 position{};
     glm::vec3 scale{1.0f};
@@ -111,7 +117,7 @@ struct EntityInfo
     uint8_t instanceData{ 0 };
 
     int32_t gfxID; // gfxworld id
-    int32_t submesID; // gfxworld id
+    std::bitset<MAX_SUBMESH>submeshes;
 
     ObjectInstanceFlags flags;
 
@@ -200,6 +206,7 @@ void CreateGraphicsEntityHelper(EntityInfo& ei)
 	o.modelID = ei.modelID;
 	o.entityID = ei.entityID;
     o.flags = ei.flags;
+    o.submesh = ei.submeshes;
 
 	auto id = gs_GraphicsWorld.CreateObjectInstance(o);
     // assign id
@@ -446,9 +453,10 @@ void TestApplication::Run()
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
         ed.flags = ObjectInstanceFlags::SKINNED;
      
-        ed.localSkeleton = gs_RenderEngine->CreateSkeletonInstance(ed.modelID);
     }
-    
+    std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
+    entities[globalDionaID].localSkeleton = scopedPtr.get();
+
     if (character_qiqi)
     {
         //auto& ed = entities.emplace_back(EntityInfo{});
@@ -621,6 +629,14 @@ void TestApplication::Run()
                 ImGui_ImplWin32_NewFrame();
                 ImGui::NewFrame();
             }          
+
+            ImGui::Begin("Problems");
+            if (ImGui::Button("Cause problems"))
+            {
+                uint32_t col = 0x00FFFF00;
+                gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&col);
+            }
+            ImGui::End();
 
             if (gs_RenderEngine->PrepareFrame() == true)
             {
@@ -1163,14 +1179,27 @@ void TestApplication::Tool_HandleUI()
 
 				if (ImGui::TreeNode("Entity"))
 				{
-					for (auto& entity : entities)
-					{
-						bool valuesModified = false;
-						ImGui::PushID(entity.entityID);
+                    for (auto& entity : entities)
+                    {
+                        bool valuesModified = false;
+                        ImGui::PushID(entity.entityID);
 
-						ImGui::BulletText("[ID:%u] ", entity.entityID);
-						ImGui::SameLine();
-						ImGui::Text(entity.name.c_str());
+                        ImGui::BulletText("[ID:%u] ", entity.entityID);
+                        ImGui::SameLine();
+                        ImGui::Text(entity.name.c_str());
+                        auto& msh = gs_RenderEngine->g_globalModels[entity.modelID];
+                        ImGui::Text("Submesh");
+                        ImGui::Dummy({1, 1});
+                        for (size_t i = 0; i < msh.m_subMeshes.size(); i++)
+                        {
+                            ImGui::SameLine();
+                            bool val = entity.submeshes[i];
+                            if (ImGui::Checkbox(std::to_string(i).c_str(), &val))
+                            {
+                                entity.submeshes[i] = val;
+                                gs_GraphicsWorld.GetObjectInstance(entity.gfxID).submesh = entity.submeshes;
+                            }
+                        }
 						valuesModified |= ImGui::DragFloat3("Position", glm::value_ptr(entity.position), 0.01f);
 						{
 							if (ImGui::BeginPopupContextItem("Gizmo hijacker"))

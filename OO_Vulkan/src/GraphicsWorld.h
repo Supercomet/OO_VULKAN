@@ -1,3 +1,17 @@
+/************************************************************************************//*!
+\file           GraphicsWorld.h
+\project        Ouroboros
+\author         Jamie Kong, j.kong, 390004720 | code contribution (100%)
+\par            email: j.kong\@digipen.edu
+\date           Oct 02, 2022
+\brief              Declares graphics world, a wrapper for objects that require to be rendered.
+    This is used as the main tnerface between the renderer and external engine
+
+Copyright (C) 2022 DigiPen Institute of Technology.
+Reproduction or disclosure of this file or its contents
+without the prior written consent of DigiPen Institute of
+Technology is prohibited.
+*//*************************************************************************************/
 #pragma once
 
 #include "MathCommon.h"
@@ -24,6 +38,7 @@ enum ObjectInstanceFlags : uint32_t // fuck enum class
                              // etc
 };
 
+//CHAR_BIT * sizeof(uint64_t)
 struct ObjectInstance
 {
     std::string name;
@@ -43,9 +58,11 @@ struct ObjectInstance
     glm::mat4x4 localToWorld{ 1.0f };
     ObjectInstanceFlags flags{};
 
+
     std::vector<glm::mat4> bones;
 
     uint32_t modelID{}; // Index for the mesh
+    std::bitset<MAX_SUBMESH>submesh;// submeshes to draw
     uint32_t entityID{}; // Unique ID for this entity instance
 };
 

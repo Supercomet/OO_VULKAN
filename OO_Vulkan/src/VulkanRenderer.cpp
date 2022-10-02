@@ -1,3 +1,17 @@
+/************************************************************************************//*!
+\file           VulkanRenderer.cpp
+\project        Ouroboros
+\author         Jamie Kong, j.kong, 390004720 | code contribution (100%)
+\par            email: j.kong\@digipen.edu
+\date           Oct 02, 2022
+\brief               Defines the full vulkan renderer class. 
+The entire class encapsulates the vulkan renderer and acts as an interface for external engines
+
+Copyright (C) 2022 DigiPen Institute of Technology.
+Reproduction or disclosure of this file or its contents
+without the prior written consent of DigiPen Institute of
+Technology is prohibited.
+*//*************************************************************************************/
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -1263,50 +1277,52 @@ void VulkanRenderer::UploadInstanceData()
 			auto& mdl = g_globalModels[ent.modelID];
 			for (size_t i = 0; i < mdl.m_subMeshes.size(); i++)
 			{
-
-				oGFX::InstanceData id;
-				//size_t sz = instanceData.size();
-				//for (size_t x = 0; x < g_globalModels[ent.modelID].meshCount; x++)
+				if (ent.submesh[i] == true)
 				{
-					// This is per entity. Should be per material.
-					uint32_t albedo = ent.bindlessGlobalTextureIndex_Albedo;
-					uint32_t normal = ent.bindlessGlobalTextureIndex_Normal;
-					uint32_t roughness = ent.bindlessGlobalTextureIndex_Roughness;
-					uint32_t metallic = ent.bindlessGlobalTextureIndex_Metallic;
-					const uint8_t perInstanceData = ent.instanceData;
-					constexpr uint32_t invalidIndex = 0xFFFFFFFF;
-					if (albedo == invalidIndex)
-						albedo = 0; // TODO: Dont hardcode this bindless texture index
-					if (normal == invalidIndex)
-						normal = 1; // TODO: Dont hardcode this bindless texture index
-					if (roughness == invalidIndex)
-						roughness = 0; // TODO: Dont hardcode this bindless texture index
-					if (metallic == invalidIndex)
-						metallic = 1; // TODO: Dont hardcode this bindless texture index
+					oGFX::InstanceData id;
+					//size_t sz = instanceData.size();
+					//for (size_t x = 0; x < g_globalModels[ent.modelID].meshCount; x++)
+					{
+						// This is per entity. Should be per material.
+						uint32_t albedo = ent.bindlessGlobalTextureIndex_Albedo;
+						uint32_t normal = ent.bindlessGlobalTextureIndex_Normal;
+						uint32_t roughness = ent.bindlessGlobalTextureIndex_Roughness;
+						uint32_t metallic = ent.bindlessGlobalTextureIndex_Metallic;
+						const uint8_t perInstanceData = ent.instanceData;
+						constexpr uint32_t invalidIndex = 0xFFFFFFFF;
+						if (albedo == invalidIndex)
+							albedo = 0; // TODO: Dont hardcode this bindless texture index
+						if (normal == invalidIndex)
+							normal = 1; // TODO: Dont hardcode this bindless texture index
+						if (roughness == invalidIndex)
+							roughness = 0; // TODO: Dont hardcode this bindless texture index
+						if (metallic == invalidIndex)
+							metallic = 1; // TODO: Dont hardcode this bindless texture index
 
-					// Important: Make sure this index packing matches the unpacking in the shader
-					const uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF);
-					const uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
-					const uint32_t instanceID = uint32_t(indexCounter); // the instance id should point to the entity
-					auto res = ent.flags & ObjectInstanceFlags::SKINNED;
-					auto isSkin = (res== ObjectInstanceFlags::SKINNED);
-					const uint32_t unused = (uint32_t)perInstanceData | isSkin << 8; //matCnt;
+										  // Important: Make sure this index packing matches the unpacking in the shader
+						const uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF);
+						const uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
+						const uint32_t instanceID = uint32_t(indexCounter); // the instance id should point to the entity
+						auto res = ent.flags & ObjectInstanceFlags::SKINNED;
+						auto isSkin = (res== ObjectInstanceFlags::SKINNED);
+						const uint32_t unused = (uint32_t)perInstanceData | isSkin << 8; //matCnt;
 
-					// Putting these ranges here for easy reference:
-					// 9-bit:  [0 to 511]
-					// 10-bit: [0 to 1023]
-					// 11-bit: [0 to 2047]
-					// 12-bit: [0 to 4095]
-					// 13-bit: [0 to 8191]
-					// 14-bit: [0 to 16383]
-					// 15-bit: [0 to 32767]
-					// 16-bit: [0 to 65535]
+																						 // Putting these ranges here for easy reference:
+																						 // 9-bit:  [0 to 511]
+																						 // 10-bit: [0 to 1023]
+																						 // 11-bit: [0 to 2047]
+																						 // 12-bit: [0 to 4095]
+																						 // 13-bit: [0 to 8191]
+																						 // 14-bit: [0 to 16383]
+																						 // 15-bit: [0 to 32767]
+																						 // 16-bit: [0 to 65535]
 
-					// TODO: This is the solution for now.
-					// In the future, we can just use an index for all the materials (indirection) to fetch from another buffer.
-					id.instanceAttributes = uvec4(instanceID, unused, albedo_normal, roughness_metallic);
-					instanceData.emplace_back(id);
-				}
+																						 // TODO: This is the solution for now.
+																						 // In the future, we can just use an index for all the materials (indirection) to fetch from another buffer.
+						id.instanceAttributes = uvec4(instanceID, unused, albedo_normal, roughness_metallic);
+						instanceData.emplace_back(id);
+					}
+				}				
 
 			} // end m_subMeshes loop
 
@@ -1337,8 +1353,8 @@ void VulkanRenderer::UploadInstanceData()
 					}
 				}
 				
-				oi.boneStartIdx = boneMatrices.size();
-				oi.boneCnt = ent.bones.size();
+				oi.boneStartIdx = static_cast<uint32_t>(boneMatrices.size());
+				oi.boneCnt = static_cast<uint32_t>(ent.bones.size());
 
 				for (size_t i = 0; i < ent.bones.size(); i++)
 				{
@@ -1689,9 +1705,9 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	modelFile->fileName = file;
 
 	auto mdlResourceIdx = g_globalModels.size();
-	modelFile->meshResource = mdlResourceIdx;
-	auto& mdl = g_globalModels.emplace_back(gfxModel{});
-	mdl.name = std::filesystem::path(file).stem().u8string();
+	modelFile->meshResource = static_cast<uint32_t>(mdlResourceIdx);
+	auto& mdl{ g_globalModels.emplace_back(gfxModel{}) };
+	mdl.name = std::filesystem::path(file).stem().string();
 
 	mdl.m_subMeshes.resize(scene->mNumMeshes);
 	modelFile->numSubmesh =scene->mNumMeshes;
