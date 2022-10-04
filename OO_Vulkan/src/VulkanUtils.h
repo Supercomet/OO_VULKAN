@@ -652,7 +652,17 @@ namespace oGFX
 			{
 				VkRenderPassBeginInfo renderPassBeginInfo{};
 				renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+				renderPassBeginInfo.renderArea.offset = { 0,0 };
 				return renderPassBeginInfo;
+			}
+
+			template<typename T_ARRAY>
+			inline VkRenderPassBeginInfo renderPassBeginInfo(const T_ARRAY& clearValues)
+			{
+				VkRenderPassBeginInfo info = renderPassBeginInfo();
+				info.pClearValues = clearValues.data();
+				info.clearValueCount = static_cast<uint32_t>(clearValues.size());
+				return info;
 			}
 
 			// Acts as a rerouter for cleaner code

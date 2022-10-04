@@ -76,8 +76,8 @@ struct DecalInstance
     float rotation{ 0.0f };
     float projectorSize{ 1.0f };
     float testVar0{ 1.0f };
-    float testVar1{ 1.0f };
-    float nearZ{ -1.0f };
+    float testVar1{ 1.75f };
+    float nearZ{ 0.5f };
 };
 
 // TODO: Move all object storage here...

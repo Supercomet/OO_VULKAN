@@ -991,9 +991,9 @@ void TestApplication::ToolUI_Camera()
 void TestApplication::ToolUI_Settings()
 {
 	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Application");
-	ImGui::Text("m_ApplicationFrame : %u", &m_ApplicationFrame);
-	ImGui::Text("m_ApplicationTimer : %f", &m_ApplicationTimer);
-	ImGui::Text("m_ApplicationDT    : %f", &m_ApplicationDT);
+	ImGui::Text("m_ApplicationFrame : %u", m_ApplicationFrame);
+	ImGui::Text("m_ApplicationTimer : %f", m_ApplicationTimer);
+	ImGui::Text("m_ApplicationDT    : %f", m_ApplicationDT);
 	ImGui::Checkbox("m_TestDebugDrawLine", &m_TestDebugDrawLine);
 	ImGui::Checkbox("m_TestDebugDrawBox", &m_TestDebugDrawBox);
 	ImGui::Checkbox("m_TestDebugDrawDisc", &m_TestDebugDrawDisc);
@@ -1010,37 +1010,43 @@ void TestApplication::ToolUI_Settings()
 	ImGui::Text("g_BoneMatrixBuffers.size() : %u", gs_RenderEngine->gpuBoneMatrixBuffer.size());
 	ImGui::Text("boneMatrices.size() : %u", gs_RenderEngine->boneMatrices.size());
 	ImGui::Separator();
-	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Shader Debug Tool");
-	ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);
-	ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);
-	ImGui::DragFloat4("vector4_values2", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values2), 0.01f);
-	ImGui::DragFloat4("vector4_values3", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values3), 0.01f);
-	ImGui::DragFloat4("vector4_values4", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values4), 0.01f);
-	ImGui::DragFloat4("vector4_values5", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values5), 0.01f);
-	ImGui::DragFloat4("vector4_values6", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values6), 0.01f);
-	ImGui::DragFloat4("vector4_values7", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values7), 0.01f);
-	ImGui::DragFloat4("vector4_values8", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values8), 0.01f);
-	ImGui::DragFloat4("vector4_values9", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values9), 0.01f);
+    {
+		ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Shader Debug Tool");
+		ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);
+		ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);
+		ImGui::DragFloat4("vector4_values2", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values2), 0.01f);
+		ImGui::DragFloat4("vector4_values3", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values3), 0.01f);
+		ImGui::DragFloat4("vector4_values4", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values4), 0.01f);
+		ImGui::DragFloat4("vector4_values5", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values5), 0.01f);
+		ImGui::DragFloat4("vector4_values6", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values6), 0.01f);
+		ImGui::DragFloat4("vector4_values7", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values7), 0.01f);
+		ImGui::DragFloat4("vector4_values8", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values8), 0.01f);
+		ImGui::DragFloat4("vector4_values9", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values9), 0.01f);
+    }
 	ImGui::Separator();
-	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Decals");
-	ImGui::PushID("TESTDECAL");
-	ImGui::DragFloat3("Position", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position), 0.01f);
-	{
-		if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
+    {
+		ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Decals");
+		ImGui::PushID("TESTDECAL");
+		ImGui::DragFloat3("Position", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position), 0.01f);
 		{
-			if (ImGui::Selectable("Set ptr Gizmo"))
+			if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
 			{
-				// Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
-				gs_GizmoContext.SelectVector3Property(glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position));
+				if (ImGui::Selectable("Set ptr Gizmo"))
+				{
+					// Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
+					gs_GizmoContext.SelectVector3Property(glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position));
+				}
+				ImGui::EndPopup();
 			}
-			ImGui::EndPopup();
 		}
-	}
-	ImGui::DragFloat("Projector Size", &gs_GraphicsWorld.m_HardcodedDecalInstance.projectorSize, 0.01f);
-	ImGui::DragFloat("nearZ", &gs_GraphicsWorld.m_HardcodedDecalInstance.nearZ, 0.01f);
-	ImGui::DragFloat("testVar0", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar0, 0.01f);
-	ImGui::DragFloat("testVar1", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar1, 0.01f);
-	ImGui::PopID();
+		ImGui::DragFloat("Projector Size", &gs_GraphicsWorld.m_HardcodedDecalInstance.projectorSize, 0.01f);
+		ImGui::DragFloat("nearZ", &gs_GraphicsWorld.m_HardcodedDecalInstance.nearZ, 0.01f);
+		ImGui::DragFloat("testVar0", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar0, 0.01f);
+		ImGui::DragFloat("testVar1", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar1, 0.01f);
+		ImGui::DragFloat3("direction", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.direction), 0.01f);
+		ImGui::DragFloat("rotation", &gs_GraphicsWorld.m_HardcodedDecalInstance.rotation, 0.5f);
+		ImGui::PopID();
+    }
 }
 
 void TestApplication::Tool_HandleGizmoManipulation()
