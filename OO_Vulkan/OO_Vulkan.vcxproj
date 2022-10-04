@@ -59,7 +59,6 @@
     <ClCompile Include="src\loader\stbi_impl.cpp" />
     <ClCompile Include="src\rhi\CommandList.cpp" />
     <ClCompile Include="src\Tests_Assignment1.cpp" />
-    <ClCompile Include="src\VulkanFramebufferAttachment.cpp" />
     <ClCompile Include="src\VulkanInstance.cpp" />
     <ClCompile Include="src\VulkanRenderer.cpp" />
     <ClCompile Include="src\VulkanDevice.cpp" />
@@ -118,7 +117,6 @@
     <ClInclude Include="src\renderpass\ShadowPass.h" />
     <ClInclude Include="src\rhi\CommandList.h" />
     <ClInclude Include="src\Tree.h" />
-    <ClInclude Include="src\VulkanFramebufferAttachment.h" />
     <ClInclude Include="src\Node.h" />
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\Mesh.h" />
