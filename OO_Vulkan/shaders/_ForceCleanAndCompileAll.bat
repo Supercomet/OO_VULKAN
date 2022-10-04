@@ -1,5 +1,8 @@
 @echo off
 
+rem This sets this batch file's dir to itself
+pushd %~dp0
+
 set OUTPUT=bin\
 
 cd %OUTPUT%
@@ -23,4 +26,6 @@ for %%i in (*.vert *.frag *.comp *.geom) do (
 
 echo [92m# Shader Compilation Ended...                      #[0m
 echo [92m####################################################[0m
+
+popd
 pause

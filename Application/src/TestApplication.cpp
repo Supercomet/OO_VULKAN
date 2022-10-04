@@ -40,6 +40,7 @@
 #include <random>
 #include <numeric>
 #include <algorithm>
+#include <bitset>
 
 #include "ImGuizmo.h"
 #include "AppUtils.h"
@@ -61,6 +62,8 @@ static BindlessTextureIndex gs_WhiteTexture  = INVALID_BINDLESS_TEXTURE_INDEX;
 static BindlessTextureIndex gs_BlackTexture  = INVALID_BINDLESS_TEXTURE_INDEX;
 static BindlessTextureIndex gs_NormalTexture = INVALID_BINDLESS_TEXTURE_INDEX;
 static BindlessTextureIndex gs_PinkTexture   = INVALID_BINDLESS_TEXTURE_INDEX;
+
+static uint32_t globalDionaID{ 0 };
 
 struct DummyTestMaterial
 {
@@ -86,10 +89,16 @@ void TestApplication::Init()
 void InitLights(int32_t* someLights);
 
 static uint32_t gs_ModelID_Box = 0;
+bool resetBones = false;
 
 // this is to pretend we have an ECS system
 struct EntityInfo
 {
+    //helper to set the first bitset for trivial mesh
+    EntityInfo() {
+        submeshes[0] = true;
+    }
+
     std::string name;
     glm::vec3 position{};
     glm::vec3 scale{1.0f};
@@ -108,6 +117,11 @@ struct EntityInfo
     uint8_t instanceData{ 0 };
 
     int32_t gfxID; // gfxworld id
+    std::bitset<MAX_SUBMESH>submeshes;
+
+    ObjectInstanceFlags flags;
+
+    oGFX::CPUSkeletonInstance* localSkeleton;
 
     mat4 getLocalToWorld()
     {
@@ -127,6 +141,7 @@ struct EntityInfo
         gfxWorldObjectInstance.rot = rot;
         gfxWorldObjectInstance.rotVec = rotVec;
         gfxWorldObjectInstance.localToWorld = getLocalToWorld();
+        gfxWorldObjectInstance.flags = flags;
     }
 };
 
@@ -174,7 +189,6 @@ private:
 void CreateGraphicsEntityHelper(EntityInfo& ei)
 {
     AABB ab;
-    auto& model = gs_RenderEngine->models[ei.modelID];
 
     //UpdateBV(gs_RenderEngine->models[e.modelID].cpuModel, e);
     ObjectInstance o{};
@@ -191,6 +205,8 @@ void CreateGraphicsEntityHelper(EntityInfo& ei)
 	o.localToWorld = ei.getLocalToWorld();
 	o.modelID = ei.modelID;
 	o.entityID = ei.entityID;
+    o.flags = ei.flags;
+    o.submesh = ei.submeshes;
 
 	auto id = gs_GraphicsWorld.CreateObjectInstance(o);
     // assign id
@@ -202,6 +218,9 @@ static std::vector<EntityInfo> entities;
 static CameraController gs_CameraController;
 
 static GizmoContext gs_GizmoContext{};
+
+std::unique_ptr<ModelFileResource> gs_test_scene;
+std::unique_ptr<ModelFileResource> character_diona;
 
 void TestApplication::Run()
 {
@@ -278,26 +297,28 @@ void TestApplication::Run()
     const BindlessTextureIndex roughnessTexture2 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
     const BindlessTextureIndex roughnessTexture3 = gs_RenderEngine->CreateTexture("Textures/23/r.png");
 
+    const BindlessTextureIndex normalTexture0 = gs_RenderEngine->CreateTexture("Textures/7/n.png");
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Models
     //----------------------------------------------------------------------------------------------------
 
     auto defaultPlaneMesh = CreateDefaultPlaneXZMesh();
     auto defaultCubeMesh = CreateDefaultCubeMesh();
-    std::unique_ptr<ModelData> model_plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
-    std::unique_ptr<ModelData> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
-    gs_ModelID_Box = model_box->gfxMeshIndices.front();
+    std::unique_ptr<ModelFileResource> model_plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
+    std::unique_ptr<ModelFileResource> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
+    gs_ModelID_Box = model_box->indices.front();
 
-    std::unique_ptr<ModelData> character_diona{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/diona.fbx") };
-    std::unique_ptr<ModelData> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
+    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/Luna_Walk_Redone.fbx"));
+    //std::unique_ptr<ModelFileResource> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
+    std::unique_ptr<ModelFileResource> character_qiqi{ nullptr};
 
     /* // WIP
-    std::unique_ptr<ModelData> alibaba{ gs_RenderEngine->LoadModelFromFile("../Application/models/anim/AnimationTest_Box.fbx") };
+    std::unique_ptr<ModelFileResource> alibaba{ gs_RenderEngine->LoadModelFromFile("../Application/models/anim/AnimationTest_Box.fbx") };
     std::unique_ptr<simpleanim::SkinnedMesh> skinnedMesh_alibaba = std::make_unique<simpleanim::SkinnedMesh>();
     simpleanim::LoadModelFromFile_Skeleton("../Application/models/anim/AnimationTest_Box.fbx", simpleanim::LoadingConfig{}, alibaba.get(), skinnedMesh_alibaba.get());
     */
     /* // WIP
-    std::unique_ptr<ModelData> character_dori{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/dori.fbx") };
+    std::unique_ptr<ModelFileResource> character_dori{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/dori.fbx") };
     std::unique_ptr<SkinnedMesh> skinnedMesh_dori = std::make_unique<SkinnedMesh>();
     LoadModelFromFile_Skeleton("../Application/models/character/dori.fbx", LoadingConfig{}, character_dori.get(), skinnedMesh_dori.get());
     */
@@ -306,8 +327,8 @@ void TestApplication::Run()
     //----------------------------------------------------------------------------------------------------
 
     // Comment/Uncomment as needed
-    std::unique_ptr<ModelData> test_scene{ gs_RenderEngine->LoadModelFromFile("../Application/models/Luna_Walk_Redone.fbx") };
-    //std::unique_ptr<ModelData> test_scene = nullptr;
+    gs_test_scene.reset( gs_RenderEngine->LoadModelFromFile("../Application/models/AnimationTest_Box.fbx") );
+    //std::unique_ptr<ModelFileResource> test_scene = nullptr;
 
     std::array<uint32_t, 4> diffuseBindlessTextureIndexes =
     {
@@ -323,41 +344,54 @@ void TestApplication::Run()
         auto& ed = entities.emplace_back(EntityInfo{});
         ed.name = "Ground_Plane";
         ed.entityID = FastRandomMagic();
-        ed.modelID = model_plane->gfxMeshIndices.front();
+        ed.modelID = model_plane->meshResource;
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
     }
 
     {
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.name = "Plane_Effects";
-        ed.entityID = FastRandomMagic();
-        ed.modelID = model_plane->gfxMeshIndices.front();
-        ed.position = { -2.0f,2.0f,0.0f };
-        ed.scale = { 2.0f,1.0f,2.0f };
-        ed.rot = 90.0f;
-        ed.rotVec = { 1.0f,0.0f,0.0f };
-        ed.instanceData = 3;
+        //auto& ed = entities.emplace_back(EntityInfo{});
+        //ed.name = "Plane_Effects";
+        //ed.entityID = FastRandomMagic();
+        //ed.modelID = model_plane->meshResource;
+        //ed.position = { -2.0f,2.0f,0.0f };
+        //ed.scale = { 2.0f,1.0f,2.0f };
+        //ed.rot = 90.0f;
+        //ed.rotVec = { 1.0f,0.0f,0.0f };
+        //ed.instanceData = 3;
     }
 
 
-    if (test_scene)
+    if (gs_test_scene)
+    {
+        //auto& ed = entities.emplace_back(EntityInfo{});
+        //ed.name = "TestSceneObject";
+        //ed.entityID = FastRandomMagic();
+        //ed.modelID = gs_test_scene->meshResource;
+        //ed.position = {  };
+        //ed.scale = { 0.1f,0.1f,0.1f };
+        //ed.rot = 0.0f;
+        //ed.rotVec = { 1.0f,0.0f,0.0f };
+        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        //ed.instanceData = 0;
+    }
+
     {
         auto& ed = entities.emplace_back(EntityInfo{});
-        ed.name = "TestSceneObject";
+        ed.name = "Box";
         ed.entityID = FastRandomMagic();
-        ed.modelID = test_scene->gfxMeshIndices.front();
-        ed.position = {  };
-        ed.scale = { 0.1f,0.1f,0.1f };
-        ed.rot = 0.0f;
-        ed.rotVec = { 1.0f,0.0f,0.0f };
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        ed.instanceData = 0;
+        ed.modelID = model_box->meshResource;
+        ed.position = { 0.0f,0.0f,0.0f };
+        ed.scale = { 1.0f,1.0f,1.0f };
+
+        ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
+        ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
+        ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
     }
 
     // Create 8 more surrounding planes
     {
-        for (int i = 0; i < 8; ++i)
+        for (int i = 0; i < 0; ++i)
         {
             constexpr float offset = 16.0f;
             static std::array<glm::vec3, 8> positions =
@@ -375,7 +409,7 @@ void TestApplication::Run()
             auto& ed = entities.emplace_back(EntityInfo{});
             ed.name = "Ground_Plane_" + std::to_string(i);
             ed.entityID = FastRandomMagic();
-            ed.modelID = model_plane->gfxMeshIndices.front();
+            ed.modelID = model_plane->meshResource;
             ed.position = positions[i];
             ed.scale = { 15.0f,1.0f,15.0f };
             ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[i / 2];
@@ -383,45 +417,73 @@ void TestApplication::Run()
         }
     }
 
-    std::function<void(ModelData*,Node*,bool)> EntityHelper = [&](ModelData* model,Node* node, bool rotateYup) {
-        if (node->meshRef != static_cast<uint32_t>(-1))
-        {
-            auto& ed = entities.emplace_back(EntityInfo{});
-            ed.modelID = model->gfxMeshIndices[node->meshRef];
-            ed.name = node->name;
-            ed.entityID = FastRandomMagic();
-            glm::quat qt;
-            glm::vec3 skew;
-            glm::vec4 persp;
-            glm::decompose(node->transform, ed.scale, qt, ed.position, skew, persp);
-            qt = glm::conjugate(qt);
-            auto angles = glm::eulerAngles(qt);
-            if (rotateYup) angles.x -= glm::radians(90.0f);
-            ed.rotVec = angles;
-            ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-            ed.instanceData = 0;
-        }
-        for (auto& child : node->children)
-        {
-            EntityHelper(model,child,rotateYup);
-        }            
-
-    };
+    //std::function<void(ModelFileResource*,Node*,bool)> EntityHelper = [&](ModelFileResource* model,Node* node, bool rotateYup) {
+    //    if (node->meshRef != static_cast<uint32_t>(-1))
+    //    {
+    //        auto& ed = entities.emplace_back(EntityInfo{});
+    //        ed.modelID = model->meshResource;
+    //        ed.name = node->name;
+    //        ed.entityID = FastRandomMagic();
+    //        glm::quat qt;
+    //        glm::vec3 skew;
+    //        glm::vec4 persp;
+    //        glm::decompose(node->transform, ed.scale, qt, ed.position, skew, persp);
+    //        qt = glm::conjugate(qt);
+    //        auto angles = glm::eulerAngles(qt);
+    //        if (rotateYup) angles.x -= glm::radians(90.0f);
+    //        ed.rotVec = angles;
+    //        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+    //        ed.instanceData = 0;
+    //    }
+    //    for (auto& child : node->children)
+    //    {
+    //        EntityHelper(model,child,rotateYup);
+    //    }            
+    //
+    //};
     if (character_diona)
     {        
-        EntityHelper(character_diona.get(),character_diona->sceneInfo,true);
+        globalDionaID = entities.size();
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.modelID = character_diona->meshResource;
+        ed.name = "diona";
+        ed.entityID = FastRandomMagic();
+        ed.position = { 0.0f,0.0f,0.0f };
+        ed.scale = { 1.0f,1.0f,1.0f };
+        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        ed.flags = ObjectInstanceFlags::SKINNED;
+     
     }
+    std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
+    entities[globalDionaID].localSkeleton = scopedPtr.get();
 
     if (character_qiqi)
     {
-        EntityHelper(character_qiqi.get(), character_qiqi->sceneInfo,true);
+        //auto& ed = entities.emplace_back(EntityInfo{});
+        //ed.modelID = character_qiqi->meshResource;
+        //ed.name = "qiqi";
+        //ed.entityID = FastRandomMagic();
+        //ed.position = { 0.0f,0.0f,0.0f };
+        //ed.scale = { 1.0f,1.0f,1.0f };
+        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+    }
+
+    if (gs_test_scene)
+    {
+        //auto& ed = entities.emplace_back(EntityInfo{});
+        //ed.modelID = gs_test_scene->meshResource;
+        //ed.name = "frog";
+        //ed.entityID = FastRandomMagic();
+        //ed.position = { 0.0f,0.0f,0.0f };
+        //ed.scale = glm::vec3{ 0.01f };
+        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
     }
 
     /* // WIP
     if (alibaba)
     {
         auto& ed = entities.emplace_back(EntityInfo{});
-        ed.modelID = alibaba->gfxMeshIndices.front();
+        ed.modelID = alibaba->meshResource;
         ed.name = "alibaba";
         ed.entityID = FastRandomMagic();
         ed.position = { 0.0f,0.0f,0.0f };
@@ -431,13 +493,13 @@ void TestApplication::Run()
     }
     */
     
-    if (test_scene)
-    {
-        EntityHelper(test_scene.get(), test_scene->sceneInfo,true);
-    }
+    //if (gs_test_scene)
+    //{
+    //    EntityHelper(gs_test_scene.get(), gs_test_scene->sceneInfo,true);
+    //}
 
     // Stress test more models
-    std::vector<std::unique_ptr<ModelData>> moreModels;
+    std::vector<std::unique_ptr<ModelFileResource>> moreModels;
     moreModels.reserve(128);
 #define LOAD_MODEL(FILE) moreModels.emplace_back(gs_RenderEngine->LoadModelFromFile("../Application/models/" FILE))
     LOAD_MODEL("arrow.fbx");
@@ -467,14 +529,23 @@ void TestApplication::Run()
         int counter = 0;
         for (auto& model : moreModels)
         {
-            auto& ed = entities.emplace_back(EntityInfo{});
-            ed.modelID = model->gfxMeshIndices.front();
-            ed.name = "model_" + std::to_string(counter);
-            ed.entityID = FastRandomMagic();
-            ed.position = { 2.0f + 2.0 * float(counter % 4), 0.0f, -(2.0f + 2.0 * float(counter / 4)) };
-            ed.scale = { 0.01f,0.01f,0.01f };
-            ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-            ++counter;
+            //auto& ed = entities.emplace_back(EntityInfo{});
+            //ed.modelID = model->meshResource;
+            //ed.name = "model_" + std::to_string(counter);
+            //ed.entityID = FastRandomMagic();
+            //ed.position = { 2.0f + 2.0 * float(counter % 4), 0.0f, -(2.0f + 2.0 * float(counter / 4)) };
+            //ed.scale = { 0.1f,0.1f,0.1f};
+            //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+            //++counter;
+        }
+    }
+
+    for (auto& mdl: gs_RenderEngine->g_globalModels)
+    {
+        std::cout << "model:" << mdl.name << ", " << mdl.baseVertex <<", " << mdl.baseVertex+mdl.vertexCount <<  " diff-"<< mdl.baseVertex+mdl.vertexCount- mdl.baseVertex  << std::endl;
+        for (auto& sm : mdl.m_subMeshes)
+        {
+            std::cout << "\tsm:" << sm.name << ", " << sm.baseVertex <<", " << sm.baseVertex+sm.vertexCount << std::endl;
         }
     }
 
@@ -557,31 +628,15 @@ void TestApplication::Run()
                 ImGui_ImplVulkan_NewFrame();
                 ImGui_ImplWin32_NewFrame();
                 ImGui::NewFrame();
-            }
+            }          
 
+            ImGui::Begin("Problems");
+            if (ImGui::Button("Cause problems"))
             {
-
-            AABB ab;
-            ab.halfExt = glm::vec3{ 0.02f };
-            Point3D prevpos;
-            for (size_t i = 0; i < test_scene->bones.size(); i++)
-            {
-                ab.center = {};
-                ab.center = test_scene->bones[i].transform * glm::vec4{ ab.center, 1.0f };
-                DebugDraw::AddLine(ab.center, prevpos);
-                prevpos = ab.center;
-                DebugDraw::AddAABB(ab);
+                uint32_t col = 0x00FFFF00;
+                gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&col);
             }
-            prevpos = {};
-            for (size_t i = 0; i < test_scene->boneOffsets.size(); i++)
-            {
-                ab.center = {};
-                ab.center = test_scene->boneOffsets[i].transform * glm::vec4{ ab.center, 1.0f };
-                DebugDraw::AddLine(ab.center, prevpos, oGFX::Colors::RED);
-                prevpos = ab.center;
-                DebugDraw::AddAABB(ab, oGFX::Colors::RED);
-            }
-            }
+            ImGui::End();
 
             if (gs_RenderEngine->PrepareFrame() == true)
             {
@@ -705,8 +760,8 @@ void TestApplication::InitDefaultMeshes()
 {
     auto defaultPlaneMesh = CreateDefaultPlaneXZMesh();
     auto defaultCubeMesh = CreateDefaultCubeMesh();
-    std::unique_ptr<ModelData> plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
-    std::unique_ptr<ModelData> box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
+    std::unique_ptr<ModelFileResource> plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
+    std::unique_ptr<ModelFileResource> box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
 }
 
 void TestApplication::RunTest_DebugDraw()
@@ -741,6 +796,104 @@ void TestApplication::RunTest_DebugDraw()
 		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -3.0f, 1.0f, -5.0f }, 1.0f, gs_RenderEngine->camera.m_position, oGFX::Colors::GREEN);
 		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_RenderEngine->camera.m_position, oGFX::Colors::RED);
 	}
+
+    if (m_TestDebugDrawGrid)
+    {
+        DebugDraw::DrawYGrid(100.0f,10.0f);
+    }
+
+    if(character_diona)
+    {
+        AABB aabb;
+        aabb.halfExt = glm::vec3{ 0.02f };
+        Point3D prevpos;
+
+        auto& diona = entities[globalDionaID];
+        auto& gfxO = gs_GraphicsWorld.GetObjectInstance(diona.gfxID);
+        const auto& refSkeleton = gs_RenderEngine->GetSkeleton(diona.modelID);
+
+        auto* skeleton = diona.localSkeleton;
+        int i = 0;
+
+
+
+        ImGui::Begin("BONE LA");
+       auto DFS = [&](auto&& func, oGFX::BoneNode* pBoneNode, const glm::mat4& parentTransform) -> void
+       {
+
+           const glm::mat4 node_local_transform = pBoneNode->mModelSpaceLocal;
+           const glm::mat4 node_global_transform = parentTransform * node_local_transform;
+           pBoneNode->mModelSpaceGlobal = node_global_transform; // Update global 
+           if (pBoneNode->mbIsBoneNode && pBoneNode->m_BoneIndex >= 0)
+           {
+           ImGui::PushID(i++);
+           ImGui::Text(("BONENAME_" + std::to_string(i)).c_str());
+           auto& local= pBoneNode->mModelSpaceLocal;
+           glm::vec3 xlate;
+           glm::vec3 scale;
+           glm::vec3 rot;
+           ImGuizmo::DecomposeMatrixToComponents(
+               glm::value_ptr(local),
+               glm::value_ptr(xlate), 
+               glm::value_ptr(rot),
+               glm::value_ptr(scale));
+           ImGui::DragFloat3("trans", glm::value_ptr(xlate));
+           ImGui::DragFloat3("rot", glm::value_ptr(rot));
+           ImGui::DragFloat3("scale", glm::value_ptr(scale));
+           scale.y = scale.z = scale.x; //uniform
+
+           ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(xlate),
+               glm::value_ptr(rot),
+               glm::value_ptr(scale),
+               glm::value_ptr(local));
+           ImGui::PopID();
+
+
+           // If the node isn't a bone then we don't care.
+          
+               if (gfxO.bones.size())
+               {                   
+                    gfxO.bones[pBoneNode->m_BoneIndex] = pBoneNode->mModelSpaceGlobal * refSkeleton->inverseBindPose[pBoneNode->m_BoneIndex].transform;
+               }
+           }
+          
+          
+           ++i;
+           // Recursion through all children nodes, passing in the current global transform.
+           for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
+           {
+               func(func, pBoneNode->mChildren[i], node_global_transform);
+           }
+       };
+       if (skeleton)
+       {
+        DFS(DFS, skeleton->m_boneNodes, glm::mat4{ 1.0f });
+       }
+       ImGui::End();
+
+       if(skeleton)
+       {
+           auto DrawDFS = [&](auto&& func, oGFX::BoneNode* pBoneNode) -> void
+           {
+               if (pBoneNode->mChildren.empty())
+                   return;
+
+               aabb.center = pBoneNode->mModelSpaceGlobal * glm::vec4(0.0f,0.0f,0.0f,1.0f);
+               DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
+
+               // Recursion through all children nodes, passing in the current global transform.
+               for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
+               {
+                   oGFX::BoneNode* child = pBoneNode->mChildren[i];
+                   auto pos = child->mModelSpaceGlobal * glm::vec4(0.0f,0.0f,0.0f,1.0f);
+                   DebugDraw::AddLine(aabb.center, pos, oGFX::Colors::RED);
+                   func(func, child);
+               }
+           };
+           DrawDFS(DrawDFS, skeleton->m_boneNodes);
+       }
+    }
+    resetBones = false;
 
     // Debug Draw skeleton
     /*
@@ -844,6 +997,7 @@ void TestApplication::ToolUI_Settings()
 	ImGui::Checkbox("m_TestDebugDrawLine", &m_TestDebugDrawLine);
 	ImGui::Checkbox("m_TestDebugDrawBox", &m_TestDebugDrawBox);
 	ImGui::Checkbox("m_TestDebugDrawDisc", &m_TestDebugDrawDisc);
+	ImGui::Checkbox("m_TestDebugDrawGrid", &m_TestDebugDrawGrid);
 	ImGui::Checkbox("m_TestDebugDrawDecal (not done)", &m_TestDebugDrawDecal);
 	ImGui::Separator();
 	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Render Engine");
@@ -853,6 +1007,8 @@ void TestApplication::ToolUI_Settings()
 	ImGui::Text("g_Textures.size()                 : %u", gs_RenderEngine->g_Textures.size());
 	ImGui::Text("g_GlobalMeshBuffers.VtxBuffer.size() : %u", gs_RenderEngine->g_GlobalMeshBuffers.VtxBuffer.size());
 	ImGui::Text("g_GlobalMeshBuffers.IdxBuffer.size() : %u", gs_RenderEngine->g_GlobalMeshBuffers.IdxBuffer.size());
+	ImGui::Text("g_BoneMatrixBuffers.size() : %u", gs_RenderEngine->gpuBoneMatrixBuffer.size());
+	ImGui::Text("boneMatrices.size() : %u", gs_RenderEngine->boneMatrices.size());
 	ImGui::Separator();
 	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Shader Debug Tool");
 	ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);
@@ -972,6 +1128,8 @@ void TestApplication::Tool_HandleUI()
 {
 	if (ImGui::Begin("Scene Helper"))
 	{
+        
+        resetBones = ImGui::Button("ResetBones");
 		if (ImGui::BeginTabBar("SceneHelperTabBar"))
 		{
 			if (ImGui::BeginTabItem("Entity"))
@@ -1021,14 +1179,27 @@ void TestApplication::Tool_HandleUI()
 
 				if (ImGui::TreeNode("Entity"))
 				{
-					for (auto& entity : entities)
-					{
-						bool valuesModified = false;
-						ImGui::PushID(entity.entityID);
+                    for (auto& entity : entities)
+                    {
+                        bool valuesModified = false;
+                        ImGui::PushID(entity.entityID);
 
-						ImGui::BulletText("[ID:%u] ", entity.entityID);
-						ImGui::SameLine();
-						ImGui::Text(entity.name.c_str());
+                        ImGui::BulletText("[ID:%u] ", entity.entityID);
+                        ImGui::SameLine();
+                        ImGui::Text(entity.name.c_str());
+                        auto& msh = gs_RenderEngine->g_globalModels[entity.modelID];
+                        ImGui::Text("Submesh");
+                        ImGui::Dummy({1, 1});
+                        for (size_t i = 0; i < msh.m_subMeshes.size(); i++)
+                        {
+                            ImGui::SameLine();
+                            bool val = entity.submeshes[i];
+                            if (ImGui::Checkbox(std::to_string(i).c_str(), &val))
+                            {
+                                entity.submeshes[i] = val;
+                                gs_GraphicsWorld.GetObjectInstance(entity.gfxID).submesh = entity.submeshes;
+                            }
+                        }
 						valuesModified |= ImGui::DragFloat3("Position", glm::value_ptr(entity.position), 0.01f);
 						{
 							if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
@@ -1045,14 +1216,52 @@ void TestApplication::Tool_HandleUI()
 						valuesModified |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
 						valuesModified |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
 						valuesModified |= ImGui::DragFloat("Theta", &entity.rot);
-						// TODO: We should be using quaternions.........
-
+						// TODO: We should be using quaternions.........                        
 						if (valuesModified)
 						{
 							entity.SyncToGraphicsWorld();
 						}
 
 						ImGui::PopID();
+
+
+                        if (entity.flags & ObjectInstanceFlags::SKINNED)
+                        {
+                            if(ImGui::TreeNode("Bones"))
+                            {
+                                
+                                auto& gfx = gs_GraphicsWorld.GetObjectInstance(entity.gfxID);
+                                for (size_t i = 0; i < gfx.bones.size(); i++)
+                                {
+                                    //ImGui::PushID(entity.entityID+i + 1);
+                                    //ImGui::Text(("Bones_" + std::to_string(i)).c_str());
+                                    //{                                    
+                                    //    glm::vec3 scale;
+                                    //    glm::vec3 rot;
+                                    //    glm::vec3 xlate;
+                                    //    ImGuizmo::DecomposeMatrixToComponents(
+                                    //        glm::value_ptr(gfx.bones[i]),
+                                    //        glm::value_ptr(xlate), 
+                                    //        glm::value_ptr(rot),
+                                    //        glm::value_ptr(scale));
+                                    //    ImGui::DragFloat3("trans", glm::value_ptr(xlate));
+                                    //    ImGui::DragFloat3("rot", glm::value_ptr(rot));
+                                    //    ImGui::DragFloat3("scale", glm::value_ptr(scale));
+                                    //    scale.y = scale.z = scale.x; //uniform
+                                    //    
+                                    //    ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(xlate),
+                                    //        glm::value_ptr(rot),
+                                    //        glm::value_ptr(scale),
+                                    //        glm::value_ptr(gfx.bones[i]));
+                                    //    
+                                    //ImGui::PopID();
+                                    //}
+                                }
+                                ImGui::TreePop();
+                            }
+
+                        }
+
 					}
 
 					ImGui::TreePop();

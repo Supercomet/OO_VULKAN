@@ -5,7 +5,7 @@
 #include "Vulkanrenderer.h"
 
 bool BoolQueryUser(const char* str);
-void UpdateBV(ModelData* model, VulkanRenderer::EntityDetails& entity, int i = 0);
+void UpdateBV(ModelFileResource* model, VulkanRenderer::EntityDetails& entity, int i = 0);
 
 enum class AppWindowSizeTypes : int
 {

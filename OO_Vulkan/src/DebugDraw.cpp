@@ -1,3 +1,16 @@
+/************************************************************************************//*!
+\file           DebugDraw.cpp
+\project        Ouroboros
+\author         Jamie Kong, j.kong, 390004720 | code contribution (100%)
+\par            email: j.kong\@digipen.edu
+\date           Oct 02, 2022
+\brief              Defines a debug drawing class that allows external engine to interafce with debug drawing
+
+Copyright (C) 2022 DigiPen Institute of Technology.
+Reproduction or disclosure of this file or its contents
+without the prior written consent of DigiPen Institute of
+Technology is prohibited.
+*//*************************************************************************************/
 #pragma once
 #include "DebugDraw.h"
 #include "VulkanRenderer.h"
@@ -149,16 +162,16 @@ void DebugDraw::AddDisc(const glm::vec3& center, float radius, const glm::vec3& 
     constexpr float k_increment = 2.0f * 3.1415f / (float)k_segments;
     static const std::array<glm::vec2, 32> s_UnitCircleVertices =
     {
-        glm::vec2{ sinf(0 * k_increment), cosf(0 * k_increment)},
-        glm::vec2{ sinf(1 * k_increment), cosf(1 * k_increment)},
-        glm::vec2{ sinf(2 * k_increment), cosf(2 * k_increment)},
-        glm::vec2{ sinf(3 * k_increment), cosf(3 * k_increment)},
-        glm::vec2{ sinf(4 * k_increment), cosf(4 * k_increment)},
-        glm::vec2{ sinf(5 * k_increment), cosf(5 * k_increment)},
-        glm::vec2{ sinf(6 * k_increment), cosf(6 * k_increment)},
-        glm::vec2{ sinf(7 * k_increment), cosf(7 * k_increment)},
-        glm::vec2{ sinf(8 * k_increment), cosf(8 * k_increment)},
-        glm::vec2{ sinf(9 * k_increment), cosf(9 * k_increment)},
+        glm::vec2{ sinf( 0 * k_increment), cosf( 0 * k_increment)},
+        glm::vec2{ sinf( 1 * k_increment), cosf( 1 * k_increment)},
+        glm::vec2{ sinf( 2 * k_increment), cosf( 2 * k_increment)},
+        glm::vec2{ sinf( 3 * k_increment), cosf( 3 * k_increment)},
+        glm::vec2{ sinf( 4 * k_increment), cosf( 4 * k_increment)},
+        glm::vec2{ sinf( 5 * k_increment), cosf( 5 * k_increment)},
+        glm::vec2{ sinf( 6 * k_increment), cosf( 6 * k_increment)},
+        glm::vec2{ sinf( 7 * k_increment), cosf( 7 * k_increment)},
+        glm::vec2{ sinf( 8 * k_increment), cosf( 8 * k_increment)},
+        glm::vec2{ sinf( 9 * k_increment), cosf( 9 * k_increment)},
         glm::vec2{ sinf(10 * k_increment), cosf(10 * k_increment)},
         glm::vec2{ sinf(11 * k_increment), cosf(11 * k_increment)},
         glm::vec2{ sinf(12 * k_increment), cosf(12 * k_increment)},
@@ -186,14 +199,14 @@ void DebugDraw::AddDisc(const glm::vec3& center, float radius, const glm::vec3& 
     const glm::vec3 b0 = glm::normalize(basis0) * radius;
     const glm::vec3 b1 = glm::normalize(basis1) * radius;
 
-    for (int i = 0; i < k_segments - 1; ++i)
+    for (size_t i = 0; i < k_segments - 1; ++i)
     {
-        DebugDraw::AddLine(center + s_UnitCircleVertices[i    ].x * b0 + s_UnitCircleVertices[i    ].y * b1,
-                           center + s_UnitCircleVertices[i + 1].x * b0 + s_UnitCircleVertices[i + 1].y * b1,
+        DebugDraw::AddLine(center + s_UnitCircleVertices[i       ].x * b0 + s_UnitCircleVertices[i       ].y * b1,
+                           center + s_UnitCircleVertices[i + 1ull].x * b0 + s_UnitCircleVertices[i + 1ull].y * b1,
                            color);
     }
-    DebugDraw::AddLine(center + s_UnitCircleVertices[k_segments - 1].x * b0 + s_UnitCircleVertices[k_segments - 1].y * b1,
-		               center + s_UnitCircleVertices[0             ].x * b0 + s_UnitCircleVertices[0             ].y * b1,
+    DebugDraw::AddLine(center + s_UnitCircleVertices[k_segments - 1ull].x * b0 + s_UnitCircleVertices[k_segments - 1ull].y * b1,
+		               center + s_UnitCircleVertices[0                ].x * b0 + s_UnitCircleVertices[0                ].y * b1,
 		               color);
 }
 
@@ -214,4 +227,26 @@ void DebugDraw::AddSphereAs3Disc1HorizonDisc(const glm::vec3& center, float radi
     glm::vec3 normal;
     CalculateHorizonDisc(cameraPosition, center, radius, position, normal);
     DebugDraw::AddDisc(position, radius, normal, color);
+}
+
+void DebugDraw::DrawYGrid(float gridSize, float gapSize, const oGFX::Color & col)
+{
+    const float halfGrid = gridSize/2.0f;
+    const float numLines = gridSize / gapSize;
+
+    const Point3D bottomLeft{ -halfGrid,0.0f,-halfGrid };
+    const Point3D topRight{ halfGrid ,0.0f, halfGrid };
+
+    const auto iters = numLines;
+    for (size_t x = 0; x < iters; x++)
+    {
+        DebugDraw::AddLine(bottomLeft + Point3D{ gapSize * x,0.0f,0.0f }, topRight - Point3D{ gapSize * (iters - x),0.0f,0.0f }, oGFX::Colors::LIGHT_GREY);
+    }
+    for (size_t z = 0; z< iters; z++)
+    {
+        DebugDraw::AddLine(bottomLeft + Point3D{ 0.0f,0.0f, gapSize*z }, topRight - Point3D{ 0.0f,0.0f ,gapSize * (iters - z)}, oGFX::Colors::LIGHT_GREY);
+    }
+    DebugDraw::AddLine(bottomLeft + Point3D{ gridSize ,0.0f,0.0f }, topRight , oGFX::Colors::LIGHT_GREY);
+    DebugDraw::AddLine(bottomLeft + Point3D{ 0.0f,0.0f, gridSize }, topRight , oGFX::Colors::LIGHT_GREY);
+
 }

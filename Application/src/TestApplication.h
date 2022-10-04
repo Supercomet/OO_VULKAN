@@ -29,6 +29,7 @@ private:
     bool m_TestDebugDrawBox{ false };
     bool m_TestDebugDrawDisc{ false };
     bool m_TestDebugDrawDecal{ false };
+    bool m_TestDebugDrawGrid{ true };
 
     bool m_debugDrawLightPosition{ false };
 

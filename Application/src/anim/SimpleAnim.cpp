@@ -35,7 +35,7 @@ inline glm::mat4 assimp_to_glm(const aiMatrix4x4& value)
 void LoadFromAssimp_BoneAndWeights(aiMesh* paiMesh, SkinnedMesh* mesh, std::vector<BoneWeights>& vertexBuffer);
 void BuildMySkeletonRecursive(SkinnedMesh* mesh, aiNode* ainode, std::shared_ptr<BoneNode> node);
 
-bool LoadModelFromFile_Skeleton(const std::string& file, const LoadingConfig& config, ModelData* model, SkinnedMesh* skinnedMesh)
+bool LoadModelFromFile_Skeleton(const std::string& file, const LoadingConfig& config, ModelFileResource* model, SkinnedMesh* skinnedMesh)
 {
 	auto flags = 0;
 	flags |= aiProcess_Triangulate;

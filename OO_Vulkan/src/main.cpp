@@ -1,3 +1,16 @@
+/************************************************************************************//*!
+\file           main.cpp
+\project        Ouroboros
+\author         Jamie Kong, j.kong, 390004720 | code contribution (100%)
+\par            email: j.kong\@digipen.edu
+\date           Oct 02, 2022
+\brief              
+
+Copyright (C) 2022 DigiPen Institute of Technology.
+Reproduction or disclosure of this file or its contents
+without the prior written consent of DigiPen Institute of
+Technology is prohibited.
+*//*************************************************************************************/
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #if defined(_WIN32)
 #ifndef NOMINMAX
@@ -686,9 +699,11 @@ int main(int argc, char argv[])
             //    3,
             //    &dbi);
             //vkUpdateDescriptorSets(renderer->m_device.logicalDevice, 1, &write, 0, 0);
-            DescriptorBuilder::Begin(&VulkanRenderer::get()->DescLayoutCache, &VulkanRenderer::get()->DescAlloc)
-                .BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-                .Build(VulkanRenderer::get()->descriptorSet_gpuscene,LayoutDB::gpuscene);
+            DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[0])
+                .BindBuffer(3, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+                .BindBuffer(4, boneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+                .BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+                .Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
             renderer->gpuTransformBuffer.Updated();
         }
 
