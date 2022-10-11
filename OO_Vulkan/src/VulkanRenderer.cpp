@@ -44,6 +44,7 @@ Technology is prohibited.
 #include "renderpass/GBufferRenderPass.h"
 #include "renderpass/DebugRenderpass.h"
 #include "renderpass/ShadowPass.h"
+#define ENABLE_DECAL_IMPLEMENTATION
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	#include "renderpass/ForwardDecalRenderpass.h"
 #endif

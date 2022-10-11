@@ -73,11 +73,12 @@ struct DecalInstance
     glm::mat4x4 decalViewProjection{ 1.0f };
     glm::vec3 position{ 0.0f, 0.0f, 0.0f };
     glm::vec3 direction{ 0.0f, -1.0f, 0.0f };
-    float rotation{ 0.0f };
+    float rotationDegrees{ 0.0f };
     float projectorSize{ 1.0f };
     float testVar0{ 1.0f };
-    float testVar1{ 1.75f };
+    float farZ{ 1.75f };
     float nearZ{ 0.5f };
+    bool active{ false };
 };
 
 // TODO: Move all object storage here...

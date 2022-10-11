@@ -1027,6 +1027,7 @@ void TestApplication::ToolUI_Settings()
     {
 		ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Decals");
 		ImGui::PushID("TESTDECAL");
+        ImGui::Checkbox("active", &gs_GraphicsWorld.m_HardcodedDecalInstance.active);
 		ImGui::DragFloat3("Position", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position), 0.01f);
 		{
 			if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
@@ -1042,9 +1043,8 @@ void TestApplication::ToolUI_Settings()
 		ImGui::DragFloat("Projector Size", &gs_GraphicsWorld.m_HardcodedDecalInstance.projectorSize, 0.01f);
 		ImGui::DragFloat("nearZ", &gs_GraphicsWorld.m_HardcodedDecalInstance.nearZ, 0.01f);
 		ImGui::DragFloat("testVar0", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar0, 0.01f);
-		ImGui::DragFloat("testVar1", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar1, 0.01f);
 		ImGui::DragFloat3("direction", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.direction), 0.01f);
-		ImGui::DragFloat("rotation", &gs_GraphicsWorld.m_HardcodedDecalInstance.rotation, 0.5f);
+		ImGui::DragFloat("rotation", &gs_GraphicsWorld.m_HardcodedDecalInstance.rotationDegrees, 0.5f);
 		ImGui::PopID();
     }
 }
