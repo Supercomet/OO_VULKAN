@@ -37,7 +37,7 @@
 #include <cctype>
 #include <thread>
 #include <functional>
-#include <random>
+#include <random> 
 #include <numeric>
 #include <algorithm>
 #include <bitset>
@@ -45,6 +45,7 @@
 #include "ImGuizmo.h"
 #include "AppUtils.h"
 
+#include "Camera.h"
 #include "CameraController.h"
 #include "DebugDraw.h"
 
@@ -308,7 +309,7 @@ void TestApplication::Run()
     std::unique_ptr<ModelFileResource> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
     gs_ModelID_Box = model_box->indices.front();
 
-    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/Luna_Walk_Redone.fbx"));
+    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/MainChar_Rig.fbx"));
     //std::unique_ptr<ModelFileResource> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
     std::unique_ptr<ModelFileResource> character_qiqi{ nullptr};
 
@@ -635,8 +636,11 @@ void TestApplication::Run()
             {
                 uint32_t col = 0x00FFFF00;
                 gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&col);
+                
             }
+            ImGui::Image(gs_GraphicsWorld.imguiID[0], {800,600});
             ImGui::End();
+
 
             if (gs_RenderEngine->PrepareFrame() == true)
             {

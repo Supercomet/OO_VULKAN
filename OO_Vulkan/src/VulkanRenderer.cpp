@@ -49,6 +49,7 @@ Technology is prohibited.
 #endif
 
 #include "GraphicsBatch.h"
+#include "FramebufferBuilder.h"
 #include "DelayedDeleter.h"
 
 #include "IcoSphereCreator.h"
@@ -77,7 +78,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT && !(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
 	{
 		int x;
-		std::cerr << pCallbackData->pMessage << std::endl;
+		std::cerr << pCallbackData->pMessage << std::endl<< std::endl;
 		//assert(false); temp comment out
 		x= 5; // for breakpoint
 	}
@@ -529,6 +530,128 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 	}
 }
 
+void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D src, vkutils::Texture2D dst)
+{
+	bool supportsBlit = true;
+
+	VkFormatProperties formatProps;
+
+	// Check if the device supports blitting from optimal images (the swapchain images are in optimal format)
+	vkGetPhysicalDeviceFormatProperties(m_device.physicalDevice, src.format, &formatProps);
+	if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
+		//std::cerr << "Device does not support blitting from optimal tiled images, using copy instead of blit!" << std::endl;
+		supportsBlit = false;
+	}
+
+	// Check if the device supports blitting to linear images
+	vkGetPhysicalDeviceFormatProperties(m_device.physicalDevice, dst.format, &formatProps);
+	if (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+		//std::cerr << "Device does not support blitting to linear tiled images, using copy instead of blit!" << std::endl;
+		supportsBlit = false;
+	}
+
+	// Source for the copy is the last rendered swapchain image
+
+	// Transition destination image to transfer destination layout
+	oGFX::vkutils::tools::insertImageMemoryBarrier(
+		cmd,
+		dst.image,
+		0,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+	oGFX::vkutils::tools::insertImageMemoryBarrier(
+		cmd,
+		src.image,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_ACCESS_TRANSFER_READ_BIT,
+		VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, // DO PROPER RESOURCE TRACKING
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+	// If source and destination support blit we'll blit as this also does automatic format conversion (e.g. from BGR to RGB)
+	if (supportsBlit)
+	{
+		// Define the region to blit (we will blit the whole swapchain image)
+		VkOffset3D srcBlitSize;
+		srcBlitSize.x = src.width;
+		srcBlitSize.y = src.height;
+		srcBlitSize.z = 1;
+
+		VkOffset3D dstBlitSize;
+		dstBlitSize.x = dst.width;
+		dstBlitSize.y = dst.height;
+		dstBlitSize.z = 1;
+		VkImageBlit imageBlitRegion{};
+		imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageBlitRegion.srcSubresource.layerCount = 1;
+		imageBlitRegion.srcOffsets[1] = srcBlitSize;
+		imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageBlitRegion.dstSubresource.layerCount = 1;
+		imageBlitRegion.dstOffsets[1] = dstBlitSize;
+
+		// Issue the blit command
+		vkCmdBlitImage(
+			cmd,
+			src.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&imageBlitRegion,
+			VK_FILTER_NEAREST);
+	}
+	else
+	{
+		// Otherwise use image copy (requires us to manually flip components)
+		VkImageCopy imageCopyRegion{};
+		imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageCopyRegion.srcSubresource.layerCount = 1;
+		imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageCopyRegion.dstSubresource.layerCount = 1;
+		imageCopyRegion.extent.width = dst.width;
+		imageCopyRegion.extent.height = dst.height;
+		imageCopyRegion.extent.depth = 1;
+
+		// Issue the copy command
+		vkCmdCopyImage(
+			cmd,
+			src.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&imageCopyRegion);
+	}
+
+	// Transition destination image to general layout, which is the required layout for mapping the image memory later on
+	oGFX::vkutils::tools::insertImageMemoryBarrier(
+		cmd,
+		dst.image,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+	// Transition back the swap chain image after the blit is done
+	oGFX::vkutils::tools::insertImageMemoryBarrier(
+		cmd,
+		src.image,
+		VK_ACCESS_TRANSFER_READ_BIT,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+}
+
 void VulkanRenderer::CreateDefaultPSOLayouts()
 {
 	
@@ -642,6 +765,27 @@ void VulkanRenderer::SetWorld(GraphicsWorld* world)
 	// force a sync here
 	vkDeviceWaitIdle(m_device.logicalDevice);
 	currWorld = world;
+
+	if (currWorld)
+	{
+		auto& image = world->renderTargets[0];
+		if (image.image == VK_NULL_HANDLE)
+		{
+			image.forFrameBuffer(&m_device, m_swapchain.swapChainImageFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+				windowPtr->m_width,windowPtr->m_height);
+			image.name = "WorldColourTarget";			
+			world->imguiID[0] = CreateImguiBinding(samplerManager.GetDefaultSampler(), image.view, image.imageLayout);
+		}
+		auto& depth = world->depthTargets[0];
+		if (depth.image == VK_NULL_HANDLE)
+		{
+			depth.forFrameBuffer(&m_device, G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+				windowPtr->m_width,windowPtr->m_height);
+			depth.name = "WorldDepthTarget";			
+			//world->imguiID[0] = CreateImguiBinding(samplerManager.GetDefaultSampler(), depth.view, depth.imageLayout);
+		}
+	}
+
 }
 
 void VulkanRenderer::CreateLightingBuffers()
@@ -1509,6 +1653,8 @@ void VulkanRenderer::RenderFrame()
 			{
 				RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
 			}
+
+			BlitFramebuffer(commandBuffers[swapchainIdx], currWorld->renderTargets[0], m_swapchain.swapChainImages[swapchainIdx]);
 		}
     }
 }
@@ -1613,14 +1759,15 @@ bool VulkanRenderer::ResizeSwapchain()
 ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 {
 	// new model loader
-	
 	Assimp::Importer importer;
+	importer.SetPropertyBool(AI_CONFIG_IMPORT_REMOVE_EMPTY_BONES, false);
 	uint flags = 0;
 	flags |= aiProcess_Triangulate;
 	flags |= aiProcess_GenSmoothNormals;
 	flags |= aiProcess_ImproveCacheLocality;
 	flags |= aiProcess_CalcTangentSpace;
 	flags |= aiProcess_FindInstances; // this step is slow but it finds duplicate instances in FBX
+	flags |= aiProcess_FlipUVs;
 	//flags |= aiProcess_LimitBoneWeights; // limmits bones to 4
 	const aiScene *scene = importer.ReadFile(file,flags
 		//  aiProcess_Triangulate                // Make sure we get triangles rather than nvert polygons
@@ -1742,7 +1889,9 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 			LoadBoneInformation(*modelFile,*mdl.skeleton, *aimesh, mdl.skeleton->boneWeights, verticesCnt);
 		}
 		mdl.skeleton->m_boneNodes = new oGFX::BoneNode();
-		BuildSkeletonRecursive(*modelFile, *mdl.skeleton, scene->mRootNode, mdl.skeleton->m_boneNodes);
+		mdl.skeleton->m_boneNodes->mName = "RootNode";
+		BuildSkeletonRecursive(*modelFile, scene->mRootNode, mdl.skeleton->m_boneNodes);
+		
 		for (size_t i = 0; i < mdl.skeleton->boneWeights.size(); i++)
 		{
 			//auto& ref = mdl.skeleton->boneWeights[i];
@@ -1961,12 +2110,67 @@ void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
 					break;
 				}
 			}
+#define NORMALIZE_BONE_WEIGHTS
 
 			// Check if the number of weights is >4, just in case, since we dont support
 			if (!success)
 			{
+				
+				
+				float sum;
+#ifdef NORMALIZE_BONE_WEIGHTS
+				uint32_t minBone = boneIndex;
+				float minW = weight;
+				for (size_t i = 0; i < 4; i++)
+				{
+					if (vertex.boneWeights[i] < minW)
+					{
+						std::swap(vertex.boneWeights[i], minW);
+						std::swap(vertex.boneIdx[i], minBone);
+					}
+				}
+				sum = 0.0f;
+				for (size_t i = 0; i < 4; i++)
+				{
+					sum += vertex.boneWeights[i];
+				}
+				for (size_t i = 0; i < 4; i++)
+				{
+					vertex.boneWeights[i]*= (1.0f/sum);
+				}
+				sum = 0.0f;
+				for (auto&[key,val] :  fileData.strToBone)
+				{
+					if (val == minBone)
+					{
+						std::cout << "Discarded weight: [" << key<<",\t"<< minW << "]" << std::endl;
+						break;
+					}
+				}
+				for (size_t i = 0; i < 4; i++)
+				{
+					sum += vertex.boneWeights[i];
+				}
+				//std::cout << "Final sum : [" << sum<< "]"<<std::endl;
+
+#else
+				//dump bone names
+				std::cout << "Dumping bones...\n";
+				std::cout << "Bone affected : " << currBone->mName.C_Str() << ",\t" << weight<< std::endl;
+				for (size_t i = 0; i < 4; i++)
+				{
+					for (auto&[key,val] :  fileData.strToBone)
+					{
+						if (val == vertex.boneIdx[i])
+						{
+							std::cout << "Bone affected : " << key << ",\t"<<vertex.boneWeights[i] << std::endl;
+							break;
+						}
+					}
+				}				
 				// Vertex already has 4 bone weights assigned.
 				assert(false && "Bone weights >4 is not supported.");
+#endif // NORMALIZE_BONE_WEIGHTS
 			}
 		}
 
@@ -1974,20 +2178,38 @@ void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
 	vCnt += aimesh.mNumVertices;
 }
 
-void VulkanRenderer::BuildSkeletonRecursive(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiNode* ainode, oGFX::BoneNode* node)
+void VulkanRenderer::BuildSkeletonRecursive(ModelFileResource& fileData, aiNode* ainode, oGFX::BoneNode* parent, glm::mat4 parentXform,std::string prefix)
 {
 	std::string node_name{ ainode->mName.data };
-	glm::mat4x4 node_transform = aiMat4_to_glm(ainode->mTransformation);
 
+	// TODO: quat ?
+	glm::mat4x4 node_transform = parentXform * aiMat4_to_glm(ainode->mTransformation);
+	oGFX::BoneNode* targetParent = parent;
 	std::string cName = node_name.substr(node_name.find_last_of("_") + 1);
+	oGFX::BoneNode* node = parent;
+
+	//std::cout << "Loading " << node_name << std::endl;
 
 	// Save the bone index
 	bool bIsBoneNode = false;
 	auto iter = fileData.strToBone.find(node_name);
 	if (iter != fileData.strToBone.end())
 	{
+		std::cout <<prefix<< "Creating bone " << node_name << std::endl;
+		prefix += '\t';
 		bIsBoneNode = true;
+		node = new oGFX::BoneNode;
+		node->mbIsBoneNode = true;
+		node->mName = node_name;
+		node->mpParent = targetParent;
+		node->mModelSpaceLocal = node_transform;
+		node->mModelSpaceGlobal= node_transform;
 		node->m_BoneIndex = iter->second;
+		if (targetParent)
+		{
+			targetParent->mChildren.push_back(node);
+		}
+		targetParent = node;
 	}
 
 	// Leaving this here to check the scale
@@ -2006,19 +2228,18 @@ void VulkanRenderer::BuildSkeletonRecursive(ModelFileResource& fileData, oGFX::S
 		}
 	}
 
-	// Copy information from assimp to our nodes.
-	node->mName = node_name;
-	node->mbIsBoneNode = bIsBoneNode;
-	// TODO: quat?
-	node->mModelSpaceLocal = aiMat4_to_glm(ainode->mTransformation);
-	node->mChildren.reserve(ainode->mNumChildren);
-
 	// Recursion through all children
 	for (size_t i = 0; i < ainode->mNumChildren; i++)
 	{
-		node->mChildren.push_back(new oGFX::BoneNode()); // Create the child node.
-		BuildSkeletonRecursive(fileData,skeleton, ainode->mChildren[i], node->mChildren[i]);
-		node->mChildren[i]->mpParent = node; // Link the child to the parent node.
+		if (bIsBoneNode)
+		{
+			// we have collapsed the transforms start for new local transform
+			BuildSkeletonRecursive(fileData, ainode->mChildren[i], targetParent,glm::mat4(1.0f),prefix);
+		}
+		else
+		{
+			BuildSkeletonRecursive(fileData, ainode->mChildren[i], targetParent,node_transform,prefix);
+		}
 	}
 }
 

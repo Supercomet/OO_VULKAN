@@ -249,6 +249,17 @@ namespace oGFX
 				VkImageLayout newImageLayout,
 				VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
 				VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+			void insertImageMemoryBarrier(
+				VkCommandBuffer cmdbuffer,
+				VkImage image,
+				VkAccessFlags srcAccessMask,
+				VkAccessFlags dstAccessMask,
+				VkImageLayout oldImageLayout,
+				VkImageLayout newImageLayout,
+				VkPipelineStageFlags srcStageMask,
+				VkPipelineStageFlags dstStageMask,
+				VkImageSubresourceRange subresourceRange);
 		}
 
 		namespace inits
@@ -652,17 +663,7 @@ namespace oGFX
 			{
 				VkRenderPassBeginInfo renderPassBeginInfo{};
 				renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-				renderPassBeginInfo.renderArea.offset = { 0,0 };
 				return renderPassBeginInfo;
-			}
-
-			template<typename T_ARRAY>
-			inline VkRenderPassBeginInfo renderPassBeginInfo(const T_ARRAY& clearValues)
-			{
-				VkRenderPassBeginInfo info = renderPassBeginInfo();
-				info.pClearValues = clearValues.data();
-				info.clearValueCount = static_cast<uint32_t>(clearValues.size());
-				return info;
 			}
 
 			// Acts as a rerouter for cleaner code

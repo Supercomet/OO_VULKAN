@@ -18,7 +18,10 @@ Technology is prohibited.
 #include "../shaders/shared_structs.h"
 #include "BitContainer.h"
 #include "MeshModel.h"
+#include "Camera.h"
+#include "VulkanTexture.h"
 
+#include "imgui/imgui.h"
 #include <vector>
 #include <array>
 
@@ -76,8 +79,8 @@ struct DecalInstance
     float rotation{ 0.0f };
     float projectorSize{ 1.0f };
     float testVar0{ 1.0f };
-    float testVar1{ 1.75f };
-    float nearZ{ 0.5f };
+    float testVar1{ 1.0f };
+    float nearZ{ -1.0f };
 };
 
 // TODO: Move all object storage here...
@@ -105,6 +108,11 @@ public:
     void DestroyLightInstance(int32_t id);
     void ClearLightInstances();
 
+    uint32_t numCameras = 1;
+    std::array<Camera, 2>cameras;
+    std::array<vkutils::Texture2D, 2>renderTargets;
+    std::array<vkutils::Texture2D, 2>depthTargets;
+    std::array<ImTextureID, 2>imguiID;
 
     // TODO: Fix Me ! This is for testing
     DecalInstance m_HardcodedDecalInstance;

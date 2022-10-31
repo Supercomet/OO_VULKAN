@@ -530,6 +530,9 @@ namespace vkutils
 		}
 
 		usage = imageUsageFlags;
+
+		// for blitting
+		usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		
 		assert(aspectMask > 0);
 
@@ -554,7 +557,7 @@ namespace vkutils
 		imageinfo.arrayLayers = 1;
 		imageinfo.format = format;
 		imageinfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageinfo.usage = imageUsageFlags | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageinfo.usage = imageUsageFlags | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		imageinfo.samples = VK_SAMPLE_COUNT_1_BIT;
 		imageinfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		VK_CHK(vkCreateImage(device->logicalDevice, &imageinfo, nullptr, &image));
