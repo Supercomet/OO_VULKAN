@@ -92,6 +92,9 @@ void InitLights(int32_t* someLights);
 static uint32_t gs_ModelID_Box = 0;
 bool resetBones = false;
 
+bool s_freezeLight = true;
+bool s_boolCamera = 0;
+
 // this is to pretend we have an ECS system
 struct EntityInfo
 {
@@ -309,7 +312,7 @@ void TestApplication::Run()
     std::unique_ptr<ModelFileResource> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
     gs_ModelID_Box = model_box->indices.front();
 
-    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/MainChar_Rig.fbx"));
+    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/MainChar_Idle.fbx"));
     //std::unique_ptr<ModelFileResource> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
     std::unique_ptr<ModelFileResource> character_qiqi{ nullptr};
 
@@ -348,6 +351,8 @@ void TestApplication::Run()
         ed.modelID = model_plane->meshResource;
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
+
+        ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
     }
 
     {
@@ -565,7 +570,7 @@ void TestApplication::Run()
     // Setup Initial Camera
     //----------------------------------------------------------------------------------------------------
     {
-        auto& camera = gs_RenderEngine->camera;
+        auto& camera = gs_GraphicsWorld.cameras[0];
         gs_CameraController.SetCamera(&camera);
 
         camera.m_CameraMovementType = Camera::CameraMovementType::firstperson;
@@ -575,6 +580,8 @@ void TestApplication::Run()
         camera.SetRotationSpeed(0.5f);
         camera.SetPosition(glm::vec3(0.0f, 2.0f, 4.0f));
         camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
+
+        gs_GraphicsWorld.cameras[1] = gs_GraphicsWorld.cameras[0];
     }
 
     auto lastTime = std::chrono::high_resolution_clock::now();
@@ -584,6 +591,8 @@ void TestApplication::Run()
     // Set graphics world before rendering
     //----------------------------------------------------------------------------------------------------
     gs_RenderEngine->SetWorld(&gs_GraphicsWorld);
+    gs_GraphicsWorld.numCameras = 2;
+    gs_RenderEngine->InitWorld(&gs_GraphicsWorld);
 
     gs_GraphicsWorld.m_HardcodedDecalInstance.position = glm::vec3{ 0.0f,0.0f,0.0f };
 
@@ -616,7 +625,7 @@ void TestApplication::Run()
             // Decoupling camera logic.
             // Graphics should only know the final state before calculating the view & projection matrix.
             {
-                auto& camera = gs_RenderEngine->camera;
+                auto& camera = gs_GraphicsWorld.cameras[s_boolCamera];
 
                 gs_CameraController.SetCamera(&camera);
                 // If the aspect ratio changes, then the projection matrix must be updated correctly...
@@ -632,13 +641,20 @@ void TestApplication::Run()
             }          
 
             ImGui::Begin("Problems");
+            ImGui::Checkbox("EditCam", &s_boolCamera);
             if (ImGui::Button("Cause problems"))
             {
                 uint32_t col = 0x00FFFF00;
                 gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&col);
                 
             }
+            ImGui::End();
+
+            ImGui::Begin("Main");
             ImGui::Image(gs_GraphicsWorld.imguiID[0], {800,600});
+            ImGui::End();
+            ImGui::Begin("Editor");
+            ImGui::Image(gs_GraphicsWorld.imguiID[1], {800,600});
             ImGui::End();
 
 
@@ -646,7 +662,7 @@ void TestApplication::Run()
             {
                 PROFILE_SCOPED("gs_RenderEngine->PrepareFrame() == true");
 
-                //if (freezeLight == false)
+                if (s_freezeLight == false)
                 {
 					OmniLightInstance* lights[hardCodedLights];
                     for (size_t i = 0; i < hardCodedLights; i++)
@@ -730,6 +746,7 @@ void TestApplication::Run()
     // Application Shutdown
     //----------------------------------------------------------------------------------------------------
 
+    gs_RenderEngine->DestroyWorld(&gs_GraphicsWorld);
     gs_RenderEngine->DestroyImGUI();
     ImGui::DestroyContext(ImGui::GetCurrentContext());
 
@@ -797,8 +814,8 @@ void TestApplication::RunTest_DebugDraw()
 		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,0.0f,1.0f }, oGFX::Colors::BLUE);
 		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 1.0f,0.0f,0.0f }, oGFX::Colors::VIOLET);
 
-		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -3.0f, 1.0f, -5.0f }, 1.0f, gs_RenderEngine->camera.m_position, oGFX::Colors::GREEN);
-		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_RenderEngine->camera.m_position, oGFX::Colors::RED);
+		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -3.0f, 1.0f, -5.0f }, 1.0f, gs_GraphicsWorld.cameras.front().m_position, oGFX::Colors::GREEN);
+		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_GraphicsWorld.cameras.front().m_position, oGFX::Colors::RED);
 	}
 
     if (m_TestDebugDrawGrid)
@@ -946,8 +963,8 @@ void TestApplication::RunTest_DebugDraw()
 			{
 				const int screenWidth = (int)m_WindowSize.x;
 				const int screenHeight = (int)m_WindowSize.y;
-				const glm::mat4& viewMatrix = gs_RenderEngine->camera.matrices.view;
-				const glm::mat4& projectionMatrix = gs_RenderEngine->camera.matrices.perspective;
+				const glm::mat4& viewMatrix =gs_GraphicsWorld.cameras.front().matrices.view;
+				const glm::mat4& projectionMatrix = gs_GraphicsWorld.cameras.front().matrices.perspective;
 				// World Space to NDC Space
 				glm::vec4 ndcPosition = projectionMatrix * viewMatrix * glm::vec4{ worldPosition, 1.0f };
 				// Perspective Division
@@ -971,7 +988,7 @@ void TestApplication::RunTest_DebugDraw()
 
 void TestApplication::ToolUI_Camera()
 {
-	auto& camera = gs_RenderEngine->camera;
+	auto& camera = gs_GraphicsWorld.cameras.front();
 	ImGui::DragFloat3("Position", glm::value_ptr(camera.m_position), 0.01f);
 	ImGui::DragFloat3("Rotation", glm::value_ptr(camera.m_rotation), 0.01f);
 	ImGui::DragFloat3("Target", glm::value_ptr(camera.m_TargetPosition), 0.01f);
@@ -1077,8 +1094,8 @@ void TestApplication::Tool_HandleGizmoManipulation()
 		// WR: This is needed if imgui multi-viewport is used, as origin becomes the top left of monitor.
 		const auto mainViewportPosition = ImGui::GetMainViewport()->Pos;
 		ImGuizmo::SetRect(mainViewportPosition.x, mainViewportPosition.y, io.DisplaySize.x, io.DisplaySize.y);
-		glm::mat4x4 viewMatrix = gs_RenderEngine->camera.matrices.view;
-		glm::mat4x4 projMatrix = gs_RenderEngine->camera.matrices.perspective;
+		glm::mat4x4 viewMatrix = gs_GraphicsWorld.cameras.front().matrices.view;
+		glm::mat4x4 projMatrix = gs_GraphicsWorld.cameras.front().matrices.perspective;
 
 		static glm::mat4x4 localToWorld{ 1.0f };
 		float* matrixPtr = glm::value_ptr(localToWorld);
@@ -1293,8 +1310,15 @@ void TestApplication::Tool_HandleUI()
 
                 }
 
-                static bool freezeLight = true;
-				ImGui::Checkbox("Freeze Lights", &freezeLight);
+				ImGui::Checkbox("Freeze Lights", &s_freezeLight);
+                if (ImGui::Button("Off lights"))
+                {
+                    for (size_t i = 0; i < 6; i++)
+                    {
+                        auto& l = gs_GraphicsWorld.GetLightInstance(i);
+                        l.radius.x = 0.0f;
+                    }
+                }
 				ImGui::Checkbox("Debug Draw Position", &m_debugDrawLightPosition);
 				ImGui::Separator();
 				
@@ -1358,28 +1382,28 @@ void InitLights(int32_t* someLights)
             lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
         }
         // put here so we can edit the light values
-        lights[0]->position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
-        lights[0]->color = glm::vec4(1.5f);
-        lights[0]->radius.x = 15.0f;
-        // Red   
-        lights[1]->position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
-        lights[1]->color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
-        lights[1]->radius.x = 15.0f;
-        // Blue  
-        lights[2]->position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
-        lights[2]->color = glm::vec4(0.0f, 0.0f, 2.5f, 0.0f);
-        lights[2]->radius.x = 5.0f;
-        // Yellow
-        lights[3]->position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
-        lights[3]->color = glm::vec4(1.0f, 1.0f, 0.0f, 0.0f);
-        lights[3]->radius.x = 2.0f;
-        // Green 
-        lights[4]->position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
-        lights[4]->color = glm::vec4(0.0f, 1.0f, 0.2f, 0.0f);
-        lights[4]->radius.x = 5.0f;
-        // Yellow
-        lights[5]->position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
-        lights[5]->color = glm::vec4(1.0f, 0.7f, 0.3f, 0.0f);
-        lights[5]->radius.x = 25.0f;
+        //lights[0]->position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+        //lights[0]->color = glm::vec4(1.5f);
+        //lights[0]->radius.x = 15.0f;
+        //// Red   
+        //lights[1]->position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
+        //lights[1]->color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+        //lights[1]->radius.x = 15.0f;
+        //// Blue  
+        //lights[2]->position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
+        //lights[2]->color = glm::vec4(0.0f, 0.0f, 2.5f, 0.0f);
+        //lights[2]->radius.x = 5.0f;
+        //// Yellow
+        //lights[3]->position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
+        //lights[3]->color = glm::vec4(1.0f, 1.0f, 0.0f, 0.0f);
+        //lights[3]->radius.x = 2.0f;
+        //// Green 
+        //lights[4]->position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
+        //lights[4]->color = glm::vec4(0.0f, 1.0f, 0.2f, 0.0f);
+        //lights[4]->radius.x = 5.0f;
+        //// Yellow
+        //lights[5]->position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
+        //lights[5]->color = glm::vec4(1.0f, 0.7f, 0.3f, 0.0f);
+        //lights[5]->radius.x = 25.0f;
     }
 }

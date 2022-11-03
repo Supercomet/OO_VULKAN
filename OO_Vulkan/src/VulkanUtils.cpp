@@ -686,7 +686,7 @@ namespace oGFX
 			bufferCopyRegion.bufferOffset = 0;
 			mipInformation.push_back(bufferCopyRegion);
 
-			this->format = VK_FORMAT_R8G8B8A8_SRGB;
+			this->format = VK_FORMAT_R8G8B8A8_UNORM;
 			return imgData.size() ? true : false;
 		}
 
@@ -862,6 +862,15 @@ void oGFX::vkutils::tools::insertImageMemoryBarrier(VkCommandBuffer cmdbuffer, V
 		0, nullptr,
 		1, &imageMemoryBarrier);
 
+}
+
+size_t oGFX::vkutils::tools::UniformBufferPaddedSize(size_t size, size_t bufferMinAlignment)
+{
+	size_t result;
+	if (bufferMinAlignment > 0) {
+		result = (size + bufferMinAlignment - 1) & ~(bufferMinAlignment - 1);
+	}
+	return result;
 }
 
 std::string oGFX::vkutils::tools::VkResultString(VkResult value)

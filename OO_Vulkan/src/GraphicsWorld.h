@@ -117,11 +117,13 @@ public:
     // TODO: Fix Me ! This is for testing
     DecalInstance m_HardcodedDecalInstance;
 
+    friend class VulkanRenderer;
 private:
     int32_t m_entityCount{};
     BitContainer<ObjectInstance> m_ObjectInstances;
     int32_t m_lightCount{};
     BitContainer<OmniLightInstance> m_OmniLightInstances;
+    bool initialized = false;
     //etc
 
     // + Spatial Acceleration Structures

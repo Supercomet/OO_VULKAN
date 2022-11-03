@@ -77,8 +77,8 @@ void DeferredCompositionRenderpass::Draw()
 
 	VkFramebuffer currentFB;
 	FramebufferBuilder::Begin(&vr.fbCache)
-		.BindImage(&vr.currWorld->renderTargets[0])
-		.BindImage(&vr.currWorld->depthTargets[0])
+		.BindImage(&vr.currWorld->renderTargets[vr.renderIteration])
+		.BindImage(&vr.currWorld->depthTargets[vr.renderIteration])
 		.Build(currentFB,vr.renderPass_default);
 	renderPassBeginInfo.framebuffer = currentFB;
 
@@ -100,13 +100,16 @@ void DeferredCompositionRenderpass::Draw()
 	range.offset = 0;
 	range.size = sizeof(LightPC);
 	cmd.SetPushConstant(PSOLayoutDB::deferredLightingCompositionPSOLayout,range,&pc);
+
+	uint32_t dynamicOffset = vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), vr.m_device.properties.limits.minUniformBufferOffsetAlignment);
 	cmd.BindDescriptorSet(PSOLayoutDB::deferredLightingCompositionPSOLayout, 0,
 		std::array<VkDescriptorSet, 3>
 		{
 			vr.descriptorSet_DeferredComposition,
 			vr.descriptorSets_uniform[swapchainIdx],
 			vr.descriptorSet_lights,
-		}
+		},
+		1,&dynamicOffset
 	);
 	cmd.BindPSO(pso_DeferredLightingComposition);
 	cmd.DrawFullScreenQuad();
