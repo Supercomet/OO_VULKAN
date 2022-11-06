@@ -592,6 +592,7 @@ void TestApplication::Run()
     //----------------------------------------------------------------------------------------------------
     gs_RenderEngine->SetWorld(&gs_GraphicsWorld);
     gs_GraphicsWorld.numCameras = 2;
+    gs_GraphicsWorld.cameras[0].SetFarClip(1000.0f);
     gs_RenderEngine->InitWorld(&gs_GraphicsWorld);
 
     gs_GraphicsWorld.m_HardcodedDecalInstance.position = glm::vec3{ 0.0f,0.0f,0.0f };
@@ -651,10 +652,16 @@ void TestApplication::Run()
             ImGui::End();
 
             ImGui::Begin("Main");
-            ImGui::Image(gs_GraphicsWorld.imguiID[0], {800,600});
+            if (gs_GraphicsWorld.imguiID[0])
+            {
+                ImGui::Image(gs_GraphicsWorld.imguiID[0], {800,600});
+            }
             ImGui::End();
             ImGui::Begin("Editor");
-            ImGui::Image(gs_GraphicsWorld.imguiID[1], {800,600});
+            if (gs_GraphicsWorld.imguiID[1])
+            {
+                ImGui::Image(gs_GraphicsWorld.imguiID[1], {800,600});
+            }
             ImGui::End();
 
 

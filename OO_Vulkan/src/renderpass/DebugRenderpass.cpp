@@ -71,8 +71,8 @@ void DebugDrawRenderpass::Draw()
 
 	VkFramebuffer fb;
 	FramebufferBuilder::Begin(&vr.fbCache)
-		.BindImage(&vr.currWorld->renderTargets[vr.renderIteration])
-		.BindImage(&vr.currWorld->depthTargets[vr.renderIteration])
+		.BindImage(&vr.renderTargets[vr.renderTargetInUseID].texture)
+		.BindImage(&depthAtt)
 		.Build(fb,debugRenderpass);
 
 	renderPassBeginInfo.framebuffer = fb;
@@ -87,7 +87,8 @@ void DebugDrawRenderpass::Draw()
 	{
 		cmd.SetDefaultViewportAndScissor();
 
-		uint32_t dynamicOffset = vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), vr.m_device.properties.limits.minUniformBufferOffsetAlignment);
+		uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
+			vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
 		cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
 			std::array<VkDescriptorSet, 3>
 			{

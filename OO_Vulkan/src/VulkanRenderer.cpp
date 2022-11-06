@@ -113,6 +113,18 @@ VulkanRenderer::~VulkanRenderer()
 
 	DelayedDeleter::get()->Shutdown();
 
+	for (size_t i = 0; i < renderTargets.size(); i++)
+	{
+		if (renderTargets[i].texture.image)
+		{
+			renderTargets[i].texture.destroy();
+		}
+		if (renderTargets[i].depth.image)
+		{
+			renderTargets[i].depth.destroy();
+		}
+	}
+
 	RenderPassDatabase::Shutdown();
 
 #ifdef _DEBUG
@@ -474,7 +486,6 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 		uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
 	}
 
-	numCameras = 2;
 	VkDeviceSize vpBufferSize = uboDynamicAlignment * numCameras;
 
 	descriptorSets_uniform.resize(m_swapchain.swapChainImages.size());
@@ -533,7 +544,7 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 	}
 }
 
-void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D src, vkutils::Texture2D dst)
+void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& src,VkImageLayout srcFinal, vkutils::Texture2D& dst,VkImageLayout dstFinal)
 {
 	bool supportsBlit = true;
 
@@ -561,7 +572,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D src
 		dst.image,
 		0,
 		VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_IMAGE_LAYOUT_UNDEFINED,
+		dst.currentLayout,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -572,7 +583,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D src
 		src.image,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_ACCESS_TRANSFER_READ_BIT,
-		VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, // DO PROPER RESOURCE TRACKING
+		src.currentLayout, // DO PROPER RESOURCE TRACKING
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -636,11 +647,10 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D src
 		VK_ACCESS_TRANSFER_WRITE_BIT,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		dstFinal,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-
 	// Transition back the swap chain image after the blit is done
 	oGFX::vkutils::tools::insertImageMemoryBarrier(
 		cmd,
@@ -648,11 +658,13 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D src
 		VK_ACCESS_TRANSFER_READ_BIT,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		VK_IMAGE_LAYOUT_GENERAL,
+		srcFinal,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
+	dst.currentLayout = dstFinal;
+	src.currentLayout = srcFinal;
 }
 
 void VulkanRenderer::CreateDefaultPSOLayouts()
@@ -782,24 +794,50 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 
 	for (uint32_t x = 0; x < world->numCameras; ++x)
 	{
-		auto& image = world->renderTargets[x];
-		if (image.image == VK_NULL_HANDLE)
+		auto& wrdID = world->targetIDs[x];
+		if (wrdID == -1)
 		{
-			image.name = "GW_"+std::to_string(x)+":COL";
-			image.forFrameBuffer(&m_device, m_swapchain.swapChainImageFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-				windowPtr->m_width,windowPtr->m_height);
-			image.name = "WorldColourTarget";			
-			world->imguiID[x] = CreateImguiBinding(samplerManager.GetDefaultSampler(), image.view, image.imageLayout);
-		}
-		auto& depth = world->depthTargets[x];
-		if (depth.image == VK_NULL_HANDLE)
-		{
-			depth.name = "GW_"+std::to_string(x)+":DEPTH";
-			depth.forFrameBuffer(&m_device, G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-				windowPtr->m_width,windowPtr->m_height);
-			depth.name = "WorldDepthTarget";			
-			//world->imguiID[0] = CreateImguiBinding(samplerManager.GetDefaultSampler(), depth.view, depth.imageLayout);
-		}
+			// allocate render target
+			bool found = false;
+			for (size_t i = 0; i < renderTargets.size(); i++)
+			{
+				
+				if (renderTargets[i].inUse == false)
+				{
+					numAllocatedCameras++;
+					renderTargets[i].inUse = true;
+					wrdID = static_cast<int32_t>(i);
+					found = true;
+					break;
+				}
+			}
+			assert(found && "Could not find enough rendertargets");
+			// initialization
+			auto& image = renderTargets[wrdID].texture;
+			if (image.image == VK_NULL_HANDLE)
+			{
+				image.name = "GW_"+std::to_string(wrdID)+":COL";
+				image.forFrameBuffer(&m_device, m_swapchain.swapChainImageFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+					m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height);
+				image.name = "WorldColourTarget";			
+			}
+			if (image.image&&renderTargets[wrdID].imguiTex == 0)
+			{
+				renderTargets[wrdID].imguiTex = CreateImguiBinding(samplerManager.GetDefaultSampler(), image.view, image.imageLayout);				
+			}
+			auto& depth =  renderTargets[wrdID].depth;
+			if (depth.image == VK_NULL_HANDLE)
+			{
+				depth.name = "GW_"+std::to_string(wrdID)+":DEPTH";
+				depth.forFrameBuffer(&m_device, G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+					m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height);
+				depth.name = "WorldDepthTarget";
+				//world->imguiID[0] = CreateImguiBinding(samplerManager.GetDefaultSampler(), depth.view, depth.imageLayout);
+			}
+
+			//assignment 
+			world->imguiID [x] = renderTargets[wrdID].imguiTex;
+		}		
 	}	
 	world->initialized = true;
 }
@@ -807,19 +845,13 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 void VulkanRenderer::DestroyWorld(GraphicsWorld* world)
 {
 	assert(world && "dont pass nullptr");
-	vkDeviceWaitIdle(m_device.logicalDevice);
+	assert(world->initialized && "World should exist dont destroy non-init world");
 	for (uint32_t x = 0; x < world->numCameras; ++x)
 	{
-		auto& image = world->renderTargets[x];
-		if (image.image)
-		{
-			image.destroy();
-		}
-		auto& depth = world->depthTargets[x];
-		if (depth.image)
-		{
-			depth.destroy();	
-		}
+		auto& wrdID = world->targetIDs[x];
+		renderTargets[wrdID].inUse = false;
+		wrdID = -1;
+		numAllocatedCameras--;
 	}	
 	world->initialized = false;
 }
@@ -922,7 +954,6 @@ void VulkanRenderer::CreateUniformBuffers()
 {	
 	// ViewProjection buffer size
 	//auto dynamicAlignment = sizeof(glm::mat4);
-	numCameras = 2;
 	uboDynamicAlignment = oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO),m_device.properties.limits.minUniformBufferOffsetAlignment);
 	
 	VkDeviceSize vpBufferSize = numCameras*uboDynamicAlignment;
@@ -982,6 +1013,7 @@ void VulkanRenderer::CreateDescriptorPool()
 	std::vector<VkDescriptorPoolSize> samplerpoolSizes = { samplerPoolSize };
 
 	VkDescriptorPoolCreateInfo samplerPoolCreateInfo = oGFX::vkutils::inits::descriptorPoolCreateInfo(samplerpoolSizes,1); // or MAX_OBJECTS?
+	samplerPoolCreateInfo.flags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 	result = vkCreateDescriptorPool(m_device.logicalDevice, &samplerPoolCreateInfo, nullptr, &samplerDescriptorPool);
 	VK_NAME(m_device.logicalDevice, "samplerDescriptorPool", samplerDescriptorPool);
 	if (result != VK_SUCCESS)
@@ -1587,15 +1619,12 @@ bool VulkanRenderer::PrepareFrame()
 		resizeSwapchain = false;
 	}
 
-	DelayedDeleter::get()->Update();
-
 	
 	return true;
 }
 
 void VulkanRenderer::BeginDraw()
 {
-
 	PROFILE_SCOPED();
 
 	//wait for given fence to signal from last draw before continuing
@@ -1612,34 +1641,42 @@ void VulkanRenderer::BeginDraw()
         VkResult res = vkAcquireNextImageKHR(m_device.logicalDevice, m_swapchain.swapchain, std::numeric_limits<uint64_t>::max(),
             imageAvailable[currentFrame], VK_NULL_HANDLE, &swapchainIdx);
 
+
+		DelayedDeleter::get()->Update();
 		descAllocs[swapchainIdx].ResetPools();
 
-		for (size_t x = 0; x < currWorld->numCameras; x++)
+		if (currWorld)
 		{
-			auto& image = currWorld->renderTargets[x];
-			VkDescriptorImageInfo desc_image[1] = {};
-			desc_image[0].sampler = image.sampler;
-			desc_image[0].imageView = image.view;
-			desc_image[0].imageLayout = image.imageLayout;
-			VkWriteDescriptorSet write_desc[1] = {};
-			write_desc[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			write_desc[0].dstSet = (VkDescriptorSet)currWorld->imguiID[x];
-			write_desc[0].descriptorCount = 1;
-			if (image.imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+			for (size_t x = 0; x < currWorld->numCameras; x++)
 			{
-				write_desc[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-			}
-			else
-			{
-				write_desc[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			}
-			write_desc[0].pImageInfo = desc_image;
-			vkUpdateDescriptorSets(m_device.logicalDevice, 1, write_desc, 0, NULL);
-		}		
-
-
-		batches = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
-		batches.GenerateBatches();
+				const auto targetID = currWorld->targetIDs[x];
+				auto& image = renderTargets[targetID].texture;
+				VkDescriptorImageInfo desc_image[1] = {};
+				desc_image[0].sampler = image.sampler;
+				desc_image[0].imageView = image.view;
+				desc_image[0].imageLayout = image.imageLayout;
+				VkWriteDescriptorSet write_desc[1] = {};
+				write_desc[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				write_desc[0].dstSet = (VkDescriptorSet)currWorld->imguiID[x];
+				write_desc[0].descriptorCount = 1;
+				if (image.imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+				{
+					write_desc[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+				}
+				else
+				{
+					write_desc[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				}
+				if (currWorld->imguiID[x])
+				{
+					write_desc[0].pImageInfo = desc_image;
+					vkUpdateDescriptorSets(m_device.logicalDevice, 1, write_desc, 0, NULL);
+				}
+								
+			}		
+			batches = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
+			batches.GenerateBatches();
+		}
 
 		UpdateUniformBuffers();
 		UploadInstanceData();	
@@ -1705,6 +1742,7 @@ void VulkanRenderer::RenderFrame()
 			renderIteration = 0;
 			for (size_t i = 0; i < currWorld->numCameras; i++)
 			{		
+				renderTargetInUseID = currWorld->targetIDs[i];
 				VkMemoryBarrier memoryBarrier{};
 				memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 				memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
@@ -1735,10 +1773,37 @@ void VulkanRenderer::RenderFrame()
 
 				++renderIteration;
 			}
-			// TODO: Very bad pls fix
-			BlitFramebuffer(commandBuffers[swapchainIdx], currWorld->renderTargets[1], m_swapchain.swapChainImages[swapchainIdx]);
+			auto& dst = m_swapchain.swapChainImages[swapchainIdx];
+			dst.currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			if (currWorld->numCameras > 1)
+			{
+				// TODO: Very bad pls fix
+				auto thisID = currWorld->targetIDs[1];
+				auto& texture = renderTargets[thisID].texture;
+				texture.currentLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;				
+
+				BlitFramebuffer(commandBuffers[swapchainIdx],
+					texture, VK_IMAGE_LAYOUT_GENERAL,
+					dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+				auto nextID = currWorld->targetIDs[0];
+				auto& nextTexture = renderTargets[nextID].texture;
+				nextTexture.currentLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+				BlitFramebuffer(commandBuffers[swapchainIdx], 
+					nextTexture, VK_IMAGE_LAYOUT_GENERAL,
+					dst,VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL);
+			}
+			else
+			{
+				auto thisID = currWorld->targetIDs[0];
+				auto& texture = renderTargets[thisID].texture;
+				texture.currentLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;	
+				BlitFramebuffer(commandBuffers[swapchainIdx],
+					texture,VK_IMAGE_LAYOUT_GENERAL,
+					dst,VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL);
+			}
 			// only blit main framebuffer
-			BlitFramebuffer(commandBuffers[swapchainIdx], currWorld->renderTargets[0], m_swapchain.swapChainImages[swapchainIdx]);
+			
 		}
     }
 }
@@ -2515,35 +2580,38 @@ void VulkanRenderer::UpdateUniformBuffers()
 	float width = static_cast<float>(windowPtr->m_width);
 	float ar = width / height;
 
-	CB::FrameContextUBO frameContextUBO[2];
-	for (size_t i = 0; i < currWorld->numCameras; i++)
+	CB::FrameContextUBO frameContextUBO[2]{};
+	if (currWorld)
 	{
-		auto& camera = currWorld->cameras[i];
+		for (size_t i = 0; i < currWorld->numCameras; i++)
+		{
+			auto& camera = currWorld->cameras[i];
+			
+			frameContextUBO[i].projection = camera.matrices.perspective;
+			frameContextUBO[i].view = camera.matrices.view;
+			frameContextUBO[i].viewProjection = frameContextUBO[i].projection * frameContextUBO[i].view;
+			frameContextUBO[i].inverseViewProjection = glm::inverse(frameContextUBO[i].viewProjection);
+			frameContextUBO[i].cameraPosition = glm::vec4(camera.m_position,1.0);
+			frameContextUBO[i].renderTimer.x = renderClock;
+			frameContextUBO[i].renderTimer.y = std::sin(renderClock * glm::pi<float>());
+			frameContextUBO[i].renderTimer.z = std::cos(renderClock * glm::pi<float>());
+			frameContextUBO[i].renderTimer.w = 0.0f; // unused
 		
-		frameContextUBO[i].projection = camera.matrices.perspective;
-		frameContextUBO[i].view = camera.matrices.view;
-		frameContextUBO[i].viewProjection = frameContextUBO[i].projection * frameContextUBO[i].view;
-		frameContextUBO[i].inverseViewProjection = glm::inverse(frameContextUBO[i].viewProjection);
-		frameContextUBO[i].cameraPosition = glm::vec4(camera.m_position,1.0);
-		frameContextUBO[i].renderTimer.x = renderClock;
-		frameContextUBO[i].renderTimer.y = std::sin(renderClock * glm::pi<float>());
-		frameContextUBO[i].renderTimer.z = std::cos(renderClock * glm::pi<float>());
-		frameContextUBO[i].renderTimer.w = 0.0f; // unused
-
-		// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
-		// Bind this to every single shader possible.
-		// Remove this upon shipping the final product.
-		{			
-			frameContextUBO[i].vector4_values0 = m_ShaderDebugValues.vector4_values0;
-			frameContextUBO[i].vector4_values1 = m_ShaderDebugValues.vector4_values1;
-			frameContextUBO[i].vector4_values2 = m_ShaderDebugValues.vector4_values2;
-			frameContextUBO[i].vector4_values3 = m_ShaderDebugValues.vector4_values3;
-			frameContextUBO[i].vector4_values4 = m_ShaderDebugValues.vector4_values4;
-			frameContextUBO[i].vector4_values5 = m_ShaderDebugValues.vector4_values5;
-			frameContextUBO[i].vector4_values6 = m_ShaderDebugValues.vector4_values6;
-			frameContextUBO[i].vector4_values7 = m_ShaderDebugValues.vector4_values7;
-			frameContextUBO[i].vector4_values8 = m_ShaderDebugValues.vector4_values8;
-			frameContextUBO[i].vector4_values9 = m_ShaderDebugValues.vector4_values9;
+			// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
+			// Bind this to every single shader possible.
+			// Remove this upon shipping the final product.
+			{			
+				frameContextUBO[i].vector4_values0 = m_ShaderDebugValues.vector4_values0;
+				frameContextUBO[i].vector4_values1 = m_ShaderDebugValues.vector4_values1;
+				frameContextUBO[i].vector4_values2 = m_ShaderDebugValues.vector4_values2;
+				frameContextUBO[i].vector4_values3 = m_ShaderDebugValues.vector4_values3;
+				frameContextUBO[i].vector4_values4 = m_ShaderDebugValues.vector4_values4;
+				frameContextUBO[i].vector4_values5 = m_ShaderDebugValues.vector4_values5;
+				frameContextUBO[i].vector4_values6 = m_ShaderDebugValues.vector4_values6;
+				frameContextUBO[i].vector4_values7 = m_ShaderDebugValues.vector4_values7;
+				frameContextUBO[i].vector4_values8 = m_ShaderDebugValues.vector4_values8;
+				frameContextUBO[i].vector4_values9 = m_ShaderDebugValues.vector4_values9;
+			}
 		}
 	}
 

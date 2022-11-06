@@ -110,9 +110,8 @@ public:
 
     uint32_t numCameras = 1;
     std::array<Camera, 2>cameras;
-    std::array<vkutils::Texture2D, 2>renderTargets;
-    std::array<vkutils::Texture2D, 2>depthTargets;
-    std::array<ImTextureID, 2>imguiID;
+    std::array<int32_t, 2>targetIDs{ -1,-1 };
+    std::array<ImTextureID, 2>imguiID{};
 
     // TODO: Fix Me ! This is for testing
     DecalInstance m_HardcodedDecalInstance;
