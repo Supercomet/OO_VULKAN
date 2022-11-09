@@ -281,15 +281,15 @@ void TestApplication::Run()
     // Setup Initial Textures
     //----------------------------------------------------------------------------------------------------
 
-    uint32_t whiteTexture = 0xFFFFFFFF; // ABGR
-    uint32_t blackTexture = 0xFF000000; // ABGR
-    uint32_t normalTexture = 0xFFFF8080; // ABGR
-    uint32_t pinkTexture = 0xFFA040A0; // ABGR
+    //uint32_t whiteTexture = 0xFFFFFFFF; // ABGR
+    //uint32_t blackTexture = 0xFF000000; // ABGR
+    //uint32_t normalTexture = 0xFFFF8080; // ABGR
+    //uint32_t pinkTexture = 0xFFA040A0; // ABGR
 
-    gs_WhiteTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&whiteTexture));
-    gs_BlackTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
-    gs_NormalTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
-    gs_PinkTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
+    gs_WhiteTexture = gs_RenderEngine->whiteTextureID;
+    gs_BlackTexture = gs_RenderEngine->blackTextureID;
+    gs_NormalTexture = gs_RenderEngine->normalTextureID;
+    gs_PinkTexture = gs_RenderEngine->pinkTextureID;
 
     const BindlessTextureIndex diffuseTexture0 = gs_RenderEngine->CreateTexture("Textures/7/d.png");
     const BindlessTextureIndex diffuseTexture1 = gs_RenderEngine->CreateTexture("Textures/8/d.png");
@@ -349,6 +349,7 @@ void TestApplication::Run()
         ed.name = "Ground_Plane";
         ed.entityID = FastRandomMagic();
         ed.modelID = model_plane->meshResource;
+        ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
 
@@ -454,10 +455,10 @@ void TestApplication::Run()
         ed.modelID = character_diona->meshResource;
         ed.name = "diona";
         ed.entityID = FastRandomMagic();
-        ed.position = { 0.0f,0.0f,0.0f };
-        ed.scale = { 1.0f,1.0f,1.0f };
+        ed.position = { 3.0f,0.0f,0.0f };
+        ed.scale = { 0.1f,0.1f,0.1f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        ed.flags = ObjectInstanceFlags::SKINNED;
+        ed.flags = ObjectInstanceFlags((uint32_t)ed.flags|(uint32_t)ObjectInstanceFlags::SKINNED);
      
     }
     std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
@@ -643,6 +644,7 @@ void TestApplication::Run()
 
             ImGui::Begin("Problems");
             ImGui::Checkbox("EditCam", &s_boolCamera);
+            ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
             if (ImGui::Button("Cause problems"))
             {
                 uint32_t col = 0x00FFFF00;
@@ -651,18 +653,24 @@ void TestApplication::Run()
             }
             ImGui::End();
 
-            ImGui::Begin("Main");
-            if (gs_GraphicsWorld.imguiID[0])
+            if (ImGui::Begin("Main"))
             {
-                ImGui::Image(gs_GraphicsWorld.imguiID[0], {800,600});
+                if (gs_GraphicsWorld.imguiID[0])
+                {
+                    ImGui::Image(gs_GraphicsWorld.imguiID[0], {800,600});
+                }
             }
-            ImGui::End();
-            ImGui::Begin("Editor");
-            if (gs_GraphicsWorld.imguiID[1])
+                ImGui::End();
+           
+            if (ImGui::Begin("Editor"))
             {
-                ImGui::Image(gs_GraphicsWorld.imguiID[1], {800,600});
+                if (gs_GraphicsWorld.imguiID[1])
+                {
+                    ImGui::Image(gs_GraphicsWorld.imguiID[1], {800,600});
+                }
             }
-            ImGui::End();
+                ImGui::End();
+            
 
 
             if (gs_RenderEngine->PrepareFrame() == true)
@@ -1041,7 +1049,10 @@ void TestApplication::ToolUI_Settings()
     {
 		ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Shader Debug Tool");
 		ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);
+        auto& targetCam = gs_GraphicsWorld.cameras[0];
+        gs_RenderEngine->m_ShaderDebugValues.vector4_values0 = glm::vec4(targetCam.GetFront(), 1.0f);
 		ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);
+        *reinterpret_cast<glm::mat4*>(&gs_RenderEngine->m_ShaderDebugValues.vector4_values1) = targetCam.matrices.view;
 		ImGui::DragFloat4("vector4_values2", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values2), 0.01f);
 		ImGui::DragFloat4("vector4_values3", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values3), 0.01f);
 		ImGui::DragFloat4("vector4_values4", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values4), 0.01f);
@@ -1389,28 +1400,28 @@ void InitLights(int32_t* someLights)
             lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
         }
         // put here so we can edit the light values
-        //lights[0]->position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
-        //lights[0]->color = glm::vec4(1.5f);
-        //lights[0]->radius.x = 15.0f;
-        //// Red   
-        //lights[1]->position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
-        //lights[1]->color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
-        //lights[1]->radius.x = 15.0f;
-        //// Blue  
-        //lights[2]->position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
-        //lights[2]->color = glm::vec4(0.0f, 0.0f, 2.5f, 0.0f);
-        //lights[2]->radius.x = 5.0f;
-        //// Yellow
-        //lights[3]->position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
-        //lights[3]->color = glm::vec4(1.0f, 1.0f, 0.0f, 0.0f);
-        //lights[3]->radius.x = 2.0f;
-        //// Green 
-        //lights[4]->position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
-        //lights[4]->color = glm::vec4(0.0f, 1.0f, 0.2f, 0.0f);
-        //lights[4]->radius.x = 5.0f;
-        //// Yellow
-        //lights[5]->position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
-        //lights[5]->color = glm::vec4(1.0f, 0.7f, 0.3f, 0.0f);
-        //lights[5]->radius.x = 25.0f;
+        lights[0]->position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+        lights[0]->color = glm::vec4(1.5f);
+        lights[0]->radius.x = 15.0f;
+        // Red   
+        lights[1]->position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
+        lights[1]->color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+        lights[1]->radius.x = 15.0f;
+        // Blue  
+        lights[2]->position = glm::vec4(2.0f, -1.0f, 0.0f, 0.0f);
+        lights[2]->color = glm::vec4(0.0f, 0.0f, 2.5f, 0.0f);
+        lights[2]->radius.x = 5.0f;
+        // Yellow
+        lights[3]->position = glm::vec4(0.0f, -0.9f, 0.5f, 0.0f);
+        lights[3]->color = glm::vec4(1.0f, 1.0f, 0.0f, 0.0f);
+        lights[3]->radius.x = 2.0f;
+        // Green 
+        lights[4]->position = glm::vec4(0.0f, -0.5f, 0.0f, 0.0f);
+        lights[4]->color = glm::vec4(0.0f, 1.0f, 0.2f, 0.0f);
+        lights[4]->radius.x = 5.0f;
+        // Yellow
+        lights[5]->position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
+        lights[5]->color = glm::vec4(1.0f, 0.7f, 0.3f, 0.0f);
+        lights[5]->radius.x = 25.0f;
     }
 }

@@ -57,6 +57,7 @@
     <ClCompile Include="src\optick\optick_server.cpp" />
     <ClCompile Include="src\renderpass\ShadowPass.cpp" />
     <ClCompile Include="src\loader\stbi_impl.cpp" />
+    <ClCompile Include="src\renderpass\SSAORenderPass.cpp" />
     <ClCompile Include="src\rhi\CommandList.cpp" />
     <ClCompile Include="src\Tests_Assignment1.cpp" />
     <ClCompile Include="src\VulkanInstance.cpp" />
@@ -115,6 +116,7 @@
     <ClInclude Include="src\optick\optick_server.h" />
     <ClInclude Include="src\Profiling.h" />
     <ClInclude Include="src\renderpass\ShadowPass.h" />
+    <ClInclude Include="src\renderpass\SSAORenderPass.h" />
     <ClInclude Include="src\rhi\CommandList.h" />
     <ClInclude Include="src\Tree.h" />
     <ClInclude Include="src\Node.h" />
