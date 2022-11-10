@@ -301,6 +301,11 @@ void TestApplication::Run()
     const BindlessTextureIndex roughnessTexture2 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
     const BindlessTextureIndex roughnessTexture3 = gs_RenderEngine->CreateTexture("Textures/23/r.png");
 
+    const BindlessTextureIndex d0 = gs_RenderEngine->CreateTexture("Textures/13/d.png");
+    const BindlessTextureIndex m0 = gs_RenderEngine->CreateTexture("Textures/13/m.png");
+    const BindlessTextureIndex n0 = gs_RenderEngine->CreateTexture("Textures/13/n.png");
+    const BindlessTextureIndex r0 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
+
     const BindlessTextureIndex normalTexture0 = gs_RenderEngine->CreateTexture("Textures/7/n.png");
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Models
@@ -308,8 +313,52 @@ void TestApplication::Run()
 
     auto defaultPlaneMesh = CreateDefaultPlaneXZMesh();
     auto defaultCubeMesh = CreateDefaultCubeMesh();
+    auto defaultSphere = icosahedron::make_icosphere(3);
+
     std::unique_ptr<ModelFileResource> model_plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
     std::unique_ptr<ModelFileResource> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
+    std::unique_ptr<ModelFileResource> model_sphere{nullptr};
+    {
+        std::vector<uint32_t> indices;
+        indices.reserve(defaultSphere.second.size() * 3);
+        for (size_t i = 0; i < defaultSphere.second.size(); i++)
+        {
+            auto Tv = defaultSphere.second[i].vertex;
+            for (size_t x = 0; x < 3; x++)
+            {
+                indices.push_back(Tv[x]);
+            }
+        }
+        std::vector<oGFX::Vertex> vertices;
+        vertices.resize(defaultSphere.first.size());
+        for (size_t i = 0; i < defaultSphere.first.size(); i++)
+        {
+            vertices[i].pos = defaultSphere.first[i];
+            vertices[i].norm = vec3{ 0.0f };
+        }
+        for (size_t i = 0; i < indices.size(); i+=3)
+        {
+            std::swap(indices[i], indices[i + 1]);
+            auto idx0 = indices[i];
+            auto idx1 = indices[i+1];
+            auto idx2 = indices[i+2];
+
+            vec3 norm = glm::cross(vertices[idx1].pos - vertices[idx0].pos,vertices[idx2].pos - vertices[idx0].pos);
+            vertices[idx0].norm += norm;
+            vertices[idx1].norm += norm;
+            vertices[idx2].norm += norm;
+            vertices[idx0].tangent = vertices[idx2].pos - vertices[idx1].pos;
+            vertices[idx1].tangent = vertices[idx2].pos - vertices[idx1].pos;
+            vertices[idx2].tangent = vertices[idx2].pos - vertices[idx1].pos;
+            
+        }
+        for (auto& v : vertices)
+        {
+            v.norm = glm::normalize(v.norm);
+            v.tangent = glm::normalize(v.tangent);
+        }        
+        model_sphere.reset(gs_RenderEngine->LoadMeshFromBuffers(vertices, indices, nullptr));
+    }
     gs_ModelID_Box = model_box->indices.front();
 
     character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/MainChar_Idle.fbx"));
@@ -353,7 +402,10 @@ void TestApplication::Run()
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
 
-        ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
+        ed.bindlessGlobalTextureIndex_Albedo    = d0;
+        ed.bindlessGlobalTextureIndex_Normal    = n0;
+        ed.bindlessGlobalTextureIndex_Metallic  = m0;
+        ed.bindlessGlobalTextureIndex_Roughness = r0;
     }
 
     {
@@ -387,7 +439,7 @@ void TestApplication::Run()
         auto& ed = entities.emplace_back(EntityInfo{});
         ed.name = "Box";
         ed.entityID = FastRandomMagic();
-        ed.modelID = model_box->meshResource;
+        ed.modelID = model_sphere->meshResource;
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
 
@@ -459,7 +511,7 @@ void TestApplication::Run()
         ed.scale = { 0.1f,0.1f,0.1f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
         ed.flags = ObjectInstanceFlags((uint32_t)ed.flags|(uint32_t)ObjectInstanceFlags::SKINNED);
-     
+        
     }
     std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
     entities[globalDionaID].localSkeleton = scopedPtr.get();
@@ -1047,12 +1099,26 @@ void TestApplication::ToolUI_Settings()
 	ImGui::Text("boneMatrices.size() : %u", gs_RenderEngine->boneMatrices.size());
 	ImGui::Separator();
     {
+        ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Scene Settings");
+        auto& ssaoSettings = gs_RenderEngine->currWorld->ssaoSettings;
+        ImGui::Text("SSAO");
+        ImGui::PushID(std::atoi("SSAO"));
+        ImGui::DragFloat("Radius", &ssaoSettings.radius,0.01f);
+        ImGui::DragFloat("Bias", &ssaoSettings.bias,0.01f);
+        ImGui::PopID();
+        auto& lightSettings = gs_RenderEngine->currWorld->lightSettings;   
+        ImGui::Text("Lighting");
+        ImGui::PushID(std::atoi("Lighting"));
+        ImGui::DragFloat("Ambient", &lightSettings.ambient,0.01f);
+        ImGui::DragFloat("Max bias", &lightSettings.maxBias,0.01f);
+        ImGui::DragFloat("Bias multiplier", &lightSettings.biasMultiplier,0.01f);
+        ImGui::PopID();
+    }
+    ImGui::Separator();
+    {
 		ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Shader Debug Tool");
-		ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);
-        auto& targetCam = gs_GraphicsWorld.cameras[0];
-        gs_RenderEngine->m_ShaderDebugValues.vector4_values0 = glm::vec4(targetCam.GetFront(), 1.0f);
-		ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);
-        *reinterpret_cast<glm::mat4*>(&gs_RenderEngine->m_ShaderDebugValues.vector4_values1) = targetCam.matrices.view;
+		ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);      
+		ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);        
 		ImGui::DragFloat4("vector4_values2", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values2), 0.01f);
 		ImGui::DragFloat4("vector4_values3", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values3), 0.01f);
 		ImGui::DragFloat4("vector4_values4", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values4), 0.01f);
@@ -1403,6 +1469,8 @@ void InitLights(int32_t* someLights)
         lights[0]->position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
         lights[0]->color = glm::vec4(1.5f);
         lights[0]->radius.x = 15.0f;
+
+        return;
         // Red   
         lights[1]->position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
         lights[1]->color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
