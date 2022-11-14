@@ -123,7 +123,7 @@ struct EntityInfo
     int32_t gfxID; // gfxworld id
     std::bitset<MAX_SUBMESH>submeshes;
 
-    ObjectInstanceFlags flags;
+    ObjectInstanceFlags flags{static_cast<ObjectInstanceFlags>(RENDER_ENABLED | SHADOW_RECEIVER | SHADOW_CASTER)};
 
     oGFX::CPUSkeletonInstance* localSkeleton;
 
@@ -705,6 +705,32 @@ void TestApplication::Run()
             }
             ImGui::End();
 
+            static bool ManyCamera{ true };
+            if (ImGui::Checkbox("Many camera", &ManyCamera))
+            {
+                if (ManyCamera)
+                {
+                    gs_GraphicsWorld.numCameras = 2;
+                }
+                else
+                {
+                    gs_GraphicsWorld.numCameras = 1;
+                }
+            }
+
+            //if (Input::GetKeyTriggered(KEY_P))
+            {
+                int32_t w = (int)m_WindowSize.x;
+                int32_t h = (int)m_WindowSize.y;
+
+                auto mpos = Input::GetMousePos();
+                mpos /= glm::vec2{ w,h };
+                std::cout << "Mouse pos [" << mpos.x << "," << mpos.y << "]\n";
+
+                int32_t col = gs_RenderEngine->GetPixelValue(gs_GraphicsWorld.targetIDs[0], mpos);
+                std::cout << "colour val : " << std::hex << col <<std::dec << " | " << col << std::endl;
+            }
+
             if (ImGui::Begin("Main"))
             {
                 if (gs_GraphicsWorld.imguiID[0])
@@ -1105,6 +1131,9 @@ void TestApplication::ToolUI_Settings()
         ImGui::PushID(std::atoi("SSAO"));
         ImGui::DragFloat("Radius", &ssaoSettings.radius,0.01f);
         ImGui::DragFloat("Bias", &ssaoSettings.bias,0.01f);
+        uint32_t mmin =1;
+        uint32_t mmax = 64;
+        ImGui::DragScalar("Samples", ImGuiDataType_U32, &ssaoSettings.samples, 0.1f , &mmin, &mmax);
         ImGui::PopID();
         auto& lightSettings = gs_RenderEngine->currWorld->lightSettings;   
         ImGui::Text("Lighting");
@@ -1327,6 +1356,21 @@ void TestApplication::Tool_HandleUI()
 						valuesModified |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
 						valuesModified |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
 						valuesModified |= ImGui::DragFloat("Theta", &entity.rot);
+
+                        bool renderMe = entity.flags & RENDER_ENABLED;
+                        if (ImGui::Checkbox("Renderable", &renderMe))
+                        {
+                            valuesModified |= true;
+                            if (renderMe)
+                            {
+                                entity.flags = entity.flags | RENDER_ENABLED;
+                            }
+                            else
+                            {
+                                auto inv = (~RENDER_ENABLED);
+                                entity.flags = entity.flags &inv;
+                            }
+                        }
 						// TODO: We should be using quaternions.........                        
 						if (valuesModified)
 						{
@@ -1397,7 +1441,7 @@ void TestApplication::Tool_HandleUI()
 				ImGui::Checkbox("Freeze Lights", &s_freezeLight);
                 if (ImGui::Button("Off lights"))
                 {
-                    for (size_t i = 0; i < 6; i++)
+                    for (size_t i = 0; i < hardCodedLights; i++)
                     {
                         auto& l = gs_GraphicsWorld.GetLightInstance(i);
                         l.radius.x = 0.0f;
@@ -1425,6 +1469,13 @@ void TestApplication::Tool_HandleUI()
                         }
                         ImGui::DragFloat3("Color", glm::value_ptr(light.color),0.1f,0.0f,1.0f);
                         ImGui::DragFloat("Radius", &light.radius.x,0.1f,0.0f);
+                        {
+                            bool sh = GetCastsShadows(light);
+                            if (ImGui::Checkbox("Shadows", &sh))
+                            {
+                                SetCastsShadows(light, sh);
+                            }
+                        }
                         ImGui::PopID();
                     }				
 				}
