@@ -601,7 +601,9 @@ void TestApplication::Run()
 
     for (auto& mdl: gs_RenderEngine->g_globalModels)
     {
-        std::cout << "model:" << mdl.name << ", " << mdl.baseVertex <<", " << mdl.baseVertex+mdl.vertexCount <<  " diff-"<< mdl.baseVertex+mdl.vertexCount- mdl.baseVertex  << std::endl;
+        std::cout << "model:" << mdl.name << ", " 
+            << mdl.baseVertex <<", " << mdl.baseVertex+mdl.vertexCount 
+            <<  " diff-"<< mdl.baseVertex + mdl.vertexCount- mdl.baseVertex  << std::endl;
         for (auto& sm : mdl.m_subMeshes)
         {
             std::cout << "\tsm:" << sm.name << ", " << sm.baseVertex <<", " << sm.baseVertex+sm.vertexCount << std::endl;
