@@ -22,6 +22,9 @@ Technology is prohibited.
 #include "ShadowPass.h"
 
 #include <array>
+#include <sstream>
+#include <iostream>
+#include <iomanip>
 
 DECLARE_RENDERPASS(DeferredCompositionRenderpass);
 
@@ -109,18 +112,48 @@ void DeferredCompositionRenderpass::Draw()
 
 	LightPC pc{};
 	pc.useSSAO = vr.useSSAO ? 1 : 0;
+	
+	pc.numLights = static_cast<uint32_t>(vr.currWorld->GetAllOmniLightInstances().size());
+
+	std::stringstream ss;
+	if (vr.m_numShadowcastLights)
+	{
+		float gridSize = ceilf(sqrtf(vr.m_numShadowcastLights));
+		pc.shadowMapGridDim = glm::vec2{gridSize,gridSize};
+
+		for (auto& light: vr.currWorld->GetAllOmniLightInstances())
+		{		
+			if (light.info.x < 1) continue;
+
+			int grid = light.info.y;
+			vec2 gridIncrement = vec2(1.0f) / gridSize;
+			vec2 localUV = gridIncrement* vec2{ 1.0f,1.0f };
+
+			int y = grid/gridSize;
+			int x = grid - (gridSize*y);
+
+			vec2 offset = gridIncrement * vec2(x,y);
+
+			vec2 result = offset+localUV;
+			ss << "UV["<<grid<<"] "<<std::setw(3) <<offset.x <<"," << offset.y<< " to " << result.x <<"," << result.y<< std::endl;
+			vec2 result2 = result;
+		}
+		
+	}
+
+	if (vr.m_ShaderDebugValues.vector4_values0.x > 0)
+	{
+		std::cout << ss.str() << std::endl;
+		//__debugbreak();
+	}
+
 	pc.ambient = vr.currWorld->lightSettings.ambient;
 	pc.maxBias = vr.currWorld->lightSettings.maxBias;
 	pc.mulBias = vr.currWorld->lightSettings.biasMultiplier;
 	
-	pc.numLights = static_cast<uint32_t>(vr.currWorld->GetAllOmniLightInstances().size());
 	VkPushConstantRange range;
 	range.offset = 0;
 	range.size = sizeof(LightPC);
-	if (pc.numLights)
-	{
-		auto& light = *vr.currWorld->GetAllOmniLightInstances().begin();
-	}
 	cmd.SetPushConstant(PSOLayoutDB::deferredLightingCompositionPSOLayout,range,&pc);
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 

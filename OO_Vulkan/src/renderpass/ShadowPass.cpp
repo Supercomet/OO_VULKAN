@@ -22,6 +22,10 @@ Technology is prohibited.
 #include "VulkanTexture.h"
 #include "FramebufferCache.h"
 #include "FramebufferBuilder.h"
+#include <sstream>
+#include <iostream>
+#include <iomanip>
+#include "DebugDraw.h"
 
 #include "../shaders/shared_structs.h"
 #include "MathCommon.h"
@@ -98,9 +102,6 @@ void ShadowPass::Draw()
 	rhi::CommandList cmd{ cmdlist };
 	cmd.BindPSO(pso_ShadowDefault);
 
-	cmd.SetViewport(VkViewport{ 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f });
-	cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpWidth , (uint32_t)vpHeight } });
-
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 		vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
 	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
@@ -112,39 +113,82 @@ void ShadowPass::Draw()
 		},
 		1, &dynamicOffset
 	);
-	
+
 	// Bind merged mesh vertex & index buffers, instancing buffers.
 	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
 	cmd.BindVertexBuffer(BIND_POINT_WEIGHTS_BUFFER_ID, 1, vr.skinningVertexBuffer.getBufferPtr());
 	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, &vr.instanceBuffer.buffer);
 	cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-	if (vr.currWorld->GetAllOmniLightInstances().size())
+	
+	float smGridDim = ceilf(sqrtf(vr.m_numShadowcastLights));
+	
+	glm::vec2 increment{ vpWidth, vpHeight};
+	if (smGridDim)
 	{
-		auto& light = *vr.currWorld->GetAllOmniLightInstances().begin();
-		constexpr glm::vec3 up{ 0.0f,1.0f,0.0f };
-		constexpr glm::vec3 right{ 1.0f,0.0f,0.0f };
-		constexpr glm::vec3 forward{ 0.0f,0.0f,1.0f };
-		
-		light.view[0] = glm::lookAt(glm::vec3(light.position), -up ,	glm::vec3{ 0.0f, 0.0f,-1.0f });
-		light.view[1] = glm::lookAt(glm::vec3(light.position), up,		glm::vec3{ 0.0f, 0.0f, 1.0f });
-		light.view[2] = glm::lookAt(glm::vec3(light.position), -right,	glm::vec3{ 0.0f,-1.0f, 0.0f });
-		light.view[3] = glm::lookAt(glm::vec3(light.position), right,	glm::vec3{ 0.0f,-1.0f, 0.0f });
-		light.view[4] = glm::lookAt(glm::vec3(light.position), -forward,glm::vec3{ 0.0f,-1.0f, 0.0f });
-		light.view[5] = glm::lookAt(glm::vec3(light.position), forward, glm::vec3{ 0.0f,-1.0f, 0.0f });
-		
-		light.projection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, -100.0f, 100.0f);
-		light.projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
+		increment /= smGridDim;
+	}
+	std::stringstream ss;
+	if (vr.currWorld->GetAllOmniLightInstances().size() && vr.m_numShadowcastLights > 0)
+	{
+		int i = 0;
+		int viewIter = 0;
+		for (auto& light: vr.currWorld->GetAllOmniLightInstances())
+		{
+			++viewIter;
+			// not a shadow casting light skip
+			if (light.info.x < 1) continue;
 
-		glm::mat4 mm(1.0f);
-		vkCmdPushConstants(cmdlist,
-			PSOLayoutDB::defaultPSOLayout,
-			VK_SHADER_STAGE_ALL,	    // stage to push constants to
-			0,							// offset of push constants to update
-			sizeof(glm::mat4),			// size of data being pushed
-			glm::value_ptr(mm));		// actualy data being pushed (could be an array));
+			// set custom viewport for each view
 
-		cmd.DrawIndexedIndirect(vr.shadowCasterCommandsBuffer.m_buffer, 0, vr.shadowCasterCommandsBuffer.size());
+			int ly = light.info.y / smGridDim;
+			int lx = light.info.y - (ly * smGridDim);
+			vec2 customVP = increment * glm::vec2{ lx,smGridDim - ly };
+			light.info.z = customVP.x;
+			light.info.w = customVP.y;
+			ss << "Viewport["<<i<<"] " <<std::setw(3) <<customVP.x/vpWidth <<"," << customVP.y/vpHeight << "  " << (customVP.x+increment.x)/vpWidth << "," << (customVP.y+increment.y)/vpHeight <<std::endl;
+
+			//cmd.SetViewport(VkViewport{ 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f });
+			//cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpWidth , (uint32_t)vpHeight } });
+			
+			// calculate viewport for each light
+			cmd.SetViewport(VkViewport{ customVP.x, customVP.y,increment.x, -vpHeight +(vpHeight-increment.y), 0.0f, 1.0f });
+			// TODO: Set exact region for scissor
+			cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpHeight, (uint32_t)vpWidth } });
+
+			constexpr glm::vec3 up{ 0.0f,1.0f,0.0f };
+			constexpr glm::vec3 right{ 1.0f,0.0f,0.0f };
+			constexpr glm::vec3 forward{ 0.0f,0.0f,-1.0f };
+
+			std::array<glm::vec3, 6> dirs{
+				glm::vec3(light.position) + -up ,
+				glm::vec3(light.position) + up,
+				glm::vec3(light.position) + -right,
+				glm::vec3(light.position) + right,
+				glm::vec3(light.position) + -forward,
+				glm::vec3(light.position) + forward,
+			};
+			DebugDraw::AddArrow(light.position, dirs[viewIter%6], oGFX::Colors::RED);
+			
+
+			glm::mat4 mm(1.0f);
+			mm = light.projection * light.view[viewIter % 6];
+			vkCmdPushConstants(cmdlist,
+				PSOLayoutDB::defaultPSOLayout,
+				VK_SHADER_STAGE_ALL,	    // stage to push constants to
+				0,							// offset of push constants to update
+				sizeof(glm::mat4),			// size of data being pushed
+				glm::value_ptr(mm));		// actualy data being pushed (could be an array));
+
+			cmd.DrawIndexedIndirect(vr.shadowCasterCommandsBuffer.m_buffer, 0, vr.shadowCasterCommandsBuffer.size());
+
+			++i;
+		}		
+	}
+	if (vr.m_ShaderDebugValues.vector4_values0.x > 0)
+	{
+		std::cout << ss.str() << std::endl;
+		//__debugbreak();
 	}
 
 	vkCmdEndRenderPass(cmdlist);
@@ -169,6 +213,7 @@ void ShadowPass::SetupRenderpass()
 	const uint32_t width = shadowmapSize.width;
 	const uint32_t height = shadowmapSize.height;
 
+	shadow_depth.name = "SHADOW_ATLAS";
 	shadow_depth.forFrameBuffer(&m_device, vr.G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height, false);
 	
 	vkutils::Texture2D tex;
