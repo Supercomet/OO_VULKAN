@@ -22,9 +22,7 @@ Technology is prohibited.
 #include "ShadowPass.h"
 
 #include <array>
-#include <sstream>
 #include <iostream>
-#include <iomanip>
 
 DECLARE_RENDERPASS(DeferredCompositionRenderpass);
 

@@ -22,9 +22,7 @@ Technology is prohibited.
 #include "VulkanTexture.h"
 #include "FramebufferCache.h"
 #include "FramebufferBuilder.h"
-#include <sstream>
 #include <iostream>
-#include <iomanip>
 #include "DebugDraw.h"
 
 #include "../shaders/shared_structs.h"
@@ -128,7 +126,7 @@ void ShadowPass::Draw()
 	{
 		increment /= smGridDim;
 	}
-	std::stringstream ss;
+
 	if (vr.currWorld->GetAllOmniLightInstances().size() && vr.m_numShadowcastLights > 0)
 	{
 		int i = 0;
@@ -146,8 +144,7 @@ void ShadowPass::Draw()
 			vec2 customVP = increment * glm::vec2{ lx,smGridDim - ly };
 			light.info.z = customVP.x;
 			light.info.w = customVP.y;
-			ss << "Viewport["<<i<<"] " <<std::setw(3) <<customVP.x/vpWidth <<"," << customVP.y/vpHeight << "  " << (customVP.x+increment.x)/vpWidth << "," << (customVP.y+increment.y)/vpHeight <<std::endl;
-
+			
 			//cmd.SetViewport(VkViewport{ 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f });
 			//cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpWidth , (uint32_t)vpHeight } });
 			
@@ -184,11 +181,6 @@ void ShadowPass::Draw()
 
 			++i;
 		}		
-	}
-	if (vr.m_ShaderDebugValues.vector4_values0.x > 0)
-	{
-		std::cout << ss.str() << std::endl;
-		//__debugbreak();
 	}
 
 	vkCmdEndRenderPass(cmdlist);

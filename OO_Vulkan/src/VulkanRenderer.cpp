@@ -1129,6 +1129,7 @@ void VulkanRenderer::UploadLights()
 	std::vector<SpotLightInstance> spotLights;
 	auto& lights = currWorld->GetAllOmniLightInstances();
 	spotLights.reserve(lights.size());
+	int viewIter{};
 	for (auto& e : lights)
 	{
 		SpotLightInstance si;
@@ -1137,6 +1138,7 @@ void VulkanRenderer::UploadLights()
 			++m_numShadowcastLights;
 			e.info.y = gridIdx;
 			++gridIdx;
+			
 		}
 
 		si.info = e.info;
@@ -1144,7 +1146,7 @@ void VulkanRenderer::UploadLights()
 		si.color = e.color;
 		si.radius = e.radius;
 		si.projection = e.projection;
-		si.view = e.view[gridIdx%6];
+		si.view = e.view[++viewIter%6];
 
 		spotLights.emplace_back(si);
 	}
