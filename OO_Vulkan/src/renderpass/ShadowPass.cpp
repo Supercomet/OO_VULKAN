@@ -120,7 +120,7 @@ void ShadowPass::Draw()
 	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, &vr.instanceBuffer.buffer);
 	cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-	
+	// calculate shadowmap grid dim
 	float smGridDim = ceilf(sqrtf(vr.m_numShadowcastLights));
 	
 	glm::vec2 increment{ vpWidth, vpHeight};
@@ -139,8 +139,8 @@ void ShadowPass::Draw()
 			// not a shadow casting light skip
 			if (light.info.x < 1) continue;
 
-			// set custom viewport for each view
 
+			// set custom viewport for each view
 			int ly = light.info.y / smGridDim;
 			int lx = light.info.y - (ly * smGridDim);
 			vec2 customVP = increment * glm::vec2{ lx,smGridDim - ly };

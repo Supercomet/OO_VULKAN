@@ -31,13 +31,14 @@ layout( push_constant ) uniform lightpc
 
 vec2 GetShadowMapRegion(int lightIndex, in vec2 uv, in vec2 gridSize)
 {
-	int grid = Lights_SSBO[lightIndex].info.y;
+	int gridID = Lights_SSBO[lightIndex].info.y;
 	vec2 gridIncrement = vec2(1.0)/gridSize; // size for each cell
 
 	vec2 actualUV = gridIncrement * uv; // uv local to this cell
 
-	int y = grid/int(gridSize.x);
-	int x = grid - int(gridSize.x*y);
+	// avoid the modolus operator not sure how much that matters
+	int y = gridID/int(gridSize.x);
+	int x = gridID - int(gridSize.x*y);
 
 	vec2 offset = gridIncrement * vec2(x,y); // offset to our cell
 
@@ -56,14 +57,23 @@ float ShadowCalculation(int lightIndex, in vec4 fragPosLightSpace, float NdotL)
 	float mulBias = PC.mulBias;
 	float bias = max(mulBias * (1.0 - NdotL),maxbias);
 	// Flip y during sample
-	vec2 uvs = vec2(projCoords.x,1.0-projCoords.y);
+	vec2 uvs = vec2(projCoords.x,projCoords.y);
 	uvs = GetShadowMapRegion(int(lightIndex),uvs,PC.shadowMapGridDim);
-	//uvs = vec2(uvs.x, 1.0-uvs.y);
+	uvs = vec2(uvs.x, 1.0-uvs.y);
 	
 
 
 	// TODO: add more textures
-	float closestDepth = texture(samplerShadows,uvs).r;
+	float closestDepth = 1.0;
+	if(projCoords.x >1.0 || projCoords.x < 0.0
+			|| projCoords.y >1.0 || projCoords.y < 0.0 || projCoords.z>1)
+	{
+		return 1.0;
+	}
+	else
+	{
+		closestDepth = texture(samplerShadows,uvs).r;
+	}
 	float currDepth = projCoords.z;
 
 	float shadow = 1.0;
@@ -130,13 +140,13 @@ vec3 EvalLight(int lightIndex, in vec3 fragPos, in vec3 normal,float roughness, 
 	}
 
 	// calculate shadow if this is a shadow light
-	//if(Lights_SSBO[lightIndex].position.w < 0)
+	shadow = 1.0;
 	if(Lights_SSBO[lightIndex].info.x > 0)
 	{
 		vec4 outFragmentLightPos = Lights_SSBO[lightIndex].projection * Lights_SSBO[lightIndex].view * vec4(fragPos,1.0);
 		shadow = ShadowCalculation(lightIndex,outFragmentLightPos,NdotL);
 		
-		//result *= shadow;
+		result *= shadow;
 	}
 
 	return result;
@@ -182,14 +192,16 @@ void main()
 	}
 	
 	float accShadow = 1.0;
-	float outshadow = 1.0;
+	
 	// Point Lights
 	for(int i = 0; i < PC.numLights; ++i)
 	{
+		float outshadow = 1.0;
 		result += EvalLight(i, fragPos, normal, roughness ,albedo.rgb, specular, outshadow);
-		result *= outshadow;
+		accShadow *= outshadow;
 	}
-	//result*= accShadow;
+	//result *= accShadow;
+	//result = vec3(accShadow);
 
 	result = pow(result, vec3(1.0/gamma));
 	if(uboFrameContext.vector4_values0.x<0)
@@ -197,14 +209,98 @@ void main()
 		result = vec3(texture(samplerShadows,inUV).r);
 		result = result.r<1.0? vec3(0):result;
 	}
-	else if(uboFrameContext.vector4_values0.y > 0)
+
+	if(uboFrameContext.vector4_values0.y > 0)
 	{
 		vec2 uvs = vec2(inUV.x, inUV.y);
-		vec2 newUV = GetShadowMapRegion(int(uboFrameContext.vector4_values0.x),uvs,PC.shadowMapGridDim);
-		//newUV = vec2(newUV.x,1.0-newUV.y);
-		result = vec3(newUV,0.0);
+		vec2 newUV = GetShadowMapRegion(int(uboFrameContext.vector4_values0.y),uvs,PC.shadowMapGridDim);
+		newUV = vec2(newUV.x,1.0-newUV.y);
 		result = vec3(texture(samplerShadows,newUV).r);
 		result = result.r<1.0? vec3(0):result;
+		result = vec3(newUV,0.0);
+		if(newUV.r >1.0 || newUV.r < 0.0
+		|| newUV.g >1.0 || newUV.g < 0.0) 
+		result = vec3(0.0,0.0,1.0);
+	}
+
+	if(uboFrameContext.vector4_values0.z > 0)
+	{
+		if(Lights_SSBO[int(uboFrameContext.vector4_values0.z)].info.x > 0)
+		{
+		
+			vec3 N = normalize(normal);
+			vec3 L = Lights_SSBO[int(uboFrameContext.vector4_values0.z)].position.xyz - fragPos;
+			L = normalize(L);	
+			float NdotL = max(0.0, dot(N, L));
+			vec4 fragPosLightSpace = Lights_SSBO[int(uboFrameContext.vector4_values0.z)].projection * Lights_SSBO[int(uboFrameContext.vector4_values0.z)].view * vec4(fragPos,1.0);
+			
+
+
+			vec4 projCoords = fragPosLightSpace/fragPosLightSpace.w;
+			//normalization [0,1] tex coords only.. FOR VULKAN DONT DO Z
+			projCoords.xy = projCoords.xy* 0.5 + 0.5;
+			
+			// Flip y during sample
+			vec2 uvs = vec2(projCoords.x,projCoords.y);
+
+			//if(projCoords.x >1.0 || projCoords.x < 0.0
+			//|| projCoords.y >1.0 || projCoords.y < 0.0)
+			//	result = vec3(0.0,0.0,1.0);
+			//if(projCoords.z > 1)
+			//{
+			//	result = vec3(0.0,0.0,1.0);
+			//}			
+
+			uvs = GetShadowMapRegion(int(uboFrameContext.vector4_values0.z),uvs,PC.shadowMapGridDim);
+			uvs = vec2(uvs.x,1.0-uvs.y);
+			if(projCoords.x >1.0 || projCoords.x < 0.0
+			|| projCoords.y >1.0 || projCoords.y < 0.0
+			||projCoords.z > 1){
+				uvs = vec2(-1,-1);
+				result = vec3(0);
+			}else{
+				result = vec3(uvs,0.0);
+				float closestDepth = texture(samplerShadows,uvs).r;
+				result = vec3(closestDepth);
+				result = result.r<1.0? vec3(0):result;
+			}
+			
+			//if(result.r >1.0 || result.r < 0.0
+			//|| result.g >1.0 || result.g < 0.0) 
+			//	result = vec3(0.0,0.0,1.0);
+
+		
+			{
+			//	// TODO: add more textures
+			//	float closestDepth = 1.0;
+			//	if(projCoords.x >1.0 || projCoords.x < 0.0
+			//			|| projCoords.y >1.0 || projCoords.y < 0.0 || projCoords.z>1)
+			//	{
+			//		closestDepth = 1.0;
+			//	}
+			//	else
+			//	{
+			//		closestDepth = texture(samplerShadows,uvs).r;
+			//	}
+			//	float currDepth = projCoords.z;
+			//
+			//	float maxbias =  PC.maxBias;
+			//	float mulBias = PC.mulBias;
+			//	float bias = max(mulBias * (1.0 - NdotL),maxbias);
+			//	float shadow = 1.0;
+			//	if (projCoords.w > 0.0 && currDepth - bias > closestDepth ) 
+			//	{
+			//		if(projCoords.z < 1)
+			//		{
+			//			shadow = 0.0;		
+			//		}
+			//	}
+			//	//shadow = currDepth - bias > closestDepth ? 1.0 : 0.0;
+			//
+			//	return shadow;
+			}
+			
+		}
 	}
 
 	outFragcolor = vec4(result, albedo.a);	
