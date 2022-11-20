@@ -1126,19 +1126,33 @@ void VulkanRenderer::UploadLights()
 	m_numShadowcastLights = 0;
 	int32_t gridIdx = 0;
 
-	std::vector<SpotLightInstance> spotLights;
+	std::vector<LocalLightInstance> spotLights;
 	auto& lights = currWorld->GetAllOmniLightInstances();
 	spotLights.reserve(lights.size());
 	int viewIter{};
 	for (auto& e : lights)
 	{
-		SpotLightInstance si;
+		LocalLightInstance si;
 		if (e.info.x > 0)
 		{
-			++m_numShadowcastLights;
-			e.info.y = gridIdx;
-			++gridIdx;
 			
+			e.info.y = gridIdx;			
+			if (e.info.x == 1)
+			{
+				// loop through all faces
+				for (size_t i = 0; i < 6; i++)
+				{
+					++m_numShadowcastLights;
+					si.view[i] = e.view[i];
+					++gridIdx;
+				}
+			}
+			else
+			{
+				++m_numShadowcastLights;
+				si.view[0] = e.view[++viewIter%6];		
+				++gridIdx;
+			}
 		}
 
 		si.info = e.info;
@@ -1146,8 +1160,7 @@ void VulkanRenderer::UploadLights()
 		si.color = e.color;
 		si.radius = e.radius;
 		si.projection = e.projection;
-		si.view = e.view[++viewIter%6];
-
+		
 		spotLights.emplace_back(si);
 	}
 

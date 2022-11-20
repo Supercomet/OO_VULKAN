@@ -319,7 +319,7 @@ public:
 	uint32_t indirectDrawCount{};
 
 	GpuVector<oGFX::BoneWeight> skinningVertexBuffer{};
-	GpuVector<SpotLightInstance> globalLightBuffer{};
+	GpuVector<LocalLightInstance> globalLightBuffer{};
 
 	// - Descriptors
 

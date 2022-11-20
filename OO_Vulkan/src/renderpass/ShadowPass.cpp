@@ -127,7 +127,7 @@ void ShadowPass::Draw()
 		increment /= smGridDim;
 	}
 
-	if (vr.currWorld->GetAllOmniLightInstances().size() && vr.m_numShadowcastLights > 0)
+	if (vr.m_numShadowcastLights > 0)
 	{
 		int i = 0;
 		int viewIter = 0;
@@ -137,49 +137,59 @@ void ShadowPass::Draw()
 			// not a shadow casting light skip
 			if (light.info.x < 1) continue;
 
+			// this is an omnilight
+			if (light.info.x == 1)
+			{
+				constexpr size_t cubeFaces = 6;
+				for (size_t face = 0; face < cubeFaces; face++)
+				{
+					int lightGrid = light.info.y + face;
+					// set custom viewport for each view
+					int ly = lightGrid / smGridDim;
+					int lx = lightGrid - (ly * smGridDim);
+					vec2 customVP = increment * glm::vec2{ lx,smGridDim - ly };
 
-			// set custom viewport for each view
-			int ly = light.info.y / smGridDim;
-			int lx = light.info.y - (ly * smGridDim);
-			vec2 customVP = increment * glm::vec2{ lx,smGridDim - ly };
-			light.info.z = customVP.x;
-			light.info.w = customVP.y;
+					light.info.z = customVP.x; // this is actually wasted
+					light.info.w = customVP.y; // this is actually wasted
+
+					//cmd.SetViewport(VkViewport{ 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f });
+					//cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpWidth , (uint32_t)vpHeight } });
+
+					// calculate viewport for each light
+					cmd.SetViewport(VkViewport{ customVP.x, customVP.y,increment.x, -vpHeight +(vpHeight-increment.y), 0.0f, 1.0f });
+					// TODO: Set exact region for scissor
+					cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpHeight, (uint32_t)vpWidth } });
+
+					constexpr glm::vec3 up{ 0.0f,1.0f,0.0f };
+					constexpr glm::vec3 right{ 1.0f,0.0f,0.0f };
+					constexpr glm::vec3 forward{ 0.0f,0.0f,-1.0f };
+
+					std::array<glm::vec3, 6> dirs{
+						glm::vec3(light.position) + -up ,
+						glm::vec3(light.position) + up,
+						glm::vec3(light.position) + -right,
+						glm::vec3(light.position) + right,
+						glm::vec3(light.position) + -forward,
+						glm::vec3(light.position) + forward,
+					};
+					DebugDraw::AddArrow(light.position, dirs[face], oGFX::Colors::RED);
+
+
+					glm::mat4 mm(1.0f);
+					mm = light.projection * light.view[face];
+					vkCmdPushConstants(cmdlist,
+						PSOLayoutDB::defaultPSOLayout,
+						VK_SHADER_STAGE_ALL,	    // stage to push constants to
+						0,							// offset of push constants to update
+						sizeof(glm::mat4),			// size of data being pushed
+						glm::value_ptr(mm));		// actualy data being pushed (could be an array));
+
+					cmd.DrawIndexedIndirect(vr.shadowCasterCommandsBuffer.m_buffer, 0, vr.shadowCasterCommandsBuffer.size());
+				}
+				++i;
+			}
+
 			
-			//cmd.SetViewport(VkViewport{ 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f });
-			//cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpWidth , (uint32_t)vpHeight } });
-			
-			// calculate viewport for each light
-			cmd.SetViewport(VkViewport{ customVP.x, customVP.y,increment.x, -vpHeight +(vpHeight-increment.y), 0.0f, 1.0f });
-			// TODO: Set exact region for scissor
-			cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpHeight, (uint32_t)vpWidth } });
-
-			constexpr glm::vec3 up{ 0.0f,1.0f,0.0f };
-			constexpr glm::vec3 right{ 1.0f,0.0f,0.0f };
-			constexpr glm::vec3 forward{ 0.0f,0.0f,-1.0f };
-
-			std::array<glm::vec3, 6> dirs{
-				glm::vec3(light.position) + -up ,
-				glm::vec3(light.position) + up,
-				glm::vec3(light.position) + -right,
-				glm::vec3(light.position) + right,
-				glm::vec3(light.position) + -forward,
-				glm::vec3(light.position) + forward,
-			};
-			DebugDraw::AddArrow(light.position, dirs[viewIter%6], oGFX::Colors::RED);
-			
-
-			glm::mat4 mm(1.0f);
-			mm = light.projection * light.view[viewIter % 6];
-			vkCmdPushConstants(cmdlist,
-				PSOLayoutDB::defaultPSOLayout,
-				VK_SHADER_STAGE_ALL,	    // stage to push constants to
-				0,							// offset of push constants to update
-				sizeof(glm::mat4),			// size of data being pushed
-				glm::value_ptr(mm));		// actualy data being pushed (could be an array));
-
-			cmd.DrawIndexedIndirect(vr.shadowCasterCommandsBuffer.m_buffer, 0, vr.shadowCasterCommandsBuffer.size());
-
-			++i;
 		}		
 	}
 

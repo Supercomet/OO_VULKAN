@@ -143,6 +143,9 @@
   <ItemGroup>
     <Natvis Include="glm.natvis" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\lights.shader" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

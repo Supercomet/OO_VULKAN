@@ -16,11 +16,7 @@ layout (set = 0, binding = 4) uniform sampler2D samplerMaterial;
 layout (set = 0, binding = 5) uniform sampler2D samplerShadows;
 layout (set = 0, binding = 6) uniform sampler2D samplerSSAO;
 
-
-layout(std430, set = 0, binding = 7) readonly buffer Lights
-{
-	SpotLightInstance Lights_SSBO[];
-};
+#include "lights.shader"
 
 layout( push_constant ) uniform lightpc
 {
@@ -29,9 +25,9 @@ layout( push_constant ) uniform lightpc
 
 #include "lightingEquations.shader"
 
-vec2 GetShadowMapRegion(int lightIndex, in vec2 uv, in vec2 gridSize)
+vec2 GetShadowMapRegion(int gridID, in vec2 uv, in vec2 gridSize)
 {
-	int gridID = Lights_SSBO[lightIndex].info.y;
+	
 	vec2 gridIncrement = vec2(1.0)/gridSize; // size for each cell
 
 	vec2 actualUV = gridIncrement * uv; // uv local to this cell
@@ -45,7 +41,7 @@ vec2 GetShadowMapRegion(int lightIndex, in vec2 uv, in vec2 gridSize)
 	return offset+actualUV; //sampled position
 }
 
-float ShadowCalculation(int lightIndex, in vec4 fragPosLightSpace, float NdotL)
+float ShadowCalculation(int lightIndex,int gridID , in vec4 fragPosLightSpace, float NdotL)
 {
 
 	// perspective divide
@@ -54,7 +50,7 @@ float ShadowCalculation(int lightIndex, in vec4 fragPosLightSpace, float NdotL)
 	projCoords.xy = projCoords.xy* 0.5 + 0.5;
 
 	vec2 uvs = vec2(projCoords.x,projCoords.y);
-	uvs = GetShadowMapRegion(int(lightIndex),uvs,PC.shadowMapGridDim);
+	uvs = GetShadowMapRegion(gridID,uvs,PC.shadowMapGridDim);
 	
 	// Flip y during sample
 	uvs = vec2(uvs.x, 1.0-uvs.y);
@@ -141,10 +137,16 @@ vec3 EvalLight(int lightIndex, in vec3 fragPos, in vec3 normal,float roughness, 
 	// calculate shadow if this is a shadow light
 	shadow = 1.0;
 	if(Lights_SSBO[lightIndex].info.x > 0)
-	{
-		vec4 outFragmentLightPos = Lights_SSBO[lightIndex].projection * Lights_SSBO[lightIndex].view * vec4(fragPos,1.0);
-		shadow = ShadowCalculation(lightIndex,outFragmentLightPos,NdotL);
-		
+	{		
+		if(Lights_SSBO[lightIndex].info.x == 1)
+		{
+			int gridID = Lights_SSBO[lightIndex].info.y;
+			for(int i = 0; i < 6; ++i)
+			{
+				vec4 outFragmentLightPos = Lights_SSBO[lightIndex].projection * Lights_SSBO[lightIndex].view[i] * vec4(fragPos,1.0);
+				shadow *= ShadowCalculation(lightIndex,gridID+i,outFragmentLightPos,NdotL);
+			}
+		}
 		result *= shadow;
 	}
 

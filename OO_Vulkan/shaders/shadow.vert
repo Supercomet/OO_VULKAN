@@ -24,10 +24,7 @@ layout(std430, set = 0, binding = 3) readonly buffer GPUScene
 	GPUTransform GPUScene_SSBO[];
 };
 
-layout(std430, set = 0, binding = 7) readonly buffer Lights
-{
-	SpotLightInstance Lights_SSBO[];
-};
+#include "lights.shader"
 
 layout(push_constant) uniform PushLight
 {
