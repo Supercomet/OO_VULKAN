@@ -160,19 +160,19 @@ void ShadowPass::Draw()
 					// TODO: Set exact region for scissor
 					cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpHeight, (uint32_t)vpWidth } });
 
-					constexpr glm::vec3 up{ 0.0f,1.0f,0.0f };
-					constexpr glm::vec3 right{ 1.0f,0.0f,0.0f };
-					constexpr glm::vec3 forward{ 0.0f,0.0f,-1.0f };
-
-					std::array<glm::vec3, 6> dirs{
-						glm::vec3(light.position) + -up ,
-						glm::vec3(light.position) + up,
-						glm::vec3(light.position) + -right,
-						glm::vec3(light.position) + right,
-						glm::vec3(light.position) + -forward,
-						glm::vec3(light.position) + forward,
-					};
-					DebugDraw::AddArrow(light.position, dirs[face], oGFX::Colors::RED);
+					//constexpr glm::vec3 up{ 0.0f,1.0f,0.0f };
+					//constexpr glm::vec3 right{ 1.0f,0.0f,0.0f };
+					//constexpr glm::vec3 forward{ 0.0f,0.0f,-1.0f };
+					//
+					//std::array<glm::vec3, 6> dirs{
+					//	glm::vec3(light.position) + -up ,
+					//	glm::vec3(light.position) + up,
+					//	glm::vec3(light.position) + -right,
+					//	glm::vec3(light.position) + right,
+					//	glm::vec3(light.position) + -forward,
+					//	glm::vec3(light.position) + forward,
+					//};
+					//DebugDraw::AddArrow(light.position, dirs[face], oGFX::Colors::RED);
 
 
 					glm::mat4 mm(1.0f);
