@@ -56,17 +56,22 @@ void DebugDrawRenderpass::Draw()
 	auto& commandBuffers = vr.commandBuffers;
 
 	std::array<VkClearValue, 2> clearValues{};
-	clearValues[0].color = { 0.1f,0.1f,0.1f,1.0f };
-	clearValues[1].depthStencil.depth = { 1.0f };
-	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo(clearValues);
-	renderPassBeginInfo.renderPass = debugRenderpass;
-	renderPassBeginInfo.renderArea.extent = vr.m_swapchain.swapChainExtent;
+	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
+	clearValues[0].color = { 0.1f,0.1f,0.1f,0.0f };
+	clearValues[1].depthStencil.depth = {1.0f };
+	//Information about how to begin a render pass (only needed for graphical applications)
+	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
+	renderPassBeginInfo.renderPass = debugRenderpass.pass;									//render pass to begin
+	renderPassBeginInfo.renderArea.offset = { 0,0 };								//start point of render pass in pixels
+	renderPassBeginInfo.renderArea.extent = vr.m_swapchain.swapChainExtent;			//size of region to run render pass on (Starting from offset)
+	renderPassBeginInfo.pClearValues = clearValues.data();							//list of clear values
+	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size()); // no clearing
 
 	auto& depthAtt = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments[GBufferAttachmentIndex::DEPTH];
 
 	VkFramebuffer fb;
 	FramebufferBuilder::Begin(&vr.fbCache)
-		.BindImage(&vr.m_swapchain.swapChainImages[swapchainIdx])
+		.BindImage(&vr.renderTargets[vr.renderTargetInUseID].texture)
 		.BindImage(&depthAtt)
 		.Build(fb,debugRenderpass);
 
@@ -76,19 +81,37 @@ void DebugDrawRenderpass::Draw()
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("DebugDraw");
 
+	auto gbuffer = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
+	//assert(gbuffer->attachments[GBufferAttachmentIndex::DEPTH].currentLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	//oGFX::vkutils::tools::insertImageMemoryBarrier(
+	//	cmdlist,
+	//	gbuffer->attachments[GBufferAttachmentIndex::DEPTH].image,
+	//	VK_ACCESS_MEMORY_READ_BIT,
+	//	VK_ACCESS_MEMORY_WRITE_BIT|VK_ACCESS_MEMORY_READ_BIT,
+	//	VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+	//	VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+	//	VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+	//	VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT ,
+	//	VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 });
+	//gbuffer->attachments[GBufferAttachmentIndex::DEPTH].currentLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	rhi::CommandList cmd{ cmdlist };
+	if (dodebugRendering)
 	{
 		cmd.SetDefaultViewportAndScissor();
 
+		uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
+			vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
 		cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
 			std::array<VkDescriptorSet, 3>
 			{
 				vr.descriptorSet_gpuscene,
 				vr.descriptorSets_uniform[swapchainIdx],
 				vr.descriptorSet_bindless
-			}
+			},
+			1, &dynamicOffset
 		);
 
 		cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_DebugDrawVertexBufferGPU.getBufferPtr());
@@ -108,7 +131,7 @@ void DebugDrawRenderpass::Shutdown()
 	VulkanRenderer* vr = VulkanRenderer::get();
 	auto& device = vr->m_device.logicalDevice;
 
-	vkDestroyRenderPass(device, debugRenderpass, nullptr);
+	debugRenderpass.destroy();
 
 	for (auto& pso : m_DebugDrawPSOSelector.psos)
 	{
@@ -135,7 +158,7 @@ void DebugDrawRenderpass::CreateDebugRenderpass()
 
 																		//frame buffer data will be stored as image, but images can be given different data layouts
 																		//to give optimal use for certain operations
-	colourAttachment.initialLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL; //image data layout before render pass starts
+	colourAttachment.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; //image data layout before render pass starts
 																		 //colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
 	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL; //image data layout aftet render pass ( to change to)
 	
@@ -147,7 +170,7 @@ void DebugDrawRenderpass::CreateDebugRenderpass()
 	depthAttachment.format = vr.G_DEPTH_FORMAT;
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -209,10 +232,8 @@ void DebugDrawRenderpass::CreateDebugRenderpass()
 	renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(subpassDependancies.size());
 	renderPassCreateInfo.pDependencies = subpassDependancies.data();
 
-
-	VK_CHK( vkCreateRenderPass(vr.m_device.logicalDevice, &renderPassCreateInfo, nullptr, &debugRenderpass));
-	VK_NAME(vr.m_device.logicalDevice, "debugRenderpass", debugRenderpass);
-
+	debugRenderpass.name = "debugRenderpass";
+	debugRenderpass.Init(vr.m_device, renderPassCreateInfo);
 }
 
 void DebugDrawRenderpass::CreatePipeline()
@@ -259,7 +280,7 @@ void DebugDrawRenderpass::CreatePipeline()
 	colourState.alphaBlendOp = VK_BLEND_OP_ADD;
 	VkPipelineColorBlendStateCreateInfo colourBlendingCreateInfo = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1,&colourState);
 
-	VkGraphicsPipelineCreateInfo pipelineCreateInfo = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::defaultPSOLayout,vr.renderPass_default);
+	VkGraphicsPipelineCreateInfo pipelineCreateInfo = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::defaultPSOLayout,vr.renderPass_default.pass);
 	pipelineCreateInfo.stageCount = 2;
 	pipelineCreateInfo.pStages = shaderStages.data();
 	pipelineCreateInfo.pVertexInputState = &vertexInputCreateInfo;
@@ -270,7 +291,7 @@ void DebugDrawRenderpass::CreatePipeline()
 	pipelineCreateInfo.pMultisampleState = &multisamplingCreateInfo;
 	pipelineCreateInfo.pColorBlendState = &colourBlendingCreateInfo;
 	pipelineCreateInfo.pDepthStencilState = &depthStencilCreateInfo;
-	pipelineCreateInfo.renderPass = debugRenderpass;
+	pipelineCreateInfo.renderPass = debugRenderpass.pass;
 
 	// TESTING
 	if constexpr(false)
@@ -292,7 +313,7 @@ void DebugDrawRenderpass::CreatePipeline()
 		cbas.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 		cbas.alphaBlendOp = VK_BLEND_OP_ADD;
 		psoCreator.Get<VkPipelineColorBlendStateCreateInfo>() = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &colourState);
-		psoCreator.SetRenderPass(debugRenderpass);
+		psoCreator.SetRenderPass(debugRenderpass.pass);
 		psoCreator.SetAndCompile();
 	}
 

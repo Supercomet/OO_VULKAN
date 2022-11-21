@@ -118,11 +118,32 @@ DefaultMesh CreateDefaultPlaneXZMesh()
     DefaultMesh mesh;
 
     mesh.m_VertexBuffer =
+    {                   //pos                   // norm         // col              //uv            //tangent 
+        oGFX::Vertex{ {-0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f },{0.0f,0.0f,1.0f} },
+        oGFX::Vertex{ { 0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f },{0.0f,0.0f,1.0f} },
+        oGFX::Vertex{ { 0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,1.0f },{0.0f,0.0f,1.0f} },
+        oGFX::Vertex{ {-0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,1.0f },{0.0f,0.0f,1.0f} },
+    };
+
+    mesh.m_IndexBuffer =
     {
-        oGFX::Vertex{ {-0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },
-        oGFX::Vertex{ { 0.5f, 0.0f ,-0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f } },
-        oGFX::Vertex{ { 0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,1.0f } },
-        oGFX::Vertex{ {-0.5f, 0.0f , 0.5f}, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,1.0f } },
+        0,2,1,
+        2,0,3
+    };
+
+    return mesh;
+}
+
+DefaultMesh CreateDefaultPlaneXYMesh()
+{
+    DefaultMesh mesh;
+
+    mesh.m_VertexBuffer =
+    {                   //pos                   // norm         // col              //uv            //tangent 
+        oGFX::Vertex{ {-0.5f,-0.5f, 0.0f}, { 0.0f,0.0f,1.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f },{0.0f,0.0f,1.0f} },
+        oGFX::Vertex{ { 0.5f,-0.5f, 0.0f}, { 0.0f,0.0f,1.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f },{0.0f,0.0f,1.0f} },
+        oGFX::Vertex{ { 0.5f, 0.5f, 0.0f}, { 0.0f,0.0f,1.0f }, { 1.0f,0.0f,0.0f }, { 1.0f,1.0f },{0.0f,0.0f,1.0f} },
+        oGFX::Vertex{ {-0.5f, 0.5f, 0.0f}, { 0.0f,0.0f,1.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,1.0f },{0.0f,0.0f,1.0f} },
     };
 
     mesh.m_IndexBuffer =

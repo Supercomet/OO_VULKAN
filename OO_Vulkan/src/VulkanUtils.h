@@ -29,6 +29,7 @@ namespace oGFX::vkutils::tools
 	std::string VkResultString(VkResult value);
 	std::string VkFormatString(VkFormat value);
 	std::string VkColorSpaceKHRString(VkColorSpaceKHR value);
+	std::string VkImageLayoutString(VkImageLayout value);
 };
 
 #ifndef MESSAGE_BOX_ONCE
@@ -134,7 +135,6 @@ namespace oGFX
 		glm::vec3 col{0.0f,1.0f,0.0f}; // Vertex colour (r, g, b)
 		glm::vec2 tex{}; // Texture Coords(u,v)
 		glm::vec3 tangent{}; // Vertex normal (x, y, z)
-		uint32_t boneWeights{};
 	};
 
 	struct DebugVertex
@@ -249,6 +249,19 @@ namespace oGFX
 				VkImageLayout newImageLayout,
 				VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
 				VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+			void insertImageMemoryBarrier(
+				VkCommandBuffer cmdbuffer,
+				VkImage image,
+				VkAccessFlags srcAccessMask,
+				VkAccessFlags dstAccessMask,
+				VkImageLayout oldImageLayout,
+				VkImageLayout newImageLayout,
+				VkPipelineStageFlags srcStageMask,
+				VkPipelineStageFlags dstStageMask,
+				VkImageSubresourceRange subresourceRange);
+
+			size_t UniformBufferPaddedSize(size_t size, size_t bufferMinAlignment);
 		}
 
 		namespace inits
@@ -652,17 +665,7 @@ namespace oGFX
 			{
 				VkRenderPassBeginInfo renderPassBeginInfo{};
 				renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-				renderPassBeginInfo.renderArea.offset = { 0,0 };
 				return renderPassBeginInfo;
-			}
-
-			template<typename T_ARRAY>
-			inline VkRenderPassBeginInfo renderPassBeginInfo(const T_ARRAY& clearValues)
-			{
-				VkRenderPassBeginInfo info = renderPassBeginInfo();
-				info.pClearValues = clearValues.data();
-				info.clearValueCount = static_cast<uint32_t>(clearValues.size());
-				return info;
 			}
 
 			// Acts as a rerouter for cleaner code

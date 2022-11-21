@@ -85,7 +85,7 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 	swapChainCreateInfo.imageExtent = extent;
 	swapChainCreateInfo.minImageCount = imageCount;
 	swapChainCreateInfo.imageArrayLayers = 1;
-	swapChainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	swapChainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	swapChainCreateInfo.preTransform = swapChainDetails.surfaceCapabilities.currentTransform;
 	//handles blending between different graphics e.g windows
 	swapChainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -141,6 +141,7 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 	for (size_t i = 0; i < images.size(); i++)
 	{
 		//store image handles
+		swapChainImages[i].name = "SwapchainImage_" + std::to_string(i);
 		swapChainImages[i].image = images[i];
 		swapChainImages[i].view = CreateImageView(device,images[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
 		swapChainImages[i].width = swapChainExtent.width;

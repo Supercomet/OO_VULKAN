@@ -1,10 +1,10 @@
 /************************************************************************************//*!
-\file           ShadowPass.h
+\file           ForwardParticlePass.h
 \project        Ouroboros
 \author         Jamie Kong, j.kong, 390004720 | code contribution (100%)
 \par            email: j.kong\@digipen.edu
 \date           Oct 02, 2022
-\brief              Defines a shadowpass
+\brief              Declares a gbuffer pass
 
 Copyright (C) 2022 DigiPen Institute of Technology.
 Reproduction or disclosure of this file or its contents
@@ -20,32 +20,27 @@ Technology is prohibited.
 
 #include <array>
 
-struct ShadowPass : public GfxRenderpass
+struct ForwardParticlePass : public GfxRenderpass
 {
-	//DECLARE_RENDERPASS_SINGLETON(ShadowPass)
+	//DECLARE_RENDERPASS_SINGLETON(ForwardParticlePass)
 
 	void Init() override;
 	void Draw() override;
 	void Shutdown() override;
 
 	bool SetupDependencies() override;
+
 	void CreatePSO() override;
+
+	VulkanRenderpass renderpass_GbufferSecondsPass{};
+	VkFramebuffer framebuffer_GBufferSecondPass{};
+
+	//VkPushConstantRange pushConstantRange;
+	VkPipeline pso_GBufferParticles{};
 	
-	vkutils::Texture2D shadow_depth{};
-
-	// This is for ImGui
-	std::array<ImTextureID, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> deferredImg{};
-	ImTextureID shadowImg{};
-
-	VkExtent2D shadowmapSize = { 4096, 4096};
-
-	VulkanRenderpass renderpass_Shadow{};
-
-	VkPipeline pso_ShadowDefault{};
-
 private:
 	void SetupRenderpass();
 	void SetupFramebuffer();
 	void CreatePipeline();
-};
 
+};

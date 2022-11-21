@@ -15,6 +15,8 @@ Technology is prohibited.
 
 #include "Profiling.h"
 #include "rhi/CommandList.h"
+#include "FramebufferBuilder.h"
+#include "VulkanRenderpass.h"
 
 #include <vector>
 #include <memory>
@@ -24,11 +26,12 @@ Technology is prohibited.
 
 enum GBufferAttachmentIndex
 {
-    POSITION = 0,
-    NORMAL = 1,
-    ALBEDO = 2,
-    MATERIAL = 3,
-    DEPTH = 4,
+    //POSITION = 0,
+    NORMAL ,
+    ALBEDO ,
+    MATERIAL ,
+    ENTITY_ID,
+    DEPTH ,
 
     MAX_ATTACHMENTS,
     TOTAL_COLOR_ATTACHMENTS = MAX_ATTACHMENTS - 1

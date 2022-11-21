@@ -26,6 +26,7 @@ Technology is prohibited.
 #include "VulkanSwapchain.h"
 #include "VulkanTexture.h"
 #include "VulkanBuffer.h"
+#include "VulkanRenderpass.h"
 #include "GpuVector.h"
 #include "gpuCommon.h"
 #include "DescriptorBuilder.h"
@@ -67,6 +68,8 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout lights;
 	// 
 	inline static VkDescriptorSetLayout ForwardDecal;
+
+	inline static VkDescriptorSetLayout SSAO;
 };
 
 // Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...
@@ -75,6 +78,7 @@ struct PSOLayoutDB
 	inline static VkPipelineLayout defaultPSOLayout;
 	inline static VkPipelineLayout deferredLightingCompositionPSOLayout;
 	inline static VkPipelineLayout forwardDecalPSOLayout;
+	inline static VkPipelineLayout SSAOPSOLayout;
 };
 
 // Moving all constant buffer structures into this CB namespace.
@@ -87,6 +91,8 @@ namespace CB
 		glm::mat4 view{ 1.0f };
 		glm::mat4 viewProjection{ 1.0f };
 		glm::mat4 inverseViewProjection{ 1.0f };
+		glm::mat4 inverseView{ 1.0f };
+		glm::mat4 inverseProjection{ 1.0f };
 		glm::vec4 cameraPosition{ 1.0f };
 		glm::vec4 renderTimer{ 0.0f, 0.0f, 0.0f, 0.0f };
 
@@ -138,6 +144,8 @@ public:
 	void CreateDefaultRenderpass();
 	void CreateDefaultDescriptorSetLayout();
 
+	void BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& src,VkImageLayout srcFinal, vkutils::Texture2D& dst,VkImageLayout dstFinal);
+
 	void CreateDefaultPSOLayouts();
 	//void CreateDepthBufferImage();
 	void CreateFramebuffers(); 
@@ -145,6 +153,7 @@ public:
 
 	ImTextureID myImg;
 
+	bool useSSAO = true;
     bool m_imguiInitialized = false;
 	bool m_initialized = false;
 
@@ -171,14 +180,23 @@ public:
 	VkDescriptorSet descriptorSet_bones;
 
 	VkDescriptorSet descriptorSet_objInfos;
+
+	VkDescriptorSet descriptorSet_SSAO;
 	// For UBO with the corresponding swap chain image
 	std::vector<VkDescriptorSet> descriptorSets_uniform;
 
 	void ResizeDeferredFB();
 
 	void SetWorld(GraphicsWorld* world);
+	void InitWorld(GraphicsWorld* world);
+	void DestroyWorld(GraphicsWorld* world);
 	GraphicsWorld* currWorld{ nullptr };
+	uint32_t renderIteration{ 0};
+	int32_t m_numShadowcastLights{0};
+	uint32_t renderTargetInUseID{ 0 };
 	float renderClock{ 0.0f };
+
+	int32_t GetPixelValue(uint32_t fbID, glm::vec2 uv);
 
 	GraphicsBatch batches;
 
@@ -254,6 +272,8 @@ public:
 	};
 
 	IndexedVertexBuffer g_GlobalMeshBuffers;
+	std::array<GpuVector<ParticleData>,3> g_particleDatas;
+	GpuVector<oGFX::IndirectCommand> g_particleCommandsBuffer{};
 
 	GpuVector<oGFX::DebugVertex> g_DebugDrawVertexBufferGPU;
 	GpuVector<uint32_t> g_DebugDrawIndexBufferGPU;
@@ -264,7 +284,7 @@ public:
 	ModelFileResource* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model);
 	void LoadSubmesh(gfxModel& mdl, SubMesh& submesh, aiMesh* aimesh, ModelFileResource* modelFile);
 	void LoadBoneInformation(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiMesh& aimesh, std::vector<oGFX::BoneWeight>& boneWeights, uint32_t& vCnt);
-	void BuildSkeletonRecursive(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiNode* ainode, oGFX::BoneNode* node);
+	void BuildSkeletonRecursive(ModelFileResource& fileData, aiNode* ainode, oGFX::BoneNode* node, glm::mat4 parentXform = glm::mat4(1.0f), std::string prefix = std::string("\t"));
 	const oGFX::Skeleton* GetSkeleton(uint32_t modelID);
 	oGFX::CPUSkeletonInstance* CreateSkeletonInstance(uint32_t modelID);
 
@@ -276,20 +296,30 @@ public:
 	std::vector<vkutils::Texture2D> g_Textures;
 	std::vector<ImTextureID> g_imguiIDs;
 
+	uint32_t whiteTextureID = static_cast<uint32_t>(-1);
+	uint32_t blackTextureID = static_cast<uint32_t>(-1);
+	uint32_t normalTextureID = static_cast<uint32_t>(-1);
+	uint32_t pinkTextureID = static_cast<uint32_t>(-1);
+
+	uint32_t GetDefaultCubeID();
+	uint32_t GetDefaultPlaneID();
+	uint32_t GetDefaultSpriteID();
+
 	// - Synchronisation
 	std::vector<VkSemaphore> imageAvailable;
 	std::vector<VkSemaphore> renderFinished;
 	std::vector<VkFence> drawFences;
 
 	// - Pipeline
-	VkRenderPass renderPass_default{};
-	VkRenderPass renderPass_default2{};
+	VulkanRenderpass renderPass_default{};
+	VulkanRenderpass renderPass_default_noDepth{};
 
 	vkutils::Buffer indirectCommandsBuffer{};
+	GpuVector<oGFX::IndirectCommand> shadowCasterCommandsBuffer{};
 	uint32_t indirectDrawCount{};
 
 	GpuVector<oGFX::BoneWeight> skinningVertexBuffer{};
-	GpuVector<SpotLightInstance> globalLightBuffer{};
+	GpuVector<LocalLightInstance> globalLightBuffer{};
 
 	// - Descriptors
 
@@ -332,12 +362,21 @@ public:
 	uint32_t currentFrame = 0;
 
 	uint64_t uboDynamicAlignment;
-	uint32_t numCameras;
+	static constexpr uint32_t numCameras = 2;
+	uint32_t numAllocatedCameras;
+
+	struct RenderTarget
+	{
+		bool inUse = false;
+		vkutils::Texture2D texture;
+		vkutils::Texture2D depth;
+		ImTextureID imguiTex{};
+	};
+	std::array<RenderTarget, 4>renderTargets;
 
 	bool resizeSwapchain = false;
 	bool m_prepared = false;
 
-	Camera camera;
 
 	// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
 	// Bind this to every single shader possible.
@@ -408,9 +447,13 @@ public:
 	private:
 		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);		
 		uint32_t CreateTextureImage(const std::string& fileName);
-		uint32_t UpdateBindlessGlobalTexture(vkutils::Texture2D texture);		
+		uint32_t AddBindlessGlobalTexture(vkutils::Texture2D texture);		
 
-		
+		void InitDefaultPrimatives();
+		std::unique_ptr<ModelFileResource>def_cube;
+		std::unique_ptr<ModelFileResource>def_sprite;
+		std::unique_ptr<ModelFileResource>def_plane;
+		std::unique_ptr<ModelFileResource>def_sphere;
 
 };
 

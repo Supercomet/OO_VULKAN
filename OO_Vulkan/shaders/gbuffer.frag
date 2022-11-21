@@ -5,7 +5,7 @@
 layout(location = 0) in vec4 inPosition;
 layout(location = 1) in vec2 inUV;
 layout(location = 2) in vec3 inColor;
-
+layout(location = 3) in flat int inEntityID;
 
 layout(location = 15) in flat uvec4 inInstanceData;
 layout(location = 7) in struct
@@ -13,10 +13,11 @@ layout(location = 7) in struct
     mat3 btn;
 }inLightData;
 
-layout(location = 0) out vec4 outPosition; // TODO: Optimization for space, not necessary as position can be reconstructed from depth.
-layout(location = 1) out vec4 outNormal;
-layout(location = 2) out vec4 outAlbedo;
-layout(location = 3) out vec4 outMaterial;
+//layout(location = 0) out vec4 outPosition; // Optimization for space reconstructed from depth.
+layout(location = 0) out vec4 outNormal;
+layout(location = 1) out vec4 outAlbedo;
+layout(location = 2) out vec4 outMaterial;
+layout(location = 3) out int outEntityID;
 
 #include "shader_utility.shader"
 
@@ -77,8 +78,11 @@ void Jump(inout uint perInstanceData, inout float3 albedo)
 
 void main()
 {
+    outEntityID = inEntityID;
     outAlbedo = vec4(inColor, 1.0);
-    outPosition = inPosition;
+    
+    //outPosition = inPosition;
+    // implicit depthOut will reconstruct the position
 
     // TODO: We need to use a mask to check whether to use textures or values.
     const bool useAlbedoTexture = true;
@@ -103,11 +107,20 @@ void main()
     }
 	
     {
-        outNormal = vec4(inLightData.btn[2], 0.0f);
+        outNormal = vec4(inLightData.btn[2], 0.0);
     }
 	if(textureIndex_Normal != 1)
-	{
-		outNormal.rgb = normalize(outNormal.rgb+texture(textureDescriptorArray[textureIndex_Normal], inUV.xy).rgb);
+	{        
+        vec3 texNormal = texture(textureDescriptorArray[textureIndex_Normal], inUV.xy).xyz;
+        //float gamma = 2.2;
+        //texNormal = pow(texNormal,vec3(gamma));
+        texNormal = texNormal  * 2.0 - 1.0;
+        //texNormal = normalize(max(vec3(0),texNormal));
+
+        //texNormal = texNormal * 2.0 - 1.0;
+		outNormal.rgb = normalize(inLightData.btn * texNormal);
+		//outNormal.rgb = texNormal;
+       // outNormal.rgb = vec3(0.0,1.0,0.0);
 	}
 
     {

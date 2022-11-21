@@ -33,12 +33,17 @@ namespace vkutils
 	void Texture::destroy()
 	{
 		vkDestroyImageView(device->logicalDevice, view, nullptr);
+		view = VK_NULL_HANDLE;
+
 		vkDestroyImage(device->logicalDevice, image, nullptr);
+		image = VK_NULL_HANDLE;
 		if (sampler)
 		{
 			vkDestroySampler(device->logicalDevice, sampler, nullptr);
+			sampler = VK_NULL_HANDLE;
 		}
 		vkFreeMemory(device->logicalDevice, deviceMemory, nullptr);
+		deviceMemory = VK_NULL_HANDLE;
 	}
 
 	/**
@@ -504,17 +509,19 @@ namespace vkutils
 		VkImageUsageFlags imageUsageFlags,
 		uint32_t texWidth, uint32_t texHeight,
 		bool forFullscr,
+		float _renderscale,
 		uint32_t _mipLevels,
 		VkMemoryPropertyFlags properties,
 		VkFilter filter
 	)
 	{
 		this->device = device;
-		width = texWidth;
-		height = texHeight;
+		targetSwapchain = forFullscr;
+		renderScale = _renderscale;
+		width = texWidth * renderScale;
+		height = texHeight* renderScale;
 		format = _format;
 		MemProps = properties;
-		targetSwapchain = forFullscr;
 
 		aspectMask = 0;
 
@@ -530,6 +537,9 @@ namespace vkutils
 		}
 
 		usage = imageUsageFlags;
+
+		// for blitting
+		usage = imageUsageFlags | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		
 		assert(aspectMask > 0);
 
@@ -554,7 +564,7 @@ namespace vkutils
 		imageinfo.arrayLayers = 1;
 		imageinfo.format = format;
 		imageinfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageinfo.usage = imageUsageFlags | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageinfo.usage = usage;
 		imageinfo.samples = VK_SAMPLE_COUNT_1_BIT;
 		imageinfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		VK_CHK(vkCreateImage(device->logicalDevice, &imageinfo, nullptr, &image));
@@ -610,8 +620,8 @@ namespace vkutils
 		if (device == nullptr)
 			return;
 
-		width = texWidth;
-		height = texHeight;
+		width = texWidth * renderScale;
+		height = texHeight * renderScale;
 
 		VkImageView oldview = view;
 		VkDeviceMemory oldMemory = deviceMemory;

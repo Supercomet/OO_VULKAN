@@ -103,7 +103,7 @@ void DebugDraw::AddSphere(const Sphere& sphere, const oGFX::Color& col)
     static std::vector<oGFX::Vertex> vertices;
     static std::vector<uint32_t> indices;
     static bool once = [&]() {
-        auto [sphVertices, spfIndices] = icosahedron::make_icosphere(2, false);
+        auto [sphVertices, spfIndices] = icosahedron::make_icosphere(1, false);
         vertices.reserve(sphVertices.size());
         for (auto&& v : sphVertices)
         {
@@ -154,6 +154,91 @@ void DebugDraw::AddTriangle(const Triangle& tri, const oGFX::Color& col)
     vr->g_DebugDrawIndexBufferCPU.emplace_back(2 + sz); // E1
     vr->g_DebugDrawIndexBufferCPU.emplace_back(2 + sz); // E2
     vr->g_DebugDrawIndexBufferCPU.emplace_back(0 + sz); // E2
+}
+
+void DebugDraw::AddArrow(const glm::vec3& p0, const glm::vec3& p1, const oGFX::Color& col)
+{
+    auto p0v4 = glm::vec4{ p0 ,1.0f };
+    auto p1v4 = glm::vec4{ p1 ,1.0f };
+
+    auto mag = glm::length(p0v4 - p1v4);
+    auto revDir = glm::normalize(p0v4 - p1v4);
+
+    //main line
+    AddLine(p0v4, p1v4, col);
+
+    {
+        static const auto  posRot = glm::rotate(glm::mat4(1.0f),glm::radians( 30.0f),glm::vec3(1.0f,0.0f,0.0f));
+        static const auto  negRot = glm::rotate(glm::mat4(1.0f),glm::radians(-30.0f),glm::vec3(1.0f,0.0f,0.0f));
+
+        //head
+        AddLine(p1v4, posRot * revDir * (mag / 4.0f) + p1v4, col);
+        AddLine(p1v4, negRot * revDir * (mag / 4.0f) + p1v4, col);
+    }
+
+    static const auto  posRot = glm::rotate(glm::mat4(1.0f),glm::radians( 30.0f),glm::vec3(0.0f,0.0f,1.0f));
+    static const auto  negRot = glm::rotate(glm::mat4(1.0f),glm::radians(-30.0f),glm::vec3(0.0f,0.0f,1.0f));
+    //head
+    AddLine(p1v4, posRot * revDir * (mag / 4.0f) + p1v4, col);
+    AddLine(p1v4, negRot * revDir * (mag / 4.0f) + p1v4, col);
+
+}
+
+void DebugDraw::DrawCameraFrustrum(const Camera& camera, const oGFX::Color& col)
+{
+    DrawCameraFrustrum(camera.m_position, camera.matrices.view, camera.GetAspectRatio() , camera.GetFov(), camera.GetNearClip(), camera.GetFarClip(), col);
+}
+
+void DebugDraw::DrawCameraFrustrum(const glm::vec3& position, const glm::mat4& view, float ar, float fov,float znear, float zfar,const oGFX::Color& col)
+{
+    mat4 inv = glm::inverse(view);
+
+    float halfHeight = tanf(glm::radians(fov / 2.f));
+    float halfWidth = halfHeight * ar;
+
+    float xn = halfWidth * znear + EPSILON;
+    float xf = halfWidth * zfar + EPSILON;
+    float yn = halfHeight * znear + EPSILON;
+    float yf = halfHeight * zfar + EPSILON;
+
+    glm::vec4 f[8u] =
+    {
+        // znear face
+        {xn, yn,  -znear, 1.f},
+        {-xn, yn, -znear, 1.f},
+        {xn, -yn, -znear, 1.f},
+        {-xn, -yn,-znear , 1.f},
+
+        // zfar face
+        {xf, yf, -zfar, 1.f},
+        {-xf, yf,-zfar , 1.f},
+        {xf, -yf,-zfar , 1.f},
+        {-xf, -yf,-zfar, 1.f},
+    };
+
+    glm::vec3 v[8];
+    for (int i = 0; i < 8; i++)
+    {
+        glm::vec4 ff = inv * f[i];
+        v[i].x = ff.x / ff.w;
+        v[i].y = ff.y / ff.w;
+        v[i].z = ff.z / ff.w;
+    }
+
+    AddLine(v[0], v[1], col);
+    AddLine(v[0], v[2], col);
+    AddLine(v[3], v[1], col);
+    AddLine(v[3], v[2], col);
+
+    AddLine(v[4], v[5], col);
+    AddLine(v[4], v[6], col);
+    AddLine(v[7], v[5], col);
+    AddLine(v[7], v[6], col);
+
+    AddLine(v[0], v[4], col);
+    AddLine(v[1], v[5], col);
+    AddLine(v[3], v[7], col);
+    AddLine(v[2], v[6], col);
 }
 
 void DebugDraw::AddDisc(const glm::vec3& center, float radius, const glm::vec3& basis0, const glm::vec3& basis1, const oGFX::Color& color)

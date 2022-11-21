@@ -20,8 +20,8 @@ class Camera
 private:
 	static constexpr float EPSILON{ 0.001f };
 
-	glm::vec3 m_forward{ 0.0f, 0.0f, -1.0f };
-	glm::vec3 m_up{ 0.0f,1.0f,0.0f };
+	glm::vec3 m_forward{ 0.0f, 0.0f, 1.0f };
+	glm::vec3 m_up{ 0.0f, 1.0f, 0.0f };
 	glm::vec3 m_right{ 1.0f, 0.0f, 0.0f };
 
     float m_fovDegrees{ 60.0f };
@@ -30,15 +30,23 @@ private:
 	float m_znear{ 0.1f };
     float m_zfar{ 10000.0f };
 
-	void updateViewMatrix();
+	//void updateViewMatrix();
+	
+	void UpdateViewMatrixQuaternion();
+	/*void RotatePitch(float rads);
+	void RotateYaw(float rads);
+	//void RotateRoll(float rads);
+	void RotateAll(glm::vec3 deltaRads);*/
+
 public:
 	enum class CameraMovementType { lookat, firstperson };
 	enum class CameraProjectionType { perspective, orthographic };
 	CameraMovementType m_CameraMovementType{ CameraMovementType::lookat };
 	CameraProjectionType m_CameraProjectionType{ CameraProjectionType::perspective };
 
+	glm::quat m_orientation{ 0, 0, 0, 1 };
 	glm::vec3 m_rotation{};
-	glm::vec3 m_position{};
+	glm::vec3 m_position{0.0f,3.0f,0.0f};
 
 	glm::vec3 m_TargetPosition{ 0.0f, 0.0f, 0.0f };
 	float m_TargetDistance{ 10.0f };
@@ -64,7 +72,9 @@ public:
 	} keys;
 
 	bool Moving() const { return keys.left || keys.right || keys.up || keys.down; };
+	void SetNearClip(float inNear) { m_znear = inNear; UpdateProjectionMatrix(); }
 	float GetNearClip() const { return m_znear; };
+	void SetFarClip(float inFar) { m_zfar = inFar; UpdateProjectionMatrix(); }
 	float GetFarClip() const { return m_zfar; };
 
 	void LookAt(const glm::vec3& pos, const glm::vec3& target, const glm::vec3& upVec = {0.0f,1.0f,0.0f});
@@ -75,7 +85,9 @@ public:
 
 	void SetPosition(glm::vec3 position);
 
-	void SetRotation(glm::vec3 rotation);
+	//void SetRotation(glm::vec3 rotation);
+	void SetRotation(glm::quat orientation);
+	//void SetRotation(glm::mat4 matrix);
 
 	void Rotate(glm::vec3 delta);
 
@@ -96,7 +108,11 @@ public:
 	// Returns true if view or position has been changed
 	bool UpdatePad(glm::vec2 axisLeft, glm::vec2 axisRight, float deltaTime);
 
-	void SetAspectRatio(float aspect) { m_aspectRatio = aspect; }
+	void SetFov(float fov) { m_fovDegrees = fov; UpdateProjectionMatrix(); }
+	float GetFov() const { return m_fovDegrees; }
+
+	void SetAspectRatio(float aspect) { m_aspectRatio = aspect; UpdateProjectionMatrix(); }
+	float GetAspectRatio() const { return m_aspectRatio; }
 
 	void UpdateProjectionMatrix();
 

@@ -37,7 +37,7 @@
 #include <cctype>
 #include <thread>
 #include <functional>
-#include <random>
+#include <random> 
 #include <numeric>
 #include <algorithm>
 #include <bitset>
@@ -45,6 +45,7 @@
 #include "ImGuizmo.h"
 #include "AppUtils.h"
 
+#include "Camera.h"
 #include "CameraController.h"
 #include "DebugDraw.h"
 
@@ -91,6 +92,9 @@ void InitLights(int32_t* someLights);
 static uint32_t gs_ModelID_Box = 0;
 bool resetBones = false;
 
+bool s_freezeLight = true;
+bool s_boolCamera = 0;
+
 // this is to pretend we have an ECS system
 struct EntityInfo
 {
@@ -119,7 +123,7 @@ struct EntityInfo
     int32_t gfxID; // gfxworld id
     std::bitset<MAX_SUBMESH>submeshes;
 
-    ObjectInstanceFlags flags;
+    ObjectInstanceFlags flags{static_cast<ObjectInstanceFlags>(RENDER_ENABLED | SHADOW_RECEIVER | SHADOW_CASTER)};
 
     oGFX::CPUSkeletonInstance* localSkeleton;
 
@@ -277,15 +281,15 @@ void TestApplication::Run()
     // Setup Initial Textures
     //----------------------------------------------------------------------------------------------------
 
-    uint32_t whiteTexture = 0xFFFFFFFF; // ABGR
-    uint32_t blackTexture = 0xFF000000; // ABGR
-    uint32_t normalTexture = 0xFFFF8080; // ABGR
-    uint32_t pinkTexture = 0xFFA040A0; // ABGR
+    //uint32_t whiteTexture = 0xFFFFFFFF; // ABGR
+    //uint32_t blackTexture = 0xFF000000; // ABGR
+    //uint32_t normalTexture = 0xFFFF8080; // ABGR
+    //uint32_t pinkTexture = 0xFFA040A0; // ABGR
 
-    gs_WhiteTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&whiteTexture));
-    gs_BlackTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
-    gs_NormalTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
-    gs_PinkTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
+    gs_WhiteTexture = gs_RenderEngine->whiteTextureID;
+    gs_BlackTexture = gs_RenderEngine->blackTextureID;
+    gs_NormalTexture = gs_RenderEngine->normalTextureID;
+    gs_PinkTexture = gs_RenderEngine->pinkTextureID;
 
     const BindlessTextureIndex diffuseTexture0 = gs_RenderEngine->CreateTexture("Textures/7/d.png");
     const BindlessTextureIndex diffuseTexture1 = gs_RenderEngine->CreateTexture("Textures/8/d.png");
@@ -297,6 +301,11 @@ void TestApplication::Run()
     const BindlessTextureIndex roughnessTexture2 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
     const BindlessTextureIndex roughnessTexture3 = gs_RenderEngine->CreateTexture("Textures/23/r.png");
 
+    const BindlessTextureIndex d0 = gs_RenderEngine->CreateTexture("Textures/13/d.png");
+    const BindlessTextureIndex m0 = gs_RenderEngine->CreateTexture("Textures/13/m.png");
+    const BindlessTextureIndex n0 = gs_RenderEngine->CreateTexture("Textures/13/n.png");
+    const BindlessTextureIndex r0 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
+
     const BindlessTextureIndex normalTexture0 = gs_RenderEngine->CreateTexture("Textures/7/n.png");
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Models
@@ -304,11 +313,55 @@ void TestApplication::Run()
 
     auto defaultPlaneMesh = CreateDefaultPlaneXZMesh();
     auto defaultCubeMesh = CreateDefaultCubeMesh();
+    auto defaultSphere = icosahedron::make_icosphere(3);
+
     std::unique_ptr<ModelFileResource> model_plane{ gs_RenderEngine->LoadMeshFromBuffers(defaultPlaneMesh.m_VertexBuffer, defaultPlaneMesh.m_IndexBuffer, nullptr) };
     std::unique_ptr<ModelFileResource> model_box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
+    std::unique_ptr<ModelFileResource> model_sphere{nullptr};
+    {
+        std::vector<uint32_t> indices;
+        indices.reserve(defaultSphere.second.size() * 3);
+        for (size_t i = 0; i < defaultSphere.second.size(); i++)
+        {
+            auto Tv = defaultSphere.second[i].vertex;
+            for (size_t x = 0; x < 3; x++)
+            {
+                indices.push_back(Tv[x]);
+            }
+        }
+        std::vector<oGFX::Vertex> vertices;
+        vertices.resize(defaultSphere.first.size());
+        for (size_t i = 0; i < defaultSphere.first.size(); i++)
+        {
+            vertices[i].pos = defaultSphere.first[i];
+            vertices[i].norm = vec3{ 0.0f };
+        }
+        for (size_t i = 0; i < indices.size(); i+=3)
+        {
+            std::swap(indices[i], indices[i + 1]);
+            auto idx0 = indices[i];
+            auto idx1 = indices[i+1];
+            auto idx2 = indices[i+2];
+
+            vec3 norm = glm::cross(vertices[idx1].pos - vertices[idx0].pos,vertices[idx2].pos - vertices[idx0].pos);
+            vertices[idx0].norm += norm;
+            vertices[idx1].norm += norm;
+            vertices[idx2].norm += norm;
+            vertices[idx0].tangent = vertices[idx2].pos - vertices[idx1].pos;
+            vertices[idx1].tangent = vertices[idx2].pos - vertices[idx1].pos;
+            vertices[idx2].tangent = vertices[idx2].pos - vertices[idx1].pos;
+            
+        }
+        for (auto& v : vertices)
+        {
+            v.norm = glm::normalize(v.norm);
+            v.tangent = glm::normalize(v.tangent);
+        }        
+        model_sphere.reset(gs_RenderEngine->LoadMeshFromBuffers(vertices, indices, nullptr));
+    }
     gs_ModelID_Box = model_box->indices.front();
 
-    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/Luna_Walk_Redone.fbx"));
+    character_diona.reset(gs_RenderEngine->LoadModelFromFile("../Application/models/MainChar_Idle.fbx"));
     //std::unique_ptr<ModelFileResource> character_qiqi{ gs_RenderEngine->LoadModelFromFile("../Application/models/character/qiqi.fbx") };
     std::unique_ptr<ModelFileResource> character_qiqi{ nullptr};
 
@@ -345,8 +398,14 @@ void TestApplication::Run()
         ed.name = "Ground_Plane";
         ed.entityID = FastRandomMagic();
         ed.modelID = model_plane->meshResource;
+        ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
+
+        ed.bindlessGlobalTextureIndex_Albedo    = d0;
+        ed.bindlessGlobalTextureIndex_Normal    = n0;
+        ed.bindlessGlobalTextureIndex_Metallic  = m0;
+        ed.bindlessGlobalTextureIndex_Roughness = r0;
     }
 
     {
@@ -380,7 +439,7 @@ void TestApplication::Run()
         auto& ed = entities.emplace_back(EntityInfo{});
         ed.name = "Box";
         ed.entityID = FastRandomMagic();
-        ed.modelID = model_box->meshResource;
+        ed.modelID = model_sphere->meshResource;
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 1.0f,1.0f,1.0f };
 
@@ -448,11 +507,11 @@ void TestApplication::Run()
         ed.modelID = character_diona->meshResource;
         ed.name = "diona";
         ed.entityID = FastRandomMagic();
-        ed.position = { 0.0f,0.0f,0.0f };
-        ed.scale = { 1.0f,1.0f,1.0f };
+        ed.position = { 3.0f,0.0f,0.0f };
+        ed.scale = { 0.1f,0.1f,0.1f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        ed.flags = ObjectInstanceFlags::SKINNED;
-     
+        ed.flags = ObjectInstanceFlags((uint32_t)ed.flags|(uint32_t)ObjectInstanceFlags::SKINNED);
+        
     }
     std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
     entities[globalDionaID].localSkeleton = scopedPtr.get();
@@ -542,7 +601,9 @@ void TestApplication::Run()
 
     for (auto& mdl: gs_RenderEngine->g_globalModels)
     {
-        std::cout << "model:" << mdl.name << ", " << mdl.baseVertex <<", " << mdl.baseVertex+mdl.vertexCount <<  " diff-"<< mdl.baseVertex+mdl.vertexCount- mdl.baseVertex  << std::endl;
+        std::cout << "model:" << mdl.name << ", " 
+            << mdl.baseVertex <<", " << mdl.baseVertex+mdl.vertexCount 
+            <<  " diff-"<< mdl.baseVertex + mdl.vertexCount- mdl.baseVertex  << std::endl;
         for (auto& sm : mdl.m_subMeshes)
         {
             std::cout << "\tsm:" << sm.name << ", " << sm.baseVertex <<", " << sm.baseVertex+sm.vertexCount << std::endl;
@@ -564,7 +625,7 @@ void TestApplication::Run()
     // Setup Initial Camera
     //----------------------------------------------------------------------------------------------------
     {
-        auto& camera = gs_RenderEngine->camera;
+        auto& camera = gs_GraphicsWorld.cameras[0];
         gs_CameraController.SetCamera(&camera);
 
         camera.m_CameraMovementType = Camera::CameraMovementType::firstperson;
@@ -574,6 +635,8 @@ void TestApplication::Run()
         camera.SetRotationSpeed(0.5f);
         camera.SetPosition(glm::vec3(0.0f, 2.0f, 4.0f));
         camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
+
+        gs_GraphicsWorld.cameras[1] = gs_GraphicsWorld.cameras[0];
     }
 
     auto lastTime = std::chrono::high_resolution_clock::now();
@@ -583,6 +646,9 @@ void TestApplication::Run()
     // Set graphics world before rendering
     //----------------------------------------------------------------------------------------------------
     gs_RenderEngine->SetWorld(&gs_GraphicsWorld);
+    gs_GraphicsWorld.numCameras = 2;
+    gs_GraphicsWorld.cameras[0].SetFarClip(1000.0f);
+    gs_RenderEngine->InitWorld(&gs_GraphicsWorld);
 
     gs_GraphicsWorld.m_HardcodedDecalInstance.position = glm::vec3{ 0.0f,0.0f,0.0f };
 
@@ -615,7 +681,7 @@ void TestApplication::Run()
             // Decoupling camera logic.
             // Graphics should only know the final state before calculating the view & projection matrix.
             {
-                auto& camera = gs_RenderEngine->camera;
+                auto& camera = gs_GraphicsWorld.cameras[s_boolCamera];
 
                 gs_CameraController.SetCamera(&camera);
                 // If the aspect ratio changes, then the projection matrix must be updated correctly...
@@ -631,18 +697,67 @@ void TestApplication::Run()
             }          
 
             ImGui::Begin("Problems");
+            ImGui::Checkbox("EditCam", &s_boolCamera);
+            ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
             if (ImGui::Button("Cause problems"))
             {
                 uint32_t col = 0x00FFFF00;
                 gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&col);
+                
             }
             ImGui::End();
+
+            static bool ManyCamera{ true };
+            if (ImGui::Checkbox("Many camera", &ManyCamera))
+            {
+                if (ManyCamera)
+                {
+                    gs_GraphicsWorld.numCameras = 2;
+                }
+                else
+                {
+                    gs_GraphicsWorld.numCameras = 1;
+                }
+            }
+
+            //if (Input::GetKeyTriggered(KEY_P))
+            {
+                int32_t w = (int)m_WindowSize.x;
+                int32_t h = (int)m_WindowSize.y;
+
+                auto mpos = Input::GetMousePos();
+                mpos /= glm::vec2{ w,h };
+                //std::cout << "Mouse pos [" << mpos.x << "," << mpos.y << "]\n";
+
+                int32_t col = gs_RenderEngine->GetPixelValue(gs_GraphicsWorld.targetIDs[0], mpos);
+                //std::cout << "colour val : " << std::hex << col <<std::dec << " | " << col << std::endl;
+            }
+
+            if (ImGui::Begin("Main"))
+            {
+                if (gs_GraphicsWorld.imguiID[0])
+                {
+                    ImGui::Image(gs_GraphicsWorld.imguiID[0], {800,600});
+                }
+            }
+                ImGui::End();
+           
+            if (ImGui::Begin("Editor"))
+            {
+                if (gs_GraphicsWorld.imguiID[1])
+                {
+                    ImGui::Image(gs_GraphicsWorld.imguiID[1], {800,600});
+                }
+            }
+                ImGui::End();
+            
+
 
             if (gs_RenderEngine->PrepareFrame() == true)
             {
                 PROFILE_SCOPED("gs_RenderEngine->PrepareFrame() == true");
 
-                //if (freezeLight == false)
+                if (s_freezeLight == false)
                 {
 					OmniLightInstance* lights[hardCodedLights];
                     for (size_t i = 0; i < hardCodedLights; i++)
@@ -726,6 +841,7 @@ void TestApplication::Run()
     // Application Shutdown
     //----------------------------------------------------------------------------------------------------
 
+    gs_RenderEngine->DestroyWorld(&gs_GraphicsWorld);
     gs_RenderEngine->DestroyImGUI();
     ImGui::DestroyContext(ImGui::GetCurrentContext());
 
@@ -793,8 +909,8 @@ void TestApplication::RunTest_DebugDraw()
 		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,0.0f,1.0f }, oGFX::Colors::BLUE);
 		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 1.0f,0.0f,0.0f }, oGFX::Colors::VIOLET);
 
-		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -3.0f, 1.0f, -5.0f }, 1.0f, gs_RenderEngine->camera.m_position, oGFX::Colors::GREEN);
-		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_RenderEngine->camera.m_position, oGFX::Colors::RED);
+		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -3.0f, 1.0f, -5.0f }, 1.0f, gs_GraphicsWorld.cameras.front().m_position, oGFX::Colors::GREEN);
+		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_GraphicsWorld.cameras.front().m_position, oGFX::Colors::RED);
 	}
 
     if (m_TestDebugDrawGrid)
@@ -942,8 +1058,8 @@ void TestApplication::RunTest_DebugDraw()
 			{
 				const int screenWidth = (int)m_WindowSize.x;
 				const int screenHeight = (int)m_WindowSize.y;
-				const glm::mat4& viewMatrix = gs_RenderEngine->camera.matrices.view;
-				const glm::mat4& projectionMatrix = gs_RenderEngine->camera.matrices.perspective;
+				const glm::mat4& viewMatrix =gs_GraphicsWorld.cameras.front().matrices.view;
+				const glm::mat4& projectionMatrix = gs_GraphicsWorld.cameras.front().matrices.perspective;
 				// World Space to NDC Space
 				glm::vec4 ndcPosition = projectionMatrix * viewMatrix * glm::vec4{ worldPosition, 1.0f };
 				// Perspective Division
@@ -967,7 +1083,7 @@ void TestApplication::RunTest_DebugDraw()
 
 void TestApplication::ToolUI_Camera()
 {
-	auto& camera = gs_RenderEngine->camera;
+	auto& camera = gs_GraphicsWorld.cameras.front();
 	ImGui::DragFloat3("Position", glm::value_ptr(camera.m_position), 0.01f);
 	ImGui::DragFloat3("Rotation", glm::value_ptr(camera.m_rotation), 0.01f);
 	ImGui::DragFloat3("Target", glm::value_ptr(camera.m_TargetPosition), 0.01f);
@@ -1011,9 +1127,29 @@ void TestApplication::ToolUI_Settings()
 	ImGui::Text("boneMatrices.size() : %u", gs_RenderEngine->boneMatrices.size());
 	ImGui::Separator();
     {
+        ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Scene Settings");
+        auto& ssaoSettings = gs_RenderEngine->currWorld->ssaoSettings;
+        ImGui::Text("SSAO");
+        ImGui::PushID(std::atoi("SSAO"));
+        ImGui::DragFloat("Radius", &ssaoSettings.radius,0.01f);
+        ImGui::DragFloat("Bias", &ssaoSettings.bias,0.01f);
+        uint32_t mmin =1;
+        uint32_t mmax = 64;
+        ImGui::DragScalar("Samples", ImGuiDataType_U32, &ssaoSettings.samples, 0.1f , &mmin, &mmax);
+        ImGui::PopID();
+        auto& lightSettings = gs_RenderEngine->currWorld->lightSettings;   
+        ImGui::Text("Lighting");
+        ImGui::PushID(std::atoi("Lighting"));
+        ImGui::DragFloat("Ambient", &lightSettings.ambient,0.01f);
+        ImGui::DragFloat("Max bias", &lightSettings.maxBias,0.01f);
+        ImGui::DragFloat("Bias multiplier", &lightSettings.biasMultiplier,0.01f);
+        ImGui::PopID();
+    }
+    ImGui::Separator();
+    {
 		ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Shader Debug Tool");
-		ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);
-		ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);
+		ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);      
+		ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);        
 		ImGui::DragFloat4("vector4_values2", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values2), 0.01f);
 		ImGui::DragFloat4("vector4_values3", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values3), 0.01f);
 		ImGui::DragFloat4("vector4_values4", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values4), 0.01f);
@@ -1073,8 +1209,8 @@ void TestApplication::Tool_HandleGizmoManipulation()
 		// WR: This is needed if imgui multi-viewport is used, as origin becomes the top left of monitor.
 		const auto mainViewportPosition = ImGui::GetMainViewport()->Pos;
 		ImGuizmo::SetRect(mainViewportPosition.x, mainViewportPosition.y, io.DisplaySize.x, io.DisplaySize.y);
-		glm::mat4x4 viewMatrix = gs_RenderEngine->camera.matrices.view;
-		glm::mat4x4 projMatrix = gs_RenderEngine->camera.matrices.perspective;
+		glm::mat4x4 viewMatrix = gs_GraphicsWorld.cameras.front().matrices.view;
+		glm::mat4x4 projMatrix = gs_GraphicsWorld.cameras.front().matrices.perspective;
 
 		static glm::mat4x4 localToWorld{ 1.0f };
 		float* matrixPtr = glm::value_ptr(localToWorld);
@@ -1222,6 +1358,21 @@ void TestApplication::Tool_HandleUI()
 						valuesModified |= ImGui::DragFloat3("Scale", glm::value_ptr(entity.scale), 0.01f);
 						valuesModified |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
 						valuesModified |= ImGui::DragFloat("Theta", &entity.rot);
+
+                        bool renderMe = entity.flags & RENDER_ENABLED;
+                        if (ImGui::Checkbox("Renderable", &renderMe))
+                        {
+                            valuesModified |= true;
+                            if (renderMe)
+                            {
+                                entity.flags = entity.flags | RENDER_ENABLED;
+                            }
+                            else
+                            {
+                                auto inv = (~RENDER_ENABLED);
+                                entity.flags = entity.flags &inv;
+                            }
+                        }
 						// TODO: We should be using quaternions.........                        
 						if (valuesModified)
 						{
@@ -1289,8 +1440,15 @@ void TestApplication::Tool_HandleUI()
 
                 }
 
-                static bool freezeLight = true;
-				ImGui::Checkbox("Freeze Lights", &freezeLight);
+				ImGui::Checkbox("Freeze Lights", &s_freezeLight);
+                if (ImGui::Button("Off lights"))
+                {
+                    for (size_t i = 0; i < hardCodedLights; i++)
+                    {
+                        auto& l = gs_GraphicsWorld.GetLightInstance(i);
+                        l.radius.x = 0.0f;
+                    }
+                }
 				ImGui::Checkbox("Debug Draw Position", &m_debugDrawLightPosition);
 				ImGui::Separator();
 				
@@ -1313,6 +1471,13 @@ void TestApplication::Tool_HandleUI()
                         }
                         ImGui::DragFloat3("Color", glm::value_ptr(light.color),0.1f,0.0f,1.0f);
                         ImGui::DragFloat("Radius", &light.radius.x,0.1f,0.0f);
+                        {
+                            bool sh = GetCastsShadows(light);
+                            if (ImGui::Checkbox("Shadows", &sh))
+                            {
+                                SetCastsShadows(light, sh);
+                            }
+                        }
                         ImGui::PopID();
                     }				
 				}
@@ -1357,6 +1522,8 @@ void InitLights(int32_t* someLights)
         lights[0]->position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
         lights[0]->color = glm::vec4(1.5f);
         lights[0]->radius.x = 15.0f;
+
+        return;
         // Red   
         lights[1]->position = glm::vec4(-2.0f, 0.0f, 0.0f, 0.0f);
         lights[1]->color = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);

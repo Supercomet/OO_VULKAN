@@ -44,12 +44,16 @@ Technology is prohibited.
 #include "renderpass/GBufferRenderPass.h"
 #include "renderpass/DebugRenderpass.h"
 #include "renderpass/ShadowPass.h"
-#define ENABLE_DECAL_IMPLEMENTATION
+#include "renderpass/SSAORenderPass.h"
+#include "renderpass/ForwardParticlePass.h"
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	#include "renderpass/ForwardDecalRenderpass.h"
 #endif
 
+#include "DefaultMeshCreator.h"
+
 #include "GraphicsBatch.h"
+#include "FramebufferBuilder.h"
 #include "DelayedDeleter.h"
 
 #include "IcoSphereCreator.h"
@@ -64,6 +68,7 @@ Technology is prohibited.
 #include <chrono>
 #include <random>
 #include <filesystem>
+#include <sstream>
 
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
@@ -78,9 +83,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT && !(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
 	{
 		int x;
-		std::cerr << pCallbackData->pMessage << std::endl;
+		std::cerr << pCallbackData->pMessage << std::endl<< std::endl;
 		//assert(false); temp comment out
-		x= 5; // for breakpoint
+		x=5; // for breakpoint
 	}
 
 	return VK_FALSE;
@@ -111,6 +116,18 @@ VulkanRenderer::~VulkanRenderer()
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
 	DelayedDeleter::get()->Shutdown();
+
+	for (size_t i = 0; i < renderTargets.size(); i++)
+	{
+		if (renderTargets[i].texture.image)
+		{
+			renderTargets[i].texture.destroy();
+		}
+		if (renderTargets[i].depth.image)
+		{
+			renderTargets[i].depth.destroy();
+		}
+	}
 
 	RenderPassDatabase::Shutdown();
 
@@ -175,16 +192,9 @@ VulkanRenderer::~VulkanRenderer()
 
 	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::defaultPSOLayout, nullptr);
 	
-	if (renderPass_default)
-	{
-		vkDestroyRenderPass(m_device.logicalDevice, renderPass_default, nullptr);
-		renderPass_default = VK_NULL_HANDLE;
-	}
-	if (renderPass_default2)
-	{
-		vkDestroyRenderPass(m_device.logicalDevice, renderPass_default2, nullptr);
-		renderPass_default2 = VK_NULL_HANDLE;
-	}
+	renderPass_default.destroy();
+	renderPass_default_noDepth.destroy();
+	
 }
 
 VulkanRenderer* VulkanRenderer::get()
@@ -259,25 +269,42 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		rpd->RegisterRenderPass(ptr);
 		 ptr = new DeferredCompositionRenderpass;
 		rpd->RegisterRenderPass(ptr);
+		ptr = new SSAORenderPass;
+		rpd->RegisterRenderPass(ptr);
+		ptr = new ForwardParticlePass;
+		rpd->RegisterRenderPass(ptr);
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 		ptr = new ForwardDecalRenderpass;
 		rpd->RegisterRenderPass(ptr);
 #endif
 
-		RenderPassDatabase::InitAllRegisteredPasses();
-
 		CreateFramebuffers();
 
 		CreateCommandBuffers();
 		CreateDescriptorPool();
+
+		g_Textures.reserve(2048);
+
+		uint32_t whiteTexture = 0xFFFFFFFF; // ABGR
+		uint32_t blackTexture = 0xFF000000; // ABGR
+		uint32_t normalTexture = 0xFFFF8080; // ABGR
+		uint32_t pinkTexture = 0xFFA040A0; // ABGR
+
+		whiteTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&whiteTexture));
+		blackTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
+		normalTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
+		pinkTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
+		
+		RenderPassDatabase::InitAllRegisteredPasses();
+
+		auto& shadowTexture =RenderPassDatabase::GetRenderPass<ShadowPass>()->shadow_depth;
+		shadowTexture.updateDescriptor();
+
 		CreateSynchronisation();
 
 		InitDebugBuffers();
-		g_GlobalMeshBuffers.IdxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-		g_GlobalMeshBuffers.VtxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		g_GlobalMeshBuffers.IdxBuffer.reserve(8 * 1000 * 1000);
-		g_GlobalMeshBuffers.VtxBuffer.reserve(8*1000*1000);
-
+		
+		InitDefaultPrimatives();
 
 		PROFILE_INIT_VULKAN(&m_device.logicalDevice, &m_device.physicalDevice, &m_device.graphicsQueue, (uint32_t*)&m_device.queueIndices.graphicsFamily, 1, nullptr);
 	}
@@ -342,10 +369,9 @@ void VulkanRenderer::SetupSwapchain()
 
 void VulkanRenderer::CreateDefaultRenderpass()
 {
-	if (renderPass_default)
+	if (renderPass_default.pass)
 	{
-		vkDestroyRenderPass(m_device.logicalDevice, renderPass_default, nullptr);
-		renderPass_default = VK_NULL_HANDLE;
+		return;
 	}
 
 	// ATTACHMENTS
@@ -434,22 +460,15 @@ void VulkanRenderer::CreateDefaultRenderpass()
 	renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(subpassDependancies.size());
 	renderPassCreateInfo.pDependencies = subpassDependancies.data();
 
-	VkResult result = vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &renderPass_default);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create Render Pass");
-	}
-	VK_NAME(m_device.logicalDevice, "defaultRenderPass",renderPass_default);
+	renderPass_default.name = "defaultRenderPass";
+	renderPass_default.Init(m_device, renderPassCreateInfo);
 
-	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
-	//VK_CHK(vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &renderPass_default2));
-	VK_NAME(m_device.logicalDevice, "defaultRenderPass_2",renderPass_default2);
-	//depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	//result = vkCreateRenderPass(m_device.logicalDevice, &renderPassCreateInfo, nullptr, &compositionPass);
-	//if (result != VK_SUCCESS)
-	//{
-	//	throw std::runtime_error("Failed to create Render Pass");
-	//}
+
+	subpass.pDepthStencilAttachment = VK_NULL_HANDLE;
+	renderPassCreateInfo.attachmentCount = 1; // colour only
+	renderPassCreateInfo.dependencyCount = 0; // colour only
+	renderPass_default_noDepth.name = "defaultRenderPass_noDepth";
+	renderPass_default_noDepth.Init(m_device, renderPassCreateInfo);
 }
 
 void VulkanRenderer::CreateDefaultDescriptorSetLayout()
@@ -472,7 +491,6 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 		uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
 	}
 
-	numCameras = 2;
 	VkDeviceSize vpBufferSize = uboDynamicAlignment * numCameras;
 
 	descriptorSets_uniform.resize(m_swapchain.swapChainImages.size());
@@ -482,12 +500,13 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 		VkDescriptorBufferInfo vpBufferInfo{};
 		vpBufferInfo.buffer = vpUniformBuffer[i];	// buffer to get data from
 		vpBufferInfo.offset = 0;					// position of start of data
-		vpBufferInfo.range = sizeof(CB::FrameContextUBO);			// size of data
+		vpBufferInfo.range = sizeof(CB::FrameContextUBO);// size of data
 
 		DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[swapchainIdx])
 			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 			.Build(descriptorSets_uniform[i], SetLayoutDB::FrameUniform);
 	}
+	
 	//UNIFORM VALUES DESCRIPTOR SET LAYOUT
 	// UboViewProejction binding info
 	//VkDescriptorSetLayoutBinding vpLayoutBinding = 
@@ -528,6 +547,129 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 	{
 		throw std::runtime_error("Failed to create a descriptor set layout!");
 	}
+}
+
+void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& src,VkImageLayout srcFinal, vkutils::Texture2D& dst,VkImageLayout dstFinal)
+{
+	bool supportsBlit = true;
+
+	VkFormatProperties formatProps;
+
+	// Check if the device supports blitting from optimal images (the swapchain images are in optimal format)
+	vkGetPhysicalDeviceFormatProperties(m_device.physicalDevice, src.format, &formatProps);
+	if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
+		//std::cerr << "Device does not support blitting from optimal tiled images, using copy instead of blit!" << std::endl;
+		supportsBlit = false;
+	}
+
+	// Check if the device supports blitting to linear images
+	vkGetPhysicalDeviceFormatProperties(m_device.physicalDevice, dst.format, &formatProps);
+	if (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+		//std::cerr << "Device does not support blitting to linear tiled images, using copy instead of blit!" << std::endl;
+		supportsBlit = false;
+	}
+
+	// Source for the copy is the last rendered swapchain image
+
+	// Transition destination image to transfer destination layout
+	oGFX::vkutils::tools::insertImageMemoryBarrier(
+		cmd,
+		dst.image,
+		0,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		dst.currentLayout,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+	oGFX::vkutils::tools::insertImageMemoryBarrier(
+		cmd,
+		src.image,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_ACCESS_TRANSFER_READ_BIT,
+		src.currentLayout, // DO PROPER RESOURCE TRACKING
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+	// If source and destination support blit we'll blit as this also does automatic format conversion (e.g. from BGR to RGB)
+	if (supportsBlit)
+	{
+		// Define the region to blit (we will blit the whole swapchain image)
+		VkOffset3D srcBlitSize;
+		srcBlitSize.x = src.width;
+		srcBlitSize.y = src.height;
+		srcBlitSize.z = 1;
+
+		VkOffset3D dstBlitSize;
+		dstBlitSize.x = dst.width;
+		dstBlitSize.y = dst.height;
+		dstBlitSize.z = 1;
+		VkImageBlit imageBlitRegion{};
+		imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageBlitRegion.srcSubresource.layerCount = 1;
+		imageBlitRegion.srcOffsets[1] = srcBlitSize;
+		imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageBlitRegion.dstSubresource.layerCount = 1;
+		imageBlitRegion.dstOffsets[1] = dstBlitSize;
+
+		// Issue the blit command
+		vkCmdBlitImage(
+			cmd,
+			src.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&imageBlitRegion,
+			VK_FILTER_NEAREST);
+	}
+	else
+	{
+		// Otherwise use image copy (requires us to manually flip components)
+		VkImageCopy imageCopyRegion{};
+		imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageCopyRegion.srcSubresource.layerCount = 1;
+		imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageCopyRegion.dstSubresource.layerCount = 1;
+		imageCopyRegion.extent.width = dst.width;
+		imageCopyRegion.extent.height = dst.height;
+		imageCopyRegion.extent.depth = 1;
+
+		// Issue the copy command
+		vkCmdCopyImage(
+			cmd,
+			src.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&imageCopyRegion);
+	}
+
+	// Transition destination image to general layout, which is the required layout for mapping the image memory later on
+	oGFX::vkutils::tools::insertImageMemoryBarrier(
+		cmd,
+		dst.image,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		dstFinal,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+	// Transition back the swap chain image after the blit is done
+	oGFX::vkutils::tools::insertImageMemoryBarrier(
+		cmd,
+		src.image,
+		VK_ACCESS_TRANSFER_READ_BIT,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		srcFinal,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+	dst.currentLayout = dstFinal;
+	src.currentLayout = srcFinal;
 }
 
 void VulkanRenderer::CreateDefaultPSOLayouts()
@@ -588,7 +730,7 @@ void VulkanRenderer::CreateFramebuffers()
 
 		VkFramebufferCreateInfo framebufferCreateInfo = {};
 		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferCreateInfo.renderPass = renderPass_default; //render pass layout the frame buffer will be used with
+		framebufferCreateInfo.renderPass = renderPass_default.pass; //render pass layout the frame buffer will be used with
 		framebufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 		framebufferCreateInfo.pAttachments = attachments.data(); //list of attachments (1:1 with render pass)
 		framebufferCreateInfo.width = m_swapchain.swapChainExtent.width;
@@ -643,6 +785,300 @@ void VulkanRenderer::SetWorld(GraphicsWorld* world)
 	// force a sync here
 	vkDeviceWaitIdle(m_device.logicalDevice);
 	currWorld = world;
+
+	if (currWorld)
+	{
+		
+	}
+
+}
+
+void VulkanRenderer::InitWorld(GraphicsWorld* world)
+{
+	assert(world && "dont pass nullptr");
+
+	for (uint32_t x = 0; x < world->numCameras; ++x)
+	{
+		auto& wrdID = world->targetIDs[x];
+		if (wrdID == -1)
+		{
+			// allocate render target
+			bool found = false;
+			for (size_t i = 0; i < renderTargets.size(); i++)
+			{
+				
+				if (renderTargets[i].inUse == false)
+				{
+					numAllocatedCameras++;
+					renderTargets[i].inUse = true;
+					wrdID = static_cast<int32_t>(i);
+					found = true;
+					break;
+				}
+			}
+			assert(found && "Could not find enough rendertargets");
+			// initialization
+			auto& image = renderTargets[wrdID].texture;
+			if (image.image == VK_NULL_HANDLE)
+			{
+				image.name = "GW_"+std::to_string(wrdID)+":COL";
+				image.forFrameBuffer(&m_device, m_swapchain.swapChainImageFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+					m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height);
+				image.name = "WorldColourTarget";			
+			}
+			if (image.image&&renderTargets[wrdID].imguiTex == 0)
+			{
+				renderTargets[wrdID].imguiTex = CreateImguiBinding(samplerManager.GetDefaultSampler(), image.view, image.imageLayout);				
+			}
+			auto& depth =  renderTargets[wrdID].depth;
+			if (depth.image == VK_NULL_HANDLE)
+			{
+				depth.name = "GW_"+std::to_string(wrdID)+":DEPTH";
+				depth.forFrameBuffer(&m_device, G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+					m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height);
+				depth.name = "WorldDepthTarget";
+				//world->imguiID[0] = CreateImguiBinding(samplerManager.GetDefaultSampler(), depth.view, depth.imageLayout);
+			}
+
+			//assignment 
+			world->imguiID [x] = renderTargets[wrdID].imguiTex;
+		}		
+	}	
+	world->initialized = true;
+}
+
+void VulkanRenderer::DestroyWorld(GraphicsWorld* world)
+{
+	assert(world && "dont pass nullptr");
+	assert(world->initialized && "World should exist dont destroy non-init world");
+	for (uint32_t x = 0; x < world->numCameras; ++x)
+	{
+		auto& wrdID = world->targetIDs[x];
+		renderTargets[wrdID].inUse = false;
+		wrdID = -1;
+		numAllocatedCameras--;
+	}	
+	world->initialized = false;
+}
+
+int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
+{
+
+	uv = glm::clamp(uv, { 0.0,0.0 }, { 1.0,1.0 });
+
+	// Bad but only editor uses this
+	auto& physicalDevice = m_device.physicalDevice;
+	auto& device = m_device.logicalDevice;
+	vkQueueWaitIdle(m_device.graphicsQueue);
+	vkDeviceWaitIdle(device);
+
+
+
+	bool supportsBlit = true;
+	// Check blit support for source and destination
+	VkFormatProperties formatProps;
+
+	
+	auto& target = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments[GBufferAttachmentIndex::ENTITY_ID];
+	if (target.currentLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+		return -1;
+
+	// Check if the device supports blitting from optimal images (the swapchain images are in optimal format)
+	vkGetPhysicalDeviceFormatProperties(physicalDevice, target.format, &formatProps);
+	if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
+		supportsBlit = false;
+	}
+
+	// Check if the device supports blitting to linear images
+	vkGetPhysicalDeviceFormatProperties(physicalDevice, VK_FORMAT_R32_SINT, &formatProps);
+	if (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+		supportsBlit = false;
+	}
+
+	// Source for the copy is the last rendered swapchain image
+	VkImage srcImage = target.image;
+
+	// Create the linear tiled destination image to copy to and to read the memory from
+	VkImageCreateInfo imageCreateCI(oGFX::vkutils::inits::imageCreateInfo());
+	imageCreateCI.imageType = VK_IMAGE_TYPE_2D;
+	// Note that vkCmdBlitImage (if supported) will also do format conversions if the swapchain color format would differ
+	imageCreateCI.format = VK_FORMAT_R32_SINT;
+	imageCreateCI.extent.width = target.width;
+	imageCreateCI.extent.height = target.height;
+	imageCreateCI.extent.depth = 1;
+	imageCreateCI.arrayLayers = 1;
+	imageCreateCI.mipLevels = 1;
+	imageCreateCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageCreateCI.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCreateCI.tiling = VK_IMAGE_TILING_LINEAR;
+	imageCreateCI.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	// Create the image
+	VkImage dstImage;
+	VK_CHK(vkCreateImage(device, &imageCreateCI, nullptr, &dstImage));
+	VK_NAME(device, "COPY_DST_EDITOR_ID", dstImage);
+	// Create memory to back up the image
+	VkMemoryRequirements memRequirements;
+	VkMemoryAllocateInfo memAllocInfo(oGFX::vkutils::inits::memoryAllocateInfo());
+	VkDeviceMemory dstImageMemory;
+	vkGetImageMemoryRequirements(device, dstImage, &memRequirements);
+	memAllocInfo.allocationSize = memRequirements.size;
+	// Memory must be host visible to copy from
+	memAllocInfo.memoryTypeIndex = oGFX::FindMemoryTypeIndex(physicalDevice, memRequirements.memoryTypeBits
+		, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	VK_CHK(vkAllocateMemory(device, &memAllocInfo, nullptr, &dstImageMemory));
+	VK_CHK(vkBindImageMemory(device, dstImage, dstImageMemory, 0));
+
+	// Do the actual blit from the swapchain image to our host visible destination image
+	
+	VkCommandBuffer copyCmd = beginSingleTimeCommands();
+	VK_NAME(device, "COPY_DST_EDITOR_ID_CMD_LIST", copyCmd);
+	// Transition destination image to transfer destination layout
+	oGFX::vkutils::tools::insertImageMemoryBarrier(
+		copyCmd,
+		dstImage,
+		0,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+	// Transition swapchain image from present to transfer source layout
+	oGFX::vkutils::tools::insertImageMemoryBarrier(
+		copyCmd,
+		srcImage,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_ACCESS_TRANSFER_READ_BIT,
+		target.currentLayout,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+	// If source and destination support blit we'll blit as this also does automatic format conversion (e.g. from BGR to RGB)
+	if (supportsBlit)
+	{
+		// Define the region to blit (we will blit the whole swapchain image)
+		VkOffset3D blitSize;
+		blitSize.x = target.width;
+		blitSize.y = target.height;
+		blitSize.z = 1;
+		VkImageBlit imageBlitRegion{};
+		imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageBlitRegion.srcSubresource.layerCount = 1;
+		imageBlitRegion.srcOffsets[1] = blitSize;
+		imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageBlitRegion.dstSubresource.layerCount = 1;
+		imageBlitRegion.dstOffsets[1] = blitSize;
+
+		// Issue the blit command
+		vkCmdBlitImage(
+			copyCmd,
+			srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&imageBlitRegion,
+			VK_FILTER_NEAREST);
+	}
+	else
+	{
+		// Otherwise use image copy (requires us to manually flip components)
+		VkImageCopy imageCopyRegion{};
+		imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageCopyRegion.srcSubresource.layerCount = 1;
+		imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageCopyRegion.dstSubresource.layerCount = 1;
+		imageCopyRegion.extent.width = target.width;
+		imageCopyRegion.extent.height = target.height;
+		imageCopyRegion.extent.depth = 1;
+
+		// Issue the copy command
+		vkCmdCopyImage(
+			copyCmd,
+			srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&imageCopyRegion);
+	}
+
+	// Transition destination image to general layout, which is the required layout for mapping the image memory later on
+	oGFX::vkutils::tools::insertImageMemoryBarrier(
+		copyCmd,
+		dstImage,
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+	// Transition back the format after the blit is done
+	oGFX::vkutils::tools::insertImageMemoryBarrier(
+		copyCmd,
+		srcImage,
+		VK_ACCESS_TRANSFER_READ_BIT,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		target.currentLayout,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+	vkEndCommandBuffer(copyCmd);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &copyCmd;
+	//submitInfo.waitSemaphoreCount = 1; //number of semaphores to wait on
+	//submitInfo.pWaitSemaphores = &readyForCopy[(currentFrame+MAX_FRAME_DRAWS+1) % MAX_FRAME_DRAWS]; //list of semaphores to wait on
+	//VkPipelineStageFlags waitStages[] = {
+	//	VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+	//};
+	//submitInfo.pWaitDstStageMask = waitStages; //stages to check semapheres at
+
+
+	vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(m_device.graphicsQueue);
+	vkFreeCommandBuffers(m_device.logicalDevice, m_device.commandPool, 1, &copyCmd);
+
+
+	// Get layout of the image (including row pitch)
+	VkImageSubresource subResource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
+	VkSubresourceLayout subResourceLayout;
+	vkGetImageSubresourceLayout(device, dstImage, &subResource, &subResourceLayout);
+
+	// Map image memory so we can start copying from it
+	const char* data;
+	VK_CHK(vkMapMemory(device, dstImageMemory, 0, VK_WHOLE_SIZE, 0, (void**)& data));
+	data += subResourceLayout.offset;
+
+	
+	// If source is BGR (destination is always RGB) and we can't use blit (which does automatic conversion), we'll have to manually swizzle color components
+	bool colorSwizzle = false;
+	// Check if source is BGR
+	// Note: Not complete, only contains most common and basic BGR surface formats for demonstration purposes
+	if (!supportsBlit)
+	{
+		std::vector<VkFormat> formatsBGR = { VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_B8G8R8A8_SNORM };
+		//colorSwizzle = (std::find(formatsBGR.begin(), formatsBGR.end(), swapChain.colorFormat) != formatsBGR.end());
+	}
+
+	glm::uvec2 pixels = glm::uvec2{ target.width * uv.x,target.height * (uv.y) };
+	pixels = glm::clamp(pixels, { 0,0 }, { target.width-1,target.height-1 });
+	uint32_t indx = (pixels.x + pixels.y * target.width);
+	int32_t value = ((int32_t*)data)[indx];
+	//uint32_t value = ((uint32_t*)data)[pixels.x * (pixels.y * subResourceLayout.rowPitch)];
+
+	// Clean up resources
+	vkUnmapMemory(device, dstImageMemory);
+	vkFreeMemory(device, dstImageMemory, nullptr);
+	vkDestroyImage(device, dstImage, nullptr);
+
+	return value;
+
 }
 
 void VulkanRenderer::CreateLightingBuffers()
@@ -663,6 +1099,8 @@ void VulkanRenderer::UploadLights()
 {
 	if (currWorld == nullptr)
 		return;
+
+	assert(currWorld->initialized && "World not initialized - did you call VulkanRenderer::InitWorld?");
 
 	PROFILE_SCOPED();
 
@@ -685,18 +1123,44 @@ void VulkanRenderer::UploadLights()
 	//// Only lights that are inside/intersecting the camera frustum should be uploaded.
 	//memcpy(lightsBuffer.mapped, &lightUBO, sizeof(CB::LightUBO));
 
-	std::vector<SpotLightInstance> spotLights;
+	m_numShadowcastLights = 0;
+	int32_t gridIdx = 0;
+
+	std::vector<LocalLightInstance> spotLights;
 	auto& lights = currWorld->GetAllOmniLightInstances();
 	spotLights.reserve(lights.size());
+	int viewIter{};
 	for (auto& e : lights)
 	{
-		SpotLightInstance si;
+		LocalLightInstance si;
+		if (e.info.x > 0)
+		{
+			
+			e.info.y = gridIdx;			
+			if (e.info.x == 1)
+			{
+				// loop through all faces
+				for (size_t i = 0; i < 6; i++)
+				{
+					++m_numShadowcastLights;
+					si.view[i] = e.view[i];
+					++gridIdx;
+				}
+			}
+			else
+			{
+				++m_numShadowcastLights;
+				si.view[0] = e.view[++viewIter%6];		
+				++gridIdx;
+			}
+		}
+
+		si.info = e.info;
 		si.position = e.position;
 		si.color = e.color;
 		si.radius = e.radius;
 		si.projection = e.projection;
-		si.view = e.view[0];
-
+		
 		spotLights.emplace_back(si);
 	}
 
@@ -713,6 +1177,7 @@ void VulkanRenderer::CreateSynchronisation()
 {
 	imageAvailable.resize(MAX_FRAME_DRAWS);
 	renderFinished.resize(MAX_FRAME_DRAWS);
+
 	drawFences.resize(MAX_FRAME_DRAWS);
 	//Semaphore creation information
 	VkSemaphoreCreateInfo semaphorecreateInfo = {};
@@ -740,18 +1205,10 @@ void VulkanRenderer::CreateSynchronisation()
 void VulkanRenderer::CreateUniformBuffers()
 {	
 	// ViewProjection buffer size
-
-	VkPhysicalDeviceProperties props;
-	vkGetPhysicalDeviceProperties(m_device.physicalDevice,&props);
-	size_t minUboAlignment = props.limits.minUniformBufferOffsetAlignment;
 	//auto dynamicAlignment = sizeof(glm::mat4);
-	uboDynamicAlignment = sizeof(CB::FrameContextUBO);
-	if (minUboAlignment > 0) {
-		uboDynamicAlignment = (uboDynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
-	}
-
-	numCameras = 2;
-	VkDeviceSize vpBufferSize = uboDynamicAlignment * numCameras;
+	uboDynamicAlignment = oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO),m_device.properties.limits.minUniformBufferOffsetAlignment);
+	
+	VkDeviceSize vpBufferSize = numCameras*uboDynamicAlignment;
 
 	//// LightData bufffer size
 	//VkDeviceSize modelBufferSize = modelUniformAlignment * MAX_OBJECTS;
@@ -765,7 +1222,6 @@ void VulkanRenderer::CreateUniformBuffers()
 	//create uniform buffers
 	for (size_t i = 0; i < m_swapchain.swapChainImages.size(); i++)
 	{
-		// TODO: Disable host coherent bit and manuall flush buffers for application
 		oGFX::CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, vpBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT 
 			//| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
@@ -809,6 +1265,7 @@ void VulkanRenderer::CreateDescriptorPool()
 	std::vector<VkDescriptorPoolSize> samplerpoolSizes = { samplerPoolSize };
 
 	VkDescriptorPoolCreateInfo samplerPoolCreateInfo = oGFX::vkutils::inits::descriptorPoolCreateInfo(samplerpoolSizes,1); // or MAX_OBJECTS?
+	samplerPoolCreateInfo.flags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 	result = vkCreateDescriptorPool(m_device.logicalDevice, &samplerPoolCreateInfo, nullptr, &samplerDescriptorPool);
 	VK_NAME(m_device.logicalDevice, "samplerDescriptorPool", samplerDescriptorPool);
 	if (result != VK_SUCCESS)
@@ -822,7 +1279,7 @@ void VulkanRenderer::CreateDescriptorPool()
 	uint32_t variableDescCounts[] = { MAX_OBJECTS };
 	variableDescriptorCountAllocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
 	variableDescriptorCountAllocInfo.descriptorSetCount = 1;
-	variableDescriptorCountAllocInfo.pDescriptorCounts  = variableDescCounts;
+	variableDescriptorCountAllocInfo.pDescriptorCounts = variableDescCounts;
 
 	//Descriptor set allocation info
 	VkDescriptorSetAllocateInfo setAllocInfo = oGFX::vkutils::inits::descriptorSetAllocateInfo(samplerDescriptorPool,&SetLayoutDB::bindless,1);
@@ -869,7 +1326,7 @@ void VulkanRenderer::CreateDescriptorSets_Lights()
 
 void VulkanRenderer::InitImGUI()
 {
-	if (m_imguiInitialized) return;
+	if (m_imguiInitialized) return;	
 
 	VkAttachmentDescription attachment = {};
 	attachment.format = m_swapchain.swapChainImageFormat;
@@ -931,6 +1388,7 @@ void VulkanRenderer::InitImGUI()
 	};
 
 	VkDescriptorPoolCreateInfo dpci = oGFX::vkutils::inits::descriptorPoolCreateInfo(pool_sizes,1000);
+	dpci.flags = VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
 	vkCreateDescriptorPool(m_device.logicalDevice, &dpci, nullptr, &m_imguiConfig.descriptorPools);
 	VK_NAME(m_device.logicalDevice, "imguiConfig_descriptorPools", m_imguiConfig.descriptorPools);
 
@@ -995,10 +1453,12 @@ void VulkanRenderer::DebugGUIcalls()
 {
 	if(ImGui::Begin("img"))
 	{
+		if (currWorld) {
 		const char* views[]  = { "Lookat", "FirstPerson" };
-		ImGui::ListBox("Camera View", reinterpret_cast<int*>(&camera.m_CameraMovementType), views, 2);
+		ImGui::ListBox("Camera View", reinterpret_cast<int*>(&currWorld->cameras.front().m_CameraMovementType), views, 2);
 		auto sz = ImGui::GetContentRegionAvail();
 		ImGui::Image(myImg, { sz.x,sz.y });
+		}
 	}
 	ImGui::End();
 	
@@ -1018,8 +1478,8 @@ void VulkanRenderer::DebugGUIcalls()
 			const ImVec2 imageSize = { sz.x, sz.x * aspectRatio };
 	
 			//auto gbuff = GBufferRenderPass::Get();
-			ImGui::BulletText("World Position");
-			ImGui::Image(gbuff->deferredImg[POSITION], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			//ImGui::BulletText("World Position");
+			//ImGui::Image(gbuff->deferredImg[POSITION], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("World Normal");
 			ImGui::Image(gbuff->deferredImg[NORMAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("Albedo");
@@ -1142,7 +1602,11 @@ void VulkanRenderer::InitializeRenderBuffers()
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         &indirectCommandsBuffer,
         MAX_OBJECTS * sizeof(oGFX::IndirectCommand));
-    VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer.buffer);
+    VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer.buffer); 
+	
+	shadowCasterCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+	shadowCasterCommandsBuffer.reserve(MAX_OBJECTS);
+	VK_NAME(m_device.logicalDevice, "Shadow Command Buffer", shadowCasterCommandsBuffer.m_buffer);
 
 	// Note: Moved here from VulkanRenderer::UpdateInstanceData
     m_device.CreateBuffer(
@@ -1175,17 +1639,38 @@ void VulkanRenderer::InitializeRenderBuffers()
 	skinningVertexBuffer.reserve(MAX_SKINNING_VERTEX_BUFFER_SIZE);  
     VK_NAME(m_device.logicalDevice, "Skinning Vertex Buffer", skinningVertexBuffer.getBuffer());
 
+	g_GlobalMeshBuffers.IdxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	g_GlobalMeshBuffers.VtxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	g_GlobalMeshBuffers.IdxBuffer.reserve(8 * 1000 * 1000);
+	g_GlobalMeshBuffers.VtxBuffer.reserve(8 * 1000 * 1000);
+	
+	g_particleCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+	g_particleCommandsBuffer.reserve(1024); // commands are generally per emitter. shouldnt have so many..
+
+	for (size_t i = 0; i < g_particleDatas.size(); i++)
+	{
+		g_particleDatas[i].Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+		g_particleDatas[i].reserve(100000*10); // 10 max particle systems
+	}
+
 	// TODO: Move other global GPU buffer initialization here...
 }
 
 void VulkanRenderer::DestroyRenderBuffers()
 {
 	indirectCommandsBuffer.destroy();
+	shadowCasterCommandsBuffer.destroy();
 	instanceBuffer.destroy();
 	objectInformationBuffer.destroy();
 	globalLightBuffer.destroy();
 	gpuBoneMatrixBuffer.destroy();
 	skinningVertexBuffer.destroy();
+
+	g_particleCommandsBuffer.destroy();
+	for (size_t i = 0; i < g_particleDatas.size(); i++)
+	{
+		g_particleDatas[i].destroy();
+	}
 }
 
 void VulkanRenderer::GenerateCPUIndirectDrawCommands()
@@ -1197,7 +1682,8 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		return;
 	}
 
-	
+	// All object commands
+	{
 	auto& allObjectsCommands = batches.GetBatch(GraphicsBatch::ALL_OBJECTS);
 
 	objectCount = 0;
@@ -1240,6 +1726,31 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 	del->DeleteAfterFrames([=]() { vkFreeMemory(m_device.logicalDevice, oldMemory, nullptr); });
 	
 	stagingBuffer.destroy();
+	}
+
+	// shadow commands
+	{
+		auto& shadowObjects = batches.GetBatch(GraphicsBatch::SHADOW_CAST);
+		if (shadowObjects.size() > MAX_OBJECTS)
+		{
+			MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of indirect command buffer.", L"BAD ERROR");
+		}
+		shadowCasterCommandsBuffer.clear();
+		shadowCasterCommandsBuffer.writeTo(shadowObjects.size(), (void*)shadowObjects.data(), 0);
+	}
+
+	{
+		auto& particleCommands = batches.GetParticlesBatch();
+		auto& particleData = batches.GetParticlesData();
+
+		g_particleCommandsBuffer.clear();
+		g_particleDatas[swapchainIdx].clear();
+
+		g_particleCommandsBuffer.writeTo(particleCommands.size(), particleCommands.data());		
+		g_particleDatas[swapchainIdx].writeTo(particleData.size(), particleData.data());
+		
+	}
+
 }
 
 void VulkanRenderer::UploadInstanceData()
@@ -1292,19 +1803,19 @@ void VulkanRenderer::UploadInstanceData()
 						const uint8_t perInstanceData = ent.instanceData;
 						constexpr uint32_t invalidIndex = 0xFFFFFFFF;
 						if (albedo == invalidIndex)
-							albedo = 0; // TODO: Dont hardcode this bindless texture index
+							albedo = whiteTextureID; // TODO: Dont hardcode this bindless texture index
 						if (normal == invalidIndex)
-							normal = 1; // TODO: Dont hardcode this bindless texture index
+							normal = blackTextureID; // TODO: Dont hardcode this bindless texture index
 						if (roughness == invalidIndex)
-							roughness = 0; // TODO: Dont hardcode this bindless texture index
+							roughness = whiteTextureID; // TODO: Dont hardcode this bindless texture index
 						if (metallic == invalidIndex)
-							metallic = 1; // TODO: Dont hardcode this bindless texture index
+							metallic = blackTextureID; // TODO: Dont hardcode this bindless texture index
 
-										  // Important: Make sure this index packing matches the unpacking in the shader
+						// Important: Make sure this index packing matches the unpacking in the shader
 						const uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF);
 						const uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
 						const uint32_t instanceID = uint32_t(indexCounter); // the instance id should point to the entity
-						auto res = ent.flags & ObjectInstanceFlags::SKINNED;
+						auto res = ent.flags & ObjectInstanceFlags::SKINNED; 
 						auto isSkin = (res== ObjectInstanceFlags::SKINNED);
 						const uint32_t unused = (uint32_t)perInstanceData | isSkin << 8; //matCnt;
 
@@ -1340,6 +1851,7 @@ void VulkanRenderer::UploadInstanceData()
 			}
 			// skined mesh
 			GPUObjectInformation oi;
+			oi.entityID = ent.entityID;
 			oi.materialIdx = 7; // tem,p
 			if ((ent.flags & ObjectInstanceFlags::SKINNED) == ObjectInstanceFlags::SKINNED)
 			{
@@ -1355,7 +1867,7 @@ void VulkanRenderer::UploadInstanceData()
 				}
 				
 				oi.boneStartIdx = static_cast<uint32_t>(boneMatrices.size());
-				oi.boneCnt = static_cast<uint32_t>(ent.bones.size());
+				//oi.boneCnt = static_cast<uint32_t>(ent.bones.size());
 
 				for (size_t i = 0; i < ent.bones.size(); i++)
 				{
@@ -1412,14 +1924,12 @@ bool VulkanRenderer::PrepareFrame()
 		resizeSwapchain = false;
 	}
 
-	DelayedDeleter::get()->Update();
-
+	
 	return true;
 }
 
 void VulkanRenderer::BeginDraw()
 {
-
 	PROFILE_SCOPED();
 
 	//wait for given fence to signal from last draw before continuing
@@ -1436,10 +1946,15 @@ void VulkanRenderer::BeginDraw()
         VkResult res = vkAcquireNextImageKHR(m_device.logicalDevice, m_swapchain.swapchain, std::numeric_limits<uint64_t>::max(),
             imageAvailable[currentFrame], VK_NULL_HANDLE, &swapchainIdx);
 
+
+		DelayedDeleter::get()->Update();
 		descAllocs[swapchainIdx].ResetPools();
 
-		batches = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
-		batches.GenerateBatches();
+		if (currWorld)
+		{
+			batches = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
+			batches.GenerateBatches();
+		}
 
 		UpdateUniformBuffers();
 		UploadInstanceData();	
@@ -1452,13 +1967,18 @@ void VulkanRenderer::BeginDraw()
 			.BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 			.Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
 
+		auto uniformMinAlignment = m_device.properties.limits.minUniformBufferOffsetAlignment;
+		auto paddedAlignment = oGFX::vkutils::tools::UniformBufferPaddedSize(2*sizeof(CB::FrameContextUBO), uniformMinAlignment);
+		
 		VkDescriptorBufferInfo vpBufferInfo{};
 		vpBufferInfo.buffer = vpUniformBuffer[swapchainIdx];	// buffer to get data from
-		vpBufferInfo.offset = 0;									// position of start of data
-		vpBufferInfo.range = sizeof(CB::FrameContextUBO);			// size of data
+		vpBufferInfo.offset = 0;				// position of start of data
+		vpBufferInfo.range = sizeof(CB::FrameContextUBO);		// size of data
 		DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[swapchainIdx])
 			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
 			.Build(descriptorSets_uniform[swapchainIdx], SetLayoutDB::FrameUniform);
+	
+		
         
 		if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR /*|| WINDOW_RESIZED*/)
         {
@@ -1497,19 +2017,75 @@ void VulkanRenderer::RenderFrame()
 		// Manually schedule the order of the render pass execution. (single threaded)
 		if(currWorld)
 		{
-			RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
-			//RenderPassDatabase::GetRenderPass<ZPrepassRenderpass>()->Draw();
-			RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
-			//RenderPassDatabase::GetRenderPass<DeferredDecalRenderpass>()->Draw();
-			RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
-			//RenderPassDatabase::GetRenderPass<ForwardRenderpass>()->Draw();
-#if defined (ENABLE_DECAL_IMPLEMENTATION)
-			RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
-#endif			
-			if (shouldRunDebugDraw)
-			{
-				RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
+			renderIteration = 0;
+			for (size_t i = 0; i < currWorld->numCameras; i++)
+			{		
+				renderTargetInUseID = currWorld->targetIDs[i];
+				VkMemoryBarrier memoryBarrier{};
+				memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+				memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+				memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;	
+
+				vkCmdPipelineBarrier(commandBuffers[swapchainIdx],
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, // srcStageMask
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, // dstStageMask
+					VK_DEPENDENCY_BY_REGION_BIT,		  // dependancy flag
+					0,                                    // memoryBarrierCount
+					nullptr,                       // pMemoryBarriers
+					0, NULL, 0, NULL
+				);
+
+				RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
+				//RenderPassDatabase::GetRenderPass<ZPrepassRenderpass>()->Draw();
+				RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
+				//RenderPassDatabase::GetRenderPass<DeferredDecalRenderpass>()->Draw();
+				RenderPassDatabase::GetRenderPass<SSAORenderPass>()->Draw();
+
+				RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
+				RenderPassDatabase::GetRenderPass<ForwardParticlePass>()->Draw();
+				//RenderPassDatabase::GetRenderPass<ForwardRenderpass>()->Draw();
+#if defined		(ENABLE_DECAL_IMPLEMENTATION)
+				RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
+#endif				
+				//if (shouldRunDebugDraw) // for now need to run regardless because of transition.. TODO: FIX IT ONE DAY
+				{
+					RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
+					RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
+				}
+
+				++renderIteration;
 			}
+			auto& dst = m_swapchain.swapChainImages[swapchainIdx];
+			dst.currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			if (currWorld->numCameras > 1)
+			{
+				// TODO: Very bad pls fix
+				auto thisID = currWorld->targetIDs[1];
+				auto& texture = renderTargets[thisID].texture;
+				texture.currentLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;				
+
+				BlitFramebuffer(commandBuffers[swapchainIdx],
+					texture, VK_IMAGE_LAYOUT_GENERAL,
+					dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+				auto nextID = currWorld->targetIDs[0];
+				auto& nextTexture = renderTargets[nextID].texture;
+				nextTexture.currentLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+				BlitFramebuffer(commandBuffers[swapchainIdx], 
+					nextTexture, VK_IMAGE_LAYOUT_GENERAL,
+					dst,VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL);
+			}
+			else
+			{
+				auto thisID = currWorld->targetIDs[0];
+				auto& texture = renderTargets[thisID].texture;
+				texture.currentLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;	
+				BlitFramebuffer(commandBuffers[swapchainIdx],
+					texture,VK_IMAGE_LAYOUT_GENERAL,
+					dst,VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL);
+			}
+			// only blit main framebuffer
+			
 		}
     }
 }
@@ -1538,11 +2114,15 @@ void VulkanRenderer::Present()
 	VkPipelineStageFlags waitStages[] = {
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 	};
+
+	std::vector <VkSemaphore> frameSemaphores = { renderFinished[currentFrame],
+	};
+
 	submitInfo.pWaitDstStageMask = waitStages; //stages to check semapheres at
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffers[swapchainIdx];	// command buffer to submit
-	submitInfo.signalSemaphoreCount = 1;						// number of semaphores to signal
-	submitInfo.pSignalSemaphores = &renderFinished[currentFrame];				// semphores to signal when command buffer finished
+	submitInfo.signalSemaphoreCount = static_cast<uint32_t>(frameSemaphores.size());						// number of semaphores to signal
+	submitInfo.pSignalSemaphores = frameSemaphores.data();				// semphores to signal when command buffer finished
 
 																				//submit command buffer to queue
 	result = vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, drawFences[currentFrame]);
@@ -1608,20 +2188,68 @@ bool VulkanRenderer::ResizeSwapchain()
 
 	ResizeGUIBuffers();
 
+	// update imgui shit
+	if (currWorld)
+	{
+		for (size_t x = 0; x < currWorld->numCameras; x++)
+		{
+			const auto targetID = currWorld->targetIDs[x];
+			auto& image = renderTargets[targetID].texture;
+			VkDescriptorImageInfo desc_image[1] = {};
+			desc_image[0].sampler = image.sampler;
+			desc_image[0].imageView = image.view;
+			desc_image[0].imageLayout = image.imageLayout;
+			VkWriteDescriptorSet write_desc[1] = {};
+			write_desc[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			write_desc[0].dstSet = (VkDescriptorSet)currWorld->imguiID[x];
+			write_desc[0].descriptorCount = 1;
+			if (image.imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+			{
+				write_desc[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+			}
+			else
+			{
+				write_desc[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			}
+			if (currWorld->imguiID[x])
+			{
+				write_desc[0].pImageInfo = desc_image;
+				vkUpdateDescriptorSets(m_device.logicalDevice, 1, write_desc, 0, NULL);
+			}
+		}		
+	}
+
 	return true;
+}
+
+uint32_t VulkanRenderer::GetDefaultCubeID()
+{
+	return def_cube->meshResource;
+}
+
+uint32_t VulkanRenderer::GetDefaultPlaneID()
+{
+	return def_plane->meshResource;
+}
+
+uint32_t VulkanRenderer::GetDefaultSpriteID()
+{
+	return def_sprite->meshResource;
 }
 
 ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 {
+	std::ostringstream os;
 	// new model loader
-	
 	Assimp::Importer importer;
+	importer.SetPropertyBool(AI_CONFIG_IMPORT_REMOVE_EMPTY_BONES, false);
 	uint flags = 0;
 	flags |= aiProcess_Triangulate;
 	flags |= aiProcess_GenSmoothNormals;
 	flags |= aiProcess_ImproveCacheLocality;
 	flags |= aiProcess_CalcTangentSpace;
 	flags |= aiProcess_FindInstances; // this step is slow but it finds duplicate instances in FBX
+	flags |= aiProcess_FlipUVs;
 	//flags |= aiProcess_LimitBoneWeights; // limmits bones to 4
 	const aiScene *scene = importer.ReadFile(file,flags
 		//  aiProcess_Triangulate                // Make sure we get triangles rather than nvert polygons
@@ -1644,60 +2272,105 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		//throw std::runtime_error("Failed to load model! (" + file + ")");
 	}
 
-	std::cout <<"[Loading] " << file << std::endl;
+	
 
-	std::cout << "Meshes" << scene->mNumMeshes << std::endl;
+	os <<"[Loading] " << file << std::endl;
+	//if (scene->mNumAnimations && scene->mAnimations[0]->mNumMorphMeshChannels)
+	//{
+	//	std::stringstream ss{"Morphs\n"};
+	//	for (size_t i = 0; i < scene->mAnimations[0]->mNumMorphMeshChannels; i++)
+	//	{
+	//		auto& morph = scene->mAnimations[0]->mMorphMeshChannels[i];
+	//		for (size_t y = 0; y < morph->mNumKeys; y++)
+	//		{
+	//			auto& key = morph->mKeys[y];
+	//			ss << "T:[" << key.mTime << "]" << std::endl;
+	//			for (size_t x = 0; x < key.mNumValuesAndWeights; x++)
+	//			{
+	//				ss << "\tV:[" << key.mValues[x] << "] W:[" << key.mWeights[x] << "]" << std::endl;
+	//			}
+	//		}
+	//		ss << std::endl;
+	//	}
+	//	os << ss.str() << std::endl;
+	//}
+
+	size_t count{ 0 };
+	os << "Meshes" << scene->mNumMeshes << std::endl;
 	for (size_t i = 0; i < scene->mNumMeshes; i++)
 	{
-		std::cout << "\tMesh" << i << " " << scene->mMeshes[i]->mName.C_Str() << std::endl;
-			std::cout << "\t\tverts:"  << scene->mMeshes[i]->mNumVertices << std::endl;
-			std::cout << "\t\tbones:"  << scene->mMeshes[i]->mNumBones << std::endl;
-			//int sum = 0;
-			//for (size_t x = 0; x <  scene->mMeshes[i]->mNumBones; x++)
-			//{
-			//	std::map<uint32_t, float> wts;
-			//	std::cout << "\t\t\tweights:"  << scene->mMeshes[i]->mBones[x]->mNumWeights << std::endl;
-			//	for (size_t y = 0; y < scene->mMeshes[i]->mBones[x]->mNumWeights; y++)
-			//	{
-			//		auto& weight = scene->mMeshes[i]->mBones[x]->mWeights[y];
-			//		assert(wts.find(weight.mVertexId) == wts.end());
-			//		wts[weight.mVertexId] = weight.mWeight;
-			//	}
-			//	for (auto [v,w] :wts)
-			//	{
-			//		std::cout << "\t\t\t\t"  <<":["<<v <<"," << w << "]" << std::endl;
-			//	}
-			//	sum += scene->mMeshes[i]->mBones[x]->mNumWeights;
-			//}
-			//std::cout << "\t\t\t|sum weights:"  << sum << std::endl;
+		auto& mesh = scene->mMeshes[i];
+		os << "\tMesh" << i << " " << mesh->mName.C_Str() << std::endl;
+		os << "\t\tverts:"  << mesh->mNumVertices << std::endl;
+		os << "\t\tbones:"  << mesh->mNumBones << std::endl;
+		/*
+		for (size_t anim = 0; anim < mesh->mNumAnimMeshes; anim++)
+		{
+		std::stringstream ss;
+			ss << "Anim mesh_" << anim << ":" << mesh->mName.C_Str() << std::endl;
+			auto& animMesh = mesh->mAnimMeshes[anim];
+			if (animMesh->HasPositions())
+			{
+				for (size_t pos = 0; pos < animMesh->mNumVertices; pos++)
+				{
+					++count;
+					auto v = aiVector3D_to_glm(animMesh->mVertices[pos]);
+					ss << "\tPos:"<< pos<< "[" << v.x << "," << v.y << "," << v.z <<"]" << std::endl;
+				}
+			}
+		os << ss.str() << std::endl;
+		}
+		os << "Takes huge amount of data : " << (float)(sizeof(glm::vec3) * count) / (1024) << "Kb" << std::endl;
+		*/
+		
+		//int sum = 0;
+		//for (size_t x = 0; x <  scene->mMeshes[i]->mNumBones; x++)
+		//{
+		//	std::map<uint32_t, float> wts;
+		//	os << "\t\t\tweights:"  << scene->mMeshes[i]->mBones[x]->mNumWeights << std::endl;
+		//	for (size_t y = 0; y < scene->mMeshes[i]->mBones[x]->mNumWeights; y++)
+		//	{
+		//		auto& weight = scene->mMeshes[i]->mBones[x]->mWeights[y];
+		//		assert(wts.find(weight.mVertexId) == wts.end());
+		//		wts[weight.mVertexId] = weight.mWeight;
+		//	}
+		//	for (auto [v,w] :wts)
+		//	{
+		//		os << "\t\t\t\t"  <<":["<<v <<"," << w << "]" << std::endl;
+		//	}
+		//	sum += scene->mMeshes[i]->mBones[x]->mNumWeights;
+		//}
+		//os << "\t\t\t|sum weights:"  << sum << std::endl;
 	}
+	std::cout << os.str();
+	os.clear();
 
 #if 0
 	if (scene->HasAnimations())
 	{
-		std::cout << "Animated scene\n";
+		os << "Animated scene\n";
 		for (size_t i = 0; i < scene->mNumAnimations; i++)
 		{
-			std::cout << "Anim name: " << scene->mAnimations[i]->mName.C_Str() << std::endl;
-			std::cout << "Anim frames: "<< scene->mAnimations[i]->mDuration << std::endl;
-			std::cout << "Anim ticksPerSecond: "<< scene->mAnimations[i]->mTicksPerSecond << std::endl;
-			std::cout << "Anim duration: "<< static_cast<float>(scene->mAnimations[i]->mDuration)/scene->mAnimations[i]->mTicksPerSecond << std::endl;
-			std::cout << "Anim numChannels: "<< scene->mAnimations[i]->mNumChannels << std::endl;
-			std::cout << "Anim numMeshChannels: "<< scene->mAnimations[i]->mNumMeshChannels << std::endl;
-			std::cout << "Anim numMeshChannels: "<< scene->mAnimations[i]->mNumMorphMeshChannels << std::endl;
+			os << "Anim name: " << scene->mAnimations[i]->mName.C_Str() << std::endl;
+			os << "Anim frames: "<< scene->mAnimations[i]->mDuration << std::endl;
+			os << "Anim ticksPerSecond: "<< scene->mAnimations[i]->mTicksPerSecond << std::endl;
+			os << "Anim duration: "<< static_cast<float>(scene->mAnimations[i]->mDuration)/scene->mAnimations[i]->mTicksPerSecond << std::endl;
+			os << "Anim numChannels: "<< scene->mAnimations[i]->mNumChannels << std::endl;
+			os << "Anim numMeshChannels: "<< scene->mAnimations[i]->mNumMeshChannels << std::endl;
+			os << "Anim numMeshChannels: "<< scene->mAnimations[i]->mNumMorphMeshChannels << std::endl;
 			for (size_t x = 0; x < scene->mAnimations[i]->mNumChannels; x++)
 			{
 				auto& channel = scene->mAnimations[i]->mChannels[x];
-				std::cout << "\tKeys name: " << channel->mNodeName.C_Str() << std::endl;
+				os << "\tKeys name: " << channel->mNodeName.C_Str() << std::endl;
 				for (size_t y = 0; y < channel->mNumPositionKeys; y++)
 				{
-					std::cout << "\t Key_"<< std::to_string(y)<<" time: " << channel->mPositionKeys[y].mTime << std::endl;
+					os << "\t Key_"<< std::to_string(y)<<" time: " << channel->mPositionKeys[y].mTime << std::endl;
 					auto& pos = channel->mPositionKeys[y].mValue;
-					std::cout << "\t Key_"<< std::to_string(y)<<" value: " <<pos.x <<", " << pos.y<<", " << pos.z << std::endl;
+					os << "\t Key_"<< std::to_string(y)<<" value: " <<pos.x <<", " << pos.y<<", " << pos.z << std::endl;
 				}
 			}
 		}
-		std::cout << std::endl;
+		os << std::endl;
 	}
 #endif
 
@@ -1743,16 +2416,18 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 			LoadBoneInformation(*modelFile,*mdl.skeleton, *aimesh, mdl.skeleton->boneWeights, verticesCnt);
 		}
 		mdl.skeleton->m_boneNodes = new oGFX::BoneNode();
-		BuildSkeletonRecursive(*modelFile, *mdl.skeleton, scene->mRootNode, mdl.skeleton->m_boneNodes);
+		mdl.skeleton->m_boneNodes->mName = "RootNode";
+		BuildSkeletonRecursive(*modelFile, scene->mRootNode, mdl.skeleton->m_boneNodes);
+		
 		for (size_t i = 0; i < mdl.skeleton->boneWeights.size(); i++)
 		{
 			//auto& ref = mdl.skeleton->boneWeights[i];
-			//std::cout << i;
+			//os << i;
 			//for (size_t x = 0; x < 4; x++)
 			//{
-			//	std::cout << " [" << ref.boneIdx[x] << "," << ref.boneWeights[x] <<"]";
+			//	os << " [" << ref.boneIdx[x] << "," << ref.boneWeights[x] <<"]";
 			//}
-			//std::cout << std::endl;
+			//os << std::endl;
 		}
 
 	}
@@ -1775,8 +2450,9 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		LoadMeshFromBuffers(modelFile->vertices, modelFile->indices, &mdl);
 	}
 
-	std::cout << "\t [Meshes loaded] " << modelFile->sceneMeshCount << std::endl;
+	os << "\t [Meshes loaded] " << modelFile->sceneMeshCount << std::endl;
 
+	std::cout << os.str();
 	return modelFile;
 }
 
@@ -1962,12 +2638,67 @@ void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
 					break;
 				}
 			}
+#define NORMALIZE_BONE_WEIGHTS
 
 			// Check if the number of weights is >4, just in case, since we dont support
 			if (!success)
 			{
+				
+				
+				float sum;
+#ifdef NORMALIZE_BONE_WEIGHTS
+				uint32_t minBone = boneIndex;
+				float minW = weight;
+				for (size_t i = 0; i < 4; i++)
+				{
+					if (vertex.boneWeights[i] < minW)
+					{
+						std::swap(vertex.boneWeights[i], minW);
+						std::swap(vertex.boneIdx[i], minBone);
+					}
+				}
+				sum = 0.0f;
+				for (size_t i = 0; i < 4; i++)
+				{
+					sum += vertex.boneWeights[i];
+				}
+				for (size_t i = 0; i < 4; i++)
+				{
+					vertex.boneWeights[i]*= (1.0f/sum);
+				}
+				sum = 0.0f;
+				for (auto&[key,val] :  fileData.strToBone)
+				{
+					if (val == minBone)
+					{
+						std::cout << "Discarded weight: [" << key<<",\t"<< minW << "]" << std::endl;
+						break;
+					}
+				}
+				for (size_t i = 0; i < 4; i++)
+				{
+					sum += vertex.boneWeights[i];
+				}
+				//std::cout << "Final sum : [" << sum<< "]"<<std::endl;
+
+#else
+				//dump bone names
+				std::cout << "Dumping bones...\n";
+				std::cout << "Bone affected : " << currBone->mName.C_Str() << ",\t" << weight<< std::endl;
+				for (size_t i = 0; i < 4; i++)
+				{
+					for (auto&[key,val] :  fileData.strToBone)
+					{
+						if (val == vertex.boneIdx[i])
+						{
+							std::cout << "Bone affected : " << key << ",\t"<<vertex.boneWeights[i] << std::endl;
+							break;
+						}
+					}
+				}				
 				// Vertex already has 4 bone weights assigned.
 				assert(false && "Bone weights >4 is not supported.");
+#endif // NORMALIZE_BONE_WEIGHTS
 			}
 		}
 
@@ -1975,20 +2706,38 @@ void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
 	vCnt += aimesh.mNumVertices;
 }
 
-void VulkanRenderer::BuildSkeletonRecursive(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiNode* ainode, oGFX::BoneNode* node)
+void VulkanRenderer::BuildSkeletonRecursive(ModelFileResource& fileData, aiNode* ainode, oGFX::BoneNode* parent, glm::mat4 parentXform,std::string prefix)
 {
 	std::string node_name{ ainode->mName.data };
-	glm::mat4x4 node_transform = aiMat4_to_glm(ainode->mTransformation);
 
+	// TODO: quat ?
+	glm::mat4x4 node_transform = parentXform * aiMat4_to_glm(ainode->mTransformation);
+	oGFX::BoneNode* targetParent = parent;
 	std::string cName = node_name.substr(node_name.find_last_of("_") + 1);
+	oGFX::BoneNode* node = parent;
+
+	//std::cout << "Loading " << node_name << std::endl;
 
 	// Save the bone index
 	bool bIsBoneNode = false;
 	auto iter = fileData.strToBone.find(node_name);
 	if (iter != fileData.strToBone.end())
 	{
+		std::cout <<prefix<< "Creating bone " << node_name << std::endl;
+		prefix += '\t';
 		bIsBoneNode = true;
+		node = new oGFX::BoneNode;
+		node->mbIsBoneNode = true;
+		node->mName = node_name;
+		node->mpParent = targetParent;
+		node->mModelSpaceLocal = node_transform;
+		node->mModelSpaceGlobal= node_transform;
 		node->m_BoneIndex = iter->second;
+		if (targetParent)
+		{
+			targetParent->mChildren.push_back(node);
+		}
+		targetParent = node;
 	}
 
 	// Leaving this here to check the scale
@@ -2007,19 +2756,18 @@ void VulkanRenderer::BuildSkeletonRecursive(ModelFileResource& fileData, oGFX::S
 		}
 	}
 
-	// Copy information from assimp to our nodes.
-	node->mName = node_name;
-	node->mbIsBoneNode = bIsBoneNode;
-	// TODO: quat?
-	node->mModelSpaceLocal = aiMat4_to_glm(ainode->mTransformation);
-	node->mChildren.reserve(ainode->mNumChildren);
-
 	// Recursion through all children
 	for (size_t i = 0; i < ainode->mNumChildren; i++)
 	{
-		node->mChildren.push_back(new oGFX::BoneNode()); // Create the child node.
-		BuildSkeletonRecursive(fileData,skeleton, ainode->mChildren[i], node->mChildren[i]);
-		node->mChildren[i]->mpParent = node; // Link the child to the parent node.
+		if (bIsBoneNode)
+		{
+			// we have collapsed the transforms start for new local transform
+			BuildSkeletonRecursive(fileData, ainode->mChildren[i], targetParent,glm::mat4(1.0f),prefix);
+		}
+		else
+		{
+			BuildSkeletonRecursive(fileData, ainode->mChildren[i], targetParent,node_transform,prefix);
+		}
 	}
 }
 
@@ -2092,7 +2840,7 @@ uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned
 	auto ind = CreateTextureImage(fileData);
 
 	//create texture descriptor
-	int descriptorLoc = UpdateBindlessGlobalTexture(g_Textures[ind]);
+	int descriptorLoc = AddBindlessGlobalTexture(g_Textures[ind]);
 
 	//return location of set with texture
 	return descriptorLoc;
@@ -2105,7 +2853,7 @@ uint32_t VulkanRenderer::CreateTexture(const std::string& file)
 	uint32_t textureImageLoc = CreateTextureImage(file);
 
 	//create texture descriptor
-	int descriptorLoc = UpdateBindlessGlobalTexture(g_Textures[textureImageLoc]);
+	int descriptorLoc = AddBindlessGlobalTexture(g_Textures[textureImageLoc]);
 
 	//return location of set with texture
 	return descriptorLoc;
@@ -2168,41 +2916,57 @@ void VulkanRenderer::UpdateUniformBuffers()
 	float width = static_cast<float>(windowPtr->m_width);
 	float ar = width / height;
 
-	CB::FrameContextUBO frameContextUBO;
-	frameContextUBO.projection = camera.matrices.perspective;
-	frameContextUBO.view = camera.matrices.view;
-	frameContextUBO.viewProjection = frameContextUBO.projection * frameContextUBO.view;
-	frameContextUBO.inverseViewProjection = glm::inverse(frameContextUBO.viewProjection);
-	frameContextUBO.cameraPosition = glm::vec4(camera.m_position,1.0);
-	frameContextUBO.renderTimer.x = renderClock;
-    frameContextUBO.renderTimer.y = std::sin(renderClock * glm::pi<float>());
-    frameContextUBO.renderTimer.z = std::cos(renderClock * glm::pi<float>());
-	frameContextUBO.renderTimer.w = 0.0f; // unused
-
-	// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
-	// Bind this to every single shader possible.
-	// Remove this upon shipping the final product.
+	CB::FrameContextUBO frameContextUBO[2]{};
+	if (currWorld)
 	{
-		frameContextUBO.vector4_values0 = m_ShaderDebugValues.vector4_values0;
-		frameContextUBO.vector4_values1 = m_ShaderDebugValues.vector4_values1;
-		frameContextUBO.vector4_values2 = m_ShaderDebugValues.vector4_values2;
-		frameContextUBO.vector4_values3 = m_ShaderDebugValues.vector4_values3;
-		frameContextUBO.vector4_values4 = m_ShaderDebugValues.vector4_values4;
-		frameContextUBO.vector4_values5 = m_ShaderDebugValues.vector4_values5;
-		frameContextUBO.vector4_values6 = m_ShaderDebugValues.vector4_values6;
-		frameContextUBO.vector4_values7 = m_ShaderDebugValues.vector4_values7;
-		frameContextUBO.vector4_values8 = m_ShaderDebugValues.vector4_values8;
-		frameContextUBO.vector4_values9 = m_ShaderDebugValues.vector4_values9;
+		for (size_t i = 0; i < currWorld->numCameras; i++)
+		{
+			auto& camera = currWorld->cameras[i];
+			
+			frameContextUBO[i].projection = camera.matrices.perspective;
+			frameContextUBO[i].view = camera.matrices.view;
+			frameContextUBO[i].viewProjection = frameContextUBO[i].projection * frameContextUBO[i].view;
+			frameContextUBO[i].inverseViewProjection = glm::inverse(frameContextUBO[i].viewProjection);
+			frameContextUBO[i].inverseView = glm::inverse(frameContextUBO[i].view);
+			frameContextUBO[i].inverseProjection = glm::inverse(frameContextUBO[i].projection);
+			frameContextUBO[i].cameraPosition = glm::vec4(camera.m_position,1.0);
+			frameContextUBO[i].renderTimer.x = renderClock;
+			frameContextUBO[i].renderTimer.y = std::sin(renderClock * glm::pi<float>());
+			frameContextUBO[i].renderTimer.z = std::cos(renderClock * glm::pi<float>());
+			frameContextUBO[i].renderTimer.w = 0.0f; // unused
+		
+			// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
+			// Bind this to every single shader possible.
+			// Remove this upon shipping the final product.
+			{			
+				frameContextUBO[i].vector4_values0 = m_ShaderDebugValues.vector4_values0;
+				frameContextUBO[i].vector4_values1 = m_ShaderDebugValues.vector4_values1;
+				frameContextUBO[i].vector4_values2 = m_ShaderDebugValues.vector4_values2;
+				frameContextUBO[i].vector4_values3 = m_ShaderDebugValues.vector4_values3;
+				frameContextUBO[i].vector4_values4 = m_ShaderDebugValues.vector4_values4;
+				frameContextUBO[i].vector4_values5 = m_ShaderDebugValues.vector4_values5;
+				frameContextUBO[i].vector4_values6 = m_ShaderDebugValues.vector4_values6;
+				frameContextUBO[i].vector4_values7 = m_ShaderDebugValues.vector4_values7;
+				frameContextUBO[i].vector4_values8 = m_ShaderDebugValues.vector4_values8;
+				frameContextUBO[i].vector4_values9 = m_ShaderDebugValues.vector4_values9;
+			}
+		}
 	}
 
+	
+
 	void *data;
-	vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx], 0, uboDynamicAlignment, 0, &data);
-	memcpy(data, &frameContextUBO, sizeof(CB::FrameContextUBO));
+	auto alignedRange = oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), m_device.properties.limits.minUniformBufferOffsetAlignment);
+	// map whole aligned range
+	vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx], 0, numCameras*alignedRange, 0, &data);
+
+	memcpy(data, &frameContextUBO[0], sizeof(CB::FrameContextUBO));
+	memcpy((char*)data+alignedRange, &frameContextUBO[1], sizeof(CB::FrameContextUBO));
 
 	VkMappedMemoryRange memRng{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
 	memRng.memory = vpUniformBufferMemory[swapchainIdx];
-	memRng.offset = 0;
-	memRng.size = uboDynamicAlignment;
+	memRng.offset =  0;
+	memRng.size =  numCameras*alignedRange;
 	VK_CHK(vkFlushMappedMemoryRanges(m_device.logicalDevice, 1, &memRng));
 
 	vkUnmapMemory(m_device.logicalDevice, vpUniformBufferMemory[swapchainIdx]);
@@ -2249,7 +3013,7 @@ VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(VulkanDevice& device,
 	// SHADER STAGE CREATION INFORMATION
 	VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {};
 	shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	//shader stage name
+	//shader stage name 
 	shaderStageCreateInfo.stage = stage;
 
 	//build shader modules to link to pipeline
@@ -2266,7 +3030,7 @@ VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(VulkanDevice& device,
 	return shaderStageCreateInfo;
 }
 
-uint32_t VulkanRenderer::UpdateBindlessGlobalTexture(vkutils::Texture2D texture)
+uint32_t VulkanRenderer::AddBindlessGlobalTexture(vkutils::Texture2D texture)
 {
 	std::vector<VkWriteDescriptorSet> writeSets
 	{
@@ -2283,6 +3047,23 @@ uint32_t VulkanRenderer::UpdateBindlessGlobalTexture(vkutils::Texture2D texture)
 	return index;
 }
 
+void VulkanRenderer::InitDefaultPrimatives()
+{
+	{
+		DefaultMesh dm = CreateDefaultCubeMesh();
+		def_cube.reset(LoadMeshFromBuffers(dm.m_VertexBuffer, dm.m_IndexBuffer, nullptr));
+	}
+	{
+		DefaultMesh pm = CreateDefaultPlaneXZMesh();
+		def_plane.reset(LoadMeshFromBuffers(pm.m_VertexBuffer, pm.m_IndexBuffer, nullptr));
+	}
+	{
+		DefaultMesh sm = CreateDefaultPlaneXYMesh();
+		def_sprite.reset(LoadMeshFromBuffers(sm.m_VertexBuffer, sm.m_IndexBuffer, nullptr));
+	}
+	
+}
+
 ImTextureID VulkanRenderer::GetImguiID(uint32_t textureID)
 {
 	return g_imguiIDs[textureID];
@@ -2290,10 +3071,11 @@ ImTextureID VulkanRenderer::GetImguiID(uint32_t textureID)
 
 ImTextureID VulkanRenderer::CreateImguiBinding(VkSampler s, VkImageView v, VkImageLayout l)
 {
+	
 	if (VulkanRenderer::get()->m_imguiInitialized == false)
 	{
 		return 0;
-	}
+	}	
 	
 	return ImGui_ImplVulkan_AddTexture(s,v,l);
 }

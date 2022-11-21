@@ -1,10 +1,10 @@
 /************************************************************************************//*!
-\file           ShadowPass.h
+\file           SSAORenderPass.h
 \project        Ouroboros
 \author         Jamie Kong, j.kong, 390004720 | code contribution (100%)
 \par            email: j.kong\@digipen.edu
-\date           Oct 02, 2022
-\brief              Defines a shadowpass
+\date           Nov 8, 2022
+\brief              Declares a SSAO pass
 
 Copyright (C) 2022 DigiPen Institute of Technology.
 Reproduction or disclosure of this file or its contents
@@ -17,35 +17,48 @@ Technology is prohibited.
 #include "vulkan/vulkan.h"
 #include "imgui/imgui.h"
 #include "VulkanTexture.h"
+#include "GpuVector.h"
 
 #include <array>
 
-struct ShadowPass : public GfxRenderpass
+struct SSAORenderPass : public GfxRenderpass
 {
-	//DECLARE_RENDERPASS_SINGLETON(ShadowPass)
+	//DECLARE_RENDERPASS_SINGLETON(SSAORenderPass)
 
 	void Init() override;
 	void Draw() override;
 	void Shutdown() override;
 
+	void InitRandomFactors();
+
 	bool SetupDependencies() override;
+
 	void CreatePSO() override;
-	
-	vkutils::Texture2D shadow_depth{};
+	void CreatePipelineLayout();
+	void CreateDescriptors();
+
+	std::array<vkutils::Texture2D, GBufferAttachmentIndex::MAX_ATTACHMENTS> attachments{};
 
 	// This is for ImGui
 	std::array<ImTextureID, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> deferredImg{};
-	ImTextureID shadowImg{};
 
-	VkExtent2D shadowmapSize = { 4096, 4096};
+	VulkanRenderpass renderpass_SSAO{};
+	VkFramebuffer framebuffer_SSAO{};
 
-	VulkanRenderpass renderpass_Shadow{};
+	//VkPushConstantRange pushConstantRange;
+	VkPipeline pso_SSAO{};
 
-	VkPipeline pso_ShadowDefault{};
+	vkutils::Texture2D SSAO_renderTarget;
+	vkutils::Texture2D randomNoise_texture;
+
+	GpuVector<glm::vec3> randomVectorsSSBO;
 
 private:
-	void SetupRenderpass();
-	void SetupFramebuffer();
-	void CreatePipeline();
-};
 
+
+	std::vector<glm::vec4> ssaoNoise;
+	std::vector<glm::vec3> ssaoKernel;
+	void SetupRenderpass();
+	void CreatePipeline();
+
+};

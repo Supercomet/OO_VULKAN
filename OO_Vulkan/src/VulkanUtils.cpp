@@ -686,7 +686,7 @@ namespace oGFX
 			bufferCopyRegion.bufferOffset = 0;
 			mipInformation.push_back(bufferCopyRegion);
 
-			this->format = VK_FORMAT_R8G8B8A8_SRGB;
+			this->format = VK_FORMAT_R8G8B8A8_UNORM;
 			return imgData.size() ? true : false;
 		}
 
@@ -841,6 +841,36 @@ void oGFX::vkutils::tools::setImageLayout(VkCommandBuffer cmdbuffer, VkImage ima
 	subresourceRange.levelCount = 1;
 	subresourceRange.layerCount = 1;
 	setImageLayout(cmdbuffer, image, oldImageLayout, newImageLayout, subresourceRange, srcStageMask, dstStageMask);
+}
+
+void oGFX::vkutils::tools::insertImageMemoryBarrier(VkCommandBuffer cmdbuffer, VkImage image, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageLayout oldImageLayout, VkImageLayout newImageLayout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subresourceRange)
+{	
+	VkImageMemoryBarrier imageMemoryBarrier = oGFX::vkutils::inits::imageMemoryBarrier();
+	imageMemoryBarrier.srcAccessMask = srcAccessMask;
+	imageMemoryBarrier.dstAccessMask = dstAccessMask;
+	imageMemoryBarrier.oldLayout = oldImageLayout;
+	imageMemoryBarrier.newLayout = newImageLayout;
+	imageMemoryBarrier.image = image;
+	imageMemoryBarrier.subresourceRange = subresourceRange;
+
+	vkCmdPipelineBarrier(
+		cmdbuffer,
+		srcStageMask,
+		dstStageMask,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &imageMemoryBarrier);
+
+}
+
+size_t oGFX::vkutils::tools::UniformBufferPaddedSize(size_t size, size_t bufferMinAlignment)
+{
+	size_t result{ size };
+	if (bufferMinAlignment > 0) {
+		result = (size + bufferMinAlignment - 1) & ~(bufferMinAlignment - 1);
+	}
+	return result;
 }
 
 std::string oGFX::vkutils::tools::VkResultString(VkResult value)
@@ -1160,7 +1190,54 @@ std::string oGFX::vkutils::tools::VkColorSpaceKHRString(VkColorSpaceKHR value) {
 	case (VK_COLOR_SPACE_PASS_THROUGH_EXT): return "COLOR_SPACE_PASS_THROUGH_EXT";
 	case (VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT): return "COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT";
 	case (VK_COLOR_SPACE_DISPLAY_NATIVE_AMD): return "COLOR_SPACE_DISPLAY_NATIVE_AMD";
-	default: return std::string("UNKNOWN_VkColorSpaceKHR_value") + std::to_string(value);
+	default: return std::string("UNKNOWN_VkColorSpaceKHR_value ") + std::to_string(value);
+	}
+}
+
+std::string oGFX::vkutils::tools::VkImageLayoutString(VkImageLayout value)
+{
+	switch (value)
+	{
+	case(VK_IMAGE_LAYOUT_UNDEFINED):return "VK_IMAGE_LAYOUT_UNDEFINED";
+	case(VK_IMAGE_LAYOUT_GENERAL):return "VK_IMAGE_LAYOUT_GENERAL";
+	case(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL):return "VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL):return "VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL):return "VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL):return "VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL):return "VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL):return "VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_PREINITIALIZED):return "VK_IMAGE_LAYOUT_PREINITIALIZED";
+	case(VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL):return "VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL):return "VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL):return "VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL):return "VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL):return "VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL):return "VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL):return "VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL):return "VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL";
+	case(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR):return "VK_IMAGE_LAYOUT_PRESENT_SRC_KHR";	
+	case(VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR):return "VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR";
+	case(VK_IMAGE_LAYOUT_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT):return "VK_IMAGE_LAYOUT_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT";
+	case(VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR):return "VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR";
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+	case(VK_IMAGE_LAYOUT_VIDEO_ENCODE_DST_KHR):return "VK_IMAGE_LAYOUT_VIDEO_ENCODE_DST_KHR";
+	case(VK_IMAGE_LAYOUT_VIDEO_ENCODE_SRC_KHR):return "VK_IMAGE_LAYOUT_VIDEO_ENCODE_SRC_KHR";
+	case(VK_IMAGE_LAYOUT_VIDEO_ENCODE_DPB_KHR):return "VK_IMAGE_LAYOUT_VIDEO_ENCODE_DPB_KHR";
+	case(VK_IMAGE_LAYOUT_VIDEO_DECODE_DST_KHR):return "VK_IMAGE_LAYOUT_VIDEO_DECODE_DST_KHR";
+	case(VK_IMAGE_LAYOUT_VIDEO_DECODE_SRC_KHR):return "VK_IMAGE_LAYOUT_VIDEO_DECODE_SRC_KHR";
+	case(VK_IMAGE_LAYOUT_VIDEO_DECODE_DPB_KHR):return "VK_IMAGE_LAYOUT_VIDEO_DECODE_DPB_KHR";
+#endif
+	//case(VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL_KHR):return "VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL,";
+	//case(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL_KHR):return "VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL,";
+	//case(VK_IMAGE_LAYOUT_SHADING_RATE_OPTIMAL_NV):return "VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR,";
+	//case(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR):return "VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,";
+	//case(VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL_KHR):return "VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL,";
+	//case(VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL_KHR):return "VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,";
+	//case(VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL_KHR):return "VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL,";
+	//case(VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR):return "VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,";
+	//case(VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR):return "VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,";
+	case(VK_IMAGE_LAYOUT_MAX_ENUM):return "VK_IMAGE_LAYOUT_MAX_ENUM";
+	default: return std::string("UNKNOWN_VkImageLayout_value ") + std::to_string(value);
 	}
 }
 
