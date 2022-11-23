@@ -113,7 +113,8 @@ vec3 EvalLight(int lightIndex, in vec3 fragPos, in vec3 normal,float roughness, 
 	    
 		float r1 = Lights_SSBO[lightIndex].radius.x * 0.9;
 		float r2 = Lights_SSBO[lightIndex].radius.x;
-		vec3 lCol = Lights_SSBO[lightIndex].color.xyz;
+		vec4 lightColInten	= Lights_SSBO[lightIndex].color;
+		vec3 lCol = lightColInten.rgb * lightColInten.w;
 
     		// Attenuation
 		float atten = Lights_SSBO[lightIndex].radius.x / (pow(dist, 2.0) + 1.0);		 
