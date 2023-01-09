@@ -1107,6 +1107,7 @@ void TestApplication::ToolUI_Camera()
 void TestApplication::ToolUI_Settings()
 {
 	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Application");
+    ImGui::Text("gpu vector bytes : %llu", accumulatedBytes);
 	ImGui::Text("m_ApplicationFrame : %u", m_ApplicationFrame);
 	ImGui::Text("m_ApplicationTimer : %f", m_ApplicationTimer);
 	ImGui::Text("m_ApplicationDT    : %f", m_ApplicationDT);
@@ -1470,6 +1471,7 @@ void TestApplication::Tool_HandleUI()
                             }
                         }
                         ImGui::DragFloat3("Color", glm::value_ptr(light.color),0.1f,0.0f,1.0f);
+                        ImGui::DragFloat("Intensity", &light.color.a);
                         ImGui::DragFloat("Radius", &light.radius.x,0.1f,0.0f);
                         {
                             bool sh = GetCastsShadows(light);

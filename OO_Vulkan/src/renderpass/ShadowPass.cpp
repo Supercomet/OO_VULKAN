@@ -97,7 +97,7 @@ void ShadowPass::Draw()
 	
 	const float vpHeight = (float)shadowmapSize.height;
 	const float vpWidth = (float)shadowmapSize.width;
-	rhi::CommandList cmd{ cmdlist };
+	rhi::CommandList cmd{ cmdlist, "Shadow Pass"};
 	cmd.BindPSO(pso_ShadowDefault);
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
@@ -115,7 +115,7 @@ void ShadowPass::Draw()
 	// Bind merged mesh vertex & index buffers, instancing buffers.
 	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
 	cmd.BindVertexBuffer(BIND_POINT_WEIGHTS_BUFFER_ID, 1, vr.skinningVertexBuffer.getBufferPtr());
-	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, &vr.instanceBuffer.buffer);
+	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer.getBufferPtr());
 	cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
 	// calculate shadowmap grid dim

@@ -125,7 +125,7 @@ void SSAORenderPass::Draw()
 		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-	rhi::CommandList cmd{ cmdlist };
+	rhi::CommandList cmd{ cmdlist, "SSAO Pass"};
 	std::array<VkViewport, 1>viewports{ VkViewport{0,renderSize.y * 1.0f,renderSize.x * 1.0f,renderSize.y * -1.0f} };
 	cmd.SetViewport(0, viewports.size(), viewports.data());
 
@@ -282,7 +282,7 @@ void SSAORenderPass::InitRandomFactors()
 	std::vector<VkBufferImageCopy> copies{copyRegion};
 
 	randomNoise_texture.fromBuffer(ssaoNoise.data(), ssaoNoise.size() * sizeof(glm::vec4), VK_FORMAT_R32G32B32A32_SFLOAT,
-		width,height,copies,&vr.m_device,vr.m_device.graphicsQueue,VK_FILTER_NEAREST);
+		width,height,copies,&vr.m_device,vr.m_device.transferQueue,VK_FILTER_NEAREST);
 }
 
 

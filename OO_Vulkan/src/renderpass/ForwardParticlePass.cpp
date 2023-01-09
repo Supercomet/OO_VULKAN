@@ -139,7 +139,7 @@ void ForwardParticlePass::Draw()
 	// TODO: handle all framebuffer resizes gracefully
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	
-	rhi::CommandList cmd{ cmdlist };
+	rhi::CommandList cmd{ cmdlist, "Forward Particles Pass"};
 	cmd.SetDefaultViewportAndScissor();
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
