@@ -708,16 +708,11 @@ void TestApplication::Run()
             ImGui::End();
 
             static bool ManyCamera{ true };
+            gs_GraphicsWorld.numCameras = 2;
+            ManyCamera = gs_GraphicsWorld.shouldRenderCamera[1];
             if (ImGui::Checkbox("Many camera", &ManyCamera))
             {
-                if (ManyCamera)
-                {
-                    gs_GraphicsWorld.numCameras = 2;
-                }
-                else
-                {
-                    gs_GraphicsWorld.numCameras = 1;
-                }
+                gs_GraphicsWorld.shouldRenderCamera[1] = ManyCamera;
             }
 
             //if (Input::GetKeyTriggered(KEY_P))
