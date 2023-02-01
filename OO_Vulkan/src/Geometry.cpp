@@ -102,3 +102,9 @@ Triangle::Triangle(const Point3D& a, const Point3D& b, const Point3D& c)
 	v2{c}
 {
 }
+
+AABB2D::AABB2D(glm::vec2 _min, glm::vec2 _max):
+	min{_min},
+	max{_max}
+{
+}

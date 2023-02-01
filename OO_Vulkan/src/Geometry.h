@@ -72,6 +72,15 @@ struct AABB
 	Point3D min() const;
 };
 
+struct AABB2D
+{
+	glm::vec2 min, max;
+
+	AABB2D(glm::vec2 min, glm::vec2 max);
+
+};
+
+
 struct Ray
 {
 	Ray();

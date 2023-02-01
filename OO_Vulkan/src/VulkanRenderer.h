@@ -44,6 +44,9 @@ Technology is prohibited.
 #include "GraphicsWorld.h"
 #include "GraphicsBatch.h"
 
+#include "TexturePacker.h"
+#include "Font.h"
+
 #include <vector>
 #include <array>
 #include <set>
@@ -271,6 +274,9 @@ public:
 	uint32_t CreateTexture(const std::string& fileName);
 	bool ReloadTexture(uint32_t textureID, const std::string& file);
 	void UnloadTexture(uint32_t textureID);
+
+	oo::Font* LoadFont(const std::string& filename);
+	oo::TexturePacker CreateFontAtlas(const std::string& filename, oo::Font& font);
 
 	struct TextureInfo
 	{
