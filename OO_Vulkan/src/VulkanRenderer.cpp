@@ -60,6 +60,7 @@ Technology is prohibited.
 #include "IcoSphereCreator.h"
 
 #include "Profiling.h"
+#include "DebugDraw.h"
 
 #include <vector>
 #include <set>
@@ -70,21 +71,6 @@ Technology is prohibited.
 #include <random>
 #include <filesystem>
 #include <sstream>
-
-// ordering important
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_OUTLINE_H
-#include FT_MULTIPLE_MASTERS_H
-
-#define MSDFGEN_CORE_ONLY
-#include "msdfgen.h"
-#include "msdfgen-ext.h"
-#include "core/ShapeDistanceFinder.h"
-#define MSDF_ATLAS_PUBLIC 
-#define MSDF_ATLAS_NO_ARTERY_FONT 
-#include "msdf-atlas-gen.h"
-
 
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
@@ -320,7 +306,6 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		CreateDescriptorPool();
 
 		g_Textures.reserve(2048);
-		g_globalModels.reserve(512);
 
 		uint32_t whiteTexture = 0xFFFFFFFF; // ABGR
 		uint32_t blackTexture = 0xFF000000; // ABGR
@@ -646,7 +631,7 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& s
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	rhi::CommandList cmd{ cmdlist ,"Fullscreen Blit"};
 	std::array<VkViewport, 1>viewports{ VkViewport{0,renderSize.y * 1.0f,renderSize.x * 1.0f,renderSize.y * -1.0f} };
-	cmd.SetViewport(0, viewports.size(), viewports.data());
+	cmd.SetViewport(0, static_cast<uint32_t>(viewports.size()), viewports.data());
 	VkRect2D scissor{ {}, {renderSize.x,renderSize.y} };
 	cmd.SetScissor(scissor);
 
@@ -1340,15 +1325,43 @@ void VulkanRenderer::UploadLights()
 	std::vector<LocalLightInstance> spotLights;
 	auto& lights = currWorld->GetAllOmniLightInstances();
 	spotLights.reserve(lights.size());
+	oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetUp(),oGFX::Colors::GREEN);
+	oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetRight(),oGFX::Colors::RED);
+	oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetFront(),oGFX::Colors::BLUE);
+	oGFX::Frustum frust = currWorld->cameras[0].GetFrustum();
+	//{
+	//	oGFX::DebugDraw::DrawCameraFrustrumDebugArrows(frust);
+	//}
+			
 	int viewIter{};
+	int sss{};
 	for (auto& e : lights)
 	{
+		//oGFX::Sphere s;
+		//s.center = e.position;
+		//s.radius = e.radius.x;
+		//oGFX::DebugDraw::AddSphere(s);
+		// 
+		/// WIP Light Culling. Sorta works just need to fix lights.
+		//if (oGFX::coll::SphereInFrustum(frust, s))		
+		//{
+		//	SetLightEnabled(e, true);
+		//}
+		//else
+		//{
+		//	SetLightEnabled(e, false);
+		//}
+
+		if (GetLightEnabled(e) == false)
+		{
+			continue;
+		}
 		LocalLightInstance si;
-		if (e.info.x > 0)
+		if (GetCastsShadows(e))
 		{
 			
 			e.info.y = gridIdx;			
-			if (e.info.x == 1)
+			if (e.info.x == 1) // type one is omnilight
 			{
 				// loop through all faces
 				for (size_t i = 0; i < 6; i++)
@@ -1358,7 +1371,7 @@ void VulkanRenderer::UploadLights()
 					++gridIdx;
 				}
 			}
-			else
+			else // else spotlight?
 			{
 				++m_numShadowcastLights;
 				si.view[0] = e.view[++viewIter%6];		
@@ -1835,17 +1848,17 @@ void VulkanRenderer::InitializeRenderBuffers()
 	constexpr uint32_t MAX_SKINNING_VERTEX_BUFFER_SIZE = 4 * 1024 * 1024; // 4MB
 
 	gpuBoneMatrixBuffer.Init(&m_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	gpuBoneMatrixBuffer.reserve(MAX_GLOBAL_BONES * sizeof(glm::mat4x4));
+	//gpuBoneMatrixBuffer.reserve(MAX_GLOBAL_BONES * sizeof(glm::mat4x4));
     VK_NAME(m_device.logicalDevice, "Bone Matrix Buffer", gpuBoneMatrixBuffer.getBuffer());
 
 	skinningVertexBuffer.Init(&m_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-	skinningVertexBuffer.reserve(MAX_SKINNING_VERTEX_BUFFER_SIZE);  
+	//skinningVertexBuffer.reserve(MAX_SKINNING_VERTEX_BUFFER_SIZE);  
     VK_NAME(m_device.logicalDevice, "Skinning Vertex Buffer", skinningVertexBuffer.getBuffer());
 
 	g_GlobalMeshBuffers.IdxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 	g_GlobalMeshBuffers.VtxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-	g_GlobalMeshBuffers.IdxBuffer.reserve(1 * 1000 * 1000);
-	g_GlobalMeshBuffers.VtxBuffer.reserve(1 * 1000 * 1000);
+	//g_GlobalMeshBuffers.IdxBuffer.reserve(8 * 1000 * 1000);
+	//g_GlobalMeshBuffers.VtxBuffer.reserve(1 * 1000 * 1000);
 	
 	g_particleCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 	//g_particleCommandsBuffer.reserve(1024); // commands are generally per emitter. shouldnt have so many..
@@ -1892,7 +1905,7 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		objectCount = 0;
 		for (auto& indirectCmd : allObjectsCommands)
 		{
-			objectCount += indirectCmd.instanceCount;
+			objectCount += indirectCmd.instanceCount ?  indirectCmd.instanceCount:1;
 		}
 
 
@@ -1969,6 +1982,7 @@ void VulkanRenderer::UploadInstanceData()
 		uint32_t matCnt = 0;
 		for (auto& ent : currWorld->GetAllObjectInstances())
 		{
+			
 			auto& mdl = g_globalModels[ent.modelID];
 			for (size_t i = 0; i < mdl.m_subMeshes.size(); i++)
 			{
@@ -2420,35 +2434,9 @@ ModelFileResource* VulkanRenderer::GetDefaultCube()
 	return def_cube.get();
 }
 
-
-
-oo::Font * VulkanRenderer::LoadFont(const std::string & filename)
-{
-	
-	auto* font = new oo::Font;
-	oo::TexturePacker atlas = CreateFontAtlas(filename, *font);
-	
-	std::stringstream ss;
-	for (auto& car : font->m_characterInfos)
-	{
-		const auto g = car.second;
-		ss << "[" << (char)car.first << "] {" << g.textureCoordinates.x << "," << g.textureCoordinates.y << "}"
-			"] {" << g.textureCoordinates.z << "," << g.textureCoordinates.w << "}\n";
-	}
-	std::cout << ss.str();
-
-	font->m_name = std::filesystem::path(filename).stem().wstring();
-	size_t channels = 4;
-	//atlas.buffer.resize(atlas.textureSize.x * atlas.textureSize.y * channels);
-
-	font->m_atlasID = CreateTexture(atlas.textureSize.x, atlas.textureSize.y, (uint8_t*)atlas.buffer.data());
-
-	return font;
-}
-
 ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 {
-	std::stringstream os;
+	std::stringstream ss;
 	// new model loader
 	Assimp::Importer importer;
 	importer.SetPropertyBool(AI_CONFIG_IMPORT_REMOVE_EMPTY_BONES, false);
@@ -2483,7 +2471,7 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 
 	
 
-	os <<"[Loading] " << file << std::endl;
+	ss <<"[Loading] " << file << std::endl;
 	//if (scene->mNumAnimations && scene->mAnimations[0]->mNumMorphMeshChannels)
 	//{
 	//	std::stringstream ss{"Morphs\n"};
@@ -2505,13 +2493,13 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	//}
 
 	size_t count{ 0 };
-	os << "Meshes" << scene->mNumMeshes << std::endl;
+	ss << "Meshes" << scene->mNumMeshes << std::endl;
 	for (size_t i = 0; i < scene->mNumMeshes; i++)
 	{
 		auto& mesh = scene->mMeshes[i];
-		os << "\tMesh" << i << " " << mesh->mName.C_Str() << std::endl;
-		os << "\t\tverts:"  << mesh->mNumVertices << std::endl;
-		os << "\t\tbones:"  << mesh->mNumBones << std::endl;
+		ss << "\tMesh" << i << " " << mesh->mName.C_Str() << std::endl;
+		ss << "\t\tverts:"  << mesh->mNumVertices << std::endl;
+		ss << "\t\tbones:"  << mesh->mNumBones << std::endl;
 		/*
 		for (size_t anim = 0; anim < mesh->mNumAnimMeshes; anim++)
 		{
@@ -2551,8 +2539,6 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		//}
 		//os << "\t\t\t|sum weights:"  << sum << std::endl;
 	}
-	std::cout << os.str();
-	os.clear();
 
 #if 0
 	if (scene->HasAnimations())
@@ -2646,252 +2632,10 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		LoadMeshFromBuffers(modelFile->vertices, modelFile->indices, &mdl);
 	}
 
-	os << "\t [Meshes loaded] " << modelFile->sceneMeshCount << std::endl;
+	ss << "\t [Meshes loaded] " << modelFile->sceneMeshCount << std::endl;
 
-	std::cout << os.str();
+	std::cout << ss.str();
 	return modelFile;
-}
-
-oo::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename, oo::Font& font)
-{
-	
-
-	oo::TexturePacker atlas({512,512});
-	
-
-	using namespace msdfgen;
-	using namespace msdf_atlas;
-
-	bool success = false;
-	// Initialize instance of FreeType library
-	if (msdfgen::FreetypeHandle *ft = msdfgen::initializeFreetype()) {
-		// Load font file
-		if (msdfgen::FontHandle *fontHdl = msdfgen::loadFont(ft, filename.c_str())) {
-			// Storage for glyph geometry and their coordinates in the atlas
-			std::vector<GlyphGeometry> glyphs;
-			// FontGeometry is a helper class that loads a set of glyphs from a single font.
-			// It can also be used to get additional font metrics, kerning information, etc.
-			FontGeometry fontGeometry(&glyphs);
-			// Load a set of character glyphs:
-			// The second argument can be ignored unless you mix different font sizes in one atlas.
-			// In the last argument, you can specify a charset other than ASCII.
-			// To load specific glyph indices, use loadGlyphs instead.
-			fontGeometry.loadCharset(fontHdl, 1.0, Charset::ASCII);
-			// Apply MSDF edge coloring. See edge-coloring.h for other coloring strategies.
-			const double maxCornerAngle = 3.0;
-			for (GlyphGeometry &glyph : glyphs)
-				glyph.edgeColoring(&msdfgen::edgeColoringInkTrap, maxCornerAngle, 0);
-			// TightAtlasPacker class computes the layout of the atlas.
-			TightAtlasPacker packer;
-			// Set atlas parameters:
-			// setDimensions or setDimensionsConstraint to find the best value
-			packer.setDimensionsConstraint(TightAtlasPacker::DimensionsConstraint::POWER_OF_TWO_SQUARE);
-			// setScale for a fixed size or setMinimumScale to use the largest that fits
-			packer.setMinimumScale(24.0);
-			// setPixelRange or setUnitRange
-			packer.setPixelRange(2.0);
-			packer.setMiterLimit(1.0);
-			// Compute atlas layout - pack glyphs
-			packer.pack(glyphs.data(), glyphs.size());
-			// Get final atlas dimensions
-			int width = 0, height = 0;
-			packer.getDimensions(width, height);
-			// The ImmediateAtlasGenerator class facilitates the generation of the atlas bitmap.
-			ImmediateAtlasGenerator<
-				float, // pixel type of buffer for individual glyphs depends on generator function
-				4, // number of atlas color channels
-				&mtsdfGenerator, // function to generate bitmaps for individual glyphs
-				BitmapAtlasStorage<byte, 4> // class that stores the atlas bitmap
-											// For example, a custom atlas storage class that stores it in VRAM can be used.
-			> generator(width, height);
-			// GeneratorAttributes can be modified to change the generator's default settings.
-			GeneratorAttributes attributes;
-			generator.setAttributes(attributes);
-			generator.setThreadCount(4);
-			// Generate atlas bitmap
-			generator.generate(glyphs.data(), glyphs.size());
-			// The atlas bitmap can now be retrieved via atlasStorage as a BitmapConstRef.
-			// The glyphs array (or fontGeometry) contains positioning data for typesetting text.
-			auto bitmap = generator.atlasStorage().operator msdfgen::BitmapConstRef<msdfgen::byte, 4>();
-			bitmap.pixels;
-			bitmap.width;
-			bitmap.height;
-			atlas.resizeBuffer({ bitmap.width, bitmap.height });
-			auto totalPixels = bitmap.width * bitmap.height * 4;
-			auto stack = bitmap.width * 4;
-
-			
-
-			constexpr bool FLIP_Y = true;
-
-			for (GlyphGeometry& glyph : glyphs)
-			{
-				auto c = glyph.getCodepoint();
-				auto& infos = font.m_characterInfos[c];
-				infos.Advance.x = glyph.getAdvance();
-				infos.Advance.y = {};
-				int wd{}, ht{};
-				glyph.getBoxSize(wd,ht);
-				infos.Size.x = wd;
-				infos.Size.y = ht;
-				double l, b, t, r;
-				glyph.getQuadAtlasBounds(l, b, r, t);
-				
-				infos.textureCoordinates = glm::vec4{
-					l/bitmap.width,b/bitmap.height,
-					r/bitmap.width,t/bitmap.height,
-				};
-				if constexpr (FLIP_Y == true)
-				{
-					infos.textureCoordinates.y = 1.0 - infos.textureCoordinates.y;
-					infos.textureCoordinates.w = 1.0 - infos.textureCoordinates.w;
-				}
-			}
-
-			if constexpr (FLIP_Y == true)
-			{
-				for (size_t i = 0; i <  bitmap.height; i++)
-				{
-					auto front = i * stack;
-					auto back = front + stack;
-					std::memcpy((uint8_t*)atlas.buffer.data() + front, bitmap.pixels + (totalPixels - back), stack);
-				}
-			}
-			
-			//success = myProject::submitAtlasBitmapAndLayout(generator.atlasStorage(), glyphs);
-			// Cleanup
-			msdfgen::destroyFont(fontHdl);
-		}
-		msdfgen::deinitializeFreetype(ft);
-	}
-
-#if 0
-	std::vector<uint16_t> unknownChars;
-	// normal nordic characters are under 255 
-	// while extended norse is up to 503
-	//old nordic charaters require up to character 0503 and  42856 and 42857
-
-	//init free type library
-	FT_Library m_library; // init lib	
-
-	FT_Error error = FT_Init_FreeType(&m_library);
-	if (error)
-	{
-		std::cout << "ERROR LOAD" << std::endl;
-		//LOG_ENGINE_CRITICAL("FontError: Failed to load freetype library! Error {0}", error);
-	}
-
-	FT_Face face;
-	error = FT_New_Face(m_library, filename.c_str(), 0, &face);
-	if (error == FT_Err_Unknown_File_Format)
-	{
-		std::cout << "ERROR FORMAT" << std::endl;
-		//LOG_ENGINE_CRITICAL("Font Error: font format is unsupported! Error {0}", error);
-	}
-	else if (error)
-	{
-		std::cout << "ERROR UNABLe READ" << std::endl;
-		//LOG_ENGINE_CRITICAL("Font Error: unable to read or open font! Error {0}", error);
-	}
-	// enable unicode
-	FT_Select_Charmap(face, ft_encoding_unicode);
-
-	//FT_Set_Pixel_Sizes(face,0, 72);
-        
-	FontHandle* fontFace = adoptFreetypeFont(face);
-	if (fontFace)
-	{
-		for (uint16_t c = ' '; c < 125; c++)
-		{		
-			Shape shape;
-			auto glyph_index = FT_Get_Char_Index( face, c );
-			double advance{};
-			if (loadGlyph(shape, fontFace, GlyphIndex(glyph_index),&advance))
-			{
-				
-				oo::Font::Glyph character = {
-					0,
-					glm::vec4(0.0f,0.0f,1.0f,1.0f),
-					glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-					glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-					glm::ivec2(face->glyph->advance.x, 0/*face->glyph->advance.y*/)
-				};
-				shape.getBounds()
-				character.Advance.x = advance;
-				character.Size.x = 16*4;
-				character.Size.y = 16*4;
-
-				//if (character.Size.x && character.Size.y && glyph_index != 0)
-				//if(face->glyph->advance.y || face->glyph->advance.x)
-				if (shape.validate())
-				{
-					shape.normalize();
-					//                      max. angle
-					edgeColoringSimple(shape, 3.0);
-					//           image width, height
-					constexpr int channels = 3;
-					Bitmap<float, channels> msdf(32, 32);
-					//                     range, scale, translation	
-					generateMSDF(msdf, shape, 4.0, 1.0, Vector2(4.0, 4.0));
-				
-					
-					int subpixels = (channels)*msdf.width()*msdf.height();
-					// add alpha
-					int pixelsWithAlpha = (channels+1)*msdf.width()*msdf.height();
-					std::vector<unsigned char> bytePixels(pixelsWithAlpha);
-					for (int i = 0; i < subpixels; i+=3)
-					{
-						// make space for alpha
-						bytePixels[i+0+(i/3)] = msdfgen::pixelFloatToByte(msdf[i+0]);
-						bytePixels[i+1+(i/3)] = msdfgen::pixelFloatToByte(msdf[i+1]);
-						bytePixels[i+2+(i/3)] = msdfgen::pixelFloatToByte(msdf[i+2]);
-					}
-					glm::ivec2 pixels = atlas.packTexture((uint32_t*)bytePixels.data(), glm::ivec2{ msdf.width(), msdf.height() }, c);
-					character.textureCoordinates.x = static_cast<float>(pixels.x); //min X
-					character.textureCoordinates.y = static_cast<float>(pixels.y); // max Y
-				}
-				//else
-				{
-					//unknownChars.push_back(c);
-				}		
-				font.m_characterInfos[c] = character;
-			}
-		}
-		// finished with MSDFG font
-		msdfgen::destroyFont(fontFace);
-	}
-	FT_Done_Face(face);
-	FT_Done_FreeType(m_library);
-
-	// let each special character be a space
-	for (auto c : unknownChars)
-	{
-		if (c < 32 && !std::isspace(c))
-			font.m_characterInfos[c] = font.m_characterInfos[' '];
-	}
-
-	// set the size to the bigger of the two if not we end up with ruined sizes for new line
-	font.m_characterInfos['\n'].Size = font.m_characterInfos['\n'].Size.y == 0 ? 
-		font.m_characterInfos['A'].Size : font.m_characterInfos['\n'].Size;
-
-	//we now have the final buffer in the atlas
-	glm::ivec2 texSize = atlas.textureSize; //square texture anyway
-											//LOG_ENGINE_ERROR("tex size {0},{1}", texSize.x, texSize.y);
-	for (auto& [c, glyph] : font.m_characterInfos)
-	{
-		glm::vec4 realTexcoord{ 0.0f };
-		//calculating real texture coords
-		realTexcoord.x = static_cast<float>(glyph.textureCoordinates.x) / texSize.x;
-		realTexcoord.y = static_cast<float>(glyph.textureCoordinates.y) / texSize.y;
-		realTexcoord.z = static_cast<float>(glyph.textureCoordinates.x + glyph.Size.x) / texSize.x;
-		realTexcoord.w = static_cast<float>(glyph.textureCoordinates.y + glyph.Size.y) / texSize.y;
-		glyph.textureCoordinates = realTexcoord;
-	}
-
-#endif
-
-
-	return atlas;
 }
 
 void VulkanRenderer::LoadSubmesh(gfxModel& mdl,
@@ -3028,7 +2772,7 @@ void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
 )
 {
 	uint32_t numBones = 0;
-
+	std::stringstream ss;
 	for (size_t i = 0; i < aimesh.mNumBones; i++)
 	{
 		auto& currBone = aimesh.mBones[i];
@@ -3114,7 +2858,7 @@ void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
 				{
 					if (val == minBone)
 					{
-						std::cout << "Discarded weight: [" << key<<",\t"<< minW << "]" << std::endl;
+						ss << "Discarded weight: [" << key<<",\t"<< minW << "]" << std::endl;
 						break;
 					}
 				}
@@ -3152,7 +2896,7 @@ void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
 void VulkanRenderer::BuildSkeletonRecursive(ModelFileResource& fileData, aiNode* ainode, oGFX::BoneNode* parent, glm::mat4 parentXform,std::string prefix)
 {
 	std::string node_name{ ainode->mName.data };
-
+	//std::stringstream ss;
 	// TODO: quat ?
 	glm::mat4x4 node_transform = parentXform * aiMat4_to_glm(ainode->mTransformation);
 	oGFX::BoneNode* targetParent = parent;
@@ -3166,7 +2910,7 @@ void VulkanRenderer::BuildSkeletonRecursive(ModelFileResource& fileData, aiNode*
 	auto iter = fileData.strToBone.find(node_name);
 	if (iter != fileData.strToBone.end())
 	{
-		std::cout <<prefix<< "Creating bone " << node_name << std::endl;
+		//ss <<prefix<< "Creating bone " << node_name << std::endl;
 		prefix += '\t';
 		bIsBoneNode = true;
 		node = new oGFX::BoneNode;
@@ -3212,6 +2956,7 @@ void VulkanRenderer::BuildSkeletonRecursive(ModelFileResource& fileData, aiNode*
 			BuildSkeletonRecursive(fileData, ainode->mChildren[i], targetParent,node_transform,prefix);
 		}
 	}
+	//std::cout << ss.str();
 }
 
 const oGFX::Skeleton* VulkanRenderer::GetSkeleton(uint32_t modelID)

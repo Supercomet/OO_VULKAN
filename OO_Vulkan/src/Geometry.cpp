@@ -13,7 +13,7 @@ Technology is prohibited.
 *//*************************************************************************************/
 #include "Geometry.h"
 
-
+namespace oGFX {
 AABB::AABB() :
 	center{},
 	halfExt{ 0.5f,0.5f,0.5f }
@@ -78,7 +78,7 @@ Plane::Plane(const Point3D& n, const Point3D& p)
 
 Plane::Plane(const Point3D& n, float d)
 	:
-	normal{ n,d }
+	normal{ glm::normalize(n),d }
 {
 }
 
@@ -86,7 +86,7 @@ std::pair<glm::vec3, glm::vec3> Plane::ToPointNormal() const
 {
 	float d = normal.w / normal.z;
 	assert(d != 0.0f);
-	return std::pair<glm::vec3, glm::vec3>(glm::vec3{ normal }, glm::vec3{ 0.0,0.0, d});
+	return std::pair<glm::vec3, glm::vec3>( glm::vec3{ 0.0,0.0, d},glm::vec3{ normal });
 }
 
 Triangle::Triangle():
@@ -100,11 +100,5 @@ Triangle::Triangle(const Point3D& a, const Point3D& b, const Point3D& c)
 	:v0{a},
 	v1{b},
 	v2{c}
-{
-}
-
-AABB2D::AABB2D(glm::vec2 _min, glm::vec2 _max):
-	min{_min},
-	max{_max}
 {
 }

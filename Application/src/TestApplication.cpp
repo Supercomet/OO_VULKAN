@@ -879,7 +879,7 @@ void TestApplication::RunTest_DebugDraw()
 {
     if (m_TestDebugDrawLine)
     {
-        DebugDraw::AddLine(glm::vec3{ 2.0f, 0.0f, 2.0f}, glm::vec3{ 0.0f, 10.0f, 0.0f }, oGFX::Colors::GREEN);
+        oGFX::DebugDraw::AddLine(glm::vec3{ 2.0f, 0.0f, 2.0f}, glm::vec3{ 0.0f, 10.0f, 0.0f }, oGFX::Colors::GREEN);
     }
 
     if (m_TestDebugDrawBox)
@@ -887,30 +887,30 @@ void TestApplication::RunTest_DebugDraw()
 		AABB aabb;
 		aabb.center = { 0.0f,1.0f,0.0f };
 		aabb.halfExt = { 1.0f,1.0f,1.0f };
-		DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
+		oGFX::DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
 	}
 
 	if (m_TestDebugDrawDisc)
 	{
-        DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::RED);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::GREEN);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 3.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,1.0f }, oGFX::Colors::YELLOW);
+        oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::RED);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::GREEN);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 3.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,1.0f }, oGFX::Colors::YELLOW);
 
-		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,1.0f,0.0f }, oGFX::Colors::YELLOW);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,0.0f,1.0f }, oGFX::Colors::BLUE);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 1.0f,0.0f,0.0f }, oGFX::Colors::VIOLET);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,1.0f,0.0f }, oGFX::Colors::YELLOW);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,0.0f,1.0f }, oGFX::Colors::BLUE);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 1.0f,0.0f,0.0f }, oGFX::Colors::VIOLET);
 
-		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -3.0f, 1.0f, -5.0f }, 1.0f, gs_GraphicsWorld.cameras.front().m_position, oGFX::Colors::GREEN);
-		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_GraphicsWorld.cameras.front().m_position, oGFX::Colors::RED);
+		oGFX::DebugDraw::AddSphereAs3Disc1HorizonDisc({ -3.0f, 1.0f, -5.0f }, 1.0f, gs_GraphicsWorld.cameras.front().m_position, oGFX::Colors::GREEN);
+		oGFX::DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_GraphicsWorld.cameras.front().m_position, oGFX::Colors::RED);
 	}
 
     if (m_TestDebugDrawGrid)
     {
-        DebugDraw::DrawYGrid(100.0f,10.0f);
+        oGFX::DebugDraw::DrawYGrid(100.0f,10.0f);
     }
 
     if(character_diona)
@@ -990,14 +990,14 @@ void TestApplication::RunTest_DebugDraw()
                    return;
 
                aabb.center = pBoneNode->mModelSpaceGlobal * glm::vec4(0.0f,0.0f,0.0f,1.0f);
-               DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
+               oGFX::DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
 
                // Recursion through all children nodes, passing in the current global transform.
                for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
                {
                    oGFX::BoneNode* child = pBoneNode->mChildren[i];
                    auto pos = child->mModelSpaceGlobal * glm::vec4(0.0f,0.0f,0.0f,1.0f);
-                   DebugDraw::AddLine(aabb.center, pos, oGFX::Colors::RED);
+                   oGFX::DebugDraw::AddLine(aabb.center, pos, oGFX::Colors::RED);
                    func(func, child);
                }
            };
