@@ -44,7 +44,7 @@ struct FontFormatting
 {
     float verticalLineSpace{ 1.0f };
     float fontSize{ 72.0f };
-    AABB2D box{ {},{} };
+    oGFX::AABB2D box{ {},{} };
     FontAlignment alignment{ FontAlignment::Centre };
 };
 

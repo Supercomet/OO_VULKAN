@@ -49,6 +49,7 @@
 #include "CameraController.h"
 #include "DebugDraw.h"
 
+
 //#include "anim/SimpleAnim.h" // WR ONLY
 
 static VulkanRenderer* gs_RenderEngine = nullptr;
@@ -192,7 +193,7 @@ private:
 
 void CreateGraphicsEntityHelper(EntityInfo& ei)
 {
-    AABB ab;
+    oGFX::AABB ab;
 
     //UpdateBV(gs_RenderEngine->models[e.modelID].cpuModel, e);
     ObjectInstance o{};
@@ -276,6 +277,32 @@ void TestApplication::Run()
         getchar();
         return;
     }
+
+    std::unique_ptr<oo::Font>testFont (gs_RenderEngine->LoadFont("../Application/fonts/Roboto-Medium.ttf"));
+    {
+       // using namespace msdfgen;
+       // FreetypeHandle *ft = initializeFreetype();
+       // if (ft) {
+       //     FontHandle *font = loadFont(ft, "C:\\Windows\\Fonts\\arialbd.ttf");
+       //     if (font) {
+       //         Shape shape;
+       //         if (loadGlyph(shape, font, 'A')) {
+       //             shape.normalize();
+       //             //                      max. angle
+       //             edgeColoringSimple(shape, 3.0);
+       //             //           image width, height
+       //             Bitmap<float, 3> msdf(32, 32);
+       //             //                     range, scale, translation
+       //             generateMSDF(msdf, shape, 4.0, 1.0, Vector2(4.0, 4.0));
+       //             savePng(msdf, "output.png");
+       //         }
+       //         destroyFont(font);
+       //     }
+       //     deinitializeFreetype(ft);
+       // }
+    }
+
+   
 
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Textures
@@ -402,7 +429,7 @@ void TestApplication::Run()
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
 
-        ed.bindlessGlobalTextureIndex_Albedo    = d0;
+        ed.bindlessGlobalTextureIndex_Albedo    = testFont->m_atlasID;
         ed.bindlessGlobalTextureIndex_Normal    = n0;
         ed.bindlessGlobalTextureIndex_Metallic  = m0;
         ed.bindlessGlobalTextureIndex_Roughness = r0;
@@ -884,7 +911,7 @@ void TestApplication::RunTest_DebugDraw()
 
     if (m_TestDebugDrawBox)
 	{
-		AABB aabb;
+		oGFX::AABB aabb;
 		aabb.center = { 0.0f,1.0f,0.0f };
 		aabb.halfExt = { 1.0f,1.0f,1.0f };
 		oGFX::DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
@@ -915,9 +942,9 @@ void TestApplication::RunTest_DebugDraw()
 
     if(character_diona)
     {
-        AABB aabb;
+        oGFX::AABB aabb;
         aabb.halfExt = glm::vec3{ 0.02f };
-        Point3D prevpos;
+        oGFX::Point3D prevpos;
 
         auto& diona = entities[globalDionaID];
         auto& gfxO = gs_GraphicsWorld.GetObjectInstance(diona.gfxID);
@@ -1015,7 +1042,7 @@ void TestApplication::RunTest_DebugDraw()
         // Update world space global skeleton pose.
         simpleanim::UpdateLocalToGlobalSpace(skinnedMesh_alibaba.get());
 
-        AABB aabb;
+        oGFX::AABB aabb;
         aabb.halfExt = { 0.01f,0.01f,0.01f };
 
         // Trivial and unoptimized method
@@ -1516,7 +1543,7 @@ void InitLights(int32_t* someLights)
             lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
         }
         // put here so we can edit the light values
-        lights[0]->position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+        lights[0]->position = glm::vec4(0.0f, 3.0f, 1.0f, 0.0f);
         lights[0]->color = glm::vec4(1.5f);
         lights[0]->radius.x = 15.0f;
 
