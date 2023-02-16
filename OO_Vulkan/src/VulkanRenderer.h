@@ -276,8 +276,8 @@ public:
 	bool ReloadTexture(uint32_t textureID, const std::string& file);
 	void UnloadTexture(uint32_t textureID);
 
-	oo::Font* LoadFont(const std::string& filename);
-	oo::TexturePacker CreateFontAtlas(const std::string& filename, oo::Font& font);
+	oGFX::Font* LoadFont(const std::string& filename);
+	oGFX::TexturePacker CreateFontAtlas(const std::string& filename, oGFX::Font& font);
 
 	struct TextureInfo
 	{
@@ -303,6 +303,7 @@ public:
 
 	std::mutex g_mut_globalMeshBuffers;
 	IndexedVertexBuffer g_GlobalMeshBuffers;
+
 	std::array<GpuVector<ParticleData>,3> g_particleDatas;
 	GpuVector<oGFX::IndirectCommand> g_particleCommandsBuffer{};
 
@@ -310,6 +311,11 @@ public:
 	GpuVector<uint32_t> g_DebugDrawIndexBufferGPU;
 	std::vector<oGFX::DebugVertex> g_DebugDrawVertexBufferCPU;
 	std::vector<uint32_t> g_DebugDrawIndexBufferCPU;
+
+	// ui pass
+	GpuVector<oGFX::UIVertex> g_UIVertexBufferGPU;
+	GpuVector<uint32_t> g_UIDrawIndexBufferGPU;
+	std::array<GpuVector<UIData>,3> g_UIDatas;
 
 	ModelFileResource* GetDefaultCube();
 

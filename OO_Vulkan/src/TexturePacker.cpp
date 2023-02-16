@@ -1,6 +1,6 @@
 #include "TexturePacker.h"
 
-namespace oo {
+namespace oGFX {
 
 TexturePacker::TexturePacker(glm::ivec2 texSize)
 	:textureSize{ texSize }
@@ -156,4 +156,4 @@ void TexturePacker::resizeBuffer(const glm::ivec2& newSize)
 }
 
 
-}// end namespace oo
+}// end namespace oGFX

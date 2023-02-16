@@ -4,7 +4,7 @@
 #include <vector>
 #include <memory>
 
-namespace oo {
+namespace oGFX {
 
 
 struct TextureNode
@@ -32,4 +32,4 @@ public:
 
 };
 
-}// end namespace oo
+}// end namespace oGFX

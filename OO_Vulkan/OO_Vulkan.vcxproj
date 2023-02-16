@@ -77,6 +77,7 @@
     <ClCompile Include="src\renderpass\DeferredCompositionRenderpass.cpp" />
     <ClCompile Include="src\GfxRenderpass.cpp" />
     <ClCompile Include="src\renderpass\ForwardParticlePass.cpp" />
+    <ClCompile Include="src\renderpass\ForwardUIPass.cpp" />
     <ClCompile Include="src\renderpass\GBufferRenderPass.cpp" />
     <ClCompile Include="src\BoudingVolume.cpp" />
     <ClCompile Include="src\DescriptorBuilder.cpp" />
@@ -135,6 +136,7 @@
     <ClInclude Include="src\renderpass\DeferredCompositionRenderpass.h" />
     <ClInclude Include="src\GfxRenderpass.h" />
     <ClInclude Include="src\renderpass\ForwardParticlePass.h" />
+    <ClInclude Include="src\renderpass\ForwardUIPass.h" />
     <ClInclude Include="src\renderpass\GBufferRenderPass.h" />
     <ClInclude Include="src\BoudingVolume.h" />
     <ClInclude Include="src\DescriptorBuilder.h" />

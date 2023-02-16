@@ -124,7 +124,9 @@ struct EntityInfo
     int32_t gfxID; // gfxworld id
     std::bitset<MAX_SUBMESH>submeshes;
 
-    ObjectInstanceFlags flags{static_cast<ObjectInstanceFlags>(RENDER_ENABLED | SHADOW_RECEIVER | SHADOW_CASTER)};
+    ObjectInstanceFlags flags{static_cast<ObjectInstanceFlags>(ObjectInstanceFlags::RENDER_ENABLED 
+        | ObjectInstanceFlags::SHADOW_RECEIVER 
+        | ObjectInstanceFlags::SHADOW_CASTER)};
 
     oGFX::CPUSkeletonInstance* localSkeleton;
 
@@ -278,7 +280,7 @@ void TestApplication::Run()
         return;
     }
 
-    std::unique_ptr<oo::Font>testFont (gs_RenderEngine->LoadFont("../Application/fonts/Roboto-Medium.ttf"));
+    std::unique_ptr<oGFX::Font>testFont (gs_RenderEngine->LoadFont("../Application/fonts/Roboto-Medium.ttf"));
     {
        // using namespace msdfgen;
        // FreetypeHandle *ft = initializeFreetype();
@@ -436,17 +438,17 @@ void TestApplication::Run()
     }
 
     {
-        //auto& ed = entities.emplace_back(EntityInfo{});
-        //ed.name = "Plane_Effects";
-        //ed.entityID = FastRandomMagic();
-        //ed.modelID = model_plane->meshResource;
-        //ed.position = { -2.0f,2.0f,0.0f };
-        //ed.scale = { 2.0f,1.0f,2.0f };
-        //ed.rot = 90.0f;
-        //ed.rotVec = { 1.0f,0.0f,0.0f };
-        //ed.instanceData = 3;
+        uint32_t id = gs_GraphicsWorld.CreateUIInstance();
+        auto& ent = gs_GraphicsWorld.GetUIInstance(id);
+        ent.entityID = 9999999;
+        ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;
+        ent.localToWorld = glm::mat4(1.0f);
+        ent.textData = "Hello world";
+        ent.colour = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        ent.fontAsset = testFont.get();
     }
 
+    
 
     if (gs_test_scene)
     {
@@ -1382,17 +1384,17 @@ void TestApplication::Tool_HandleUI()
 						valuesModified |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
 						valuesModified |= ImGui::DragFloat("Theta", &entity.rot);
 
-                        bool renderMe = entity.flags & RENDER_ENABLED;
+                        bool renderMe = static_cast<bool>(entity.flags & ObjectInstanceFlags::RENDER_ENABLED);
                         if (ImGui::Checkbox("Renderable", &renderMe))
                         {
                             valuesModified |= true;
                             if (renderMe)
                             {
-                                entity.flags = entity.flags | RENDER_ENABLED;
+                                entity.flags = entity.flags | ObjectInstanceFlags::RENDER_ENABLED;
                             }
                             else
                             {
-                                auto inv = (~RENDER_ENABLED);
+                                auto inv = (~ObjectInstanceFlags::RENDER_ENABLED);
                                 entity.flags = entity.flags &inv;
                             }
                         }
@@ -1405,7 +1407,7 @@ void TestApplication::Tool_HandleUI()
 						ImGui::PopID();
 
 
-                        if (entity.flags & ObjectInstanceFlags::SKINNED)
+                        if (static_cast<bool>(entity.flags & ObjectInstanceFlags::SKINNED))
                         {
                             if(ImGui::TreeNode("Bones"))
                             {

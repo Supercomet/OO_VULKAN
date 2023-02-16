@@ -1,5 +1,5 @@
 #include "Font.h"
 
-namespace oo{
+namespace oGFX{
 
-}// end namespace oo
+}// end namespace oGFX

@@ -46,6 +46,7 @@ Technology is prohibited.
 #include "renderpass/ShadowPass.h"
 #include "renderpass/SSAORenderPass.h"
 #include "renderpass/ForwardParticlePass.h"
+#include "renderpass/ForwardUIPass.h"
 #include "renderpass/BloomPass.h"
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	#include "renderpass/ForwardDecalRenderpass.h"
@@ -307,6 +308,8 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		ptr = new SSAORenderPass;
 		rpd->RegisterRenderPass(ptr);
 		ptr = new ForwardParticlePass;
+		rpd->RegisterRenderPass(ptr);
+		ptr = new ForwardUIPass;
 		rpd->RegisterRenderPass(ptr);
 		ptr = new BloomPass;
 		rpd->RegisterRenderPass(ptr);
@@ -1340,9 +1343,9 @@ void VulkanRenderer::UploadLights()
 	std::vector<LocalLightInstance> spotLights;
 	auto& lights = currWorld->GetAllOmniLightInstances();
 	spotLights.reserve(lights.size());
-	oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetUp(),oGFX::Colors::GREEN);
-	oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetRight(),oGFX::Colors::RED);
-	oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetFront(),oGFX::Colors::BLUE);
+	//oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetUp(),oGFX::Colors::GREEN);
+	//oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetRight(),oGFX::Colors::RED);
+	//oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetFront(),oGFX::Colors::BLUE);
 	oGFX::Frustum frust = currWorld->cameras[0].GetFrustum();
 	//{
 	//	oGFX::DebugDraw::DrawCameraFrustrumDebugArrows(frust);
@@ -1836,18 +1839,18 @@ void VulkanRenderer::InitializeRenderBuffers()
 	// In this function, all global rendering related buffers should be initialized, ONCE.
 
 	// Note: Moved here from VulkanRenderer::UpdateIndirectCommands
-	indirectCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+	indirectCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT );
     VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer.getBuffer()); 
 
-	shadowCasterCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+	shadowCasterCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT );
 	shadowCasterCommandsBuffer.reserve(MAX_OBJECTS);
 	VK_NAME(m_device.logicalDevice, "Shadow Command Buffer", shadowCasterCommandsBuffer.m_buffer);
 
 	// Note: Moved here from VulkanRenderer::UpdateInstanceData
-	instanceBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+	instanceBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     VK_NAME(m_device.logicalDevice, "Instance Buffer", instanceBuffer.getBuffer());
 
-	objectInformationBuffer.Init(&m_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	objectInformationBuffer.Init(&m_device,  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	//objectInformationBuffer.reserve(MAX_OBJECTS);  
 	VK_NAME(m_device.logicalDevice, "Object inforBuffer", objectInformationBuffer.getBuffer());
 
@@ -1855,23 +1858,23 @@ void VulkanRenderer::InitializeRenderBuffers()
 	// TODO: Currently this is only for OmniLightInstance.
 	// You should also support various light types such as spot lights, etc...
 
-	globalLightBuffer.Init(&m_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	globalLightBuffer.Init(&m_device,  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	//globalLightBuffer.reserve(MAX_LIGHTS);
     VK_NAME(m_device.logicalDevice, "Light Buffer", globalLightBuffer.getBuffer());
 
 	constexpr uint32_t MAX_GLOBAL_BONES = 2048;
 	constexpr uint32_t MAX_SKINNING_VERTEX_BUFFER_SIZE = 4 * 1024 * 1024; // 4MB
 
-	gpuBoneMatrixBuffer.Init(&m_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	gpuBoneMatrixBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	//gpuBoneMatrixBuffer.reserve(MAX_GLOBAL_BONES * sizeof(glm::mat4x4));
     VK_NAME(m_device.logicalDevice, "Bone Matrix Buffer", gpuBoneMatrixBuffer.getBuffer());
 
-	skinningVertexBuffer.Init(&m_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	skinningVertexBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	//skinningVertexBuffer.reserve(MAX_SKINNING_VERTEX_BUFFER_SIZE);  
     VK_NAME(m_device.logicalDevice, "Skinning Vertex Buffer", skinningVertexBuffer.getBuffer());
 
-	g_GlobalMeshBuffers.IdxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-	g_GlobalMeshBuffers.VtxBuffer.Init(&m_device,VK_BUFFER_USAGE_TRANSFER_DST_BIT |VK_BUFFER_USAGE_TRANSFER_SRC_BIT| VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	g_GlobalMeshBuffers.IdxBuffer.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	g_GlobalMeshBuffers.VtxBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	//g_GlobalMeshBuffers.IdxBuffer.reserve(8 * 1000 * 1000);
 	//g_GlobalMeshBuffers.VtxBuffer.reserve(1 * 1000 * 1000);
 	
@@ -1883,6 +1886,9 @@ void VulkanRenderer::InitializeRenderBuffers()
 		g_particleDatas[i].Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 		//g_particleDatas[i].reserve(100000*10); // 10 max particle systems
 	}
+
+	g_UIVertexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	g_UIDrawIndexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
 	// TODO: Move other global GPU buffer initialization here...
 }
@@ -1897,11 +1903,15 @@ void VulkanRenderer::DestroyRenderBuffers()
 	gpuBoneMatrixBuffer.destroy();
 	skinningVertexBuffer.destroy();
 
+
 	g_particleCommandsBuffer.destroy();
 	for (size_t i = 0; i < g_particleDatas.size(); i++)
 	{
 		g_particleDatas[i].destroy();
 	}
+
+	g_UIVertexBufferGPU.destroy();
+	g_UIDrawIndexBufferGPU.destroy();
 }
 
 void VulkanRenderer::GenerateCPUIndirectDrawCommands()
@@ -2258,6 +2268,7 @@ void VulkanRenderer::RenderFrame()
 
 				RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
 				RenderPassDatabase::GetRenderPass<ForwardParticlePass>()->Draw();
+				RenderPassDatabase::GetRenderPass<ForwardUIPass>()->Draw();
 				RenderPassDatabase::GetRenderPass<BloomPass>()->Draw();
 				//RenderPassDatabase::GetRenderPass<ForwardRenderpass>()->Draw();
 #if defined		(ENABLE_DECAL_IMPLEMENTATION)
@@ -2449,11 +2460,11 @@ ModelFileResource* VulkanRenderer::GetDefaultCube()
 	return def_cube.get();
 }
 
-oo::Font * VulkanRenderer::LoadFont(const std::string & filename)
+oGFX::Font * VulkanRenderer::LoadFont(const std::string & filename)
 {
 
-	auto* font = new oo::Font;
-	oo::TexturePacker atlas = CreateFontAtlas(filename, *font);
+	auto* font = new oGFX::Font;
+	oGFX::TexturePacker atlas = CreateFontAtlas(filename, *font);
 
 	std::stringstream ss;
 	for (auto& car : font->m_characterInfos)
@@ -2677,11 +2688,11 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	return modelFile;
 }
 
-oo::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename, oo::Font& font)
+oGFX::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename, oGFX::Font& font)
 {
 
 
-	oo::TexturePacker atlas({512,512});
+	oGFX::TexturePacker atlas({512,512});
 
 
 	using namespace msdfgen;

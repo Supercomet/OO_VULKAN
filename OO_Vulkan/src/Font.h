@@ -5,7 +5,7 @@
 #include <string>
 #include <map>
 
-namespace oo {
+namespace oGFX {
     
 
 enum class FontType : uint8_t
@@ -33,12 +33,12 @@ enum class FontAlignment : int
     Bottom_Centre = 1 << 8,
 };    
 // return uint32_t as non-explicit underlying type for enum class is undefined
-inline int32_t operator|(oo::FontAlignment lhs, oo::FontAlignment rhs) { return (static_cast<int32_t>(lhs) | static_cast<int32_t>(rhs)); }
-inline int32_t operator|(oo::FontAlignment lhs, int32_t rhs) { return (static_cast<int32_t>(lhs) | rhs); }
-inline int32_t operator|(int32_t lhs, oo::FontAlignment  rhs) { return (rhs | lhs); }
-inline int32_t operator&(oo::FontAlignment lhs, oo::FontAlignment rhs) { return (static_cast<int32_t>(lhs) & static_cast<int32_t>(rhs)); }
-inline int32_t operator&(oo::FontAlignment lhs, int32_t rhs) { return (static_cast<int32_t>(lhs) & rhs); }
-inline int32_t operator&(int32_t lhs, oo::FontAlignment  rhs) { return (rhs & lhs); }
+inline int32_t operator|(oGFX::FontAlignment lhs, oGFX::FontAlignment rhs) { return (static_cast<int32_t>(lhs) | static_cast<int32_t>(rhs)); }
+inline int32_t operator|(oGFX::FontAlignment lhs, int32_t rhs) { return (static_cast<int32_t>(lhs) | rhs); }
+inline int32_t operator|(int32_t lhs, oGFX::FontAlignment  rhs) { return (rhs | lhs); }
+inline int32_t operator&(oGFX::FontAlignment lhs, oGFX::FontAlignment rhs) { return (static_cast<int32_t>(lhs) & static_cast<int32_t>(rhs)); }
+inline int32_t operator&(oGFX::FontAlignment lhs, int32_t rhs) { return (static_cast<int32_t>(lhs) & rhs); }
+inline int32_t operator&(int32_t lhs, oGFX::FontAlignment  rhs) { return (rhs & lhs); }
 
 struct FontFormatting
 {
@@ -76,4 +76,4 @@ public:
     //Image2D m_fontAtlas;
 };
 
-}// end namespace oo
+}// end namespace oGFX
