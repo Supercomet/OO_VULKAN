@@ -21,10 +21,6 @@ layout(location = 0) out vec4 outPosition;
 layout(location = 1) out vec2 outUV;
 layout(location = 2) out vec4 outColor;
 layout(location = 3) out flat uvec4 outInstanceData;
-layout(location = 7) out struct
-{
-	mat3 btn;
-}outLightData;
 
 #include "frame.shader"
 layout(set = 1, binding = 0) uniform UboFrameContext
@@ -51,7 +47,7 @@ void main()
 	outUV = inUV.xy;
 	outInstanceData = uvec4(inUV.zw,0,0);
 	
-
+	outColor = inCol;
 
 	//if((inInstanceData.y & 0x0f)>0) // billboard
 	//{

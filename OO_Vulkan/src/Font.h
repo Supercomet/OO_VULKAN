@@ -55,9 +55,9 @@ public:
     {
         uint32_t textureIndex;  // index in which the texture resides
         glm::vec4 textureCoordinates;  // tex coords of the glyph in the atlas
-        glm::ivec2   Size;       // Size of glyph
-        glm::ivec2   Bearing;    // Offset from baseline to left/top of glyph
-        glm::ivec2   Advance;    // Offset to advance to next glyph
+        glm::vec2   Size;       // Size of glyph
+        glm::vec2   Bearing;    // Offset from baseline to left/top of glyph
+        glm::vec2   Advance;    // Offset to advance to next glyph
     };
 
     virtual void* Get_IMTEXTURE_ID() const { return reinterpret_cast<void*>(static_cast<uint64_t>(m_atlasID)); }

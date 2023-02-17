@@ -384,7 +384,7 @@ void GraphicsBatch::GenerateTextGeometry()
 				if ( (&tokens.front()-1) < (&*token-1) && std::prev(token)->compare(" ") == 0)
 				{
 					const auto& gly = fontAtlas->m_characterInfos[L' '];
-					float value = (gly.Advance.x >> 6) * fontScale;
+					float value = (gly.Advance.x ) * fontScale;
 					sizeTaken -= value;
 				}
 
@@ -405,7 +405,7 @@ void GraphicsBatch::GenerateTextGeometry()
 			float textSize = std::accumulate(token->begin(), token->end(), 0.0f, [&](float x, const std::wstring::value_type c)->float
 				{
 					const auto& gly = fontAtlas->m_characterInfos[c];
-					float value = (gly.Advance.x >> 6) * fontScale;
+					float value = (gly.Advance.x ) * fontScale;
 					return x + value;
 				}
 			);
@@ -563,39 +563,12 @@ void GraphicsBatch::GenerateTextGeometry()
 					cursorPos.y -= glyph.Size.y * ui.scale.y * ui.format.verticalLineSpace * fontScale;
 					continue;
 				}
-				float textureIndex = 0.0f;
-				//if (glyph.textureIndex == static_cast<uint32_t>(0))
-				//{
-				//	//ENGINE_ASSERT_MSG(false, "Font renderer: No texture in this font atlas! This shouldn't happen");
-				//}
-				//else
-				//{
-				//	//check for existing texture
-				//	for (uint32_t i = 1; i < s_Data.GlyphAtlasSlotIndex; i++)
-				//	{
-				//		if (s_Data.GlyphAtlasSlots[i] == glyph.textureIndex)
-				//		{
-				//			textureIndex = (float)i;
-				//			break; //found a texture slot
-				//		}
-				//	}
-				//
-				//	//texture doesnt exist
-				//	if (textureIndex == 0.0f)
-				//	{
-				//		if (s_Data.GlyphAtlasSlotIndex == FontRendererData::MaxTextureSlots)
-				//			FlushAndResetGlyphs();
-				//
-				//		textureIndex = (float)s_Data.GlyphAtlasSlotIndex;
-				//		ENGINE_ASSERT_MSG(s_Data.GlyphAtlasSlotIndex < FontRendererData::MaxTextureSlots, "Font renderer paranoid: Should never have more textures than slots!")
-				//			s_Data.GlyphAtlasSlots[s_Data.GlyphAtlasSlotIndex] = glyph.textureIndex;
-				//		s_Data.GlyphAtlasSlotIndex++;
-				//	}
-				//}
+				
 
 				// calculating glyph positions..
 				float xpos = cursorPos.x + glyph.Bearing.x * ui.scale.x * fontScale;
 				float ypos = cursorPos.y - (glyph.Size.y - glyph.Bearing.y) * ui.scale.y * fontScale;
+				ypos = cursorPos.y + (glyph.Bearing.y) * ui.scale.y * fontScale;
 
 				float w = glyph.Size.x * ui.scale.x * fontScale;
 				float h = glyph.Size.y * ui.scale.y * fontScale;
@@ -607,14 +580,14 @@ void GraphicsBatch::GenerateTextGeometry()
 					glm::vec4{xpos + w,ypos + h, 0.0f, 1.0f},
 					glm::vec4{xpos + w,ypos,     0.0f, 1.0f},
 				};
-				cursorPos.x += (glyph.Advance.x >> 6) * ui.scale.x * fontScale;  // bitshift by 6 to get value in pixels (2^6 = 64)
+				cursorPos.x += (glyph.Advance.x) * ui.scale.x * fontScale;  // bitshift by 6 to get value in pixels (2^6 = 64)
 
 																			 // Reference : constexpr glm::vec2 textureCoords[] = { { 0.0f, 1.0f }, { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f } };
 				std::array<glm::vec2, 4> textureCoords = {
-					glm::vec2{ glyph.textureCoordinates.x, glyph.textureCoordinates.w},
 					glm::vec2{ glyph.textureCoordinates.x, glyph.textureCoordinates.y},
-					glm::vec2{ glyph.textureCoordinates.z, glyph.textureCoordinates.y},
+					glm::vec2{ glyph.textureCoordinates.x, glyph.textureCoordinates.w},
 					glm::vec2{ glyph.textureCoordinates.z, glyph.textureCoordinates.w},
+					glm::vec2{ glyph.textureCoordinates.z, glyph.textureCoordinates.y},
 				};
 
 				// if (s_Data.GlyphIndexCount >= FontRendererData::MaxIndices)

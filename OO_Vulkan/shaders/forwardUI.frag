@@ -41,6 +41,18 @@ vec2 GenerateRandom_RoughnessMetallic(in uint seed)
     return vec2(roughness, metallic);
 }
 
+const float pxRange = 2.0; // set to distance field's pixel range
+
+float screenPxRange() {
+    vec2 unitRange = vec2(pxRange)/vec2(textureSize(textureDescriptorArray[inInstanceData.x], 0));
+    vec2 screenTexSize = vec2(1.0)/fwidth(inUV.xy);
+    return max(0.5*dot(unitRange, screenTexSize), 1.0);
+}
+
+float median(float r, float g, float b) {
+    return max(min(r, g), min(max(r, g), b));
+}
+
 void main()
 {
     outEntityID = int(inInstanceData.x);
@@ -63,11 +75,17 @@ void main()
     const uint textureIndex_Metallic  = inInstanceData.w & 0xFFFF;
     uint perInstanceData              = inInstanceData.y & 0xFF;
    
-    outfragCol.rgba = texture(textureDescriptorArray[textureIndex_Albedo], inUV.xy).rgba;
+    outfragCol.rgba = texture(textureDescriptorArray[inInstanceData.x], inUV.xy).rgba;
      if(outfragCol.a < 0.0001) discard;
-    outfragCol *= inColor;
+    
+    float sd = median(outfragCol.r, outfragCol.g, outfragCol.b);
+    float screenPxDistance = screenPxRange()*(sd - 0.5);
+    float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
+    //color = mix(bgColor, fgColor, opacity);
+    outfragCol = mix(vec4(0),inColor,opacity);
+    //outfragCol *= inColor;
 	
     // hardcode red
-    outfragCol = vec4(1.0,0.0,0.0,1.0);
+    //outfragCol = vec4(1.0,0.0,0.0,1.0);
    
 }

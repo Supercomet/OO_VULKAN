@@ -443,9 +443,11 @@ void TestApplication::Run()
         ent.entityID = 9999999;
         ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;
         ent.localToWorld = glm::mat4(1.0f);
-        ent.textData = "Hello world";
-        ent.colour = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        ent.textData = "123 Come\nmake game";
+        ent.colour = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
         ent.fontAsset = testFont.get();
+        ent.format.box.max = { 20.0f,20.0f };
+        ent.format.box.min = { -20.0f,-20.0f };
     }
 
     

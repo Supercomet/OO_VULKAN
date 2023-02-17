@@ -165,12 +165,15 @@ void ForwardUIPass::Draw()
 		0
 	};
 	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_UIVertexBufferGPU.getBufferPtr());
-	cmd.BindIndexBuffer(vr.g_UIDrawIndexBufferGPU.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+	cmd.BindIndexBuffer(vr.g_UIIndexBufferGPU.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	
 	//cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.g_particleDatas[swapchainIdx].getBufferPtr());
 	
+	auto &uivert = vr.batches.GetUIVertices();
+	const auto instanceCnt = uivert.size() / 4;
+	const auto indices =  instanceCnt* 6;
 	// do draw command here
-	// cmd.DrawIndexed();
+	cmd.DrawIndexed(indices,instanceCnt);
 	//cmd.DrawIndexedIndirect(vr.g_particleCommandsBuffer.getBuffer(), 0, static_cast<uint32_t>(vr.g_particleCommandsBuffer.size()));
 
 	vkCmdEndRenderPass(cmdlist);

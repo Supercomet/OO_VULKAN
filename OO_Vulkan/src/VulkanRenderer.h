@@ -255,6 +255,7 @@ public:
 	void DestroyRenderBuffers();
 	void GenerateCPUIndirectDrawCommands();
 	void UploadInstanceData();
+	void UploadUIData();
 	uint32_t objectCount{};
 	// Contains the instanced data
 	GpuVector<oGFX::InstanceData> instanceBuffer;
@@ -314,7 +315,7 @@ public:
 
 	// ui pass
 	GpuVector<oGFX::UIVertex> g_UIVertexBufferGPU;
-	GpuVector<uint32_t> g_UIDrawIndexBufferGPU;
+	GpuVector<uint32_t> g_UIIndexBufferGPU;
 	std::array<GpuVector<UIData>,3> g_UIDatas;
 
 	ModelFileResource* GetDefaultCube();

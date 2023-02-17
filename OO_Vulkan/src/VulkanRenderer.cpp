@@ -1888,7 +1888,7 @@ void VulkanRenderer::InitializeRenderBuffers()
 	}
 
 	g_UIVertexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-	g_UIDrawIndexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	g_UIIndexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
 	// TODO: Move other global GPU buffer initialization here...
 }
@@ -1911,7 +1911,7 @@ void VulkanRenderer::DestroyRenderBuffers()
 	}
 
 	g_UIVertexBufferGPU.destroy();
-	g_UIDrawIndexBufferGPU.destroy();
+	g_UIIndexBufferGPU.destroy();
 }
 
 void VulkanRenderer::GenerateCPUIndirectDrawCommands()
@@ -2128,6 +2128,32 @@ void VulkanRenderer::UploadInstanceData()
 
 }
 
+void VulkanRenderer::UploadUIData()
+{
+	const auto& verts = batches.GetUIVertices();
+
+	std::vector<uint32_t> idx;
+	const auto numQuads = verts.size()/4;
+	uint32_t currVert = 0;
+	// hardcode indices
+	for (size_t i = 0; i < numQuads; i++)
+	{
+		idx.emplace_back(currVert + 0);
+		idx.emplace_back(currVert + 2);
+		idx.emplace_back(currVert + 1);
+		idx.emplace_back(currVert + 2);
+		idx.emplace_back(currVert + 0);
+		idx.emplace_back(currVert + 3);
+
+		currVert += 4;
+	}
+
+	g_UIVertexBufferGPU.writeTo(verts.size(), verts.data());
+	g_UIIndexBufferGPU.writeTo(idx.size(), idx.data());
+
+
+}
+
 bool VulkanRenderer::PrepareFrame()
 {
 	if (resizeSwapchain || windowPtr->m_width == 0 ||windowPtr->m_height == 0)
@@ -2173,7 +2199,8 @@ void VulkanRenderer::BeginDraw()
 		}
 
 		UpdateUniformBuffers();
-		UploadInstanceData();	
+		UploadInstanceData();
+		UploadUIData();
 		UploadLights();
 		GenerateCPUIndirectDrawCommands();
 
@@ -2712,7 +2739,13 @@ oGFX::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename,
 			// The second argument can be ignored unless you mix different font sizes in one atlas.
 			// In the last argument, you can specify a charset other than ASCII.
 			// To load specific glyph indices, use loadGlyphs instead.
-			fontGeometry.loadCharset(fontHdl, 1.0, Charset::ASCII);
+
+			Charset charSet;
+			for (size_t i = 0; i < 255; i++)
+			{
+				charSet.add(i);
+			}
+			fontGeometry.loadCharset(fontHdl, 1.0, charSet);
 			// Apply MSDF edge coloring. See edge-coloring.h for other coloring strategies.
 			const double maxCornerAngle = 3.0;
 			for (GlyphGeometry &glyph : glyphs)
@@ -2756,22 +2789,34 @@ oGFX::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename,
 			auto totalPixels = bitmap.width * bitmap.height * 4;
 			auto stack = bitmap.width * 4;
 
-
+			
 
 			constexpr bool FLIP_Y = true;
 
 			for (GlyphGeometry& glyph : glyphs)
 			{
+
 				auto c = glyph.getCodepoint();
 				auto& infos = font.m_characterInfos[c];
 				infos.Advance.x = glyph.getAdvance();
 				infos.Advance.y = {};
 				int wd{}, ht{};
 				glyph.getBoxSize(wd,ht);
-				infos.Size.x = wd;
-				infos.Size.y = ht;
+				infos.Size.x = (float)wd /bitmap.width;
+				infos.Size.y = (float)ht /bitmap.height;
 				double l, b, t, r;
 				glyph.getQuadAtlasBounds(l, b, r, t);
+
+				double pl, pb, pr, pt;
+				glyph.getQuadPlaneBounds(pl, pb, pr, pt);
+				auto val1 = pr - pl;
+				auto val2 = pt - pb;
+
+				infos.Size.x = val1;
+				infos.Size.y = val2;
+				
+				infos.Bearing = glm::vec2{ pl,pb};
+				//infos.Bearing = glm::ivec2{ 1 };
 
 				infos.textureCoordinates = glm::vec4{
 					l/bitmap.width,b/bitmap.height,
@@ -2783,6 +2828,13 @@ oGFX::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename,
 					infos.textureCoordinates.w = 1.0 - infos.textureCoordinates.w;
 				}
 			}
+
+			font.m_characterInfos['\n'].Size = font.m_characterInfos['\n'].Size.y == 0 ? 
+				font.m_characterInfos['A'].Size : font.m_characterInfos['\n'].Size;
+			font.m_characterInfos[' '].Size = font.m_characterInfos[' '].Size.x == 0 ? 
+				font.m_characterInfos['\n'].Size : font.m_characterInfos[' '].Size;
+			font.m_characterInfos[' '].Advance = font.m_characterInfos[' '].Advance.x == 0 ? 
+				font.m_characterInfos['a'].Advance : font.m_characterInfos[' '].Advance;
 
 			if constexpr (FLIP_Y == true)
 			{
