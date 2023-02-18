@@ -4,8 +4,18 @@ layout (local_size_x = 16, local_size_y = 16) in;
 layout (binding = 1,rgba32f) uniform readonly image2D inputImage;
 layout (binding = 2,rgba32f) uniform writeonly image2D resultImage;
 
+shared uvec2 imgSize;
+
 void main()
 {	
-	vec4 res = imageLoad(inputImage, ivec2(gl_GlobalInvocationID.xy) );
-	imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), res);
+	vec4 res = imageLoad(inputImage, ivec2(gl_GlobalInvocationID.xy));
+
+	 float brightness = dot(res.rgb, vec3(0.2126, 0.7152, 0.0722));
+     vec4 brightOutput;
+    if(brightness > 1.0)
+        brightOutput = vec4(res.rgb, 1.0);
+    else
+        brightOutput = vec4(0.0, 0.0, 0.0, 1.0);
+
+	imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), brightOutput);
 }

@@ -356,8 +356,8 @@ void ForwardUIPass::CreatePipeline()
 	// won't see anything rendered to the attachment
 	std::array<VkPipelineColorBlendAttachmentState, 2> blendAttachmentStates =
 	{
-		oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
-		oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
+		oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xF, VK_FALSE),
+		oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xF, VK_FALSE),
 		//oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE), // albedo blend
 		//oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
 		//oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),

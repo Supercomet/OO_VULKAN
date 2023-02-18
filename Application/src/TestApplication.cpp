@@ -19,6 +19,7 @@
 #include <crtdbg.h>
 
 #include <imgui/imgui.h>
+#include <imgui/misc/cpp/imgui_stdlib.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/backends/imgui_impl_win32.h>
 #include "ImGuizmo.h"
@@ -437,14 +438,14 @@ void TestApplication::Run()
         ed.bindlessGlobalTextureIndex_Roughness = r0;
     }
 
-    {
-        uint32_t id = gs_GraphicsWorld.CreateUIInstance();
-        auto& ent = gs_GraphicsWorld.GetUIInstance(id);
+    uint32_t uiID = gs_GraphicsWorld.CreateUIInstance();
+    {        
+        auto& ent = gs_GraphicsWorld.GetUIInstance(uiID);
         ent.entityID = 9999999;
         ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;
         ent.localToWorld = glm::mat4(1.0f);
         ent.textData = "123 Come\nmake game";
-        ent.colour = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+        ent.colour = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f);
         ent.fontAsset = testFont.get();
         ent.format.box.max = { 20.0f,20.0f };
         ent.format.box.min = { -20.0f,-20.0f };
@@ -735,6 +736,20 @@ void TestApplication::Run()
                 uint32_t col = 0x00FFFF00;
                 gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&col);
                 
+            }
+            {
+                ImGui::PushID("uiID");
+                auto& ent = gs_GraphicsWorld.GetUIInstance(uiID);
+                
+                ImGui::DragFloat3("Position", glm::value_ptr(ent.position));
+                ImGui::DragFloat3("Scale", glm::value_ptr(ent.scale));
+                ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;              
+                ImGui::InputText("Text", &ent.textData);
+                ent.textData = "123 Come\nmake game";
+                ImGui::ColorPicker4("Colour",glm::value_ptr(ent.colour ));
+                ImGui::DragFloat2("Bmin", glm::value_ptr(ent.format.box.min));
+                ImGui::DragFloat2("Bmax", glm::value_ptr(ent.format.box.max));
+                ImGui::PopID();
             }
             ImGui::End();
 

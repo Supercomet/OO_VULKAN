@@ -18,6 +18,7 @@
     <ClCompile Include="..\vendor\imgui\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui\misc\cpp\imgui_stdlib.cpp" />
     <ClCompile Include="..\vendor\msdf-atlas-gen\artery-font-export.cpp" />
     <ClCompile Include="..\vendor\msdf-atlas-gen\bitmap-blit.cpp" />
     <ClCompile Include="..\vendor\msdf-atlas-gen\charset-parser.cpp" />

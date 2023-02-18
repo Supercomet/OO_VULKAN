@@ -112,6 +112,18 @@ void BloomPass::Draw()
 	vkCmdDispatch(cmdlist, (Bloom_brightTarget .width-1) / 16 + 1, (Bloom_brightTarget .height-1) / 16 + 1, 1);
 	vkutils::TransitionImage(cmdlist,target.texture,lastLayout);
 
+	//oGFX::vkutils::tools::insertImageMemoryBarrier(
+	//	cmdlist,
+	//	Bloom_brightTarget.image,
+	//	VK_ACCESS_MEMORY_READ_BIT,
+	//	VK_ACCESS_MEMORY_WRITE_BIT|VK_ACCESS_MEMORY_READ_BIT,
+	//	Bloom_brightTarget.currentLayout,
+	//	Bloom_brightTarget.currentLayout,
+	//	VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+	//	VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+	//	VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 });
+	//Bloom_brightTarget.currentLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
 	//rhi::CommandList cmd{ cmdlist };
 	//cmd.BindPSO(pso_SSAO);
 }
@@ -209,6 +221,7 @@ void BloomPass::CreatePipeline()
 	computeCI.stage = vr.LoadShader(m_device, shaderCS, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_bloom_bright));
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
+
 
 	// VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
 	// VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);

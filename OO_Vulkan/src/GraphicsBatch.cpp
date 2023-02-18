@@ -598,6 +598,7 @@ void GraphicsBatch::GenerateTextGeometry()
 				{
 					oGFX::UIVertex vert;
 					vert.pos = glm::vec4(ui.position, 0.0f) + mdl_xform * (verts[i] - glm::vec4(ui.position, 0.0f));
+					vert.pos.z += ui.position.z;
 					vert.col = ui.colour;
 					vert.tex = glm::vec4(textureCoords[i],fontAtlas->m_atlasID,ui.entityID);
 					m_uiVertices.push_back(vert);

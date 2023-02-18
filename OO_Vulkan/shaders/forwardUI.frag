@@ -21,25 +21,6 @@ layout(set = 1, binding = 0) uniform UboFrameContext
 layout (set = 2, binding = 0) uniform sampler2D textureDescriptorArray[];
 //layout(set = 1, binding= 0) uniform sampler2D textureSampler;
 
-vec4 PackPBRMaterialOutputs(in float roughness, in float metallic) // TODO: Add other params as needed
-{
-    // Precision of 0.03921568627451 for UNORM format, typically should be enough. Try not to change the format.
-    const float todo_something = 0.0f;
-    return vec4(roughness, metallic, todo_something, 1.0f);
-}
-
-// Subject to change
-float EncodeFlags(uint flags)
-{
-    return (flags) / 255.0f;
-} 
-
-vec2 GenerateRandom_RoughnessMetallic(in uint seed)
-{
-    const float roughness = RandomUnsignedNormalizedFloat(seed);
-    const float metallic  = RandomUnsignedNormalizedFloat(seed + 0xDEADDEAD);
-    return vec2(roughness, metallic);
-}
 
 const float pxRange = 2.0; // set to distance field's pixel range
 
@@ -83,8 +64,9 @@ void main()
     float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
     //color = mix(bgColor, fgColor, opacity);
     outfragCol = mix(vec4(0),inColor,opacity);
+    if(outfragCol.a < 0.0001) discard; // this is bad and broken
     //outfragCol *= inColor;
-	
+
     // hardcode red
     //outfragCol = vec4(1.0,0.0,0.0,1.0);
    
