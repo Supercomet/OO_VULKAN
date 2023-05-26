@@ -59,6 +59,7 @@ Technology is prohibited.
 #include "DelayedDeleter.h"
 
 #include "IcoSphereCreator.h"
+#include "BoudingVolume.h"
 
 #include "Profiling.h"
 #include "DebugDraw.h"
@@ -564,7 +565,7 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 		vpBufferInfo.range = sizeof(CB::FrameContextUBO);// size of data
 
 		DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[swapchainIdx])
-			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT| VK_SHADER_STAGE_COMPUTE_BIT)
 			.Build(descriptorSets_uniform[i], SetLayoutDB::FrameUniform);
 	}
 	
@@ -676,6 +677,7 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& s
 		{
 			descriptorSet_fullscreenBlit,
 		},
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		0
 	);
 
@@ -1077,6 +1079,7 @@ void VulkanRenderer::DestroyWorld(GraphicsWorld* world)
 
 int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 {
+	return 0;
 
 	uv = glm::clamp(uv, { 0.0,0.0 }, { 1.0,1.0 });
 
@@ -1355,20 +1358,21 @@ void VulkanRenderer::UploadLights()
 	int sss{};
 	for (auto& e : lights)
 	{
-		//oGFX::Sphere s;
-		//s.center = e.position;
-		//s.radius = e.radius.x;
-		//oGFX::DebugDraw::AddSphere(s);
-		// 
-		/// WIP Light Culling. Sorta works just need to fix lights.
-		//if (oGFX::coll::SphereInFrustum(frust, s))		
-		//{
-		//	SetLightEnabled(e, true);
-		//}
-		//else
-		//{
-		//	SetLightEnabled(e, false);
-		//}
+		oGFX::Sphere s;
+		s.center = e.position;
+		s.radius = e.radius.x;
+		//oGFX::DebugDraw::AddSphere(s,e.color);
+		
+		auto existing = GetLightEnabled(e);
+		if (oGFX::coll::SphereInFrustum(frust, s))		
+		{ 			
+			SetLightEnabled(e, existing && true);
+		}
+		else
+		{
+			sss++;
+			SetLightEnabled(e, false);
+		}
 
 		if (GetLightEnabled(e) == false)
 		{
@@ -1405,7 +1409,7 @@ void VulkanRenderer::UploadLights()
 		
 		spotLights.emplace_back(si);
 	}
-
+	//std::cout << "Lights culled: " << sss << "\n";
 	globalLightBuffer.writeTo(spotLights.size(),spotLights.data());
 
 }
@@ -1739,7 +1743,8 @@ void VulkanRenderer::DebugGUIcalls()
 void VulkanRenderer::DrawGUI()
 {
 	PROFILE_SCOPED();
-	
+	if (m_imguiInitialized == false) return;
+
 	VkRenderPassBeginInfo GUIpassInfo = {};
 	GUIpassInfo.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	GUIpassInfo.renderPass  = m_imguiConfig.renderPass;
@@ -1839,7 +1844,7 @@ void VulkanRenderer::InitializeRenderBuffers()
 	// In this function, all global rendering related buffers should be initialized, ONCE.
 
 	// Note: Moved here from VulkanRenderer::UpdateIndirectCommands
-	indirectCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT );
+	indirectCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT );
     VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer.getBuffer()); 
 
 	shadowCasterCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT );
@@ -1847,7 +1852,7 @@ void VulkanRenderer::InitializeRenderBuffers()
 	VK_NAME(m_device.logicalDevice, "Shadow Command Buffer", shadowCasterCommandsBuffer.m_buffer);
 
 	// Note: Moved here from VulkanRenderer::UpdateInstanceData
-	instanceBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	instanceBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT| VK_BUFFER_USAGE_STORAGE_BUFFER_BIT );
     VK_NAME(m_device.logicalDevice, "Instance Buffer", instanceBuffer.getBuffer());
 
 	objectInformationBuffer.Init(&m_device,  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
@@ -2000,8 +2005,8 @@ void VulkanRenderer::UploadInstanceData()
 	// TODO: Must the entire buffer be uploaded every frame?
 
 	uint32_t indexCounter = 0;
-	std::vector<oGFX::InstanceData> instanceData;
-	instanceData.reserve(objectCount);
+	std::vector<oGFX::InstanceData> instanceDataBuff;
+	instanceDataBuff.reserve(objectCount);
 	if (currWorld)
 	{
 		uint32_t matCnt = 0;
@@ -2013,7 +2018,7 @@ void VulkanRenderer::UploadInstanceData()
 			{
 				if (ent.submesh[i] == true)
 				{
-					oGFX::InstanceData id;
+					oGFX::InstanceData instData;
 					//size_t sz = instanceData.size();
 					//for (size_t x = 0; x < g_globalModels[ent.modelID].meshCount; x++)
 					{
@@ -2024,6 +2029,7 @@ void VulkanRenderer::UploadInstanceData()
 						uint32_t normal = ent.bindlessGlobalTextureIndex_Normal;
 						uint32_t roughness = ent.bindlessGlobalTextureIndex_Roughness;
 						uint32_t metallic = ent.bindlessGlobalTextureIndex_Metallic;
+						uint32_t emissive = ent.bindlessGlobalTextureIndex_Emissive;
 						const uint8_t perInstanceData = ent.instanceData;
 
 						if (albedo == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Albedo].isValid == false)
@@ -2034,6 +2040,8 @@ void VulkanRenderer::UploadInstanceData()
 							roughness = whiteTextureID; // TODO: Dont hardcode this bindless texture index
 						if (metallic == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Metallic].isValid == false)
 							metallic = blackTextureID; // TODO: Dont hardcode this bindless texture index
+						if (emissive == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Emissive].isValid == false)
+							emissive = blackTextureID; // TODO: Dont hardcode this bindless texture index
 
 						// Important: Make sure this index packing matches the unpacking in the shader
 						const uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF);
@@ -2041,7 +2049,7 @@ void VulkanRenderer::UploadInstanceData()
 						const uint32_t instanceID = uint32_t(indexCounter); // the instance id should point to the entity
 						auto res = ent.flags & ObjectInstanceFlags::SKINNED; 
 						auto isSkin = (res== ObjectInstanceFlags::SKINNED);
-						const uint32_t unused = (uint32_t)perInstanceData | isSkin << 8; //matCnt;
+						const uint32_t emissive_skinned = emissive << 16 | (uint32_t)perInstanceData | isSkin << 8; //matCnt;
 
 																						 // Putting these ranges here for easy reference:
 																						 // 9-bit:  [0 to 511]
@@ -2055,8 +2063,9 @@ void VulkanRenderer::UploadInstanceData()
 
 																						 // TODO: This is the solution for now.
 																						 // In the future, we can just use an index for all the materials (indirection) to fetch from another buffer.
-						id.instanceAttributes = uvec4(instanceID, unused, albedo_normal, roughness_metallic);
-						instanceData.emplace_back(id);
+						instData.instanceAttributes = uvec4(instanceID, emissive_skinned, albedo_normal, roughness_metallic);
+						
+						instanceDataBuff.emplace_back(instData);
 					}
 				}				
 
@@ -2077,6 +2086,7 @@ void VulkanRenderer::UploadInstanceData()
 			GPUObjectInformation oi;
 			oi.entityID = ent.entityID;
 			oi.materialIdx = 7; // tem,p
+			oi.emissiveColour = ent.emissiveColour;
 			if ((ent.flags & ObjectInstanceFlags::SKINNED) == ObjectInstanceFlags::SKINNED)
 			{
 				auto& mdl = g_globalModels[ent.modelID];
@@ -2107,7 +2117,7 @@ void VulkanRenderer::UploadInstanceData()
 	}
 	
 
-	if (instanceData.empty())
+	if (instanceDataBuff.empty())
 	{
 		return;
 	}
@@ -2119,12 +2129,12 @@ void VulkanRenderer::UploadInstanceData()
 
     // Better to catch this on the software side early than the Vulkan validation layer
 	// TODO: Fix this gracefully
-    if (instanceData.size() > MAX_OBJECTS)
+    if (instanceDataBuff.size() > MAX_OBJECTS)
     {
 		MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of instance buffer.", L"BAD ERROR");
     }
 
-	instanceBuffer.writeTo(instanceData.size(), instanceData.data());
+	instanceBuffer.writeTo(instanceDataBuff.size(), instanceDataBuff.data());
 
 }
 
@@ -2218,7 +2228,7 @@ void VulkanRenderer::BeginDraw()
 		vpBufferInfo.offset = 0;				// position of start of data
 		vpBufferInfo.range = sizeof(CB::FrameContextUBO);		// size of data
 		DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[swapchainIdx])
-			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT)
 			.Build(descriptorSets_uniform[swapchainIdx], SetLayoutDB::FrameUniform);
 
 
@@ -2295,8 +2305,8 @@ void VulkanRenderer::RenderFrame()
 
 				RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
 				RenderPassDatabase::GetRenderPass<ForwardParticlePass>()->Draw();
-				RenderPassDatabase::GetRenderPass<ForwardUIPass>()->Draw();
 				RenderPassDatabase::GetRenderPass<BloomPass>()->Draw();
+				RenderPassDatabase::GetRenderPass<ForwardUIPass>()->Draw();
 				//RenderPassDatabase::GetRenderPass<ForwardRenderpass>()->Draw();
 #if defined		(ENABLE_DECAL_IMPLEMENTATION)
 				RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
@@ -2487,20 +2497,25 @@ ModelFileResource* VulkanRenderer::GetDefaultCube()
 	return def_cube.get();
 }
 
+oGFX::Font* VulkanRenderer::GetDefaultFont()
+{
+	return def_font.get();
+}
+
 oGFX::Font * VulkanRenderer::LoadFont(const std::string & filename)
 {
 
 	auto* font = new oGFX::Font;
 	oGFX::TexturePacker atlas = CreateFontAtlas(filename, *font);
 
-	std::stringstream ss;
-	for (auto& car : font->m_characterInfos)
-	{
-		const auto g = car.second;
-		ss << "[" << (char)car.first << "] {" << g.textureCoordinates.x << "," << g.textureCoordinates.y << "}"
-			"] {" << g.textureCoordinates.z << "," << g.textureCoordinates.w << "}\n";
-	}
-	std::cout << ss.str();
+	//std::stringstream ss;
+	//for (auto& car : font->m_characterInfos)
+	//{
+	//	const auto g = car.second;
+	//	ss << "[" << (char)car.first << "] {" << g.textureCoordinates.x << "," << g.textureCoordinates.y << "}"
+	//		"] {" << g.textureCoordinates.z << "," << g.textureCoordinates.w << "}\n";
+	//}
+	//std::cout << ss.str();
 
 	font->m_name = std::filesystem::path(filename).stem().wstring();
 	size_t channels = 4;
@@ -2743,7 +2758,7 @@ oGFX::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename,
 			Charset charSet;
 			for (size_t i = 0; i < 255; i++)
 			{
-				charSet.add(i);
+				charSet.add(static_cast<msdf_atlas::unicode_t>(i));
 			}
 			fontGeometry.loadCharset(fontHdl, 1.0, charSet);
 			// Apply MSDF edge coloring. See edge-coloring.h for other coloring strategies.
@@ -2761,7 +2776,7 @@ oGFX::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename,
 			packer.setPixelRange(2.0);
 			packer.setMiterLimit(1.0);
 			// Compute atlas layout - pack glyphs
-			packer.pack(glyphs.data(), glyphs.size());
+			packer.pack(glyphs.data(), static_cast<int>(glyphs.size()));
 			// Get final atlas dimensions
 			int width = 0, height = 0;
 			packer.getDimensions(width, height);
@@ -2769,7 +2784,7 @@ oGFX::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename,
 			ImmediateAtlasGenerator<
 				float, // pixel type of buffer for individual glyphs depends on generator function
 				4, // number of atlas color channels
-				&mtsdfGenerator, // function to generate bitmaps for individual glyphs
+				mtsdfGenerator, // function to generate bitmaps for individual glyphs
 				BitmapAtlasStorage<byte, 4> // class that stores the atlas bitmap
 											// For example, a custom atlas storage class that stores it in VRAM can be used.
 			> generator(width, height);
@@ -2778,7 +2793,7 @@ oGFX::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename,
 			generator.setAttributes(attributes);
 			generator.setThreadCount(4);
 			// Generate atlas bitmap
-			generator.generate(glyphs.data(), glyphs.size());
+			generator.generate(glyphs.data(), static_cast<int>(glyphs.size()));
 			// The atlas bitmap can now be retrieved via atlasStorage as a BitmapConstRef.
 			// The glyphs array (or fontGeometry) contains positioning data for typesetting text.
 			auto bitmap = generator.atlasStorage().operator msdfgen::BitmapConstRef<msdfgen::byte, 4>();
@@ -2798,7 +2813,7 @@ oGFX::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename,
 
 				auto c = glyph.getCodepoint();
 				auto& infos = font.m_characterInfos[c];
-				infos.Advance.x = glyph.getAdvance();
+				infos.Advance.x = static_cast<float>(glyph.getAdvance());
 				infos.Advance.y = {};
 				int wd{}, ht{};
 				glyph.getBoxSize(wd,ht);
@@ -2812,8 +2827,8 @@ oGFX::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename,
 				auto val1 = pr - pl;
 				auto val2 = pt - pb;
 
-				infos.Size.x = val1;
-				infos.Size.y = val2;
+				infos.Size.x = static_cast<float>(val1);
+				infos.Size.y = static_cast<float>(val2);
 				
 				infos.Bearing = glm::vec2{ pl,pb};
 				//infos.Bearing = glm::ivec2{ 1 };
@@ -2824,8 +2839,8 @@ oGFX::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename,
 				};
 				if constexpr (FLIP_Y == true)
 				{
-					infos.textureCoordinates.y = 1.0 - infos.textureCoordinates.y;
-					infos.textureCoordinates.w = 1.0 - infos.textureCoordinates.w;
+					infos.textureCoordinates.y = 1.0f - infos.textureCoordinates.y;
+					infos.textureCoordinates.w = 1.0f - infos.textureCoordinates.w;
 				}
 			}
 
@@ -3036,6 +3051,19 @@ void VulkanRenderer::LoadSubmesh(gfxModel& mdl,
 	submesh.baseVertex = static_cast<uint32_t>(cacheVoffset);
 	submesh.indicesCount = indicesCnt;
 	submesh.baseIndices = static_cast<uint32_t>(cacheIoffset);
+
+	std::vector<glm::vec3> plainVertices;
+	plainVertices.resize(aimesh->mNumVertices);
+	for (size_t i = 0; i < plainVertices.size(); i++)
+	{
+		plainVertices[i] = vertices[cacheVoffset+i].pos; 
+	}
+	oGFX::BV::LarsonSphere(submesh.boundingSphere, plainVertices);
+	//submesh.boundingSphere.radius *= 1.5f;
+	//std::cout << "Sphere generated :" << submesh.name << " [" 
+	//	<< submesh.boundingSphere.center.x << ", "
+	//	<< submesh.boundingSphere.center.y << ", "
+	//	<< submesh.boundingSphere.center.z << "] r: " << submesh.boundingSphere.radius << "\n";
 }
 
 ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
@@ -3062,6 +3090,14 @@ ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
 		sm.baseVertex = static_cast<uint32_t>(0);
 		sm.indicesCount = static_cast<uint32_t>(indices.size());
 		sm.vertexCount = static_cast<uint32_t>(vertex.size());
+
+		std::vector<glm::vec3> plainVertices;
+		plainVertices.resize(vertex.size());
+		for (size_t i = 0; i < plainVertices.size(); i++)
+		{
+			plainVertices[i] = vertex[i].pos;
+		}
+		oGFX::BV::RitterSphere(sm.boundingSphere, plainVertices);
 
 		model->m_subMeshes.push_back(sm);
 
@@ -3320,6 +3356,7 @@ VkCommandBuffer VulkanRenderer::beginSingleTimeCommands()
 
 	VkCommandBuffer commandBuffer;
 	vkAllocateCommandBuffers(m_device.logicalDevice, &allocInfo, &commandBuffer);
+	//std::cout << " Begin single time" << commandBuffer << "\n";
 
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -3332,6 +3369,8 @@ VkCommandBuffer VulkanRenderer::beginSingleTimeCommands()
 
 void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer)
 {
+
+	//std::cout << " End single time " << commandBuffer << "\n";
 	vkEndCommandBuffer(commandBuffer);
 
 	VkSubmitInfo submitInfo{};
@@ -3544,6 +3583,14 @@ uint32_t VulkanRenderer::CreateTextureImage(const std::string& fileName)
 	oGFX::FileImageData imageData;
 	imageData.Create(fileName);
 	
+//#define OVERIDE_TEXTURE_SIZE_ONE
+#ifdef OVERIDE_TEXTURE_SIZE_ONE
+	imageData.w = 1;
+	imageData.h = 1;
+	imageData.dataSize = 1 * 1 * 4;
+	imageData.mipInformation.front().imageExtent = VkExtent3D{ 1,1,1 };
+#endif // OVERIDE_TEXTURE_SIZE_ONE
+
 	//int width{}, height{};
 	//VkDeviceSize imageSize;
 	//unsigned char *imageData = oGFX::LoadTextureFromFile(fileName, width, height, imageSize);
@@ -3557,6 +3604,7 @@ uint32_t VulkanRenderer::CreateTextureImage(const std::string& fileName)
 uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo)
 {
 	VkDeviceSize imageSize = imageInfo.dataSize;
+
 	totalTextureSizeLoaded += imageSize;
 
 	auto indx = [&]{
@@ -3635,7 +3683,9 @@ void VulkanRenderer::InitDefaultPrimatives()
 		DefaultMesh sm = CreateDefaultPlaneXYMesh();
 		def_sprite.reset(LoadMeshFromBuffers(sm.m_VertexBuffer, sm.m_IndexBuffer, nullptr));
 	}
-	
+	{
+		def_font.reset(LoadFont("defaultAsset/Roboto-Medium.ttf"));
+	}
 }
 
 ImTextureID VulkanRenderer::GetImguiID(uint32_t textureID)

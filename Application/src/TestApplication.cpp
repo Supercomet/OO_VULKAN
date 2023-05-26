@@ -120,6 +120,7 @@ struct EntityInfo
     uint32_t bindlessGlobalTextureIndex_Normal{ 0xFFFFFFFF };
     uint32_t bindlessGlobalTextureIndex_Roughness{ 0xFFFFFFFF };
     uint32_t bindlessGlobalTextureIndex_Metallic{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Emissive{ 0xFFFFFFFF };
     uint8_t instanceData{ 0 };
 
     int32_t gfxID; // gfxworld id
@@ -209,6 +210,7 @@ void CreateGraphicsEntityHelper(EntityInfo& ei)
 	o.bindlessGlobalTextureIndex_Normal = ei.bindlessGlobalTextureIndex_Normal;
 	o.bindlessGlobalTextureIndex_Roughness = ei.bindlessGlobalTextureIndex_Roughness;
 	o.bindlessGlobalTextureIndex_Metallic = ei.bindlessGlobalTextureIndex_Metallic;
+	o.bindlessGlobalTextureIndex_Emissive= ei.bindlessGlobalTextureIndex_Emissive;
     o.instanceData = ei.instanceData;
 	o.localToWorld = ei.getLocalToWorld();
 	o.modelID = ei.modelID;
@@ -337,6 +339,19 @@ void TestApplication::Run()
     const BindlessTextureIndex r0 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
 
     const BindlessTextureIndex normalTexture0 = gs_RenderEngine->CreateTexture("Textures/7/n.png");
+    
+    std::array<BindlessTextureIndex,6> roughness{};
+    std::array<BindlessTextureIndex,6> metalic{};
+    for (size_t i = 0; i < roughness.size(); i++)
+    {
+        unsigned char col;
+        col = 0xFF/5;
+        col = col * i;
+        col = col << 24 | col << 16 | col << 8 | col;
+
+        roughness[i] = gs_RenderEngine->CreateTexture(1, 1, &col);
+        metalic[i] = gs_RenderEngine->CreateTexture(1, 1, &col);
+    }
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Models
     //----------------------------------------------------------------------------------------------------
@@ -436,8 +451,10 @@ void TestApplication::Run()
         ed.bindlessGlobalTextureIndex_Normal    = n0;
         ed.bindlessGlobalTextureIndex_Metallic  = m0;
         ed.bindlessGlobalTextureIndex_Roughness = r0;
+        ed.bindlessGlobalTextureIndex_Emissive= r0;
     }
 
+    bool lolthisistext = true;
     uint32_t uiID = gs_GraphicsWorld.CreateUIInstance();
     {        
         auto& ent = gs_GraphicsWorld.GetUIInstance(uiID);
@@ -446,11 +463,33 @@ void TestApplication::Run()
         ent.localToWorld = glm::mat4(1.0f);
         ent.textData = "123 Come\nmake game";
         ent.colour = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f);
-        ent.fontAsset = testFont.get();
+        //ent.fontAsset = testFont.get();
         ent.format.box.max = { 20.0f,20.0f };
         ent.format.box.min = { -20.0f,-20.0f };
+        ent.SetText(lolthisistext);
+        ent.flags = UIInstanceFlags(static_cast<uint32_t>(ent.flags)& ~static_cast<uint32_t>(UIInstanceFlags::RENDER_ENABLED));
     }
 
+    const float gridSize = 1.3f;
+    const float halfGrid = roughness.size() * gridSize /2.0f;
+    for (size_t i = 0; i < roughness.size(); i++)
+    {
+        for (size_t y = 0; y < metalic.size(); y++)
+        {
+            auto& ed = entities.emplace_back(EntityInfo{});
+            ed.name = std::string("Sphere_") + std::to_string(i * metalic.size() + y);
+            ed.entityID = FastRandomMagic();
+            ed.modelID = model_sphere->meshResource;
+            ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
+            
+            ed.position = { gridSize*i - halfGrid,5.0f,gridSize*y - halfGrid };
+            ed.scale = { 1.0f,1.0f,1.0f };
+
+            ed.bindlessGlobalTextureIndex_Albedo    = gs_WhiteTexture;
+            ed.bindlessGlobalTextureIndex_Metallic  = metalic[y];
+            ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
+        }
+    }
     
 
     if (gs_test_scene)
@@ -543,6 +582,9 @@ void TestApplication::Run()
         ed.scale = { 0.1f,0.1f,0.1f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
         ed.flags = ObjectInstanceFlags((uint32_t)ed.flags|(uint32_t)ObjectInstanceFlags::SKINNED);
+        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_CASTER;
+        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_ENABLED;
+        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_RECEIVER;
         
     }
     std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
@@ -731,6 +773,32 @@ void TestApplication::Run()
             ImGui::Begin("Problems");
             ImGui::Checkbox("EditCam", &s_boolCamera);
             ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
+            if(ImGui::TreeNode("Bloom") ){
+                auto& cs = gs_GraphicsWorld.bloomSettings;
+                ImGui::DragFloat("bloom thresh", &cs.threshold,0.001f,0.0f,1.0f);
+                ImGui::DragFloat("soft thresh", &cs.softThreshold,0.001f,0.0f,1.0f);
+
+                ImGui::TreePop();
+            }
+            if(ImGui::TreeNode("ColourCorreciton") ){
+                auto& cs = gs_GraphicsWorld.colourSettings;
+                ImGui::DragFloat("shadowThresh", &cs.shadowThreshold,0.001f,0.0f,1.0f);
+                ImGui::DragFloat("highThresh", &cs.highlightThreshold,0.001f,0.0f,1.0f);
+                ImGui::ColorEdit4("shadow", glm::value_ptr(cs.shadowColour));
+                ImGui::ColorEdit4("mid", glm::value_ptr(cs.midtonesColour));
+                ImGui::ColorEdit4("high", glm::value_ptr(cs.highlightColour));
+
+                ImGui::TreePop();
+            }
+            if(ImGui::TreeNode("vignette") ){
+                auto& vs = gs_GraphicsWorld.vignetteSettings;
+                ImGui::ColorEdit4("vigCol", glm::value_ptr(vs.colour));
+                ImGui::DragFloat("innerRadius", &vs.innerRadius,0.01f);
+                ImGui::DragFloat("outerRadius", &vs.outerRadius,0.01f);
+
+                ImGui::TreePop();
+            }
+            
             if (ImGui::Button("Cause problems"))
             {
                 uint32_t col = 0x00FFFF00;
@@ -740,16 +808,29 @@ void TestApplication::Run()
             {
                 ImGui::PushID("uiID");
                 auto& ent = gs_GraphicsWorld.GetUIInstance(uiID);
-                
-                ImGui::DragFloat3("Position", glm::value_ptr(ent.position));
-                ImGui::DragFloat3("Scale", glm::value_ptr(ent.scale));
+                ent.localToWorld = glm::mat4(1.0f);
+                if (ImGui::Checkbox("isText", &lolthisistext))
+                {
+                    ent.SetText(lolthisistext);
+                }
+
+                //ImGui::DragFloat3("Position", glm::value_ptr(ent.position));
+                //ImGui::DragFloat3("Scale", glm::value_ptr(ent.scale));
                 ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;              
                 ImGui::InputText("Text", &ent.textData);
                 ent.textData = "123 Come\nmake game";
+                float fontsize = ent.format.fontSize;
+                if (ImGui::DragFloat("FontSize", &fontsize))
+                {
+                    ent.format.fontSize = fontsize;
+                }
                 ImGui::ColorPicker4("Colour",glm::value_ptr(ent.colour ));
                 ImGui::DragFloat2("Bmin", glm::value_ptr(ent.format.box.min));
                 ImGui::DragFloat2("Bmax", glm::value_ptr(ent.format.box.max));
                 ImGui::PopID();
+                oGFX::AABB aabb;
+                aabb.halfExt = glm::vec3{ (ent.format.box.max - ent.format.box.min) / 2.0f,0.0f };
+                //oGFX::DebugDraw::AddAABB(aabb);
             }
             ImGui::End();
 
@@ -1036,14 +1117,14 @@ void TestApplication::RunTest_DebugDraw()
                    return;
 
                aabb.center = pBoneNode->mModelSpaceGlobal * glm::vec4(0.0f,0.0f,0.0f,1.0f);
-               oGFX::DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
+               //oGFX::DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
 
                // Recursion through all children nodes, passing in the current global transform.
                for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
                {
                    oGFX::BoneNode* child = pBoneNode->mChildren[i];
                    auto pos = child->mModelSpaceGlobal * glm::vec4(0.0f,0.0f,0.0f,1.0f);
-                   oGFX::DebugDraw::AddLine(aabb.center, pos, oGFX::Colors::RED);
+                   //oGFX::DebugDraw::AddLine(aabb.center, pos, oGFX::Colors::RED);
                    func(func, child);
                }
            };
@@ -1499,6 +1580,7 @@ void TestApplication::Tool_HandleUI()
                     for (auto& light : gs_RenderEngine->currWorld->GetAllOmniLightInstances())
                     {
 					ImGui::PushID(i++);
+                    SetLightEnabled(light,true);
                         ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.01f);
                         {
                             if (ImGui::BeginPopupContextItem("Gizmo hijacker"))

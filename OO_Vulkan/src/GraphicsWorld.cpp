@@ -270,3 +270,37 @@ bool GetCastsShadows(SpotLightInstance& l)
 {
 	return GetCastsShadows(*reinterpret_cast<LocalLightInstance*>(&l));
 }
+
+void UIInstance::SetText(bool s)
+{
+	if (s)
+	{
+		flags = flags | UIInstanceFlags::TEXT_INSTANCE;
+	}
+	else
+	{
+		flags = flags & (~UIInstanceFlags::TEXT_INSTANCE);
+	}
+}
+
+bool UIInstance::isText()
+{
+	return static_cast<bool>(flags & UIInstanceFlags::TEXT_INSTANCE);
+}
+
+void UIInstance::SetRenderEnabled(bool s)
+{
+	if (s)
+	{
+		flags = flags | UIInstanceFlags::RENDER_ENABLED;
+	}
+	else
+	{
+		flags = flags & (~UIInstanceFlags::RENDER_ENABLED);
+	}
+}
+
+bool UIInstance::isRenderable()
+{
+	return static_cast<bool>(flags & UIInstanceFlags::RENDER_ENABLED);
+}

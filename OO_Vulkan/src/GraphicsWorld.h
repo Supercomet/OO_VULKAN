@@ -71,8 +71,10 @@ struct ObjectInstance
     uint32_t bindlessGlobalTextureIndex_Normal{ 0xFFFFFFFF };
     uint32_t bindlessGlobalTextureIndex_Roughness{ 0xFFFFFFFF };
     uint32_t bindlessGlobalTextureIndex_Metallic{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Emissive{ 0xFFFFFFFF };
     // End temp stuff
 
+    glm::vec4 emissiveColour{};
     uint8_t instanceData{ 0 }; // Per Instance unique data (not to be in material)
     glm::mat4x4 localToWorld{ 1.0f };
     ObjectInstanceFlags flags{static_cast<ObjectInstanceFlags>(ObjectInstanceFlags::RENDER_ENABLED 
@@ -103,15 +105,11 @@ struct ObjectInstance
 struct UIInstance
 {
     std::string name;
-    // Begin These are temp until its fully integrated
-    glm::vec3 position{};
-    glm::vec3 scale{1.0f};
-    float rot{};
-    glm::vec3 rotVec{0.0f,1.0f,0.0f};
 
-    uint32_t bindlessGlobalTextureIndex_Albedo{ 0xFFFFFFFF };
+    // Begin These are temp until its fully integrated 
+    uint32_t bindlessGlobalTextureIndex_Albedo{ 0xFFFFFFFF }; // waiting for material system xd..
     // End temp stuff
-    std::string textData;
+    std::string textData{"SAMPLE TEXT"};
     glm::vec4 colour{1.0f};
 
     oGFX::FontFormatting format;
@@ -119,7 +117,15 @@ struct UIInstance
 
     uint8_t instanceData{ 0 }; // Per Instance unique data (not to be in material)
     glm::mat4x4 localToWorld{ 1.0f };
-    UIInstanceFlags flags{static_cast<UIInstanceFlags>(UIInstanceFlags::RENDER_ENABLED | UIInstanceFlags::WORLD_SPACE_UI)};
+    UIInstanceFlags flags{static_cast<UIInstanceFlags>(
+        UIInstanceFlags::RENDER_ENABLED 
+        | UIInstanceFlags::WORLD_SPACE_UI)};
+
+    void SetText(bool s);
+    bool isText();
+
+    void SetRenderEnabled(bool s);
+    bool isRenderable();
 
     uint32_t entityID{}; // Unique ID for this entity instance
 };
@@ -245,7 +251,30 @@ public:
         float ambient = 0.002f;
         float maxBias = 0.0001f;
         float biasMultiplier = 0.002f;
+        float specularModifier = 16.0f;
     }lightSettings{};
+
+    struct BloomSettings
+    {
+        float threshold = 1.1f;
+        float softThreshold = 0.5f;
+    }bloomSettings{};
+
+    struct ColourCorrectionSettings
+    {
+        float highlightThreshold = 1.0f;
+        float shadowThreshold = 0.0f;
+        glm::vec4 shadowColour{};
+        glm::vec4 midtonesColour{};
+        glm::vec4 highlightColour{};
+    }colourSettings{};
+
+    struct VignetteSettings
+    {
+        vec4 colour;
+        float innerRadius;
+        float outerRadius;
+    }vignetteSettings{};
 
     friend class VulkanRenderer;
 private:

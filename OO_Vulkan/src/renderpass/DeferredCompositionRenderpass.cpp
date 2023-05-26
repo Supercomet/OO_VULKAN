@@ -101,6 +101,7 @@ void DeferredCompositionRenderpass::Draw()
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	rhi::CommandList cmd{ cmdlist, "Lighting Pass"};
 	cmd.SetDefaultViewportAndScissor();
+	cmd.BindPSO(pso_DeferredLightingComposition);
 
 	const auto& info = vr.globalLightBuffer.GetDescriptorBufferInfo();
 	DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[swapchainIdx])
@@ -111,6 +112,7 @@ void DeferredCompositionRenderpass::Draw()
 
 	LightPC pc{};
 	pc.useSSAO = vr.useSSAO ? 1 : 0;
+	pc.specularModifier = vr.currWorld->lightSettings.specularModifier;
 
 	size_t lightCnt = 0;
 	auto& lights = vr.currWorld->GetAllOmniLightInstances();
@@ -140,6 +142,7 @@ void DeferredCompositionRenderpass::Draw()
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 		vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
+	
 	cmd.BindDescriptorSet(PSOLayoutDB::deferredLightingCompositionPSOLayout, 0,
 		std::array<VkDescriptorSet, 3>
 		{
@@ -147,9 +150,10 @@ void DeferredCompositionRenderpass::Draw()
 			vr.descriptorSets_uniform[swapchainIdx],
 			vr.descriptorSet_lights,
 		},
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		1,&dynamicOffset
 	);
-	cmd.BindPSO(pso_DeferredLightingComposition);
+	
 
 	cmd.DrawFullScreenQuad();
 
@@ -201,12 +205,17 @@ void DeferredCompositionRenderpass::CreateDescriptors()
         gbuffer->attachments[GBufferAttachmentIndex::MATERIAL].view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+	VkDescriptorImageInfo texDescriptorEmissive = oGFX::vkutils::inits::descriptorImageInfo(
+		GfxSamplerManager::GetSampler_Deferred(),
+		gbuffer->attachments[GBufferAttachmentIndex::EMISSIVE].view,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
     VkDescriptorImageInfo texDescriptorDepth = oGFX::vkutils::inits::descriptorImageInfo(
         GfxSamplerManager::GetSampler_Deferred(),
         gbuffer->attachments[GBufferAttachmentIndex::DEPTH]   .view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	
-	auto& shadowTex = RenderPassDatabase::GetRenderPass<ShadowPass>()->shadow_depth;
+	auto& shadowTex = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->shadowMask;
 	VkDescriptorImageInfo texDescriptorShadow = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_ShowMapClamp(),
 		shadowTex.view,
@@ -227,10 +236,10 @@ void DeferredCompositionRenderpass::CreateDescriptors()
         .BindImage(2, &texDescriptorNormal, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .BindImage(3, &texDescriptorAlbedo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .BindImage(4, &texDescriptorMaterial, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        //.BindImage(5, &texDescriptorDepth, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .BindImage(5, &texDescriptorShadow, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) 
-        .BindImage(6, &texDescriptorSSAO, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) 
-        .BindBuffer(7, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .BindImage(5, &texDescriptorEmissive, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .BindImage(6, &texDescriptorShadow, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) 
+        .BindImage(7, &texDescriptorSSAO, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) 
+        .BindBuffer(8, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .Build(vr.descriptorSet_DeferredComposition, SetLayoutDB::DeferredLightingComposition);
 }
 
@@ -307,4 +316,7 @@ void DeferredCompositionRenderpass::CreatePipeline()
 
 	vkDestroyShaderModule(m_device.logicalDevice,shaderStages[0].module , nullptr);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
+
+	const char* shadercs = "Shaders/bin/shadowPrepass.comp.spv";
+
 }

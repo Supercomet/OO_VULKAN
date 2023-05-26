@@ -43,6 +43,10 @@ struct BloomPass : public GfxRenderpass
 	VkPipeline pso_bloom_bright{};
 	VkPipeline pso_bloom_down{};
 	VkPipeline pso_bloom_up{};
+	VkPipeline pso_additive_composite{};
+	VkPipeline pso_tone_mapping{};
+	VkPipeline pso_vignette{};
+	VkPipeline pso_fxaa{};
 
 	static constexpr size_t MAX_BLOOM_SAMPLES = 5;
 	vkutils::Texture2D Bloom_brightTarget;

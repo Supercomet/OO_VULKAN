@@ -80,6 +80,9 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout util_fullscreenBlit;
 
 	inline static VkDescriptorSetLayout compute_singleTexture;
+	inline static VkDescriptorSetLayout compute_doubleImageStore;
+	inline static VkDescriptorSetLayout compute_shadowPrepass;
+	inline static VkDescriptorSetLayout compute_singleSSBO;
 
 };
 
@@ -93,6 +96,9 @@ struct PSOLayoutDB
 	inline static VkPipelineLayout SSAOPSOLayout;
 	inline static VkPipelineLayout SSAOBlurLayout;
 	inline static VkPipelineLayout BloomLayout; 
+	inline static VkPipelineLayout doubleImageStoreLayout; 
+	inline static VkPipelineLayout singleSSBOlayout; 
+	inline static VkPipelineLayout shadowPrepassLayout; 
 };
 
 // Moving all constant buffer structures into this CB namespace.
@@ -319,6 +325,7 @@ public:
 	std::array<GpuVector<UIData>,3> g_UIDatas;
 
 	ModelFileResource* GetDefaultCube();
+	oGFX::Font* GetDefaultFont();
 
 	ModelFileResource* LoadModelFromFile(const std::string& file);
 	ModelFileResource* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model);
@@ -503,6 +510,7 @@ public:
 		std::unique_ptr<ModelFileResource>def_sprite;
 		std::unique_ptr<ModelFileResource>def_plane;
 		std::unique_ptr<ModelFileResource>def_sphere;
+		std::unique_ptr<oGFX::Font>def_font;
 
 };
 

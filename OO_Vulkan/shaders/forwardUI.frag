@@ -34,11 +34,18 @@ float median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
 }
 
+void Remap_float(float In, vec2 InMinMax, vec2 OutMinMax, out float Out)
+{
+    Out = OutMinMax.x + (In - InMinMax.x) * (OutMinMax.y - OutMinMax.x) / (InMinMax.y - InMinMax.x);
+}
+
 void main()
 {
-    outEntityID = int(inInstanceData.x);
+    outEntityID = int(inInstanceData.y);
     outfragCol = vec4(inColor.rgba);
     
+    uint isSDFFont = inInstanceData.z;
+
     if(inColor.a < 0.0001) discard;
     
 
@@ -57,16 +64,32 @@ void main()
     uint perInstanceData              = inInstanceData.y & 0xFF;
    
     outfragCol.rgba = texture(textureDescriptorArray[inInstanceData.x], inUV.xy).rgba;
-     if(outfragCol.a < 0.0001) discard;
     
-    float sd = median(outfragCol.r, outfragCol.g, outfragCol.b);
-    float screenPxDistance = screenPxRange()*(sd - 0.5);
-    float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
-    //color = mix(bgColor, fgColor, opacity);
-    outfragCol = mix(vec4(0),inColor,opacity);
-    if(outfragCol.a < 0.0001) discard; // this is bad and broken
-    //outfragCol *= inColor;
+    if(isSDFFont == 1)
+    {
+        float sd = median(outfragCol.r, outfragCol.g, outfragCol.b);
+        float screenPxDistance = screenPxRange()*(sd - 0.5);
+        float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
+        outfragCol = mix(vec4(0),inColor,opacity);
+        Remap_float(outfragCol.a,vec2(0.0,1.0),vec2(0,0.20),outfragCol.a);
+        
+        
+    }else
+    {
+        vec4 tempcol = inColor.rgba;
+        Remap_float(tempcol.a,vec2(0.0,1.0),vec2(0.0,0.20),tempcol.a);
+        //tempcol.a = min(50.0/255.0 * tempcol.a, 1.0);
+        outfragCol.rgb = outfragCol.rgb * inColor.rgb;
+        outfragCol.a = outfragCol.a * tempcol.a;
 
+        // done after tonemapping so correct here
+        const float gamma = 2.2;
+	    //outfragCol.rgb =  pow(outfragCol.rgb, vec3(1.0/gamma));
+        // handled in post processing
+        outfragCol.rgb = pow(outfragCol.rgb,vec3(gamma));
+    }
+
+	if(outfragCol.a < 0.0001) discard; // this is bad and broken
     // hardcode red
     //outfragCol = vec4(1.0,0.0,0.0,1.0);
    

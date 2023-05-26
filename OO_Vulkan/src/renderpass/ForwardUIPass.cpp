@@ -142,6 +142,7 @@ void ForwardUIPass::Draw()
 	rhi::CommandList cmd{ cmdlist, "Forward UI Pass"};
 	cmd.SetDefaultViewportAndScissor();
 
+	cmd.BindPSO(pso_Forward_UI);
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 																												vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
 	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
@@ -150,10 +151,10 @@ void ForwardUIPass::Draw()
 			vr.descriptorSets_uniform[swapchainIdx],
 			vr.descriptorSet_bindless,
 	},
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		1, & dynamicOffset
 	);
 
-	cmd.BindPSO(pso_Forward_UI);
 	// Bind merged mesh vertex & index buffers, instancing buffers.
 	std::vector<VkBuffer> vtxBuffers{
 		vr.g_UIVertexBufferGPU.getBuffer(),
@@ -173,7 +174,7 @@ void ForwardUIPass::Draw()
 	const auto instanceCnt = uivert.size() / 4;
 	const auto indices =  instanceCnt* 6;
 	// do draw command here
-	cmd.DrawIndexed(indices,instanceCnt);
+	cmd.DrawIndexed(static_cast<uint32_t>(indices), static_cast<uint32_t>(instanceCnt));
 	//cmd.DrawIndexedIndirect(vr.g_particleCommandsBuffer.getBuffer(), 0, static_cast<uint32_t>(vr.g_particleCommandsBuffer.size()));
 
 	vkCmdEndRenderPass(cmdlist);
@@ -311,7 +312,7 @@ void ForwardUIPass::CreatePipeline()
 	VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
 	VkPipelineColorBlendAttachmentState blendAttachmentState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_TRUE); // we want blending 
 	VkPipelineColorBlendStateCreateInfo colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
-	VkPipelineDepthStencilStateCreateInfo depthStencilState = oGFX::vkutils::inits::pipelineDepthStencilStateCreateInfo(VK_TRUE, VK_FALSE, VK_COMPARE_OP_LESS_OR_EQUAL);
+	VkPipelineDepthStencilStateCreateInfo depthStencilState = oGFX::vkutils::inits::pipelineDepthStencilStateCreateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
 	VkPipelineViewportStateCreateInfo viewportState = oGFX::vkutils::inits::pipelineViewportStateCreateInfo(1, 1, 0);
 	VkPipelineMultisampleStateCreateInfo multisampleState = oGFX::vkutils::inits::pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT, 0);
 	std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
@@ -333,7 +334,7 @@ void ForwardUIPass::CreatePipeline()
 		//oGFX::vkutils::inits::vertexInputBindingDescription(BIND_POINT_INSTANCE_BUFFER_ID,sizeof(UIData),VK_VERTEX_INPUT_RATE_INSTANCE),
 	};
 	const auto& attributeDescriptions = std::vector<VkVertexInputAttributeDescription>{
-		oGFX::vkutils::inits::vertexInputAttributeDescription(BIND_POINT_VERTEX_BUFFER_ID,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(oGFX::UIVertex, pos)), //Position attribute
+		oGFX::vkutils::inits::vertexInputAttributeDescription(BIND_POINT_VERTEX_BUFFER_ID,0,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(oGFX::UIVertex, pos)), //Position attribute
 		oGFX::vkutils::inits::vertexInputAttributeDescription(BIND_POINT_VERTEX_BUFFER_ID,1,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(oGFX::UIVertex, tex)),    //Texture attribute
 		oGFX::vkutils::inits::vertexInputAttributeDescription(BIND_POINT_VERTEX_BUFFER_ID,2,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(oGFX::UIVertex, col)),    //Texture attribute
 
@@ -367,8 +368,8 @@ void ForwardUIPass::CreatePipeline()
 	blendAttachmentStates[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 	blendAttachmentStates[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	blendAttachmentStates[0].colorBlendOp = VK_BLEND_OP_ADD;
-	blendAttachmentStates[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	blendAttachmentStates[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // save background albedo as well
+	blendAttachmentStates[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	blendAttachmentStates[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA; // save background albedo as well
 	blendAttachmentStates[0].alphaBlendOp = VK_BLEND_OP_ADD;
 
 	colorBlendState.attachmentCount = static_cast<uint32_t>(blendAttachmentStates.size());

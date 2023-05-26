@@ -573,6 +573,7 @@ namespace vkutils
 		//	| VK_IMAGE_USAGE_STORAGE_BIT
 		//	| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
+
 		bool n = name.empty();
 	
 		VkImageCreateInfo imageinfo = oGFX::vkutils::inits::imageCreateInfo();
@@ -587,6 +588,8 @@ namespace vkutils
 		imageinfo.usage = usage;
 		imageinfo.samples = VK_SAMPLE_COUNT_1_BIT;
 		imageinfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		VkImageFormatProperties props{};
+		vkGetPhysicalDeviceImageFormatProperties(device->physicalDevice, imageinfo.format, imageinfo.imageType, imageinfo.tiling, imageinfo.usage, imageinfo.flags, &props);
 		VK_CHK(vkCreateImage(device->logicalDevice, &imageinfo, nullptr, &image));
 		VK_NAME(device->logicalDevice, n? "forFramebuffer::image" :name.c_str(), image);
 
@@ -786,6 +789,12 @@ namespace vkutils
 
 	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout)
 	{
+		
+		auto subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+		if (texture.format == VK_FORMAT_D32_SFLOAT_S8_UINT)
+		{
+			subresrange =  VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT|VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 };
+		}
 		oGFX::vkutils::tools::insertImageMemoryBarrier(
 			cmd,
 			texture.image,
@@ -795,6 +804,21 @@ namespace vkutils
 			targetLayout,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			subresrange);
+		texture.currentLayout = targetLayout;
+	}
+
+	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout)
+	{
+		oGFX::vkutils::tools::insertImageMemoryBarrier(
+			cmd,
+			texture.image,
+			VK_ACCESS_MEMORY_WRITE_BIT,
+			VK_ACCESS_MEMORY_READ_BIT,
+			texture.currentLayout,
+			targetLayout,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 		texture.currentLayout = targetLayout;
 	}

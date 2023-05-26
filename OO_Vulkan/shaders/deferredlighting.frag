@@ -13,8 +13,9 @@ layout (set = 0, binding = 1) uniform sampler2D samplerDepth;
 layout (set = 0, binding = 2) uniform sampler2D samplerNormal;
 layout (set = 0, binding = 3) uniform sampler2D samplerAlbedo;
 layout (set = 0, binding = 4) uniform sampler2D samplerMaterial;
-layout (set = 0, binding = 5) uniform sampler2D samplerShadows;
-layout (set = 0, binding = 6) uniform sampler2D samplerSSAO;
+layout (set = 0, binding = 5) uniform sampler2D samplerEmissive;
+layout (set = 0, binding = 6) uniform sampler2D samplerShadows;
+layout (set = 0, binding = 7) uniform sampler2D samplerSSAO;
 
 #include "lights.shader"
 
@@ -57,8 +58,9 @@ float ShadowCalculation(int lightIndex,int gridID , in vec4 fragPosLightSpace, f
 	
 	// Bounds check for the actual shadow map
 	float closestDepth = 1.0;
-	if(projCoords.x >1.0 || projCoords.x < 0.0
-		|| projCoords.y >1.0 || projCoords.y < 0.0 
+	float boundsLimit = 0.99995;
+	if(projCoords.x >boundsLimit || projCoords.x < 0.0
+		|| projCoords.y >boundsLimit || projCoords.y < 0.0 
 		|| projCoords.z>1)
 	{
 		return 1.0;
@@ -84,7 +86,28 @@ float ShadowCalculation(int lightIndex,int gridID , in vec4 fragPosLightSpace, f
 	return shadow;
 }
 
-vec3 EvalLight(int lightIndex, in vec3 fragPos, in vec3 normal,float roughness, in vec3 albedo, float specular, out float shadow)
+float AttenuationFactor(float radius, float dist){
+	float distsqr = dist*dist;
+	float rsqr = radius*radius;
+	float drsqr = distsqr + rsqr;
+	return 2.0 / (drsqr + dist * sqrt(drsqr));
+}
+
+float getSquareFalloffAttenuation(vec3 posToLight, float lightInvRadius) {
+    float distanceSquare = dot(posToLight, posToLight);
+    float factor = distanceSquare * lightInvRadius * lightInvRadius;
+    float smoothFactor = max(1.0 - factor * factor, 0.0);
+    return (smoothFactor * smoothFactor) / max(distanceSquare, 1e-4);
+}
+
+float UnrealFalloff(float dist, float radius){
+float num = clamp( 1.0 - pow(dist/radius,4.0)  ,0.0,1.0);
+num = num*num;
+float denom = dist*dist +1;
+return num/denom;
+}
+
+vec3 EvalLight(int lightIndex, in vec3 fragPos, in vec3 normal,float roughness, in vec3 albedo, float specular)
 {
 	vec3 result = vec3(0.0f, 0.0f, 0.0f);	
 	vec3 N = normalize(normal);
@@ -112,45 +135,54 @@ vec3 EvalLight(int lightIndex, in vec3 fragPos, in vec3 normal,float roughness, 
 	{
 		//SpotLightInstance light = SpotLightInstance(Omni_LightSSBO[lightIndex]); 
 	    
-		float r1 = Lights_SSBO[lightIndex].radius.x * 0.9;
-		float r2 = Lights_SSBO[lightIndex].radius.x;
+		float r1 = Lights_SSBO[lightIndex].radius.x;
+		float r2 = Lights_SSBO[lightIndex].radius.x * 0.9;
 		vec4 lightColInten	= Lights_SSBO[lightIndex].color;
-		vec3 lCol = lightColInten.rgb * lightColInten.w;
+
+		//distribute the light across the area
+		float LItensity = lightColInten.w / (4*pi);
+		vec3 lCol = lightColInten.rgb *  lightColInten.w;
+
+		float radii = pow( 1.0-pow(dist/r1, 4) ,2);
+		float Evalue = ( LItensity/max(dist*dist,0.01*0.01) ) * radii;
 
     		// Attenuation
-		float atten = Lights_SSBO[lightIndex].radius.x / (pow(dist, 2.0) + 1.0);		 
+		float atten = AttenuationFactor(r1,dist);	
+		atten = getSquareFalloffAttenuation(L,1.0/Lights_SSBO[lightIndex].radius.x);
+		atten = UnrealFalloff(dist,Lights_SSBO[lightIndex].radius.x);
 	
 		// Diffuse part
-		
-		vec3 diff = lCol * GGXBRDF(L , V , H , N , alpha , Kd , Ks) * NdotL * atten;
+		vec3 diff = GGXBRDF(L , V , H , N , alpha , Kd , Ks) * NdotL * atten * lCol;
 
 
 		// Specular part
 		// Specular map values are stored in alpha of albedo mrt
 		vec3 R = -reflect(L, N);
 		float RdotV = max(0.0, dot(R, V));
-		vec3 spec = lCol * specular * pow(RdotV, 16.0) * atten;
+		vec3 spec = lCol * specular 
+		* pow(RdotV, max(PC.specularModifier,1.0)) 
+		* atten;
 		//vec3 spec = lCol  * pow(RdotV, 16.0) * atten;
 	
 		//result = diff;// + spec;	
-		result = diff+spec;
+		result = diff +spec;
 	}
 
 	// calculate shadow if this is a shadow light
-	shadow = 1.0;
-	if(Lights_SSBO[lightIndex].info.x > 0)
-	{		
-		if(Lights_SSBO[lightIndex].info.x == 1)
-		{
-			int gridID = Lights_SSBO[lightIndex].info.y;
-			for(int i = 0; i < 6; ++i)
-			{
-				vec4 outFragmentLightPos = Lights_SSBO[lightIndex].projection * Lights_SSBO[lightIndex].view[i] * vec4(fragPos,1.0);
-				shadow *= ShadowCalculation(lightIndex,gridID+i,outFragmentLightPos,NdotL);
-			}
-		}
-		result *= shadow;
-	}
+	// shadow = 1.0;
+	//if(Lights_SSBO[lightIndex].info.x > 0)
+	//{		
+	//	if(Lights_SSBO[lightIndex].info.x == 1)
+	//	{
+	//		int gridID = Lights_SSBO[lightIndex].info.y;
+	//		for(int i = 0; i < 6; ++i)
+	//		{
+	//			vec4 outFragmentLightPos = Lights_SSBO[lightIndex].projection * Lights_SSBO[lightIndex].view[i] * vec4(fragPos,1.0);
+	//			shadow *= ShadowCalculation(lightIndex,gridID+i,outFragmentLightPos,NdotL);
+	//		}
+	//	}
+	//	result *= shadow;
+	//}
 
 	return result;
 //	return fragPos;
@@ -184,35 +216,41 @@ void main()
 
 	// Render-target composition
 	float ambient = PC.ambient;
-	if (DecodeFlags(material.z) == 0x1)
-	{
-		ambient = 1.0;
-	}
-	float gamma = 1.0;
+	//if (DecodeFlags(material.z) == 0x1)
+	//{
+	//	ambient = 1.0;
+	//}
 	
-	//albedo.rgb =  pow(albedo.rgb, vec3(gamma));
+	const float gamma = 2.2;
+	albedo.rgb =  pow(albedo.rgb, vec3(1.0/gamma));
 
 	// Ambient part
 	vec3 result = albedo.rgb  * ambient;
 
-	if(PC.useSSAO != 0){
-		result *=  SSAO;
+	// remove SSAO if not wanted
+	if(PC.useSSAO == 0){
+		SSAO = 1.0;
 	}
 	
+	float outshadow = texture(samplerShadows,inUV).r;
+	
 	// Point Lights
+	vec3 lightContribution = vec3(0.0);
 	for(int i = 0; i < PC.numLights; ++i)
 	{
-		float outshadow = 1.0;
-		vec3 res = EvalLight(i, fragPos, normal, roughness ,albedo.rgb, specular, outshadow);		
 		
-		if(any(isnan(res))){
-				outFragcolor = vec4(1.0,0.6,0.3,1.0);
-		}
-
-		result += res;
+		vec3 res = EvalLight(i, fragPos, normal, roughness ,albedo.rgb, specular);	
+		
+	
+		lightContribution += res;
 	}
 
-	result = pow(result, vec3(1.0/gamma));
+	lightContribution *= outshadow;
+	
+	vec3 ambientContribution = albedo.rgb  * ambient;
+	vec3 emissive = texture(samplerEmissive,inUV).rgb;
+	result =  (ambientContribution * SSAO + lightContribution) + emissive;
 
 	outFragcolor = vec4(result, albedo.a);	
+
 }
