@@ -1645,8 +1645,10 @@ void InitLights(int32_t* someLights)
         }
         // put here so we can edit the light values
         lights[0]->position = glm::vec4(0.0f, 3.0f, 1.0f, 0.0f);
-        lights[0]->color = glm::vec4(1.5f);
-        lights[0]->radius.x = 15.0f;
+        lights[0]->color = glm::vec4(1.0f);
+        lights[0]->radius.x = 30.0f;
+        lights[0]->color.a = 90.0f; //intensity
+        SetCastsShadows(*lights[0], true);
 
         return;
         // Red   
