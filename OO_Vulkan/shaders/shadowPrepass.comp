@@ -91,6 +91,11 @@ void main()
 
 	vec4 depth = texture(samplerDepth, inUV);
 	vec3 fragPos = WorldPosFromDepth(depth.r,inUV,uboFrameContext.inverseProjection,uboFrameContext.inverseView);
+	if( any( isnan(fragPos)) ){
+		imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(0.0));
+		return;
+	}
+
 	vec3 normal = texture(samplerNormal, inUV).rgb;
 	vec3 N = normalize(normal);
 	//
@@ -120,8 +125,9 @@ void main()
 		}
 	}
 
-
+	vec4 res = texture(samplerShadows,inUV).rrrr;
+	//res = vec4(0.0);
 
 	 //Note: Store operations to any texel that is outside the boundaries of the bound image will do nothing.
-	imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), result);
+	imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), res);
 }

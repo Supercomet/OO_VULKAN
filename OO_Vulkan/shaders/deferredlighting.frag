@@ -169,20 +169,20 @@ vec3 EvalLight(int lightIndex, in vec3 fragPos, in vec3 normal,float roughness, 
 	}
 
 	// calculate shadow if this is a shadow light
-	// shadow = 1.0;
-	//if(Lights_SSBO[lightIndex].info.x > 0)
-	//{		
-	//	if(Lights_SSBO[lightIndex].info.x == 1)
-	//	{
-	//		int gridID = Lights_SSBO[lightIndex].info.y;
-	//		for(int i = 0; i < 6; ++i)
-	//		{
-	//			vec4 outFragmentLightPos = Lights_SSBO[lightIndex].projection * Lights_SSBO[lightIndex].view[i] * vec4(fragPos,1.0);
-	//			shadow *= ShadowCalculation(lightIndex,gridID+i,outFragmentLightPos,NdotL);
-	//		}
-	//	}
-	//	result *= shadow;
-	//}
+	float shadow = 1.0;
+	if(Lights_SSBO[lightIndex].info.x > 0)
+	{		
+		if(Lights_SSBO[lightIndex].info.x == 1)
+		{
+			int gridID = Lights_SSBO[lightIndex].info.y;
+			for(int i = 0; i < 6; ++i)
+			{
+				vec4 outFragmentLightPos = Lights_SSBO[lightIndex].projection * Lights_SSBO[lightIndex].view[i] * vec4(fragPos,1.0);
+				shadow *= ShadowCalculation(lightIndex,gridID+i,outFragmentLightPos,NdotL);
+			}
+		}
+		result *= shadow;
+	}
 
 	return result;
 //	return fragPos;

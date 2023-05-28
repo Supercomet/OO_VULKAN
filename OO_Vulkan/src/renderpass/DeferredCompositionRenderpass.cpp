@@ -56,10 +56,10 @@ bool DeferredCompositionRenderpass::SetupDependencies()
 void DeferredCompositionRenderpass::Draw()
 {
 	auto& vr = *VulkanRenderer::get();
-	auto swapchainIdx = vr.swapchainIdx;
+	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-    const VkCommandBuffer cmdlist = vr.commandBuffers[swapchainIdx];
+    const VkCommandBuffer cmdlist = vr.commandBuffers[currFrame];
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("DeferredComposition");
 
@@ -103,8 +103,8 @@ void DeferredCompositionRenderpass::Draw()
 	cmd.SetDefaultViewportAndScissor();
 	cmd.BindPSO(pso_DeferredLightingComposition);
 
-	const auto& info = vr.globalLightBuffer.GetDescriptorBufferInfo();
-	DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[swapchainIdx])
+	const auto& info = vr.globalLightBuffer[currFrame].GetDescriptorBufferInfo();
+	DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[currFrame])
 		.BindBuffer(4, &info, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.Build(vr.descriptorSet_lights,SetLayoutDB::lights);
 
@@ -147,7 +147,7 @@ void DeferredCompositionRenderpass::Draw()
 		std::array<VkDescriptorSet, 3>
 		{
 			vr.descriptorSet_DeferredComposition,
-			vr.descriptorSets_uniform[swapchainIdx],
+			vr.descriptorSets_uniform[currFrame],
 			vr.descriptorSet_lights,
 		},
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -215,7 +215,8 @@ void DeferredCompositionRenderpass::CreateDescriptors()
         gbuffer->attachments[GBufferAttachmentIndex::DEPTH]   .view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	
-	auto& shadowTex = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->shadowMask;
+	auto& shadowTex = RenderPassDatabase::GetRenderPass<ShadowPass>()->shadow_depth;
+	auto& maskTex = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->shadowMask;
 	VkDescriptorImageInfo texDescriptorShadow = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_ShowMapClamp(),
 		shadowTex.view,
@@ -225,12 +226,12 @@ void DeferredCompositionRenderpass::CreateDescriptors()
 	VkDescriptorImageInfo texDescriptorSSAO = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_Deferred(),
 		ssaoTex.view,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL); 
 
 	// TODO: Proper light buffer
 	// TODO: How to handle shadow map sampling?
-	const auto& dbi = vr.globalLightBuffer.GetDescriptorBufferInfo();
-    DescriptorBuilder::Begin(&vr.DescLayoutCache,&vr.descAllocs[vr.swapchainIdx])
+	const auto& dbi = vr.globalLightBuffer[vr.getFrame()].GetDescriptorBufferInfo();
+    DescriptorBuilder::Begin(&vr.DescLayoutCache,&vr.descAllocs[vr.getFrame()])
         //.BindImage(1, &texDescriptorPosition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // to remove
         .BindImage(1, &texDescriptorDepth, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // we construct world position using depth
         .BindImage(2, &texDescriptorNormal, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)

@@ -68,10 +68,10 @@ bool SSAORenderPass::SetupDependencies()
 void SSAORenderPass::Draw()
 {
 	auto& vr = *VulkanRenderer::get();
-	auto swapchainIdx = vr.swapchainIdx;
+	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-	const VkCommandBuffer cmdlist = vr.commandBuffers[swapchainIdx];
+	const VkCommandBuffer cmdlist = vr.commandBuffers[currFrame];
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("SSAO");
 
@@ -88,7 +88,7 @@ void SSAORenderPass::Draw()
 	renderPassBeginInfo.pClearValues = clearValues.data();                               //list of clear values
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 
-	renderPassBeginInfo.framebuffer = vr.swapChainFramebuffers[swapchainIdx];
+	renderPassBeginInfo.framebuffer = vr.swapChainFramebuffers[currFrame];
 
 	VkFramebuffer currentFB;
 	FramebufferBuilder::Begin(&vr.fbCache)
@@ -155,7 +155,7 @@ void SSAORenderPass::Draw()
 		std::array<VkDescriptorSet, 2>
 		{
 			vr.descriptorSet_SSAO,
-				vr.descriptorSets_uniform[swapchainIdx],
+				vr.descriptorSets_uniform[currFrame],
 		},
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		1, & dynamicOffset
@@ -194,7 +194,7 @@ void SSAORenderPass::Draw()
 		std::array<VkDescriptorSet, 2>
 	{
 		vr.descriptorSet_SSAOBlur,
-			vr.descriptorSets_uniform[swapchainIdx],
+			vr.descriptorSets_uniform[currFrame],
 	},
 	VK_PIPELINE_BIND_POINT_GRAPHICS,
 	1, & dynamicOffset);
@@ -257,8 +257,8 @@ void SSAORenderPass::InitRandomFactors()
 		ssaoKernel.push_back(sample);  
 	}
 	randomVectorsSSBO.Init(&vr.m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	randomVectorsSSBO.reserve(ssaoKernel.size());
-	randomVectorsSSBO.writeTo(ssaoKernel.size(), ssaoKernel.data());
+	randomVectorsSSBO.reserve(ssaoKernel.size(),vr.m_device.transferQueue,vr.m_device.transferPools[vr.getFrame()]);
+	randomVectorsSSBO.writeTo(ssaoKernel.size(), ssaoKernel.data(),vr.m_device.transferQueue,vr.m_device.transferPools[vr.getFrame()]);
 
 	uint32_t width = 4;
 	uint32_t height = 4;
@@ -330,7 +330,7 @@ void SSAORenderPass::CreateDescriptors()
 	
 	const auto& ranvecBufer = randomVectorsSSBO.GetDescriptorBufferInfo();
 
-	DescriptorBuilder::Begin(&vr.DescLayoutCache,&vr.descAllocs[vr.swapchainIdx])
+	DescriptorBuilder::Begin(&vr.DescLayoutCache,&vr.descAllocs[vr.getFrame()])
 		//.BindImage(1, &texDescriptorPosition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // to remove
 		.BindImage(1, &texDescriptorDepth, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // we construct world position using depth
 		.BindImage(2, &texDescriptorNormal, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -343,7 +343,7 @@ void SSAORenderPass::CreateDescriptors()
 		SSAO_renderTarget.view,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	DescriptorBuilder::Begin(&vr.DescLayoutCache,&vr.descAllocs[vr.swapchainIdx])
+	DescriptorBuilder::Begin(&vr.DescLayoutCache,&vr.descAllocs[vr.getFrame()])
 		.BindImage(1, &texDescriptorSSAO, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // we construct world position using depth
 		.Build(vr.descriptorSet_SSAOBlur, SetLayoutDB::SSAOBlur);
 

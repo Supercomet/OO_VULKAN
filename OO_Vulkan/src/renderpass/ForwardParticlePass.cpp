@@ -69,10 +69,10 @@ void ForwardParticlePass::Draw()
 	auto& device = vr.m_device;
 	auto& swapchain = vr.m_swapchain;
 	auto& commandBuffers = vr.commandBuffers;
-	auto& swapchainIdx = vr.swapchainIdx;
+	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-    const VkCommandBuffer cmdlist = commandBuffers[swapchainIdx];
+    const VkCommandBuffer cmdlist = commandBuffers[currFrame];
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("ForwardParticles");
 
@@ -148,7 +148,7 @@ void ForwardParticlePass::Draw()
 	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
 		std::array<VkDescriptorSet, 3>{
 		vr.descriptorSet_gpuscene,
-			vr.descriptorSets_uniform[swapchainIdx],
+			vr.descriptorSets_uniform[currFrame],
 			vr.descriptorSet_bindless,
 	},
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -168,8 +168,8 @@ void ForwardParticlePass::Draw()
 	};
 	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
 	cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.g_particleDatas[swapchainIdx].getBufferPtr());
-	cmd.DrawIndexedIndirect(vr.g_particleCommandsBuffer.getBuffer(), 0, static_cast<uint32_t>(vr.g_particleCommandsBuffer.size()));
+	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.g_particleDatas[currFrame].getBufferPtr());
+	cmd.DrawIndexedIndirect(vr.g_particleCommandsBuffer[currFrame].getBuffer(), 0, static_cast<uint32_t>(vr.g_particleCommandsBuffer[currFrame].size()));
 
 	vkCmdEndRenderPass(cmdlist);
 }

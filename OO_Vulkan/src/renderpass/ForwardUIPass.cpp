@@ -69,10 +69,10 @@ void ForwardUIPass::Draw()
 	auto& device = vr.m_device;
 	auto& swapchain = vr.m_swapchain;
 	auto& commandBuffers = vr.commandBuffers;
-	auto& swapchainIdx = vr.swapchainIdx;
+	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-    const VkCommandBuffer cmdlist = commandBuffers[swapchainIdx];
+    const VkCommandBuffer cmdlist = commandBuffers[currFrame];
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("ForwardUI");
 
@@ -148,7 +148,7 @@ void ForwardUIPass::Draw()
 	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
 		std::array<VkDescriptorSet, 3>{
 		vr.descriptorSet_gpuscene,
-			vr.descriptorSets_uniform[swapchainIdx],
+			vr.descriptorSets_uniform[currFrame],
 			vr.descriptorSet_bindless,
 	},
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -157,7 +157,7 @@ void ForwardUIPass::Draw()
 
 	// Bind merged mesh vertex & index buffers, instancing buffers.
 	std::vector<VkBuffer> vtxBuffers{
-		vr.g_UIVertexBufferGPU.getBuffer(),
+		vr.g_UIVertexBufferGPU[currFrame].getBuffer(),
 		vr.skinningVertexBuffer.getBuffer(),
 	};
 
@@ -165,10 +165,10 @@ void ForwardUIPass::Draw()
 		0,
 		0
 	};
-	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_UIVertexBufferGPU.getBufferPtr());
-	cmd.BindIndexBuffer(vr.g_UIIndexBufferGPU.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_UIVertexBufferGPU[currFrame].getBufferPtr());
+	cmd.BindIndexBuffer(vr.g_UIIndexBufferGPU[currFrame].getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	
-	//cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.g_particleDatas[swapchainIdx].getBufferPtr());
+	//cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.g_particleDatas[currFrame].getBufferPtr());
 	
 	auto &uivert = vr.batches.GetUIVertices();
 	const auto instanceCnt = uivert.size() / 4;

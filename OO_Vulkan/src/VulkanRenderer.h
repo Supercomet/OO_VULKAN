@@ -264,11 +264,12 @@ public:
 	void UploadUIData();
 	uint32_t objectCount{};
 	// Contains the instanced data
-	GpuVector<oGFX::InstanceData> instanceBuffer;
+	GpuVector<oGFX::InstanceData> instanceBuffer[MAX_FRAME_DRAWS];
 
 	bool PrepareFrame();
 	void BeginDraw();
 	void RenderFrame();
+	void RenderFunc(bool shouldRunDebugDraw);
 	void Present();
 
 	void UpdateUniformBuffers();
@@ -312,16 +313,16 @@ public:
 	IndexedVertexBuffer g_GlobalMeshBuffers;
 
 	std::array<GpuVector<ParticleData>,3> g_particleDatas;
-	GpuVector<oGFX::IndirectCommand> g_particleCommandsBuffer{};
+	GpuVector<oGFX::IndirectCommand> g_particleCommandsBuffer[MAX_FRAME_DRAWS];
 
-	GpuVector<oGFX::DebugVertex> g_DebugDrawVertexBufferGPU;
-	GpuVector<uint32_t> g_DebugDrawIndexBufferGPU;
+	GpuVector<oGFX::DebugVertex>g_DebugDrawVertexBufferGPU[MAX_FRAME_DRAWS];
+	GpuVector<uint32_t> g_DebugDrawIndexBufferGPU[MAX_FRAME_DRAWS];
 	std::vector<oGFX::DebugVertex> g_DebugDrawVertexBufferCPU;
 	std::vector<uint32_t> g_DebugDrawIndexBufferCPU;
 
 	// ui pass
-	GpuVector<oGFX::UIVertex> g_UIVertexBufferGPU;
-	GpuVector<uint32_t> g_UIIndexBufferGPU;
+	GpuVector<oGFX::UIVertex> g_UIVertexBufferGPU[MAX_FRAME_DRAWS];
+	GpuVector<uint32_t> g_UIIndexBufferGPU[MAX_FRAME_DRAWS];
 	std::array<GpuVector<UIData>,3> g_UIDatas;
 
 	ModelFileResource* GetDefaultCube();
@@ -354,8 +355,8 @@ public:
 	uint32_t GetDefaultSpriteID();
 
 	// - Synchronisation
-	std::vector<VkSemaphore> imageAvailable;
-	std::vector<VkSemaphore> renderFinished;
+	std::vector<VkSemaphore> presentSemaphore;
+	std::vector<VkSemaphore> renderSemaphore;
 	std::vector<VkFence> drawFences;
 
 	// - Pipeline
@@ -367,12 +368,12 @@ public:
 	VulkanRenderpass renderPass_HDR_noDepth{};
 	VulkanRenderpass renderPass_blit{};
 
-	GpuVector<oGFX::IndirectCommand> indirectCommandsBuffer{};
-	GpuVector<oGFX::IndirectCommand> shadowCasterCommandsBuffer{};
+	GpuVector<oGFX::IndirectCommand> indirectCommandsBuffer[MAX_FRAME_DRAWS];
+	GpuVector<oGFX::IndirectCommand> shadowCasterCommandsBuffer[MAX_FRAME_DRAWS];
 	uint32_t indirectDrawCount{};
 
-	GpuVector<oGFX::BoneWeight> skinningVertexBuffer{};
-	GpuVector<LocalLightInstance> globalLightBuffer{};
+	GpuVector<oGFX::BoneWeight> skinningVertexBuffer;
+	GpuVector<LocalLightInstance> globalLightBuffer[MAX_FRAME_DRAWS];
 
 	// - Descriptors
 
@@ -384,15 +385,15 @@ public:
 
 	// SSBO
 	std::vector<glm::mat4> boneMatrices{};
-	GpuVector<glm::mat4> gpuBoneMatrixBuffer{};
+	GpuVector<glm::mat4> gpuBoneMatrixBuffer[MAX_FRAME_DRAWS];
 
 	// SSBO
 	std::vector<GPUTransform> gpuTransform{};
-	GpuVector<GPUTransform> gpuTransformBuffer;
+	GpuVector<GPUTransform> gpuTransformBuffer[MAX_FRAME_DRAWS];
 
 	// SSBO
 	std::vector<GPUObjectInformation> objectInformation;
-	GpuVector<GPUObjectInformation> objectInformationBuffer{};
+	GpuVector<GPUObjectInformation> objectInformationBuffer[MAX_FRAME_DRAWS];
 	
 	// SSBO
 	std::vector<VkBuffer> vpUniformBuffer{};
@@ -413,7 +414,9 @@ public:
 	std::mutex g_mut_globalModels;
 	std::vector<gfxModel> g_globalModels;
 
+	uint32_t frameCounter = 0;
 	uint32_t currentFrame = 0;
+	uint32_t getFrame() const;
 
 	uint64_t uboDynamicAlignment;
 	static constexpr uint32_t numCameras = 2;
