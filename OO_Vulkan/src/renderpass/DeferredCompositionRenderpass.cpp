@@ -157,13 +157,13 @@ void DeferredCompositionRenderpass::Draw()
 	);
 	
 
-	//cmd.DrawFullScreenQuad();
+	cmd.DrawFullScreenQuad();
 
 	const auto& cube = vr.g_globalModels[vr.GetDefaultCubeID()];
 	cmd.BindPSO(pso_deferredBox);
-	for (size_t i = 0; i < lightCnt; i++)
+	//for (size_t i = 0; i < lightCnt; i++)
 	{
-		vkCmdDrawIndexed(cmdlist, cube.indicesCount, 1, cube.baseIndices, cube.baseVertex, i);
+		vkCmdDrawIndexed(cmdlist, cube.indicesCount, lightCnt, cube.baseIndices, cube.baseVertex, 0);
 	}
 	
 
@@ -177,6 +177,9 @@ void DeferredCompositionRenderpass::Shutdown()
 
 	vkDestroyPipelineLayout(device, PSOLayoutDB::deferredLightingCompositionPSOLayout, nullptr);
 	vkDestroyPipeline(device, pso_DeferredLightingComposition, nullptr);
+	
+	vkDestroyPipeline(device, pso_deferredBox, nullptr);
+
 }
 
 void DeferredCompositionRenderpass::CreateDescriptors()
@@ -337,11 +340,11 @@ void DeferredCompositionRenderpass::CreatePipeline()
 	rasterizationState.cullMode = VK_CULL_MODE_FRONT_BIT;
 
 	VkPipelineColorBlendAttachmentState colourState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0x0000000F,VK_TRUE);
-	colourState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	colourState.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
 	colourState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
 	colourState.colorBlendOp = VK_BLEND_OP_ADD;
-	colourState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colourState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colourState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colourState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
 	colourState.alphaBlendOp = VK_BLEND_OP_ADD;
 	VkPipelineColorBlendStateCreateInfo colourBlendingCreateInfo = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1,&colourState);
 	pipelineCI.pColorBlendState = &colourBlendingCreateInfo;

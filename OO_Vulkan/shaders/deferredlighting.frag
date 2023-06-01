@@ -198,59 +198,14 @@ uint DecodeFlags(in float value)
 
 void main()
 {
-	// Get G-Buffer values
-	vec4 depth = texture(samplerDepth, inUV);
-	vec3 fragPos = WorldPosFromDepth(depth.r,inUV,uboFrameContext.inverseProjection,uboFrameContext.inverseView);
-	//fragPos.z = depth.r;
-	vec3 normal = texture(samplerNormal, inUV).rgb;
-	if(dot(normal,normal) == 0.0)
-	{
-		outFragcolor = vec4(0);
-		return;
-	}
+	// just perform ambient
 	vec4 albedo = texture(samplerAlbedo, inUV);
-	vec4 material = texture(samplerMaterial, inUV);
-	float SSAO = texture(samplerSSAO, inUV).r;
-	float specular = material.g;
-	float roughness = 1.0 - material.r;
-
-	// Render-target composition
 	float ambient = PC.ambient;
-	//if (DecodeFlags(material.z) == 0x1)
-	//{
-	//	ambient = 1.0;
-	//}
 	
 	const float gamma = 2.2;
 	albedo.rgb =  pow(albedo.rgb, vec3(1.0/gamma));
-
 	// Ambient part
 	vec3 result = albedo.rgb  * ambient;
-
-	// remove SSAO if not wanted
-	if(PC.useSSAO == 0){
-		SSAO = 1.0;
-	}
-	
-	float outshadow = texture(samplerShadows,inUV).r;
-	
-	// Point Lights
-	vec3 lightContribution = vec3(0.0);
-	for(int i = 0; i < PC.numLights; ++i)
-	{
-		
-		vec3 res = EvalLight(i, fragPos, normal, roughness ,albedo.rgb, specular);	
-		
-	
-		lightContribution += res;
-	}
-
-	lightContribution *= outshadow;
-	
-	vec3 ambientContribution = albedo.rgb  * ambient;
-	vec3 emissive = texture(samplerEmissive,inUV).rgb;
-	result =  (ambientContribution * SSAO + lightContribution) + emissive;
-
 	outFragcolor = vec4(result, albedo.a);	
 
 }

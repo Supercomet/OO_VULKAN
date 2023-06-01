@@ -1095,7 +1095,7 @@ void VulkanRenderer::DestroyWorld(GraphicsWorld* world)
 
 int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 {
-	return 0;
+	//return 0;
 
 	uv = glm::clamp(uv, { 0.0,0.0 }, { 1.0,1.0 });
 
@@ -1275,7 +1275,7 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 
 	vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
 	vkQueueWaitIdle(m_device.graphicsQueue);
-	vkFreeCommandBuffers(m_device.logicalDevice, m_device.transferPools[getFrame()], 1, &copyCmd);
+	vkFreeCommandBuffers(m_device.logicalDevice, m_device.commandPools[getFrame()], 1, &copyCmd);
 
 
 	// Get layout of the image (including row pitch)
@@ -3444,7 +3444,7 @@ void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer)
 	vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
 	vkQueueWaitIdle(m_device.graphicsQueue);
 
-	vkFreeCommandBuffers(m_device.logicalDevice, m_device.commandPools[0], 1, &commandBuffer);
+	vkFreeCommandBuffers(m_device.logicalDevice, m_device.commandPools[getFrame()], 1, &commandBuffer);
 }
 
 uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData)

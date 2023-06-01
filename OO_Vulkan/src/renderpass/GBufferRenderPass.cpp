@@ -200,7 +200,7 @@ void GBufferRenderPass::Draw()
 
 	vkCmdEndRenderPass(cmdlist);
 
-	{
+	if(0){
 
 		VkDebugMarkerMarkerInfoEXT marker = {};
 		marker.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;

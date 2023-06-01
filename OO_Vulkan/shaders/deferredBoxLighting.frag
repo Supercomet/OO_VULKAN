@@ -221,7 +221,8 @@ void main()
 	float roughness = 1.0 - material.r;
 
 	// Render-target composition
-	float ambient = PC.ambient;
+	//float ambient = PC.ambient;
+	float ambient = 0.0;
 	//if (DecodeFlags(material.z) == 0x1)
 	//{
 	//	ambient = 1.0;
