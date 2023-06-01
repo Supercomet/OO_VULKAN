@@ -342,6 +342,9 @@ void GBufferRenderPass::Shutdown()
 
 	renderpass_GBuffer.destroy();
 	vkDestroyPipeline(device, pso_GBufferDefault, nullptr);
+
+	vkDestroyPipeline(device, pso_ComputeShadowPrepass, nullptr);
+	vkDestroyPipelineLayout(device, PSOLayoutDB::shadowPrepassLayout, nullptr);
 }
 
 void GBufferRenderPass::SetupRenderpass()
@@ -651,7 +654,7 @@ void GBufferRenderPass::CreatePSOLayout()
 		plci.pPushConstantRanges = &pushConstantRange;
 
 		VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::shadowPrepassLayout));
-		VK_NAME(m_device.logicalDevice, "ShadowPrepass_PSOLayout", PSOLayoutDB::singleSSBOlayout);
+		VK_NAME(m_device.logicalDevice, "ShadowPrepass_PSOLayout", PSOLayoutDB::shadowPrepassLayout);
 
 	}
 

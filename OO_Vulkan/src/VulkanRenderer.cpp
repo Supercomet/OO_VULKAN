@@ -248,6 +248,7 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 {
 	try
 	{	
+		g_globalModels.reserve(MAX_OBJECTS);
 		CreateInstance(setupSpecs);
 
 #ifdef _DEBUG
@@ -307,11 +308,11 @@ void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		GfxRenderpass* ptr;
 		ptr = new ShadowPass;
 		rpd->RegisterRenderPass(ptr);
-		 ptr = new DebugDrawRenderpass;
+		ptr = new DebugDrawRenderpass;
 		rpd->RegisterRenderPass(ptr);
-		 ptr = new GBufferRenderPass;
+		ptr = new GBufferRenderPass;
 		rpd->RegisterRenderPass(ptr);
-		 ptr = new DeferredCompositionRenderpass;
+		ptr = new DeferredCompositionRenderpass;
 		rpd->RegisterRenderPass(ptr);
 		ptr = new SSAORenderPass;
 		rpd->RegisterRenderPass(ptr);
@@ -2246,6 +2247,13 @@ void VulkanRenderer::BeginDraw()
 		{
 			PROFILE_SCOPED("Transfer data");
 	
+			while (g_workQueue.size())
+			{
+				auto& work = g_workQueue.front();
+				work();
+				g_workQueue.pop_front();
+			}
+
 			UpdateUniformBuffers();
 			UploadInstanceData();
 			UploadUIData();
@@ -3184,25 +3192,31 @@ ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
 
 
 	// now we update them to the global offset
+
+	auto lam = [this,model]() 
 	{
-		std::scoped_lock(g_mut_globalMeshBuffers);
-		g_GlobalMeshBuffers.IdxBuffer.writeTo(model->indicesCount, indices.data() + model->baseIndices,m_device.transferQueue,m_device.transferPools[getFrame()],
+		//std::scoped_lock(g_mut_globalMeshBuffers);
+		auto& indices = model->cpuModel->indices;
+		auto& vertex = model->cpuModel->vertices;
+		g_GlobalMeshBuffers.IdxBuffer.writeTo(model->indicesCount, indices.data() + model->baseIndices, m_device.transferQueue, m_device.transferPools[getFrame()],
 			g_GlobalMeshBuffers.IdxOffset);
-		g_GlobalMeshBuffers.VtxBuffer.writeTo(model->vertexCount, vertex.data() + model->baseVertex,m_device.transferQueue,m_device.transferPools[getFrame()],
+		g_GlobalMeshBuffers.VtxBuffer.writeTo(model->vertexCount, vertex.data() + model->baseVertex, m_device.transferQueue, m_device.transferPools[getFrame()],
 			g_GlobalMeshBuffers.VtxOffset);
 
-		model->baseIndices= g_GlobalMeshBuffers.IdxOffset;
-		model->baseVertex= g_GlobalMeshBuffers.VtxOffset;
+		model->baseIndices = g_GlobalMeshBuffers.IdxOffset;
+		model->baseVertex = g_GlobalMeshBuffers.VtxOffset;
 
 		g_GlobalMeshBuffers.IdxOffset += model->indicesCount;
 		g_GlobalMeshBuffers.VtxOffset += model->vertexCount;
-	}
 
-	if (model->skeleton)
-	{
-		auto& sk = model->skeleton;
-		skinningVertexBuffer.writeTo(sk->boneWeights.size(), sk->boneWeights.data(),m_device.transferQueue,m_device.transferPools[getFrame()], model->baseVertex);
-	}
+		if (model->skeleton)
+		{
+			auto& sk = model->skeleton;
+			skinningVertexBuffer.writeTo(sk->boneWeights.size(), sk->boneWeights.data(), m_device.transferQueue, m_device.transferPools[getFrame()], model->baseVertex);
+		}
+	};
+
+	g_workQueue.emplace_back(lam);
 
 	return m;
 }

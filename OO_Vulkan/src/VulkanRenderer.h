@@ -53,6 +53,8 @@ Technology is prohibited.
 #include <set>
 #include <string>
 #include <mutex>
+#include <deque>
+#include <functional>
 
 struct Window;
 
@@ -413,6 +415,8 @@ public:
 	//Scene objects
 	std::mutex g_mut_globalModels;
 	std::vector<gfxModel> g_globalModels;
+
+	std::deque<std::function<void()>> g_workQueue;
 
 	uint32_t frameCounter = 0;
 	uint32_t currentFrame = 0;
