@@ -14,8 +14,11 @@ Technology is prohibited.
 #pragma once
 #include "vulkan/vulkan.h"
 #include <iostream>
+#include "Profiling.h"
 
 struct VulkanDevice;
+
+extern uint64_t accumulatedBytes;
 
 template <typename T>
 class GpuVector{
@@ -25,10 +28,10 @@ public:
 	void Init(VkBufferUsageFlags usage);
 	void Init(VulkanDevice* device,VkBufferUsageFlags usage);
 
-	void writeTo(size_t size,const void* data, size_t offset = 0);
+	void writeTo(size_t size,const void* data, VkQueue queue, VkCommandPool pool, size_t offset = 0);
 
-	void resize(size_t size);
-	void reserve(size_t size);
+	void resize(size_t size, VkQueue queue, VkCommandPool pool);
+	void reserve(size_t size, VkQueue queue, VkCommandPool pool);
 	size_t size() const;
 
 	VkBuffer getBuffer()const;
@@ -97,19 +100,20 @@ inline void GpuVector<T>::Init(VulkanDevice* device, VkBufferUsageFlags usage)
 }
 
 template <typename T>
-void GpuVector<T>::writeTo(size_t writeSize,const void* data, size_t offset)
+void GpuVector<T>::writeTo(size_t writeSize,const void* data, VkQueue queue, VkCommandPool pool, size_t offset)
 {
+	if (writeSize == 0) 
+		return;
+	PROFILE_SCOPED();
 	if ((writeSize + offset) > m_capacity)
 	{
 		// TODO:  maybe resize some amount instead of perfect amount?
 		assert(true);
-		resize(m_capacity?m_capacity*2 : 64);
-		writeTo(writeSize, data, offset);
+		resize(m_capacity?m_capacity*2 : 64, queue, pool);
+		writeTo(writeSize, data, queue, pool, offset);
 		return;
 	}
 
-	if (writeSize == 0) 
-		return;
 	
 	using namespace oGFX;
 	//get writeSize of buffer needed for vertices
@@ -130,7 +134,7 @@ void GpuVector<T>::writeTo(size_t writeSize,const void* data, size_t offset)
 	memcpy(mappedData, data, (size_t)bufferBytes);					
 	vkUnmapMemory(m_device->logicalDevice, stagingBufferMemory);					
 
-	CopyBuffer(m_device->logicalDevice, m_device->graphicsQueue, m_device->commandPool,
+	CopyBuffer(m_device->logicalDevice, queue,pool,
 		stagingBuffer, m_buffer, bufferBytes, writeBytesOffset);
 
 	//clean up staging buffer parts
@@ -147,18 +151,18 @@ void GpuVector<T>::writeTo(size_t writeSize,const void* data, size_t offset)
 }
 
 template <typename T>
-void GpuVector<T>::resize(size_t size)
+void GpuVector<T>::resize(size_t size, VkQueue queue, VkCommandPool pool)
 {
 	std::cout << "[GpuVector<T>::resize] " << "Resizing from " << m_size << " to " << size << "\n";
-	reserve(size);
+	reserve(size, queue, pool);
 	m_size = size;	
 }
 
 template <typename T>
-void GpuVector<T>::reserve(size_t size)
+void GpuVector<T>::reserve(size_t size, VkQueue queue, VkCommandPool pool)
 {
-
 	if (size < m_capacity) return;
+	PROFILE_SCOPED();
 
 	using namespace oGFX;
 	VkDeviceSize bufferSize = size * sizeof(T);
@@ -173,15 +177,21 @@ void GpuVector<T>::reserve(size_t size)
 
 	if (m_size != 0)
 	{
-		CopyBuffer(m_device->logicalDevice, m_device->graphicsQueue, m_device->commandPool, m_buffer, tempBuffer, m_size* sizeof(T));
+		CopyBuffer(m_device->logicalDevice, queue, pool, m_buffer, tempBuffer, m_size* sizeof(T));
 	}
 
 	//clean up old buffer
+	// stall here -- doesnt matter because this will never happen in final product
+	vkDeviceWaitIdle(m_device->logicalDevice);
 	vkDestroyBuffer(m_device->logicalDevice, m_buffer, nullptr);
 	vkFreeMemory(m_device->logicalDevice, m_gpuMemory, nullptr);
 
 	m_buffer = tempBuffer;
 	m_gpuMemory = tempMemory;
+
+	// accumulate bytes
+	accumulatedBytes -= m_capacity;
+	accumulatedBytes += size;
 
 	m_capacity = size;
 

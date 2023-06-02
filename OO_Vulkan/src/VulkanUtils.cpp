@@ -91,7 +91,27 @@ namespace oGFX
 			}
 			i++;
 		}
+		//reset
+		i = 0;
+		for (const auto& queueFamily : queueFamilyList)
+		{
+			if (i == indices.graphicsFamily)
+			{
+				i++;
+				continue;
+			}
 
+			if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT)
+			{
+				//found queue family get the index
+				indices.transferFamily = i;
+				break;
+			}
+			i++;
+		}
+
+		indices.transferFamily = indices.transferFamily < 0 ? indices.graphicsFamily : indices.transferFamily;
+		
 		return indices;
 	}	   
 
@@ -515,6 +535,7 @@ namespace oGFX
 
 	VkCommandBuffer beginCommandBuffer(VkDevice device, VkCommandPool commandPool)
 	{
+
 		//command buffer to hold transfer commands
 		VkCommandBuffer commandBuffer;
 
@@ -527,6 +548,7 @@ namespace oGFX
 
 		//allocate command buffer from pool
 		vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+		//std::cout << " Begin comand buffer 2 " << commandBuffer << "\n";
 
 		//information to begin the command buffer record.
 		VkCommandBufferBeginInfo beginInfo{};
@@ -542,6 +564,7 @@ namespace oGFX
 	void endAndSubmitCommandBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkCommandBuffer commandBuffer)
 
 	{
+		//std::cout << " End comand buffer 2 " << commandBuffer << "\n";
 		// End commands
 		vkEndCommandBuffer(commandBuffer);
 
@@ -558,6 +581,7 @@ namespace oGFX
 
 		// Free temporary command buffer to pool
 		vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+		//std::cout << " Free comand buffer 2 " << commandBuffer << "\n";
 	}
 
 	void TransitionImageLayout(VkDevice device, VkQueue queue, VkCommandPool commandPool, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout)

@@ -18,6 +18,49 @@
     <ClCompile Include="..\vendor\imgui\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\vendor\imgui\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui\misc\cpp\imgui_stdlib.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\artery-font-export.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\bitmap-blit.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\charset-parser.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\Charset.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\csv-export.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\FontGeometry.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\glyph-generators.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\GlyphGeometry.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\image-encode.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\json-export.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\main.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\RectanglePacker.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\shadron-preview-generator.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\size-selectors.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\TightAtlasPacker.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\utf8.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\Workload.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\contour-combiners.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\Contour.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\edge-coloring.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\edge-segments.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\edge-selectors.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\EdgeHolder.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\equation-solver.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\msdf-error-correction.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\MSDFErrorCorrection.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\msdfgen.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\Projection.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\rasterization.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\render-sdf.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\save-bmp.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\save-tiff.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\Scanline.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\sdf-error-estimation.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\shape-description.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\Shape.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\SignedDistance.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\Vector2.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\ext\import-font.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\ext\resolve-shape-geometry.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\ext\save-png.cpp" />
+    <ClCompile Include="src\Font.cpp" />
     <ClCompile Include="src\DebugDraw.cpp" />
     <ClCompile Include="src\DelayedDeleter.cpp" />
     <ClCompile Include="src\BspTree.cpp" />
@@ -30,10 +73,12 @@
     <ClCompile Include="src\GraphicsWorld.cpp" />
     <ClCompile Include="src\IcoSphereCreator.cpp" />
     <ClCompile Include="src\Input.cpp" />
+    <ClCompile Include="src\renderpass\BloomPass.cpp" />
     <ClCompile Include="src\renderpass\DebugRenderpass.cpp" />
     <ClCompile Include="src\renderpass\DeferredCompositionRenderpass.cpp" />
     <ClCompile Include="src\GfxRenderpass.cpp" />
     <ClCompile Include="src\renderpass\ForwardParticlePass.cpp" />
+    <ClCompile Include="src\renderpass\ForwardUIPass.cpp" />
     <ClCompile Include="src\renderpass\GBufferRenderPass.cpp" />
     <ClCompile Include="src\BoudingVolume.cpp" />
     <ClCompile Include="src\DescriptorBuilder.cpp" />
@@ -71,8 +116,10 @@
     <ClCompile Include="src\VulkanSwapchain.cpp" />
     <ClCompile Include="src\VulkanBuffer.cpp" />
     <ClCompile Include="src\loader\tinyddsloader.cpp" />
+    <ClCompile Include="src\TexturePacker.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Font.h" />
     <ClInclude Include="src\DebugDraw.h" />
     <ClInclude Include="src\DelayedDeleter.h" />
     <ClInclude Include="src\BitContainer.h" />
@@ -85,10 +132,12 @@
     <ClInclude Include="src\GraphicsWorld.h" />
     <ClInclude Include="src\IcoSphereCreator.h" />
     <ClInclude Include="src\Input.h" />
+    <ClInclude Include="src\renderpass\BloomPass.h" />
     <ClInclude Include="src\renderpass\DebugRenderpass.h" />
     <ClInclude Include="src\renderpass\DeferredCompositionRenderpass.h" />
     <ClInclude Include="src\GfxRenderpass.h" />
     <ClInclude Include="src\renderpass\ForwardParticlePass.h" />
+    <ClInclude Include="src\renderpass\ForwardUIPass.h" />
     <ClInclude Include="src\renderpass\GBufferRenderPass.h" />
     <ClInclude Include="src\BoudingVolume.h" />
     <ClInclude Include="src\DescriptorBuilder.h" />
@@ -139,12 +188,10 @@
     <ClInclude Include="src\VulkanSwapchain.h" />
     <ClInclude Include="src\VulkanBuffer.h" />
     <ClInclude Include="src\loader\tinyddsloader.h" />
+    <ClInclude Include="src\TexturePacker.h" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="glm.natvis" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="shaders\lights.shader" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -257,7 +304,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)src/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -272,6 +319,9 @@
       <Command>
       </Command>
     </PreBuildEvent>
+    <Lib>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -279,7 +329,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)src/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>

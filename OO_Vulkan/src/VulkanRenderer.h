@@ -34,6 +34,7 @@ Technology is prohibited.
 #include "DescriptorLayoutCache.h"
 #include "FramebufferCache.h"
 #include "Geometry.h"
+#include "Collision.h"
 
 #include "Camera.h"
 
@@ -44,10 +45,16 @@ Technology is prohibited.
 #include "GraphicsWorld.h"
 #include "GraphicsBatch.h"
 
+#include "TexturePacker.h"
+#include "Font.h"
+
 #include <vector>
 #include <array>
 #include <set>
 #include <string>
+#include <mutex>
+#include <deque>
+#include <functional>
 
 struct Window;
 
@@ -73,6 +80,12 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout SSAOBlur;
 
 	inline static VkDescriptorSetLayout util_fullscreenBlit;
+
+	inline static VkDescriptorSetLayout compute_singleTexture;
+	inline static VkDescriptorSetLayout compute_doubleImageStore;
+	inline static VkDescriptorSetLayout compute_shadowPrepass;
+	inline static VkDescriptorSetLayout compute_singleSSBO;
+
 };
 
 // Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...
@@ -84,6 +97,10 @@ struct PSOLayoutDB
 	inline static VkPipelineLayout forwardDecalPSOLayout;
 	inline static VkPipelineLayout SSAOPSOLayout;
 	inline static VkPipelineLayout SSAOBlurLayout;
+	inline static VkPipelineLayout BloomLayout; 
+	inline static VkPipelineLayout doubleImageStoreLayout; 
+	inline static VkPipelineLayout singleSSBOlayout; 
+	inline static VkPipelineLayout shadowPrepassLayout; 
 };
 
 // Moving all constant buffer structures into this CB namespace.
@@ -121,18 +138,22 @@ namespace CB
 class VulkanRenderer
 {
 public:
+
 	static VulkanRenderer* s_vulkanRenderer;
 
+	inline static uint64_t totalTextureSizeLoaded = 0;
 	static constexpr int MAX_FRAME_DRAWS = 2;
 	static constexpr int MAX_OBJECTS = 2048;
 	static constexpr VkFormat G_DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT_S8_UINT;
-	static constexpr VkFormat G_HDR_FORMAT = VK_FORMAT_R32G32B32A32_SFLOAT;
+	static constexpr VkFormat G_HDR_FORMAT = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
 
 	static int ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface);
 
 #define OBJECT_INSTANCE_COUNT 128
 
 	 PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName{ nullptr };
+	 PFN_vkCmdDebugMarkerBeginEXT pfnDebugMarkerRegionBegin{ nullptr };
+	 PFN_vkCmdDebugMarkerEndEXT pfnDebugMarkerRegionEnd{ nullptr };
 
 	~VulkanRenderer();
 
@@ -242,13 +263,15 @@ public:
 	void DestroyRenderBuffers();
 	void GenerateCPUIndirectDrawCommands();
 	void UploadInstanceData();
+	void UploadUIData();
 	uint32_t objectCount{};
 	// Contains the instanced data
-	vkutils::Buffer instanceBuffer;
+	GpuVector<oGFX::InstanceData> instanceBuffer[MAX_FRAME_DRAWS];
 
 	bool PrepareFrame();
 	void BeginDraw();
 	void RenderFrame();
+	void RenderFunc(bool shouldRunDebugDraw);
 	void Present();
 
 	void UpdateUniformBuffers();
@@ -260,6 +283,12 @@ public:
 
 	uint32_t CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData);
 	uint32_t CreateTexture(const std::string& fileName);
+	bool ReloadTexture(uint32_t textureID, const std::string& file);
+	void UnloadTexture(uint32_t textureID);
+
+	oGFX::Font* LoadFont(const std::string& filename);
+	oGFX::TexturePacker CreateFontAtlas(const std::string& filename, oGFX::Font& font);
+
 	struct TextureInfo
 	{
 		std::string name;
@@ -282,14 +311,24 @@ public:
 		uint32_t IdxOffset{};
 	};
 
+	std::mutex g_mut_globalMeshBuffers;
 	IndexedVertexBuffer g_GlobalMeshBuffers;
-	std::array<GpuVector<ParticleData>,3> g_particleDatas;
-	GpuVector<oGFX::IndirectCommand> g_particleCommandsBuffer{};
 
-	GpuVector<oGFX::DebugVertex> g_DebugDrawVertexBufferGPU;
-	GpuVector<uint32_t> g_DebugDrawIndexBufferGPU;
+	std::array<GpuVector<ParticleData>,3> g_particleDatas;
+	GpuVector<oGFX::IndirectCommand> g_particleCommandsBuffer[MAX_FRAME_DRAWS];
+
+	GpuVector<oGFX::DebugVertex>g_DebugDrawVertexBufferGPU[MAX_FRAME_DRAWS];
+	GpuVector<uint32_t> g_DebugDrawIndexBufferGPU[MAX_FRAME_DRAWS];
 	std::vector<oGFX::DebugVertex> g_DebugDrawVertexBufferCPU;
 	std::vector<uint32_t> g_DebugDrawIndexBufferCPU;
+
+	// ui pass
+	GpuVector<oGFX::UIVertex> g_UIVertexBufferGPU[MAX_FRAME_DRAWS];
+	GpuVector<uint32_t> g_UIIndexBufferGPU[MAX_FRAME_DRAWS];
+	std::array<GpuVector<UIData>,3> g_UIDatas;
+
+	ModelFileResource* GetDefaultCube();
+	oGFX::Font* GetDefaultFont();
 
 	ModelFileResource* LoadModelFromFile(const std::string& file);
 	ModelFileResource* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model);
@@ -304,6 +343,7 @@ public:
 	Window* windowPtr{ nullptr };
 
 	//textures
+	std::mutex g_mut_Textures;
 	std::vector<vkutils::Texture2D> g_Textures;
 	std::vector<ImTextureID> g_imguiIDs;
 
@@ -317,8 +357,8 @@ public:
 	uint32_t GetDefaultSpriteID();
 
 	// - Synchronisation
-	std::vector<VkSemaphore> imageAvailable;
-	std::vector<VkSemaphore> renderFinished;
+	std::vector<VkSemaphore> presentSemaphore;
+	std::vector<VkSemaphore> renderSemaphore;
 	std::vector<VkFence> drawFences;
 
 	// - Pipeline
@@ -330,12 +370,12 @@ public:
 	VulkanRenderpass renderPass_HDR_noDepth{};
 	VulkanRenderpass renderPass_blit{};
 
-	vkutils::Buffer indirectCommandsBuffer{};
-	GpuVector<oGFX::IndirectCommand> shadowCasterCommandsBuffer{};
+	GpuVector<oGFX::IndirectCommand> indirectCommandsBuffer[MAX_FRAME_DRAWS];
+	GpuVector<oGFX::IndirectCommand> shadowCasterCommandsBuffer[MAX_FRAME_DRAWS];
 	uint32_t indirectDrawCount{};
 
-	GpuVector<oGFX::BoneWeight> skinningVertexBuffer{};
-	GpuVector<LocalLightInstance> globalLightBuffer{};
+	GpuVector<oGFX::BoneWeight> skinningVertexBuffer;
+	GpuVector<LocalLightInstance> globalLightBuffer[MAX_FRAME_DRAWS];
 
 	// - Descriptors
 
@@ -347,15 +387,15 @@ public:
 
 	// SSBO
 	std::vector<glm::mat4> boneMatrices{};
-	GpuVector<glm::mat4> gpuBoneMatrixBuffer{};
+	GpuVector<glm::mat4> gpuBoneMatrixBuffer[MAX_FRAME_DRAWS];
 
 	// SSBO
 	std::vector<GPUTransform> gpuTransform{};
-	GpuVector<GPUTransform> gpuTransformBuffer;
+	GpuVector<GPUTransform> gpuTransformBuffer[MAX_FRAME_DRAWS];
 
 	// SSBO
 	std::vector<GPUObjectInformation> objectInformation;
-	GpuVector<GPUObjectInformation> objectInformationBuffer{};
+	GpuVector<GPUObjectInformation> objectInformationBuffer[MAX_FRAME_DRAWS];
 	
 	// SSBO
 	std::vector<VkBuffer> vpUniformBuffer{};
@@ -373,9 +413,14 @@ public:
 	// Store the indirect draw commands containing index offsets and instance count per object
 
 	//Scene objects
+	std::mutex g_mut_globalModels;
 	std::vector<gfxModel> g_globalModels;
 
+	std::deque<std::function<void()>> g_workQueue;
+
+	uint32_t frameCounter = 0;
 	uint32_t currentFrame = 0;
+	uint32_t getFrame() const;
 
 	uint64_t uboDynamicAlignment;
 	static constexpr uint32_t numCameras = 2;
@@ -434,20 +479,20 @@ public:
 		uint32_t bindlessGlobalTextureIndex_Roughness{ 0xFFFFFFFF };
 		uint32_t bindlessGlobalTextureIndex_Metallic{ 0xFFFFFFFF };
 
-		Sphere sphere;
-		AABB aabb;
+		oGFX::Sphere sphere;
+		oGFX::AABB aabb;
 
 		template <typename T>
 		float GetBVHeuristic();
 
 		template <>
-		float GetBVHeuristic<Sphere>()
+		float GetBVHeuristic<oGFX::Sphere>()
 		{
 			return glm::pi<float>()* sphere.radius* sphere.radius;
 		}
 
 		template <>
-		float GetBVHeuristic<AABB>()
+		float GetBVHeuristic<oGFX::AABB>()
 		{
 			const auto width  = aabb.halfExt[0];
 			const auto height = aabb.halfExt[1];
@@ -463,13 +508,16 @@ public:
 	private:
 		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);		
 		uint32_t CreateTextureImage(const std::string& fileName);
-		uint32_t AddBindlessGlobalTexture(vkutils::Texture2D texture);		
+		uint32_t UpdateBindlessGlobalTexture(uint32_t textureID);		
+
+		bool shadowsRendered{ false };
 
 		void InitDefaultPrimatives();
 		std::unique_ptr<ModelFileResource>def_cube;
 		std::unique_ptr<ModelFileResource>def_sprite;
 		std::unique_ptr<ModelFileResource>def_plane;
 		std::unique_ptr<ModelFileResource>def_sphere;
+		std::unique_ptr<oGFX::Font>def_font;
 
 };
 

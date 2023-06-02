@@ -19,6 +19,7 @@
 #include <crtdbg.h>
 
 #include <imgui/imgui.h>
+#include <imgui/misc/cpp/imgui_stdlib.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/backends/imgui_impl_win32.h>
 #include "ImGuizmo.h"
@@ -48,6 +49,7 @@
 #include "Camera.h"
 #include "CameraController.h"
 #include "DebugDraw.h"
+
 
 //#include "anim/SimpleAnim.h" // WR ONLY
 
@@ -118,12 +120,15 @@ struct EntityInfo
     uint32_t bindlessGlobalTextureIndex_Normal{ 0xFFFFFFFF };
     uint32_t bindlessGlobalTextureIndex_Roughness{ 0xFFFFFFFF };
     uint32_t bindlessGlobalTextureIndex_Metallic{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Emissive{ 0xFFFFFFFF };
     uint8_t instanceData{ 0 };
 
     int32_t gfxID; // gfxworld id
     std::bitset<MAX_SUBMESH>submeshes;
 
-    ObjectInstanceFlags flags{static_cast<ObjectInstanceFlags>(RENDER_ENABLED | SHADOW_RECEIVER | SHADOW_CASTER)};
+    ObjectInstanceFlags flags{static_cast<ObjectInstanceFlags>(ObjectInstanceFlags::RENDER_ENABLED 
+        | ObjectInstanceFlags::SHADOW_RECEIVER 
+        | ObjectInstanceFlags::SHADOW_CASTER)};
 
     oGFX::CPUSkeletonInstance* localSkeleton;
 
@@ -192,7 +197,7 @@ private:
 
 void CreateGraphicsEntityHelper(EntityInfo& ei)
 {
-    AABB ab;
+    oGFX::AABB ab;
 
     //UpdateBV(gs_RenderEngine->models[e.modelID].cpuModel, e);
     ObjectInstance o{};
@@ -205,6 +210,7 @@ void CreateGraphicsEntityHelper(EntityInfo& ei)
 	o.bindlessGlobalTextureIndex_Normal = ei.bindlessGlobalTextureIndex_Normal;
 	o.bindlessGlobalTextureIndex_Roughness = ei.bindlessGlobalTextureIndex_Roughness;
 	o.bindlessGlobalTextureIndex_Metallic = ei.bindlessGlobalTextureIndex_Metallic;
+	o.bindlessGlobalTextureIndex_Emissive= ei.bindlessGlobalTextureIndex_Emissive;
     o.instanceData = ei.instanceData;
 	o.localToWorld = ei.getLocalToWorld();
 	o.modelID = ei.modelID;
@@ -277,6 +283,32 @@ void TestApplication::Run()
         return;
     }
 
+    std::unique_ptr<oGFX::Font>testFont (gs_RenderEngine->LoadFont("../Application/fonts/Roboto-Medium.ttf"));
+    {
+       // using namespace msdfgen;
+       // FreetypeHandle *ft = initializeFreetype();
+       // if (ft) {
+       //     FontHandle *font = loadFont(ft, "C:\\Windows\\Fonts\\arialbd.ttf");
+       //     if (font) {
+       //         Shape shape;
+       //         if (loadGlyph(shape, font, 'A')) {
+       //             shape.normalize();
+       //             //                      max. angle
+       //             edgeColoringSimple(shape, 3.0);
+       //             //           image width, height
+       //             Bitmap<float, 3> msdf(32, 32);
+       //             //                     range, scale, translation
+       //             generateMSDF(msdf, shape, 4.0, 1.0, Vector2(4.0, 4.0));
+       //             savePng(msdf, "output.png");
+       //         }
+       //         destroyFont(font);
+       //     }
+       //     deinitializeFreetype(ft);
+       // }
+    }
+
+   
+
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Textures
     //----------------------------------------------------------------------------------------------------
@@ -307,6 +339,19 @@ void TestApplication::Run()
     const BindlessTextureIndex r0 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
 
     const BindlessTextureIndex normalTexture0 = gs_RenderEngine->CreateTexture("Textures/7/n.png");
+    
+    std::array<BindlessTextureIndex,6> roughness{};
+    std::array<BindlessTextureIndex,6> metalic{};
+    for (size_t i = 0; i < roughness.size(); i++)
+    {
+        unsigned char col;
+        col = 0xFF/5;
+        col = col * i;
+        col = col << 24 | col << 16 | col << 8 | col;
+
+        roughness[i] = gs_RenderEngine->CreateTexture(1, 1, &col);
+        metalic[i] = gs_RenderEngine->CreateTexture(1, 1, &col);
+    }
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Models
     //----------------------------------------------------------------------------------------------------
@@ -402,24 +447,50 @@ void TestApplication::Run()
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
 
-        ed.bindlessGlobalTextureIndex_Albedo    = d0;
+        ed.bindlessGlobalTextureIndex_Albedo    = testFont->m_atlasID;
         ed.bindlessGlobalTextureIndex_Normal    = n0;
         ed.bindlessGlobalTextureIndex_Metallic  = m0;
         ed.bindlessGlobalTextureIndex_Roughness = r0;
+        ed.bindlessGlobalTextureIndex_Emissive= r0;
     }
 
+    bool lolthisistext = true;
+    uint32_t uiID = gs_GraphicsWorld.CreateUIInstance();
+    {        
+        auto& ent = gs_GraphicsWorld.GetUIInstance(uiID);
+        ent.entityID = 9999999;
+        ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;
+        ent.localToWorld = glm::mat4(1.0f);
+        ent.textData = "123 Come\nmake game";
+        ent.colour = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f);
+        //ent.fontAsset = testFont.get();
+        ent.format.box.max = { 20.0f,20.0f };
+        ent.format.box.min = { -20.0f,-20.0f };
+        ent.SetText(lolthisistext);
+        ent.flags = UIInstanceFlags(static_cast<uint32_t>(ent.flags)& ~static_cast<uint32_t>(UIInstanceFlags::RENDER_ENABLED));
+    }
+
+    const float gridSize = 1.3f;
+    const float halfGrid = roughness.size() * gridSize /2.0f;
+    for (size_t i = 0; i < roughness.size(); i++)
     {
-        //auto& ed = entities.emplace_back(EntityInfo{});
-        //ed.name = "Plane_Effects";
-        //ed.entityID = FastRandomMagic();
-        //ed.modelID = model_plane->meshResource;
-        //ed.position = { -2.0f,2.0f,0.0f };
-        //ed.scale = { 2.0f,1.0f,2.0f };
-        //ed.rot = 90.0f;
-        //ed.rotVec = { 1.0f,0.0f,0.0f };
-        //ed.instanceData = 3;
-    }
+        for (size_t y = 0; y < metalic.size(); y++)
+        {
+            auto& ed = entities.emplace_back(EntityInfo{});
+            ed.name = std::string("Sphere_") + std::to_string(i * metalic.size() + y);
+            ed.entityID = FastRandomMagic();
+            ed.modelID = model_sphere->meshResource;
+            ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
+            
+            ed.position = { gridSize*i - halfGrid,5.0f,gridSize*y - halfGrid };
+            ed.scale = { 1.0f,1.0f,1.0f };
 
+            ed.bindlessGlobalTextureIndex_Albedo    = gs_WhiteTexture;
+            ed.bindlessGlobalTextureIndex_Metallic  = metalic[y];
+            ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
+        }
+    }
+    
 
     if (gs_test_scene)
     {
@@ -511,6 +582,9 @@ void TestApplication::Run()
         ed.scale = { 0.1f,0.1f,0.1f };
         ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
         ed.flags = ObjectInstanceFlags((uint32_t)ed.flags|(uint32_t)ObjectInstanceFlags::SKINNED);
+        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_CASTER;
+        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_ENABLED;
+        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_RECEIVER;
         
     }
     std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
@@ -699,25 +773,73 @@ void TestApplication::Run()
             ImGui::Begin("Problems");
             ImGui::Checkbox("EditCam", &s_boolCamera);
             ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
+            if(ImGui::TreeNode("Bloom") ){
+                auto& cs = gs_GraphicsWorld.bloomSettings;
+                ImGui::DragFloat("bloom thresh", &cs.threshold,0.001f,0.0f,1.0f);
+                ImGui::DragFloat("soft thresh", &cs.softThreshold,0.001f,0.0f,1.0f);
+
+                ImGui::TreePop();
+            }
+            if(ImGui::TreeNode("ColourCorreciton") ){
+                auto& cs = gs_GraphicsWorld.colourSettings;
+                ImGui::DragFloat("shadowThresh", &cs.shadowThreshold,0.001f,0.0f,1.0f);
+                ImGui::DragFloat("highThresh", &cs.highlightThreshold,0.001f,0.0f,1.0f);
+                ImGui::ColorEdit4("shadow", glm::value_ptr(cs.shadowColour));
+                ImGui::ColorEdit4("mid", glm::value_ptr(cs.midtonesColour));
+                ImGui::ColorEdit4("high", glm::value_ptr(cs.highlightColour));
+
+                ImGui::TreePop();
+            }
+            if(ImGui::TreeNode("vignette") ){
+                auto& vs = gs_GraphicsWorld.vignetteSettings;
+                ImGui::ColorEdit4("vigCol", glm::value_ptr(vs.colour));
+                ImGui::DragFloat("innerRadius", &vs.innerRadius,0.01f);
+                ImGui::DragFloat("outerRadius", &vs.outerRadius,0.01f);
+
+                ImGui::TreePop();
+            }
+            
             if (ImGui::Button("Cause problems"))
             {
                 uint32_t col = 0x00FFFF00;
                 gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&col);
                 
             }
+            {
+                ImGui::PushID("uiID");
+                auto& ent = gs_GraphicsWorld.GetUIInstance(uiID);
+                ent.localToWorld = glm::mat4(1.0f);
+                if (ImGui::Checkbox("isText", &lolthisistext))
+                {
+                    ent.SetText(lolthisistext);
+                }
+
+                //ImGui::DragFloat3("Position", glm::value_ptr(ent.position));
+                //ImGui::DragFloat3("Scale", glm::value_ptr(ent.scale));
+                ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;              
+                ImGui::InputText("Text", &ent.textData);
+                ent.textData = "123 Come\nmake game";
+                float fontsize = ent.format.fontSize;
+                if (ImGui::DragFloat("FontSize", &fontsize))
+                {
+                    ent.format.fontSize = fontsize;
+                }
+                ImGui::ColorPicker4("Colour",glm::value_ptr(ent.colour ));
+                ImGui::DragFloat2("Bmin", glm::value_ptr(ent.format.box.min));
+                ImGui::DragFloat2("Bmax", glm::value_ptr(ent.format.box.max));
+                ImGui::PopID();
+                oGFX::AABB aabb;
+                aabb.halfExt = glm::vec3{ (ent.format.box.max - ent.format.box.min) / 2.0f,0.0f };
+                //oGFX::DebugDraw::AddAABB(aabb);
+            }
             ImGui::End();
 
             static bool ManyCamera{ true };
+            gs_GraphicsWorld.numCameras = 2;
+            ManyCamera = gs_GraphicsWorld.shouldRenderCamera[1];
             if (ImGui::Checkbox("Many camera", &ManyCamera))
             {
-                if (ManyCamera)
-                {
-                    gs_GraphicsWorld.numCameras = 2;
-                }
-                else
-                {
-                    gs_GraphicsWorld.numCameras = 1;
-                }
+                gs_GraphicsWorld.shouldRenderCamera[1] = ManyCamera;
             }
 
             //if (Input::GetKeyTriggered(KEY_P))
@@ -884,45 +1006,45 @@ void TestApplication::RunTest_DebugDraw()
 {
     if (m_TestDebugDrawLine)
     {
-        DebugDraw::AddLine(glm::vec3{ 2.0f, 0.0f, 2.0f}, glm::vec3{ 0.0f, 10.0f, 0.0f }, oGFX::Colors::GREEN);
+        oGFX::DebugDraw::AddLine(glm::vec3{ 2.0f, 0.0f, 2.0f}, glm::vec3{ 0.0f, 10.0f, 0.0f }, oGFX::Colors::GREEN);
     }
 
     if (m_TestDebugDrawBox)
 	{
-		AABB aabb;
+		oGFX::AABB aabb;
 		aabb.center = { 0.0f,1.0f,0.0f };
 		aabb.halfExt = { 1.0f,1.0f,1.0f };
-		DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
+		oGFX::DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
 	}
 
 	if (m_TestDebugDrawDisc)
 	{
-        DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::RED);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::GREEN);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 3.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,1.0f }, oGFX::Colors::YELLOW);
+        oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::RED);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 0.0f,0.0f,1.0f }, oGFX::Colors::GREEN);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 1.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::RED);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 2.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,0.0f }, oGFX::Colors::GREEN);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, 0.0f }, 3.0f, { 0.0f,1.0f,0.0f }, { 1.0f,0.0f,1.0f }, oGFX::Colors::YELLOW);
 
-		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,1.0f,0.0f }, oGFX::Colors::YELLOW);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,0.0f,1.0f }, oGFX::Colors::BLUE);
-		DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 1.0f,0.0f,0.0f }, oGFX::Colors::VIOLET);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,1.0f,0.0f }, oGFX::Colors::YELLOW);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 0.0f,0.0f,1.0f }, oGFX::Colors::BLUE);
+		oGFX::DebugDraw::AddDisc({ 0.0f, 1.0f, -5.0f }, 1.0f, { 1.0f,0.0f,0.0f }, oGFX::Colors::VIOLET);
 
-		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -3.0f, 1.0f, -5.0f }, 1.0f, gs_GraphicsWorld.cameras.front().m_position, oGFX::Colors::GREEN);
-		DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_GraphicsWorld.cameras.front().m_position, oGFX::Colors::RED);
+		oGFX::DebugDraw::AddSphereAs3Disc1HorizonDisc({ -3.0f, 1.0f, -5.0f }, 1.0f, gs_GraphicsWorld.cameras.front().m_position, oGFX::Colors::GREEN);
+		oGFX::DebugDraw::AddSphereAs3Disc1HorizonDisc({ -5.0f, 1.0f, -5.0f }, 1.0f, gs_GraphicsWorld.cameras.front().m_position, oGFX::Colors::RED);
 	}
 
     if (m_TestDebugDrawGrid)
     {
-        DebugDraw::DrawYGrid(100.0f,10.0f);
+        oGFX::DebugDraw::DrawYGrid(100.0f,10.0f);
     }
 
     if(character_diona)
     {
-        AABB aabb;
+        oGFX::AABB aabb;
         aabb.halfExt = glm::vec3{ 0.02f };
-        Point3D prevpos;
+        oGFX::Point3D prevpos;
 
         auto& diona = entities[globalDionaID];
         auto& gfxO = gs_GraphicsWorld.GetObjectInstance(diona.gfxID);
@@ -995,14 +1117,14 @@ void TestApplication::RunTest_DebugDraw()
                    return;
 
                aabb.center = pBoneNode->mModelSpaceGlobal * glm::vec4(0.0f,0.0f,0.0f,1.0f);
-               DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
+               //oGFX::DebugDraw::AddAABB(aabb, oGFX::Colors::GREEN);
 
                // Recursion through all children nodes, passing in the current global transform.
                for (unsigned i = 0; i < pBoneNode->mChildren.size(); i++)
                {
                    oGFX::BoneNode* child = pBoneNode->mChildren[i];
                    auto pos = child->mModelSpaceGlobal * glm::vec4(0.0f,0.0f,0.0f,1.0f);
-                   DebugDraw::AddLine(aabb.center, pos, oGFX::Colors::RED);
+                   //oGFX::DebugDraw::AddLine(aabb.center, pos, oGFX::Colors::RED);
                    func(func, child);
                }
            };
@@ -1020,7 +1142,7 @@ void TestApplication::RunTest_DebugDraw()
         // Update world space global skeleton pose.
         simpleanim::UpdateLocalToGlobalSpace(skinnedMesh_alibaba.get());
 
-        AABB aabb;
+        oGFX::AABB aabb;
         aabb.halfExt = { 0.01f,0.01f,0.01f };
 
         // Trivial and unoptimized method
@@ -1107,6 +1229,7 @@ void TestApplication::ToolUI_Camera()
 void TestApplication::ToolUI_Settings()
 {
 	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Application");
+    ImGui::Text("gpu vector bytes : %llu", accumulatedBytes);
 	ImGui::Text("m_ApplicationFrame : %u", m_ApplicationFrame);
 	ImGui::Text("m_ApplicationTimer : %f", m_ApplicationTimer);
 	ImGui::Text("m_ApplicationDT    : %f", m_ApplicationDT);
@@ -1118,12 +1241,12 @@ void TestApplication::ToolUI_Settings()
 	ImGui::Separator();
 	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Render Engine");
 	ImGui::Checkbox("m_DebugDrawDepthTest", &gs_RenderEngine->m_DebugDrawDepthTest);
-	ImGui::Text("g_DebugDrawVertexBufferGPU.size() : %u", gs_RenderEngine->g_DebugDrawVertexBufferGPU.size());
-	ImGui::Text("g_DebugDrawIndexBufferGPU.size()  : %u", gs_RenderEngine->g_DebugDrawIndexBufferGPU.size());
+	ImGui::Text("g_DebugDrawVertexBufferGPU.size() : %u", gs_RenderEngine->g_DebugDrawVertexBufferGPU[0].size());
+	ImGui::Text("g_DebugDrawIndexBufferGPU.size()  : %u", gs_RenderEngine->g_DebugDrawIndexBufferGPU[0].size());
 	ImGui::Text("g_Textures.size()                 : %u", gs_RenderEngine->g_Textures.size());
 	ImGui::Text("g_GlobalMeshBuffers.VtxBuffer.size() : %u", gs_RenderEngine->g_GlobalMeshBuffers.VtxBuffer.size());
 	ImGui::Text("g_GlobalMeshBuffers.IdxBuffer.size() : %u", gs_RenderEngine->g_GlobalMeshBuffers.IdxBuffer.size());
-	ImGui::Text("g_BoneMatrixBuffers.size() : %u", gs_RenderEngine->gpuBoneMatrixBuffer.size());
+	ImGui::Text("g_BoneMatrixBuffers.size() : %u", gs_RenderEngine->gpuBoneMatrixBuffer[0].size());
 	ImGui::Text("boneMatrices.size() : %u", gs_RenderEngine->boneMatrices.size());
 	ImGui::Separator();
     {
@@ -1359,17 +1482,17 @@ void TestApplication::Tool_HandleUI()
 						valuesModified |= ImGui::DragFloat3("Rotation Axis", glm::value_ptr(entity.rotVec));
 						valuesModified |= ImGui::DragFloat("Theta", &entity.rot);
 
-                        bool renderMe = entity.flags & RENDER_ENABLED;
+                        bool renderMe = static_cast<bool>(entity.flags & ObjectInstanceFlags::RENDER_ENABLED);
                         if (ImGui::Checkbox("Renderable", &renderMe))
                         {
                             valuesModified |= true;
                             if (renderMe)
                             {
-                                entity.flags = entity.flags | RENDER_ENABLED;
+                                entity.flags = entity.flags | ObjectInstanceFlags::RENDER_ENABLED;
                             }
                             else
                             {
-                                auto inv = (~RENDER_ENABLED);
+                                auto inv = (~ObjectInstanceFlags::RENDER_ENABLED);
                                 entity.flags = entity.flags &inv;
                             }
                         }
@@ -1382,7 +1505,7 @@ void TestApplication::Tool_HandleUI()
 						ImGui::PopID();
 
 
-                        if (entity.flags & ObjectInstanceFlags::SKINNED)
+                        if (static_cast<bool>(entity.flags & ObjectInstanceFlags::SKINNED))
                         {
                             if(ImGui::TreeNode("Bones"))
                             {
@@ -1457,6 +1580,7 @@ void TestApplication::Tool_HandleUI()
                     for (auto& light : gs_RenderEngine->currWorld->GetAllOmniLightInstances())
                     {
 					ImGui::PushID(i++);
+                    SetLightEnabled(light,true);
                         ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.01f);
                         {
                             if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
@@ -1470,6 +1594,7 @@ void TestApplication::Tool_HandleUI()
                             }
                         }
                         ImGui::DragFloat3("Color", glm::value_ptr(light.color),0.1f,0.0f,1.0f);
+                        ImGui::DragFloat("Intensity", &light.color.a);
                         ImGui::DragFloat("Radius", &light.radius.x,0.1f,0.0f);
                         {
                             bool sh = GetCastsShadows(light);
@@ -1519,9 +1644,11 @@ void InitLights(int32_t* someLights)
             lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
         }
         // put here so we can edit the light values
-        lights[0]->position = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
-        lights[0]->color = glm::vec4(1.5f);
-        lights[0]->radius.x = 15.0f;
+        lights[0]->position = glm::vec4(0.0f, 3.0f, 1.0f, 0.0f);
+        lights[0]->color = glm::vec4(1.0f);
+        lights[0]->radius.x = 30.0f;
+        lights[0]->color.a = 90.0f; //intensity
+        SetCastsShadows(*lights[0], true);
 
         return;
         // Red   

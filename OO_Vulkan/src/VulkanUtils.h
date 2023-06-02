@@ -59,6 +59,19 @@ namespace oGFX::vkutils::tools
 }while(0)
 #endif // !VK_CHK
 
+#define ENUM_OPERATORS_GEN(TYPE, CAST) \
+inline TYPE operator|(TYPE a, TYPE b)\
+{\
+    return static_cast<TYPE>(static_cast<CAST>(a) | static_cast<CAST>(b));\
+}\
+inline TYPE operator&(TYPE a, TYPE b)\
+{\
+    return static_cast<TYPE>(static_cast<CAST>(a) & static_cast<CAST>(b));\
+}\
+inline TYPE operator~(TYPE a)\
+{\
+    return static_cast<TYPE>(~static_cast<CAST>(a));\
+}
 
 VkDebugReportObjectTypeEXT GetDebugNameExtTypeByID(std::type_index id);
 
@@ -105,6 +118,7 @@ namespace oGFX
 	{
 		int graphicsFamily = -1; //location of graphics queue family //as per vulkan standard, if we have a graphics family, we have a transfer family
 		int presentationFamily = -1;
+		int transferFamily = -1;
 
 		//check if queue familities are valid
 		bool isValid()
@@ -135,6 +149,16 @@ namespace oGFX
 		glm::vec3 col{0.0f,1.0f,0.0f}; // Vertex colour (r, g, b)
 		glm::vec2 tex{}; // Texture Coords(u,v)
 		glm::vec3 tangent{}; // Vertex normal (x, y, z)
+	};
+
+	struct UIVertex
+	{
+		//float pos[3] ; // Vertex position (x, y, z)
+		//float col[3] ; // Vertex colour (r, g, b)
+		//float tex[2] ; // Texture Coords(u,v)
+		glm::vec4 pos{0.0f}; // Vertex position (x, y, z)
+		glm::vec4 tex{}; // Texture Coords(u,v) , imageID , entity
+		glm::vec4 col{};
 	};
 
 	struct DebugVertex
@@ -653,6 +677,16 @@ namespace oGFX
 				return pipelineCreateInfo;
 			}
 
+			inline VkComputePipelineCreateInfo computeCreateInfo(
+				VkPipelineLayout layout, 
+				VkPipelineCreateFlags flags = 0)
+			{
+				VkComputePipelineCreateInfo computePipelineCreateInfo {};
+				computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+				computePipelineCreateInfo.layout = layout;
+				computePipelineCreateInfo.flags = flags;
+				return computePipelineCreateInfo;
+			}
 
 			inline VkCommandBufferBeginInfo commandBufferBeginInfo()
 			{

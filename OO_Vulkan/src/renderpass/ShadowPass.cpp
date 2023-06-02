@@ -67,10 +67,10 @@ void ShadowPass::Draw()
 	auto& device = vr.m_device;
 	auto& swapchain = vr.m_swapchain;
 	auto& commandBuffers = vr.commandBuffers;
-	auto& swapchainIdx = vr.swapchainIdx;
+	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-    const VkCommandBuffer cmdlist = commandBuffers[swapchainIdx];
+    const VkCommandBuffer cmdlist = commandBuffers[currFrame];
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("Shadow");
 
@@ -97,7 +97,7 @@ void ShadowPass::Draw()
 	
 	const float vpHeight = (float)shadowmapSize.height;
 	const float vpWidth = (float)shadowmapSize.width;
-	rhi::CommandList cmd{ cmdlist };
+	rhi::CommandList cmd{ cmdlist, "Shadow Pass"};
 	cmd.BindPSO(pso_ShadowDefault);
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
@@ -106,20 +106,21 @@ void ShadowPass::Draw()
 		std::array<VkDescriptorSet, 3>
 		{
 			vr.descriptorSet_gpuscene,
-			vr.descriptorSets_uniform[swapchainIdx],
+			vr.descriptorSets_uniform[currFrame],
 			vr.descriptorSet_bindless
 		},
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		1, &dynamicOffset
 	);
 
 	// Bind merged mesh vertex & index buffers, instancing buffers.
 	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
 	cmd.BindVertexBuffer(BIND_POINT_WEIGHTS_BUFFER_ID, 1, vr.skinningVertexBuffer.getBufferPtr());
-	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, &vr.instanceBuffer.buffer);
+	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer[currFrame].getBufferPtr());
 	cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
 	// calculate shadowmap grid dim
-	float smGridDim = ceilf(sqrtf(vr.m_numShadowcastLights));
+	float smGridDim = ceilf(sqrtf(static_cast<float>(vr.m_numShadowcastLights)));
 	
 	glm::vec2 increment{ vpWidth, vpHeight};
 	if (smGridDim)
@@ -129,13 +130,13 @@ void ShadowPass::Draw()
 
 	if (vr.m_numShadowcastLights > 0)
 	{
-		int i = 0;
-		int viewIter = 0;
+		
 		for (auto& light: vr.currWorld->GetAllOmniLightInstances())
 		{
-			++viewIter;
+			if (GetLightEnabled(light) == false) continue;
+
 			// not a shadow casting light skip
-			if (light.info.x < 1) continue;
+			if (GetCastsShadows(light) == false) continue;
 
 			// this is an omnilight
 			if (light.info.x == 1)
@@ -143,14 +144,14 @@ void ShadowPass::Draw()
 				constexpr size_t cubeFaces = 6;
 				for (size_t face = 0; face < cubeFaces; face++)
 				{
-					int lightGrid = light.info.y + face;
+					int lightGrid = light.info.y + static_cast<int>(face);
 					// set custom viewport for each view
-					int ly = lightGrid / smGridDim;
-					int lx = lightGrid - (ly * smGridDim);
+					int ly = static_cast<int>(lightGrid / smGridDim);
+					int lx = static_cast<int>(lightGrid - (ly * smGridDim));
 					vec2 customVP = increment * glm::vec2{ lx,smGridDim - ly };
 
-					light.info.z = customVP.x; // this is actually wasted
-					light.info.w = customVP.y; // this is actually wasted
+					//light.info.z = customVP.x; // this is actually wasted
+					//light.info.w = customVP.y; // this is actually wasted
 
 					//cmd.SetViewport(VkViewport{ 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f });
 					//cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpWidth , (uint32_t)vpHeight } });
@@ -184,12 +185,10 @@ void ShadowPass::Draw()
 						sizeof(glm::mat4),			// size of data being pushed
 						glm::value_ptr(mm));		// actualy data being pushed (could be an array));
 
-					cmd.DrawIndexedIndirect(vr.shadowCasterCommandsBuffer.m_buffer, 0, vr.shadowCasterCommandsBuffer.size());
+					cmd.DrawIndexedIndirect(vr.shadowCasterCommandsBuffer[currFrame].m_buffer, 0, static_cast<uint32_t>(vr.shadowCasterCommandsBuffer[currFrame].size()));
 				}
-				++i;
-			}
-
-			
+				
+			}			
 		}		
 	}
 
@@ -286,6 +285,7 @@ void ShadowPass::SetupFramebuffer()
 	VkImageView depthView = shadow_depth.view;
 
 	VkFramebuffer fb;
+	UNREFERENCED_PARAMETER(fb);
 	//FramebufferBuilder::Begin(&vr.fbCache)
 	//	.BindImage(&shadow_depth)
 	//	.Build(fb,renderpass_Shadow);

@@ -33,10 +33,18 @@ Technology is prohibited.
 
 VulkanDevice::~VulkanDevice()
 {
-    if (commandPool)
+    for (size_t i = 0; i < 2; i++)
     {
-        vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+        if (commandPools[i])
+        {
+            vkDestroyCommandPool(logicalDevice, commandPools[i], nullptr);
+        }
+        if (transferPools[i])
+        {
+            vkDestroyCommandPool(logicalDevice, transferPools[i], nullptr);
+        }
     }
+    
     // no need destory phys device
 	if (logicalDevice)
 	{
@@ -74,7 +82,7 @@ void VulkanDevice::InitPhysicalDevice(const oGFX::SetupInfo& si, VulkanInstance&
 		{
 			memory = props.limits.maxComputeWorkGroupInvocations;
 			std::swap(deviceList[i], deviceList[best]);
-			best = i;
+            best = static_cast<uint32_t>(i);
 		}
 	}
 
@@ -107,16 +115,15 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
 
     //vector for queue creation information and set for family indices
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<int> queueFamilyIndices = { indices.graphicsFamily,indices.presentationFamily };
+    std::set<int> queueFamilyIndices = { indices.graphicsFamily,indices.presentationFamily, indices.transferFamily };
 
     //queues the logical device needs to create in the info to do so.
     for (int queueFamilyIndex : queueFamilyIndices)
     {
-        (void)queueFamilyIndex;
         VkDeviceQueueCreateInfo queueCreateInfo = {};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         //the index of the family to create a queue from
-        queueCreateInfo.queueFamilyIndex = indices.graphicsFamily;
+        queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
         //number of queues to create
         queueCreateInfo.queueCount = 1;
         //vulkan needs to know how to handle multiple queues and thus we need a priority, 1.0 is the highest priority
@@ -174,6 +181,7 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
     descriptor_indexing_features.runtimeDescriptorArray = VK_TRUE;
     descriptor_indexing_features.descriptorBindingVariableDescriptorCount = VK_TRUE;
     descriptor_indexing_features.descriptorBindingPartiallyBound = VK_TRUE;
+    descriptor_indexing_features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE; // needed for image descriptors
 
     deviceCreateInfo.pNext = &descriptor_indexing_features;
     descriptor_indexing_features.pNext = &shaderDrawFeatures;
@@ -195,20 +203,32 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
     // From given logical device of given queue family of given index, place reference in VKqueue
     vkGetDeviceQueue(logicalDevice, indices.graphicsFamily, 0, &graphicsQueue);
     vkGetDeviceQueue(logicalDevice, indices.presentationFamily, 0, &presentationQueue);
+    vkGetDeviceQueue(logicalDevice, indices.transferFamily, 0, &transferQueue);
 
     VkCommandPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolInfo.queueFamilyIndex = indices.graphicsFamily; //Queue family type that buffers from this command pool will use
 
-    //create a graphics queue family command pool
-    result = vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool);
-    VK_NAME(logicalDevice, "commandPool", commandPool);
-    if (result != VK_SUCCESS)
+    commandPools.resize(2);
+    transferPools.resize(2);
+    for (size_t i = 0; i < 2; i++)
     {
-        std::cerr << "Failed to create a command pool!" << std::endl;
-        throw std::runtime_error("Failed to create a command pool!");
+        //create a graphics queue family command pool
+        poolInfo.queueFamilyIndex = indices.graphicsFamily; //Queue family type that buffers from this command pool will use
+        result = vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPools[i]);
+        VK_NAME(logicalDevice, "commandPool", commandPools[i]);
+
+        poolInfo.queueFamilyIndex = indices.transferFamily;
+        result = vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &transferPools[i]);
+        VK_NAME(logicalDevice, "transferPool", transferPools[i]);
+        if (result != VK_SUCCESS)
+        {
+            std::cerr << "Failed to create a command pool!" << std::endl;
+            throw std::runtime_error("Failed to create a command pool!");
+        }
     }
+  
 
 }
 
@@ -348,10 +368,10 @@ VkCommandBuffer VulkanDevice::CreateCommandBuffer(VkCommandBufferLevel level, Vk
     return cmdBuffer;
 }
 
-VkCommandBuffer VulkanDevice::CreateCommandBuffer(VkCommandBufferLevel level, bool begin)
-{
-    return CreateCommandBuffer(level, commandPool, begin);
-}
+//VkCommandBuffer VulkanDevice::CreateCommandBuffer(VkCommandBufferLevel level, bool begin)
+//{
+//    return CreateCommandBuffer(level, commandPool, begin);
+//}
 
 void VulkanDevice::FlushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool pool, bool free)
 {
@@ -381,16 +401,16 @@ void VulkanDevice::FlushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue que
     }
 }
 
-void VulkanDevice::FlushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, bool free)
-{
-    return FlushCommandBuffer(commandBuffer, queue, commandPool, free);
-}
+//void VulkanDevice::FlushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, bool free)
+//{
+//    return FlushCommandBuffer(commandBuffer, queue, commandPool, free);
+//}
 
 void VulkanDevice::CopyBuffer(vkutils::Buffer* src, vkutils::Buffer* dst, VkQueue queue, VkBufferCopy* copyRegion)
 {
     assert(dst->size >= src->size);
     assert(src->buffer);
-    VkCommandBuffer copyCmd = CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+    VkCommandBuffer copyCmd = CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, commandPools[0], true);
     VkBufferCopy bufferCopy{};
     if (copyRegion == nullptr)
     {
@@ -403,7 +423,7 @@ void VulkanDevice::CopyBuffer(vkutils::Buffer* src, vkutils::Buffer* dst, VkQueu
 
     vkCmdCopyBuffer(copyCmd, src->buffer, dst->buffer, 1, &bufferCopy);
 
-    FlushCommandBuffer(copyCmd, queue);
+    FlushCommandBuffer(copyCmd, queue,commandPools[0]);
 }
 
 

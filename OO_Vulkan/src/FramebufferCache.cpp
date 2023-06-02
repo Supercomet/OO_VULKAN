@@ -28,7 +28,10 @@ void FramebufferCache::Cleanup()
 {
 	//delete every descriptor layout held
 	for (auto pair : bufferCache){
-		vkDestroyFramebuffer(device, pair.second, nullptr);
+		if (pair.second)
+		{
+			vkDestroyFramebuffer(device, pair.second, nullptr);
+		}
 	}
 }
 
@@ -51,24 +54,31 @@ VkFramebuffer FramebufferCache::CreateFramebuffer(VkFramebufferCreateInfo* info,
 	bufferInfo.createInfo.pAttachments = attachment.data();
 
 	//try to grab from cache
-	auto it = bufferCache.find(bufferInfo);
-	if (it != bufferCache.end()){
-		return (*it).second;
-	}
-	else {
-		//create a new one (not found)
-		std::cout << "[FBCache] Creating a new framebuffer.." << std::endl;
-		VkFramebuffer frameBuffer;
+	
+	if (bufferCache.empty() == false)
+	{
+		auto it = bufferCache.find(bufferInfo);
+		if (it != bufferCache.end()){
+			return (*it).second;
+		}
+	}	
+
+	//create a new one (not found)
+	std::cout << "[FBCache] Creating a new framebuffer.." << std::endl;
+	VkFramebuffer frameBuffer{};
+	if (bufferInfo.createInfo.renderPass != VK_NULL_HANDLE)
+	{
 		VK_CHK(vkCreateFramebuffer(device, &bufferInfo.createInfo, nullptr, &frameBuffer));
 		VK_NAME(device, "famebufferCache::framebuffer", frameBuffer);
-		//add to cache
-		
-		//store the pointers
-		bufferInfo.createInfo.pAttachments = attachment.data();
-
-		bufferCache[bufferInfo] = frameBuffer;
-		return frameBuffer;
 	}
+	//add to cache
+	
+	//store the pointers
+	bufferInfo.createInfo.pAttachments = attachment.data();
+
+	bufferCache[bufferInfo] = frameBuffer;
+	return frameBuffer;
+	
 }
 
 void FramebufferCache::ResizeSwapchain(uint32_t width, uint32_t height)

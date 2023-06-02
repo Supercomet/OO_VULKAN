@@ -43,7 +43,7 @@ oGFX::Color GenerateRandomColor()
 
 void UpdateBV(ModelFileResource* model, VulkanRenderer::EntityDetails& entity, int i)
 {
-    std::vector<Point3D> vertPositions;
+    std::vector<oGFX::Point3D> vertPositions;
     vertPositions.resize(model->vertices.size());
     glm::mat4 xform(1.0f);
     xform = glm::translate(xform, entity.position);
