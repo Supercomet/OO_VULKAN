@@ -47,8 +47,7 @@ void BloomPass::Init()
 		renderScale /= 2.0f;
 	}
 
-	VkFramebufferCreateInfo blankInfo{};
-	blankInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	VkFramebufferCreateInfo blankInfo{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
 	std::vector<VkImageView> dummyViews;
 	std::vector<vkutils::Texture2D*> textures;
 
@@ -63,7 +62,8 @@ void BloomPass::Init()
 	blankInfo.attachmentCount = dummyViews.size();
 	blankInfo.pAttachments = dummyViews.data();
 	// we add this to resize resource tracking
-	vr.fbCache.CreateFramebuffer(&blankInfo, std::move(textures), textures.front()->targetSwapchain);
+	const bool resourceTrackonly = true;
+	vr.fbCache.CreateFramebuffer(&blankInfo, std::move(textures), textures.front()->targetSwapchain, resourceTrackonly);
 
 	SetupRenderpass();
 

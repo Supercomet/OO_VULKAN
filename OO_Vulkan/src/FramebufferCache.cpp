@@ -28,18 +28,19 @@ void FramebufferCache::Cleanup()
 {
 	//delete every descriptor layout held
 	for (auto pair : bufferCache){
-		if (pair.second)
-		{
-			vkDestroyFramebuffer(device, pair.second, nullptr);
-		}
+		vkDestroyFramebuffer(device, pair.second, nullptr);
 	}
 }
 
-VkFramebuffer FramebufferCache::CreateFramebuffer(VkFramebufferCreateInfo* info,std::vector<vkutils::Texture2D*>&& textures, bool swapchainTarget)
+VkFramebuffer FramebufferCache::CreateFramebuffer(VkFramebufferCreateInfo* info,
+	std::vector<vkutils::Texture2D*>&& textures,
+	bool swapchainTarget,
+	bool resourceTrackOnly)
 {
 	FramebufferInfo bufferInfo;
 	bufferInfo.createInfo = *info;
 	bufferInfo.targetSwapchain = swapchainTarget;
+	bufferInfo.resourceTrackOnly = resourceTrackOnly;
 
 	// this is pretty bad, maybe std::move it here since its just stack based?
 	bufferInfo.textures = std::move(textures);
@@ -54,31 +55,27 @@ VkFramebuffer FramebufferCache::CreateFramebuffer(VkFramebufferCreateInfo* info,
 	bufferInfo.createInfo.pAttachments = attachment.data();
 
 	//try to grab from cache
-	
-	if (bufferCache.empty() == false)
-	{
-		auto it = bufferCache.find(bufferInfo);
-		if (it != bufferCache.end()){
-			return (*it).second;
-		}
-	}	
-
-	//create a new one (not found)
-	std::cout << "[FBCache] Creating a new framebuffer.." << std::endl;
-	VkFramebuffer frameBuffer{};
-	if (bufferInfo.createInfo.renderPass != VK_NULL_HANDLE)
-	{
-		VK_CHK(vkCreateFramebuffer(device, &bufferInfo.createInfo, nullptr, &frameBuffer));
-		VK_NAME(device, "famebufferCache::framebuffer", frameBuffer);
+	auto it = bufferCache.find(bufferInfo);
+	if (it != bufferCache.end()){
+		return (*it).second;
 	}
-	//add to cache
-	
-	//store the pointers
-	bufferInfo.createInfo.pAttachments = attachment.data();
+	else {
+		//create a new one (not found)
+		std::cout << "[FBCache] Creating a new framebuffer.." << std::endl;
+		VkFramebuffer frameBuffer{};
+		if (bufferInfo.resourceTrackOnly == false)
+		{
+			VK_CHK(vkCreateFramebuffer(device, &bufferInfo.createInfo, nullptr, &frameBuffer));
+			VK_NAME(device, "famebufferCache::framebuffer", frameBuffer);
+		}
+		//add to cache
+		
+		//store the pointers
+		bufferInfo.createInfo.pAttachments = attachment.data();
 
-	bufferCache[bufferInfo] = frameBuffer;
-	return frameBuffer;
-	
+		bufferCache[bufferInfo] = frameBuffer;
+		return frameBuffer;
+	}
 }
 
 void FramebufferCache::ResizeSwapchain(uint32_t width, uint32_t height)
@@ -123,9 +120,12 @@ void FramebufferCache::ResizeSwapchain(uint32_t width, uint32_t height)
 
 		auto& framebuffer = bufferCache[framebufferInfo];
 		std::cout << "[FBCache] Resizing framebuffer.." << std::endl;
-		vkDestroyFramebuffer(device, framebuffer, nullptr);
-		VK_CHK(vkCreateFramebuffer(device, &framebufferInfo.createInfo, nullptr, &framebuffer));
-		VK_NAME(device, "famebufferCache::framebuffer", framebuffer);
+		if (framebufferInfo.resourceTrackOnly == false)
+		{
+			vkDestroyFramebuffer(device, framebuffer, nullptr);
+			VK_CHK(vkCreateFramebuffer(device, &framebufferInfo.createInfo, nullptr, &framebuffer));
+			VK_NAME(device, "famebufferCache::framebuffer", framebuffer);
+		}
 		//add to cache
 
 		//store the pointers
