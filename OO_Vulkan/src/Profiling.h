@@ -15,7 +15,7 @@ Technology is prohibited.
 
 // Note: This header file only wraps the C++ Macros needed for external profiling tools.
 
-//#define USE_PROFILING_OPTICK
+#define USE_PROFILING_OPTICK
 
 #pragma warning( push )
 #pragma warning( disable : 26819 ) // fallthrough

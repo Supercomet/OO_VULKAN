@@ -133,10 +133,12 @@ void ShadowPass::Draw()
 		
 		for (auto& light: vr.currWorld->GetAllOmniLightInstances())
 		{
-			if (GetLightEnabled(light) == false) continue;
+			if (GetLightEnabled(light) == false)
+				continue;
 
 			// not a shadow casting light skip
-			if (GetCastsShadows(light) == false) continue;
+			if (GetCastsShadows(light) == false)
+				continue;
 
 			// this is an omnilight
 			if (light.info.x == 1)

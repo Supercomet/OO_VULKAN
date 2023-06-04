@@ -75,17 +75,19 @@ void GBufferRenderPass::Draw()
 
     const VkCommandBuffer cmdlist = commandBuffers[currFrame];
     PROFILE_GPU_CONTEXT(cmdlist);
+	PROFILE_GPU_EVENT("GBuffer");
 
 	glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f };
 	auto regionBegin = VulkanRenderer::get()->pfnDebugMarkerRegionBegin;
 	auto regionEnd = VulkanRenderer::get()->pfnDebugMarkerRegionEnd;
 	
 	{
-		
+		PROFILE_GPU_EVENT("GBuffer_Culling_CS");
+
 		VkDebugMarkerMarkerInfoEXT marker = {};
 		marker.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
 		memcpy(marker.color, &col[0], sizeof(float) * 4);
-		marker.pMarkerName = "CullCOMP";
+		marker.pMarkerName = "GBuffer_Culling_CS";
 		if (regionBegin)
 		{
 			regionBegin(cmdlist, &marker);
@@ -121,86 +123,91 @@ void GBufferRenderPass::Draw()
 		}
 	}
 
-	PROFILE_GPU_EVENT("GBuffer");
-	rhi::CommandList cmd{ cmdlist, "Gbuffer Pass"};
+	{
+        PROFILE_GPU_EVENT("GBuffer_Objects");
+        rhi::CommandList cmd{ cmdlist, "GBuffer_Pass" };
 
-	constexpr VkClearColorValue zeroFloat4 = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
-	constexpr VkClearColorValue tangentNormal = VkClearColorValue{ 0.5f,0.5f,1.0f,0.0f };
-	VkClearColorValue rMinusOne = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
-	rMinusOne.int32[0] = -1;
+        constexpr VkClearColorValue zeroFloat4 = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
+        constexpr VkClearColorValue tangentNormal = VkClearColorValue{ 0.5f,0.5f,1.0f,0.0f };
+        VkClearColorValue rMinusOne = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
+        rMinusOne.int32[0] = -1;
 
-	// Clear values for all attachments written in the fragment shader
-	std::array<VkClearValue, GBufferAttachmentIndex::MAX_ATTACHMENTS> clearValues;
-	//clearValues[GBufferAttachmentIndex::POSITION].color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::NORMAL]  .color = tangentNormal;
-	clearValues[GBufferAttachmentIndex::ALBEDO].color =	  zeroFloat4;
-	clearValues[GBufferAttachmentIndex::MATERIAL].color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::EMISSIVE].color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::ENTITY_ID].color = rMinusOne;
-	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 1.0f, 0 };
-	
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-	VkFramebuffer currentFB;
-	FramebufferBuilder::Begin(&vr.fbCache)
-		//.BindImage(&attachments[GBufferAttachmentIndex::POSITION])
-		.BindImage(&attachments[GBufferAttachmentIndex::NORMAL  ])
-		.BindImage(&attachments[GBufferAttachmentIndex::ALBEDO  ])
-		.BindImage(&attachments[GBufferAttachmentIndex::MATERIAL])
-		.BindImage(&attachments[GBufferAttachmentIndex::EMISSIVE])
-		.BindImage(&attachments[GBufferAttachmentIndex::ENTITY_ID])
-		.BindImage(&attachments[GBufferAttachmentIndex::DEPTH   ])
-		.Build(currentFB,renderpass_GBuffer);
+        // Clear values for all attachments written in the fragment shader
+        std::array<VkClearValue, GBufferAttachmentIndex::MAX_ATTACHMENTS> clearValues;
+        //clearValues[GBufferAttachmentIndex::POSITION].color = zeroFloat4;
+        clearValues[GBufferAttachmentIndex::NORMAL].color = tangentNormal;
+        clearValues[GBufferAttachmentIndex::ALBEDO].color = zeroFloat4;
+        clearValues[GBufferAttachmentIndex::MATERIAL].color = zeroFloat4;
+        clearValues[GBufferAttachmentIndex::EMISSIVE].color = zeroFloat4;
+        clearValues[GBufferAttachmentIndex::ENTITY_ID].color = rMinusOne;
+        clearValues[GBufferAttachmentIndex::DEPTH].depthStencil = { 1.0f, 0 };
 
-	// Manually set layout for blit reason
-	attachments[GBufferAttachmentIndex::ENTITY_ID].currentLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        VkFramebuffer currentFB;
+        FramebufferBuilder::Begin(&vr.fbCache)
+            //.BindImage(&attachments[GBufferAttachmentIndex::POSITION])
+            .BindImage(&attachments[GBufferAttachmentIndex::NORMAL])
+            .BindImage(&attachments[GBufferAttachmentIndex::ALBEDO])
+            .BindImage(&attachments[GBufferAttachmentIndex::MATERIAL])
+            .BindImage(&attachments[GBufferAttachmentIndex::EMISSIVE])
+            .BindImage(&attachments[GBufferAttachmentIndex::ENTITY_ID])
+            .BindImage(&attachments[GBufferAttachmentIndex::DEPTH])
+            .Build(currentFB, renderpass_GBuffer);
 
-	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
-	renderPassBeginInfo.renderPass =  renderpass_GBuffer.pass;
-	renderPassBeginInfo.framebuffer = currentFB;
-	renderPassBeginInfo.renderArea.extent.width = swapchain.swapChainExtent.width;
-	renderPassBeginInfo.renderArea.extent.height = swapchain.swapChainExtent.height;
-	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-	renderPassBeginInfo.pClearValues = clearValues.data();
+        // Manually set layout for blit reason
+        attachments[GBufferAttachmentIndex::ENTITY_ID].currentLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	// vr.ResizeSwapchain() destroys the depth attachment. This causes the renderpass to fail on resize
-	// TODO: handle all framebuffer resizes gracefully
-	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-	
-	
-	cmd.SetDefaultViewportAndScissor();
-	cmd.BindPSO(pso_GBufferDefault);
-	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
-																												vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
-	
-	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
-		std::array<VkDescriptorSet, 3>{
-		vr.descriptorSet_gpuscene,
-			vr.descriptorSets_uniform[currFrame],
-			vr.descriptorSet_bindless,
-	},
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		1, & dynamicOffset
-	);
+        VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
+        renderPassBeginInfo.renderPass = renderpass_GBuffer.pass;
+        renderPassBeginInfo.framebuffer = currentFB;
+        renderPassBeginInfo.renderArea.extent.width = swapchain.swapChainExtent.width;
+        renderPassBeginInfo.renderArea.extent.height = swapchain.swapChainExtent.height;
+        renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+        renderPassBeginInfo.pClearValues = clearValues.data();
 
-	// Bind merged mesh vertex & index buffers, instancing buffers.
-	std::vector<VkBuffer> vtxBuffers{
-		vr.g_GlobalMeshBuffers.VtxBuffer.getBuffer(),
-		vr.skinningVertexBuffer.getBuffer(),
-	};
+        // vr.ResizeSwapchain() destroys the depth attachment. This causes the renderpass to fail on resize
+        // TODO: handle all framebuffer resizes gracefully
+        vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	VkDeviceSize offsets[2]{
-		0,
-		0
-	};
-	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
-	cmd.BindVertexBuffer(BIND_POINT_WEIGHTS_BUFFER_ID, 1, vr.skinningVertexBuffer.getBufferPtr());
-	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer[currFrame].getBufferPtr());
-	cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-	cmd.DrawIndexedIndirect(vr.indirectCommandsBuffer[currFrame].getBuffer(), 0, vr.objectCount);
+
+        cmd.SetDefaultViewportAndScissor();
+        cmd.BindPSO(pso_GBufferDefault);
+        uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO),
+            vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
+
+        cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0,
+            std::array<VkDescriptorSet, 3>{
+            vr.descriptorSet_gpuscene,
+                vr.descriptorSets_uniform[currFrame],
+                vr.descriptorSet_bindless,
+        },
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                1, & dynamicOffset
+                );
+
+        // Bind merged mesh vertex & index buffers, instancing buffers.
+        std::vector<VkBuffer> vtxBuffers{
+            vr.g_GlobalMeshBuffers.VtxBuffer.getBuffer(),
+            vr.skinningVertexBuffer.getBuffer(),
+        };
+
+        VkDeviceSize offsets[2]{
+            0,
+            0
+        };
+        cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
+        cmd.BindVertexBuffer(BIND_POINT_WEIGHTS_BUFFER_ID, 1, vr.skinningVertexBuffer.getBufferPtr());
+        cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer[currFrame].getBufferPtr());
+        cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+        cmd.DrawIndexedIndirect(vr.indirectCommandsBuffer[currFrame].getBuffer(), 0, vr.objectCount);
+	}
 
 	vkCmdEndRenderPass(cmdlist);
 
-	if(0){
+#if 0 // Just move this to a new class... Hijacking this here will fuck up the low level renderpass
+	if (0)
+	{
+		PROFILE_GPU_EVENT("ShadowMaskGeneration");
 
 		VkDebugMarkerMarkerInfoEXT marker = {};
 		marker.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
@@ -318,10 +325,8 @@ void GBufferRenderPass::Draw()
 		{
 			regionEnd(cmdlist);
 		}
-
 	}
-
-
+#endif
 }
 
 void GBufferRenderPass::Shutdown()
