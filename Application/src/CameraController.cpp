@@ -30,9 +30,14 @@ void CameraController::Update(float dt)
         if (down)
             amountToTranslate -= m_Camera->GetFront() * moveSpeed;
         if (left)
-            amountToTranslate += m_Camera->GetRight() * moveSpeed;
-        if (right)
             amountToTranslate -= m_Camera->GetRight() * moveSpeed;
+        if (right)
+            amountToTranslate += m_Camera->GetRight() * moveSpeed;
+
+        if (Input::GetMouseWheel() > 0.0001f)
+            amountToTranslate += m_Camera->GetFront() * moveSpeed * 5.0f;
+        if (Input::GetMouseWheel() < -0.0001f)
+            amountToTranslate -= m_Camera->GetFront() * moveSpeed * 5.0f;
     }
     
     // Simulate some very simple fucked up camera shake

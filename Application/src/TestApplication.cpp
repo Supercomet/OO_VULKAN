@@ -447,7 +447,8 @@ void TestApplication::Run()
         ed.position = { 0.0f,0.0f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
 
-        ed.bindlessGlobalTextureIndex_Albedo    = testFont->m_atlasID;
+        ed.bindlessGlobalTextureIndex_Albedo    = d0;
+        //ed.bindlessGlobalTextureIndex_Albedo    = testFont->m_atlasID;
         ed.bindlessGlobalTextureIndex_Normal    = n0;
         ed.bindlessGlobalTextureIndex_Metallic  = m0;
         ed.bindlessGlobalTextureIndex_Roughness = r0;
@@ -773,28 +774,31 @@ void TestApplication::Run()
             ImGui::Begin("Problems");
             ImGui::Checkbox("EditCam", &s_boolCamera);
             ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
-            if(ImGui::TreeNode("Bloom") ){
-                auto& cs = gs_GraphicsWorld.bloomSettings;
-                ImGui::DragFloat("bloom thresh", &cs.threshold,0.001f,0.0f,1.0f);
-                ImGui::DragFloat("soft thresh", &cs.softThreshold,0.001f,0.0f,1.0f);
+            if (ImGui::TreeNode("Bloom"))
+            {
+                auto& settings = gs_GraphicsWorld.bloomSettings;
+                ImGui::DragFloat("bloom thresh", &settings.threshold,0.001f,0.0f,1.0f);
+                ImGui::DragFloat("soft thresh", &settings.softThreshold,0.001f,0.0f,1.0f);
 
                 ImGui::TreePop();
             }
-            if(ImGui::TreeNode("ColourCorreciton") ){
-                auto& cs = gs_GraphicsWorld.colourSettings;
-                ImGui::DragFloat("shadowThresh", &cs.shadowThreshold,0.001f,0.0f,1.0f);
-                ImGui::DragFloat("highThresh", &cs.highlightThreshold,0.001f,0.0f,1.0f);
-                ImGui::ColorEdit4("shadow", glm::value_ptr(cs.shadowColour));
-                ImGui::ColorEdit4("mid", glm::value_ptr(cs.midtonesColour));
-                ImGui::ColorEdit4("high", glm::value_ptr(cs.highlightColour));
+            if (ImGui::TreeNode("ColorCorreciton") )
+            {
+                auto& settings = gs_GraphicsWorld.colourSettings;
+                ImGui::DragFloat("shadowThresh", &settings.shadowThreshold,0.001f,0.0f,1.0f);
+                ImGui::DragFloat("highThresh", &settings.highlightThreshold,0.001f,0.0f,1.0f);
+                ImGui::ColorEdit4("shadow", glm::value_ptr(settings.shadowColour));
+                ImGui::ColorEdit4("mid", glm::value_ptr(settings.midtonesColour));
+                ImGui::ColorEdit4("high", glm::value_ptr(settings.highlightColour));
 
                 ImGui::TreePop();
             }
-            if(ImGui::TreeNode("vignette") ){
-                auto& vs = gs_GraphicsWorld.vignetteSettings;
-                ImGui::ColorEdit4("vigCol", glm::value_ptr(vs.colour));
-                ImGui::DragFloat("innerRadius", &vs.innerRadius,0.01f);
-                ImGui::DragFloat("outerRadius", &vs.outerRadius,0.01f);
+            if (ImGui::TreeNode("vignette") )
+            {
+                auto& settings = gs_GraphicsWorld.vignetteSettings;
+                ImGui::ColorEdit4("vigCol", glm::value_ptr(settings.colour));
+                ImGui::DragFloat("innerRadius", &settings.innerRadius,0.01f);
+                ImGui::DragFloat("outerRadius", &settings.outerRadius,0.01f);
 
                 ImGui::TreePop();
             }
@@ -854,7 +858,7 @@ void TestApplication::Run()
                 int32_t col = gs_RenderEngine->GetPixelValue(gs_GraphicsWorld.targetIDs[0], mpos);
                 //std::cout << "colour val : " << std::hex << col <<std::dec << " | " << col << std::endl;
             }
-
+            /*
             if (ImGui::Begin("Main"))
             {
                 if (gs_GraphicsWorld.imguiID[0])
@@ -872,7 +876,7 @@ void TestApplication::Run()
                 }
             }
                 ImGui::End();
-            
+            */
 
 
             if (gs_RenderEngine->PrepareFrame() == true)
@@ -1040,7 +1044,7 @@ void TestApplication::RunTest_DebugDraw()
         oGFX::DebugDraw::DrawYGrid(100.0f,10.0f);
     }
 
-    if(character_diona)
+    if (character_diona)
     {
         oGFX::AABB aabb;
         aabb.halfExt = glm::vec3{ 0.02f };
@@ -1055,7 +1059,7 @@ void TestApplication::RunTest_DebugDraw()
 
 
 
-        ImGui::Begin("BONE LA");
+       ImGui::Begin("BONE LA");
        auto DFS = [&](auto&& func, oGFX::BoneNode* pBoneNode, const glm::mat4& parentTransform) -> void
        {
 
@@ -1270,40 +1274,48 @@ void TestApplication::ToolUI_Settings()
     }
     ImGui::Separator();
     {
-		ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Shader Debug Tool");
-		ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);      
-		ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);        
-		ImGui::DragFloat4("vector4_values2", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values2), 0.01f);
-		ImGui::DragFloat4("vector4_values3", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values3), 0.01f);
-		ImGui::DragFloat4("vector4_values4", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values4), 0.01f);
-		ImGui::DragFloat4("vector4_values5", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values5), 0.01f);
-		ImGui::DragFloat4("vector4_values6", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values6), 0.01f);
-		ImGui::DragFloat4("vector4_values7", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values7), 0.01f);
-		ImGui::DragFloat4("vector4_values8", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values8), 0.01f);
-		ImGui::DragFloat4("vector4_values9", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values9), 0.01f);
+        if (ImGui::TreeNode("Shader Debug Tool"))
+        {
+            ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);
+            ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);
+            ImGui::DragFloat4("vector4_values2", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values2), 0.01f);
+            ImGui::DragFloat4("vector4_values3", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values3), 0.01f);
+            ImGui::DragFloat4("vector4_values4", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values4), 0.01f);
+            ImGui::DragFloat4("vector4_values5", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values5), 0.01f);
+            ImGui::DragFloat4("vector4_values6", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values6), 0.01f);
+            ImGui::DragFloat4("vector4_values7", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values7), 0.01f);
+            ImGui::DragFloat4("vector4_values8", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values8), 0.01f);
+            ImGui::DragFloat4("vector4_values9", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values9), 0.01f);
+            ImGui::TreePop();
+        }
     }
 	ImGui::Separator();
     {
-		ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Decals");
 		ImGui::PushID("TESTDECAL");
-        ImGui::Checkbox("active", &gs_GraphicsWorld.m_HardcodedDecalInstance.active);
-		ImGui::DragFloat3("Position", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position), 0.01f);
-		{
-			if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
-			{
-				if (ImGui::Selectable("Set ptr Gizmo"))
-				{
-					// Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
-					gs_GizmoContext.SelectVector3Property(glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position));
-				}
-				ImGui::EndPopup();
-			}
-		}
-		ImGui::DragFloat("Projector Size", &gs_GraphicsWorld.m_HardcodedDecalInstance.projectorSize, 0.01f);
-		ImGui::DragFloat("nearZ", &gs_GraphicsWorld.m_HardcodedDecalInstance.nearZ, 0.01f);
-		ImGui::DragFloat("testVar0", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar0, 0.01f);
-		ImGui::DragFloat3("direction", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.direction), 0.01f);
-		ImGui::DragFloat("rotation", &gs_GraphicsWorld.m_HardcodedDecalInstance.rotationDegrees, 0.5f);
+        if (ImGui::TreeNode("Test Decal Debug"))
+        {
+            //ImGui::Checkbox("active", &gs_GraphicsWorld.m_HardcodedDecalInstance.active);
+            ImGui::DragFloat3("Position", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position), 0.01f);
+            {
+                if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
+                {
+                    if (ImGui::Selectable("Set ptr Gizmo"))
+                    {
+                        // Shamelessly point to this property (very unsafe, but quick to test shit and speed up iteration time)
+                        gs_GizmoContext.SelectVector3Property(glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.position));
+                    }
+                    ImGui::EndPopup();
+                }
+            }
+            ImGui::DragFloat("Projector Size", &gs_GraphicsWorld.m_HardcodedDecalInstance.projectorSize, 0.01f);
+            ImGui::DragFloat("nearZ", &gs_GraphicsWorld.m_HardcodedDecalInstance.nearZ, 0.01f);
+            ImGui::DragFloat("testVar0", &gs_GraphicsWorld.m_HardcodedDecalInstance.testVar0, 0.01f);
+            ImGui::DragFloat3("direction", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.direction), 0.01f);
+            //ImGui::DragFloat("rotation", &gs_GraphicsWorld.m_HardcodedDecalInstance.rotationDegrees, 0.5f);
+
+            ImGui::TreePop();
+        }
+        
 		ImGui::PopID();
     }
 }
