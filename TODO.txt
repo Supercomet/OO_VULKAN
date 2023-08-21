@@ -1,0 +1,23 @@
+Tasks:
+• Always enable VK_LAYER_KHRONOS_validation
+• Get rid of "Debug" config. Only Release from now onwards
+• Only support 1 Camera
+• Proper Frame Fencing
+    • Should only stall CPU before the FIRST command buffer submission
+• Oct-tree culling on CPU
+    • Practically mandatory. Uploading the entire scene's worth of instance transforms every frame cannot scale up.
+    • Same for Directional Light Shadow pass
+    • Cull objects ONCE per view-proj (Should only be 2. Camera & Dir Light), then re-use culled lists of objects in all Renderers
+• Don't clear GBuffer every frame
+    • Your game should have every pixel in every GBuffer Render Target filled up.
+• Encapsulate as many Vulkan API calls as possible inside your "CommandList" class
+• Implement Full Z-PrePass
+    • Treat every Opaque object as an occluder
+• Multi-thread all Graphic Tasks & Renderers
+    • Implement free-list of command buffers. They must all be properly fenced before re-used
+• Render Graph
+    • Resource state transitions
+    • Resource Lifetime & Aliasing
+    • Frame Volatile & Persistent Resources
+    
+• AMD FSR 2.0: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/super-resolution-temporal.md
