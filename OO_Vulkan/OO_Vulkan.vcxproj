@@ -1,0 +1,350 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\vendor\imgui\imgui\backends\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui\backends\imgui_impl_win32.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui\imgui.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui\imgui_tables.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\vendor\imgui\imgui\misc\cpp\imgui_stdlib.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\artery-font-export.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\bitmap-blit.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\charset-parser.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\Charset.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\csv-export.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\FontGeometry.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\glyph-generators.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\GlyphGeometry.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\image-encode.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\json-export.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\main.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\RectanglePacker.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\shadron-preview-generator.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\size-selectors.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\TightAtlasPacker.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\utf8.cpp" />
+    <ClCompile Include="..\vendor\msdf-atlas-gen\Workload.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\contour-combiners.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\Contour.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\edge-coloring.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\edge-segments.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\edge-selectors.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\EdgeHolder.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\equation-solver.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\msdf-error-correction.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\MSDFErrorCorrection.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\msdfgen.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\Projection.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\rasterization.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\render-sdf.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\save-bmp.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\save-tiff.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\Scanline.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\sdf-error-estimation.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\shape-description.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\Shape.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\SignedDistance.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\core\Vector2.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\ext\import-font.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\ext\resolve-shape-geometry.cpp" />
+    <ClCompile Include="..\vendor\msdfgen\ext\save-png.cpp" />
+    <ClCompile Include="src\Font.cpp" />
+    <ClCompile Include="src\DebugDraw.cpp" />
+    <ClCompile Include="src\DelayedDeleter.cpp" />
+    <ClCompile Include="src\BspTree.cpp" />
+    <ClCompile Include="src\DefaultMeshCreator.cpp" />
+    <ClCompile Include="src\FramebufferBuilder.cpp" />
+    <ClCompile Include="src\FramebufferCache.cpp" />
+    <ClCompile Include="src\GfxSampler.cpp" />
+    <ClCompile Include="src\gpuCommon.cpp" />
+    <ClCompile Include="src\GraphicsBatch.cpp" />
+    <ClCompile Include="src\GraphicsWorld.cpp" />
+    <ClCompile Include="src\IcoSphereCreator.cpp" />
+    <ClCompile Include="src\Input.cpp" />
+    <ClCompile Include="src\renderpass\BloomPass.cpp" />
+    <ClCompile Include="src\renderpass\DebugRenderpass.cpp" />
+    <ClCompile Include="src\renderpass\DeferredCompositionRenderpass.cpp" />
+    <ClCompile Include="src\GfxRenderpass.cpp" />
+    <ClCompile Include="src\renderpass\ForwardParticlePass.cpp" />
+    <ClCompile Include="src\renderpass\ForwardUIPass.cpp" />
+    <ClCompile Include="src\renderpass\GBufferRenderPass.cpp" />
+    <ClCompile Include="src\BoudingVolume.cpp" />
+    <ClCompile Include="src\DescriptorBuilder.cpp" />
+    <ClCompile Include="src\DescriptorLayoutCache.cpp" />
+    <ClCompile Include="src\DescriptorAllocator.cpp" />
+    <ClCompile Include="src\Collision.cpp" />
+    <ClCompile Include="src\loader\DDSLoader.cpp" />
+    <ClCompile Include="src\Geometry.cpp" />
+    <ClCompile Include="src\GpuVector.cpp" />
+    <ClCompile Include="src\Node.cpp" />
+    <ClCompile Include="src\Camera.cpp" />
+    <ClCompile Include="src\Mesh.cpp" />
+    <ClCompile Include="src\MeshModel.cpp" />
+    <ClCompile Include="src\OctTree.cpp" />
+    <ClCompile Include="src\optick\optick_capi.cpp" />
+    <ClCompile Include="src\optick\optick_core.cpp" />
+    <ClCompile Include="src\optick\optick_gpu.cpp" />
+    <ClCompile Include="src\optick\optick_gpu.vulkan.cpp" />
+    <ClCompile Include="src\optick\optick_message.cpp" />
+    <ClCompile Include="src\optick\optick_miniz.cpp" />
+    <ClCompile Include="src\optick\optick_serialization.cpp" />
+    <ClCompile Include="src\optick\optick_server.cpp" />
+    <ClCompile Include="src\renderpass\ShadowPass.cpp" />
+    <ClCompile Include="src\loader\stbi_impl.cpp" />
+    <ClCompile Include="src\renderpass\SSAORenderPass.cpp" />
+    <ClCompile Include="src\rhi\CommandList.cpp" />
+    <ClCompile Include="src\Tests_Assignment1.cpp" />
+    <ClCompile Include="src\VulkanInstance.cpp" />
+    <ClCompile Include="src\VulkanRenderer.cpp" />
+    <ClCompile Include="src\VulkanDevice.cpp" />
+    <ClCompile Include="src\VulkanRenderpass.cpp" />
+    <ClCompile Include="src\VulkanTexture.cpp" />
+    <ClCompile Include="src\Window.cpp" />
+    <ClCompile Include="src\VulkanUtils.cpp" />
+    <ClCompile Include="src\VulkanSwapchain.cpp" />
+    <ClCompile Include="src\VulkanBuffer.cpp" />
+    <ClCompile Include="src\loader\tinyddsloader.cpp" />
+    <ClCompile Include="src\TexturePacker.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Font.h" />
+    <ClInclude Include="src\DebugDraw.h" />
+    <ClInclude Include="src\DelayedDeleter.h" />
+    <ClInclude Include="src\BitContainer.h" />
+    <ClInclude Include="src\BspTree.h" />
+    <ClInclude Include="src\DefaultMeshCreator.h" />
+    <ClInclude Include="src\FramebufferBuilder.h" />
+    <ClInclude Include="src\FramebufferCache.h" />
+    <ClInclude Include="src\GfxSampler.h" />
+    <ClInclude Include="src\GraphicsBatch.h" />
+    <ClInclude Include="src\GraphicsWorld.h" />
+    <ClInclude Include="src\IcoSphereCreator.h" />
+    <ClInclude Include="src\Input.h" />
+    <ClInclude Include="src\renderpass\BloomPass.h" />
+    <ClInclude Include="src\renderpass\DebugRenderpass.h" />
+    <ClInclude Include="src\renderpass\DeferredCompositionRenderpass.h" />
+    <ClInclude Include="src\GfxRenderpass.h" />
+    <ClInclude Include="src\renderpass\ForwardParticlePass.h" />
+    <ClInclude Include="src\renderpass\ForwardUIPass.h" />
+    <ClInclude Include="src\renderpass\GBufferRenderPass.h" />
+    <ClInclude Include="src\BoudingVolume.h" />
+    <ClInclude Include="src\DescriptorBuilder.h" />
+    <ClInclude Include="src\DescriptorLayoutCache.h" />
+    <ClInclude Include="src\DescriptorAllocator.h" />
+    <ClInclude Include="src\loader\DDSLoader.h" />
+    <ClInclude Include="src\Geometry.h" />
+    <ClInclude Include="src\Collision.h" />
+    <ClInclude Include="src\GpuVector.h" />
+    <ClInclude Include="src\GfxTypes.h" />
+    <ClInclude Include="src\MathCommon.h" />
+    <ClInclude Include="src\OctTree.h" />
+    <ClInclude Include="src\optick\optick.config.h" />
+    <ClInclude Include="src\optick\optick.h" />
+    <ClInclude Include="src\optick\optick_capi.h" />
+    <ClInclude Include="src\optick\optick_common.h" />
+    <ClInclude Include="src\optick\optick_core.freebsd.h" />
+    <ClInclude Include="src\optick\optick_core.h" />
+    <ClInclude Include="src\optick\optick_core.linux.h" />
+    <ClInclude Include="src\optick\optick_core.macos.h" />
+    <ClInclude Include="src\optick\optick_core.platform.h" />
+    <ClInclude Include="src\optick\optick_core.win.h" />
+    <ClInclude Include="src\optick\optick_gpu.h" />
+    <ClInclude Include="src\optick\optick_memory.h" />
+    <ClInclude Include="src\optick\optick_message.h" />
+    <ClInclude Include="src\optick\optick_miniz.h" />
+    <ClInclude Include="src\optick\optick_serialization.h" />
+    <ClInclude Include="src\optick\optick_server.h" />
+    <ClInclude Include="src\Profiling.h" />
+    <ClInclude Include="src\renderpass\ShadowPass.h" />
+    <ClInclude Include="src\renderpass\SSAORenderPass.h" />
+    <ClInclude Include="src\rhi\CommandList.h" />
+    <ClInclude Include="src\Tree.h" />
+    <ClInclude Include="src\Node.h" />
+    <ClInclude Include="src\Camera.h" />
+    <ClInclude Include="src\Mesh.h" />
+    <ClInclude Include="src\MeshModel.h" />
+    <ClInclude Include="src\gpuCommon.h" />
+    <ClInclude Include="src\loader\stb_image.h" />
+    <ClInclude Include="src\Tests_Assignment1.h" />
+    <ClInclude Include="src\VulkanInstance.h" />
+    <ClInclude Include="src\VulkanRenderer.h" />
+    <ClInclude Include="src\VulkanDevice.h" />
+    <ClInclude Include="src\VulkanRenderpass.h" />
+    <ClInclude Include="src\VulkanTexture.h" />
+    <ClInclude Include="src\Window.h" />
+    <ClInclude Include="src\VulkanUtils.h" />
+    <ClInclude Include="src\VulkanSwapchain.h" />
+    <ClInclude Include="src\VulkanBuffer.h" />
+    <ClInclude Include="src\loader\tinyddsloader.h" />
+    <ClInclude Include="src\TexturePacker.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="glm.natvis" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{225d5d91-a5de-4974-bf22-362859e9b2ae}</ProjectGuid>
+    <RootNamespace>OO_Vulkan</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>OO_Vulkan</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="propspages\VulkanIncludes_32.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="propspages\VulkanIncludes_32.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="propspages\VulkanIncludes_64.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="propspages\VulkanIncludes_64.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <PreBuildEvent>
+      <Command>call $(SolutionDir)\OO_Vulkan\shaders\compileShaders.bat</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <PreBuildEvent>
+      <Command>call $(SolutionDir)\OO_Vulkan\shaders\compileShaders.bat</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)src/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DisableSpecificWarnings>26812</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <UACExecutionLevel>AsInvoker</UACExecutionLevel>
+    </Link>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+    </PreBuildEvent>
+    <Lib>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)src/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <PreBuildEvent>
+      <Command>call "$(SolutionDir)"\OO_Vulkan\shaders\compileShaders.bat</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
