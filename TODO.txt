@@ -18,15 +18,52 @@ Tasks:
 
 • Support only 1 queue for now
 
+• GPU-driven renderer
+    • Implement this Step-by-Step. This is a huge & complex undertaking with multiple chained indirect dispatches
+    • 1st Evolution: Batch & dispatch draw calls on CPU first
+        • Since you already have virtual vertex & index buffers, and bindless textures, you only need to batch by Mesh
+    • 2nd evolution: occlusion cull batches (ZPrePass needed)
+        • Increment instance count if not culled, and append instance data to external buffer
+        • DispatchIndirect using InstanceCount buffer as draw parameter buffer
+        • BONUS: Compact buffer to get rid of empty draw calls (put a wall in between all meshes to test)
+        • Will still require 1 DispatchIndirect per mesh batch
+    • 3rd evolution: Generate batches on GPU
+        • Upload all CPU-culled instance data in a linear buffer to culling CS 
+            • All batches in one go
+        • Build batches in CS. Internally "bucketize" batches in external linear buffer, generate appropriate offsets to external buffers
+        • If done properly, 1 DispatchIndirect for whole scene
+            • Only because everything uses the same uber GBuffer Shader, else its 1 DispatchIndirect per Shader
+
+• Separate GBuffer draw call specifically for skinned meshes
+    • Can (should) be run in parallel in another thread & Renderer
+    • dont mix with static non-skinned meshes
+    • the 'skinned' bool should not be information from the instance
+        • it shouldbe from a constant buffer, like say, a PassContext UBO
+        • Best if it's a separate Shader Permutation
+
 • Automatic texture mip generation on GPU
+    • Utilize this if you want: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/single-pass-downsampler.md
+    • Use anisotropic sampler
+
+• Generate shadow mask in a seperate PS
+    • deferred lighting pass should not compute shadows, only sample shadow mask texture
 
 • Oct-tree culling on CPU
     • Practically mandatory. Uploading the entire scene's worth of instance transforms every frame cannot scale up.
     • Same for Directional Light Shadow pass
     • Cull objects ONCE per view-proj (Should only be 2. Camera & Dir Light), then re-use culled lists of objects in all Renderers
 
+• Tile-based Deferred Rendering
+    • Support point lights only for now
+    • Classify tiles on screen based on complexity
+        • nb local lights
+        • material complexity?
+    • Generate screen-space grid, using grid index as index to lights buffer
+    • Dispatch draw calls on screen via DrawIndirect. Build tile screen positions & offsets in separate CS
+
 • Use giant GPU circular buffers for gpu instance transforms
     • Suballocate exact necessary bytes as neededed for culled instances
+    • Pass buffer offset to VS
 
 • Don't clear GBuffer every frame
     • Your game should have every pixel in every GBuffer Render Target filled up.
