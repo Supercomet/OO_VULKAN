@@ -16,7 +16,15 @@ Tasks:
 • Proper Frame Fencing
     • Should only stall CPU before the FIRST command buffer submission
 
+• Use Inverse Depth Buffer & Infinite Far Plane for your Projection Matrix
+
 • Support only 1 queue for now
+
+• GBuffer Render Targets:
+    • Normal should be R10G10B10A2
+    • Don't store Entity ID as GBuffer RT
+    • Emissive should be RGBA8
+        • Optimization opportunity: Separate render pass for objects that have emissive, which should not be alot
 
 • GPU-driven renderer
     • Implement this Step-by-Step. This is a huge & complex undertaking with multiple chained indirect dispatches
@@ -65,6 +73,10 @@ Tasks:
     • Suballocate exact necessary bytes as neededed for culled instances
     • Pass buffer offset to VS
 
+• True HDR pipeline
+    • Luminance Histogram generation
+    • Attenuate scene color based on scene luminance (eye adaptation)
+
 • Don't clear GBuffer every frame
     • Your game should have every pixel in every GBuffer Render Target filled up.
 
@@ -85,9 +97,13 @@ Tasks:
     • Validation of usage and resource dependencies
 
 • Compute Queue
-    • Anything that can be run asyncronously with Graphics Queue
+    • Anything that can be run asyncronously with Graphics Queue, should
     • GPU Fence where necessary
-    
+
 • AMD ShadowFX: https://github.com/GPUOpen-Effects/ShadowFX
+    
+• AMD Combined Adaptive Compute Ambient Occlusion (CACAO):  https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/combined-adaptive-compute-ambient-occlusion.md
+
+• AMD Stochastic Screen-Space Reflections: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/stochastic-screen-space-reflections.md
 
 • AMD FSR 2.0: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/super-resolution-temporal.md
