@@ -112,21 +112,26 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
-		auto* hdl = viewport->PlatformHandle;
-		(void)vk_allocator;
-		Window temp;
-		temp.rawHandle = hdl;
-		try
-		{
-			VulkanRenderer::get()->m_instance.CreateSurface(temp, *(VkSurfaceKHR*)out_vk_surface);
-		}
-		catch (std::runtime_error e)
-		{
-			temp.rawHandle = nullptr;
-			return 1;
-		}
-		temp.rawHandle = nullptr;
-		return 0;
+	auto* hdl = viewport->PlatformHandle;
+	(void)vk_allocator;
+
+	// Create temporary object to hold the data
+	Window temp;
+	temp.rawHandle = hdl;
+		
+		
+	auto result = VulkanRenderer::get()->m_instance.CreateSurface(temp, *(VkSurfaceKHR*)out_vk_surface);
+	
+	//unbind to prevent destrauction
+	temp.rawHandle = nullptr;
+
+	if (result == oGFX::ERROR_VAL)
+	{			
+		return oGFX::ERROR_VAL;
+	}
+
+	return oGFX::SUCCESS_VAL;
+		
 }
 
 VulkanRenderer::~VulkanRenderer()
@@ -244,153 +249,137 @@ VulkanRenderer* VulkanRenderer::get()
 	return s_vulkanRenderer;
 }
 
-void VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
+bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 {
-	try
-	{	
-		g_globalModels.reserve(MAX_OBJECTS);
-		CreateInstance(setupSpecs);
+		
+	g_globalModels.reserve(MAX_OBJECTS);
+	CreateInstance(setupSpecs);
 
 #ifdef _DEBUG
-		CreateDebugCallback();
+	CreateDebugCallback();
 #endif // _DEBUG
 
-		CreateSurface(setupSpecs,window);
-		// set surface for imgui
-		Window::SurfaceFormat = (uint64_t)window.SurfaceFormat;
+	CreateSurface(setupSpecs,window);
+	// set surface for imgui
+	Window::SurfaceFormat = (uint64_t)window.SurfaceFormat;
 
-		AcquirePhysicalDevice(setupSpecs);
-		CreateLogicalDevice(setupSpecs);
+	AcquirePhysicalDevice(setupSpecs);
+	CreateLogicalDevice(setupSpecs);
 
-		//if (m_device.debugMarker)
-		//{
-		// TODO MAKE SURE THIS IS SUPPORTED
-		pfnDebugMarkerSetObjectName = (PFN_vkDebugMarkerSetObjectNameEXT)vkGetDeviceProcAddr(m_device.logicalDevice, "vkDebugMarkerSetObjectNameEXT");
-		pfnDebugMarkerRegionBegin = (PFN_vkCmdDebugMarkerBeginEXT)vkGetDeviceProcAddr(m_device.logicalDevice, "vkCmdDebugMarkerBeginEXT");
-		pfnDebugMarkerRegionEnd= (PFN_vkCmdDebugMarkerEndEXT)vkGetDeviceProcAddr(m_device.logicalDevice, "vkCmdDebugMarkerEndEXT");
-		//}
-		//
-		SetupSwapchain();
+	//if (m_device.debugMarker)
+	//{
+	// TODO MAKE SURE THIS IS SUPPORTED
+	pfnDebugMarkerSetObjectName = (PFN_vkDebugMarkerSetObjectNameEXT)vkGetDeviceProcAddr(m_device.logicalDevice, "vkDebugMarkerSetObjectNameEXT");
+	pfnDebugMarkerRegionBegin = (PFN_vkCmdDebugMarkerBeginEXT)vkGetDeviceProcAddr(m_device.logicalDevice, "vkCmdDebugMarkerBeginEXT");
+	pfnDebugMarkerRegionEnd= (PFN_vkCmdDebugMarkerEndEXT)vkGetDeviceProcAddr(m_device.logicalDevice, "vkCmdDebugMarkerEndEXT");
+	//}
+	//
+	SetupSwapchain();
 
-		InitializeRenderBuffers();
+	InitializeRenderBuffers();
 
-		CreateDefaultRenderpass();
-		CreateUniformBuffers();
-		CreateDefaultDescriptorSetLayout();
+	CreateDefaultRenderpass();
+	CreateUniformBuffers();
+	CreateDefaultDescriptorSetLayout();
 
-		fbCache.Init(m_device.logicalDevice);
-		for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
-		{
-		gpuTransformBuffer[i].Init(&m_device,VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	fbCache.Init(m_device.logicalDevice);
+	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
+	{
+	gpuTransformBuffer[i].Init(&m_device,VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
-		}
-		//gpuTransformBuffer.reserve(MAX_OBJECTS);
+	}
+	//gpuTransformBuffer.reserve(MAX_OBJECTS);
 
 
-		CreateDescriptorSets_GPUScene();
-		CreateDescriptorSets_Lights();
+	CreateDescriptorSets_GPUScene();
+	CreateDescriptorSets_Lights();
 
-		CreateDefaultPSOLayouts();
-		CreateDefaultPSO();
+	CreateDefaultPSOLayouts();
+	CreateDefaultPSO();
 
-		if (setupSpecs.useOwnImgui)
-		{
-			InitImGUI();
-		}
+	if (setupSpecs.useOwnImgui)
+	{
+		InitImGUI();
+	}
 
-		CreateLightingBuffers();
+	CreateLightingBuffers();
 
-		// Initialize all sampler objects
-		samplerManager.Init();
+	// Initialize all sampler objects
+	samplerManager.Init();
 
-		// Calls "Init()" on all registered render passes. Order is not guarunteed.
-		auto rpd = RenderPassDatabase::Get();
-		GfxRenderpass* ptr;
-		ptr = new ShadowPass;
-		rpd->RegisterRenderPass(ptr);
-		ptr = new DebugDrawRenderpass;
-		rpd->RegisterRenderPass(ptr);
-		ptr = new GBufferRenderPass;
-		rpd->RegisterRenderPass(ptr);
-		ptr = new DeferredCompositionRenderpass;
-		rpd->RegisterRenderPass(ptr);
-		ptr = new SSAORenderPass;
-		rpd->RegisterRenderPass(ptr);
-		ptr = new ForwardParticlePass;
-		rpd->RegisterRenderPass(ptr);
-		ptr = new ForwardUIPass;
-		rpd->RegisterRenderPass(ptr);
-		ptr = new BloomPass;
-		rpd->RegisterRenderPass(ptr);
+	// Calls "Init()" on all registered render passes. Order is not guarunteed.
+	auto rpd = RenderPassDatabase::Get();
+	GfxRenderpass* ptr;
+	ptr = new ShadowPass;
+	rpd->RegisterRenderPass(ptr);
+	ptr = new DebugDrawRenderpass;
+	rpd->RegisterRenderPass(ptr);
+	ptr = new GBufferRenderPass;
+	rpd->RegisterRenderPass(ptr);
+	ptr = new DeferredCompositionRenderpass;
+	rpd->RegisterRenderPass(ptr);
+	ptr = new SSAORenderPass;
+	rpd->RegisterRenderPass(ptr);
+	ptr = new ForwardParticlePass;
+	rpd->RegisterRenderPass(ptr);
+	ptr = new ForwardUIPass;
+	rpd->RegisterRenderPass(ptr);
+	ptr = new BloomPass;
+	rpd->RegisterRenderPass(ptr);
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
-		ptr = new ForwardDecalRenderpass;
-		rpd->RegisterRenderPass(ptr);
+	ptr = new ForwardDecalRenderpass;
+	rpd->RegisterRenderPass(ptr);
 #endif
 
-		CreateFramebuffers();
+	CreateFramebuffers();
 
-		CreateCommandBuffers();
-		CreateDescriptorPool();
+	CreateCommandBuffers();
+	CreateDescriptorPool();
 
-		g_Textures.reserve(2048);
-		g_globalModels.reserve(2048);
-		g_imguiIDs.reserve(2048);
+	g_Textures.reserve(2048);
+	g_globalModels.reserve(2048);
+	g_imguiIDs.reserve(2048);
 
-		uint32_t whiteTexture = 0xFFFFFFFF; // ABGR
-		uint32_t blackTexture = 0xFF000000; // ABGR
-		uint32_t normalTexture = 0xFFFF8080; // ABGR
-		uint32_t pinkTexture = 0xFFA040A0; // ABGR
+	uint32_t whiteTexture = 0xFFFFFFFF; // ABGR
+	uint32_t blackTexture = 0xFF000000; // ABGR
+	uint32_t normalTexture = 0xFFFF8080; // ABGR
+	uint32_t pinkTexture = 0xFFA040A0; // ABGR
 
-		whiteTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&whiteTexture));
-		blackTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
-		normalTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
-		pinkTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
+	whiteTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&whiteTexture));
+	blackTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
+	normalTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
+	pinkTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
 		
-		RenderPassDatabase::InitAllRegisteredPasses();
+	RenderPassDatabase::InitAllRegisteredPasses();
 
 		
-		auto& shadowTexture =RenderPassDatabase::GetRenderPass<ShadowPass>()->shadow_depth;
-		shadowTexture.updateDescriptor();
+	auto& shadowTexture =RenderPassDatabase::GetRenderPass<ShadowPass>()->shadow_depth;
+	shadowTexture.updateDescriptor();
 
-		CreateSynchronisation();
+	CreateSynchronisation();
 
-		InitDebugBuffers();
+	InitDebugBuffers();
 		
-		InitDefaultPrimatives();
+	InitDefaultPrimatives();
 
-		std::array<VkQueue, 2> cmdQueues{m_device.graphicsQueue,m_device.transferQueue};
-		std::array<uint32_t, 2> cmdFamily{m_device.queueIndices.graphicsFamily,m_device.queueIndices.transferFamily};
-		std::array<VkPhysicalDevice, 2> physDevs{ m_device.physicalDevice,m_device.physicalDevice};
-		std::array<VkDevice, 2> logicDevs{ m_device.logicalDevice,m_device.logicalDevice};
+	std::array<VkQueue, 2> cmdQueues{m_device.graphicsQueue,m_device.transferQueue};
+	std::array<uint32_t, 2> cmdFamily{m_device.queueIndices.graphicsFamily,m_device.queueIndices.transferFamily};
+	std::array<VkPhysicalDevice, 2> physDevs{ m_device.physicalDevice,m_device.physicalDevice};
+	std::array<VkDevice, 2> logicDevs{ m_device.logicalDevice,m_device.logicalDevice};
 
-		PROFILE_INIT_VULKAN(logicDevs.data(), physDevs.data(), cmdQueues.data(), cmdFamily.data(), 1, nullptr);
-	}
-	catch (const std::exception& e)
-	{
-		std::cout << "VulkanRenderer::Init failed: " << e.what() << std::endl;
-		throw e; // ???? wtf?
-	}
-	catch (...)
-	{
-		std::cout << "caught something unexpected" << std::endl;
-	}
+	PROFILE_INIT_VULKAN(logicDevs.data(), physDevs.data(), cmdQueues.data(), cmdFamily.data(), 1, nullptr);
+	
+	// by now we should have crashed if not ok
+	//std::cerr << "VulkanRenderer::Init failed: " << e.what() << std::endl;
+	//__debugbreak();
+
+	return oGFX::SUCCESS_VAL;
+	
 }
 
 void VulkanRenderer::CreateInstance(const oGFX::SetupInfo& setupSpecs)
 {
-	try
-	{
 		m_instance.Init(setupSpecs);
-	}
-	catch (const std::exception& e)
-	{
-		std::cerr << "Exception caught: " << e.what() << std::endl;
-	}
-	catch(...)
-	{
-		std::cerr << "Caught something, re-throwing from : " << __FUNCSIG__ << std::endl;
-		throw;
-	}
 }
 
 class SDL_Window;
@@ -626,7 +615,8 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 	VK_NAME(m_device.logicalDevice, "samplerSetLayout", SetLayoutDB::bindless);
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to create a descriptor set layout!");
+		std::cerr << "Failed to create a descriptor set layout!" << std::endl;
+		__debugbreak();
 	}
 }
 
@@ -973,7 +963,8 @@ void VulkanRenderer::CreateFramebuffers()
 		VK_NAME(m_device.logicalDevice, "swapchainFramebuffers", swapChainFramebuffers[i]);
 		if (result != VK_SUCCESS)
 		{
-			throw std::runtime_error("Failed to create a Framebuffer!");
+			std::cerr << "Failed to create a Framebuffer!" << std::endl;
+			__debugbreak();
 		}
 	}
 }
@@ -1004,7 +995,8 @@ void VulkanRenderer::CreateCommandBuffers()
 		VkResult result = vkAllocateCommandBuffers(m_device.logicalDevice, &cbAllocInfo, &commandBuffers[i]);
 		if (result != VK_SUCCESS)
 		{
-			throw std::runtime_error("Failed to allocate Command Buffers!");
+			std::cerr << "Failed to allocate Command Buffers!" << std::endl;
+			__debugbreak();
 		}
 	}
 	
@@ -1460,7 +1452,8 @@ void VulkanRenderer::CreateSynchronisation()
 			vkCreateSemaphore(m_device.logicalDevice, &semaphorecreateInfo, nullptr, &renderSemaphore[i]) != VK_SUCCESS ||
 			vkCreateFence(m_device.logicalDevice, &fenceCreateInfo, nullptr,&drawFences[i]) != VK_SUCCESS)
 		{
-			throw std::runtime_error("Failed to create a Semaphore and/or Fence!");
+			std::cerr << "Failed to create a Semaphore and/or Fence!" << std::endl;
+			__debugbreak();
 		}
 		VK_NAME(m_device.logicalDevice, "presentSemaphore", presentSemaphore[i]);
 		VK_NAME(m_device.logicalDevice, "renderSemaphore", renderSemaphore[i]);
@@ -1522,7 +1515,8 @@ void VulkanRenderer::CreateDescriptorPool()
 	VK_NAME(m_device.logicalDevice, "descriptorPool", descriptorPool);
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to create a descriptor pool!");
+		std::cerr << "Failed to create a descriptor pool!" << std::endl;
+		__debugbreak();
 	}
 
 	// Create Sampler Descriptor pool
@@ -1536,7 +1530,8 @@ void VulkanRenderer::CreateDescriptorPool()
 	VK_NAME(m_device.logicalDevice, "samplerDescriptorPool", samplerDescriptorPool);
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to create a descriptor pool!");
+		std::cerr << "Failed to create a descriptor pool!" << std::endl;
+		__debugbreak();
 	}
 
 	// Variable descriptor
@@ -1556,7 +1551,7 @@ void VulkanRenderer::CreateDescriptorPool()
 	if (result != VK_SUCCESS)
 	{
 		std::cerr << "Failed to allocate texture descriptor sets!" << std::endl;
-		throw std::runtime_error("Failed to allocate texture descriptor sets!");
+		__debugbreak();
 	}
 }
 
@@ -1638,8 +1633,10 @@ void VulkanRenderer::InitImGUI()
 	info.pDependencies = &dependency;
 
 
-	if (vkCreateRenderPass(m_device.logicalDevice, &info, nullptr, &m_imguiConfig.renderPass) != VK_SUCCESS) {
-		throw std::runtime_error("Could not create Dear ImGui's render pass");
+	if (vkCreateRenderPass(m_device.logicalDevice, &info, nullptr, &m_imguiConfig.renderPass) != VK_SUCCESS) 
+	{
+		std::cerr << "Could not create Dear ImGui's render pass" << std::endl;
+		__debugbreak();
 	}
 	VK_NAME(m_device.logicalDevice, "imguiConfig_renderpass", m_imguiConfig.renderPass);
 
@@ -2312,7 +2309,8 @@ void VulkanRenderer::BeginDraw()
         VkResult result = vkBeginCommandBuffer(commandBuffers[getFrame()], &bufferBeginInfo);
         if (result != VK_SUCCESS)
         {
-            throw std::runtime_error("Failed to start recording a Command Buffer!");
+			std::cerr << "Failed to start recording a Command Buffer!" << std::endl;
+			__debugbreak();
         }
 	}
 }
@@ -2447,7 +2445,8 @@ void VulkanRenderer::Present()
 	VkResult result = vkEndCommandBuffer(commandBuffers[getFrame()]);
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to stop recording a Command Buffer!");
+		std::cerr << "Failed to stop recording a Command Buffer!" << std::endl;
+		__debugbreak();
 	}
 
 	
@@ -2480,7 +2479,8 @@ void VulkanRenderer::Present()
 		result = vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, drawFences[getFrame()]);
 		if (result != VK_SUCCESS)
 		{
-			throw std::runtime_error("Failed to submit command buffer to queue!");
+			std::cerr << "Failed to submit command buffer to queue!" << std::endl;
+			__debugbreak();
 		}
 	}
 
@@ -2497,7 +2497,7 @@ void VulkanRenderer::Present()
 	//std::cout << "swapchainidx " << getFrame() << "\t currentFrame " << currentFrame << std::endl;
 															//present image
 	PROFILE_GPU_PRESENT(m_swapchain.swapchain);
-	try
+	
 	{
 		PROFILE_SCOPED("QueuePresent")
 		result = vkQueuePresentKHR(m_device.presentationQueue, &presentInfo);
@@ -2509,13 +2509,10 @@ void VulkanRenderer::Present()
 		}
 		else if(result != VK_SUCCESS && result!= VK_SUBOPTIMAL_KHR)
 		{
-			std::cout << (int)result;
-			throw std::runtime_error("Failed to present image!");
+			std::cout << oGFX::vkutils::tools::VkResultString(result) << "\nFailed to present image!" << std::endl;
 		}
 	}
-	catch(std::runtime_error e){
-		std::cout << e.what();
-	}
+
 	//get next frame (use % MAX_FRAME_DRAWS to keep value below max frames)
 	//currentFrame = (currentFrame + 1) % MAX_FRAME_DRAWS;
 	++currentFrame;

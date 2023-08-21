@@ -52,9 +52,10 @@ namespace oGFX::vkutils::tools
 	VkResult result = x;\
 	if(result != VK_SUCCESS)\
 	{\
-		std::cout << oGFX::vkutils::tools::VkResultString(result) << std::endl;\
+		std::cerr << oGFX::vkutils::tools::VkResultString(result) << std::endl;\
 		assert(result == VK_SUCCESS);\
-		throw std::runtime_error("Failed Vulkan Check");\
+		std::cerr << "Failed Vulkan Check" << std::endl;\
+		__debugbreak();\
 	}\
 }while(0)
 #endif // !VK_CHK
@@ -110,6 +111,8 @@ struct VulkanInstance;
 struct VulkanDevice;
 namespace oGFX
 {
+	constexpr bool ERROR_VAL = 1;
+	constexpr bool SUCCESS_VAL = 0;
 
 	glm::mat4 customOrtho(float aspect_ratio, float size, float nr, float fr);
 

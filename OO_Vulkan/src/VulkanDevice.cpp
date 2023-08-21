@@ -64,7 +64,7 @@ void VulkanDevice::InitPhysicalDevice(const oGFX::SetupInfo& si, VulkanInstance&
 	if (deviceCount == 0)
 	{
 		std::cerr << "Can't find GPUs that support vulkan instance!" << std::endl;
-		throw std::runtime_error("Can't find GPUs that support vulkan instance!");
+        __debugbreak();
 	}
 
 	// Get ist of physical devices
@@ -99,7 +99,7 @@ void VulkanDevice::InitPhysicalDevice(const oGFX::SetupInfo& si, VulkanInstance&
 	if (physicalDevice == VK_NULL_HANDLE)
 	{
 		std::cerr << "No suitable physical device found!" << std::endl;
-		throw std::runtime_error("No suitable physical device found!");
+        __debugbreak();
 	}
 
 }
@@ -194,7 +194,7 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
     if (result != VK_SUCCESS)
     {
 		std::cerr << "VK Renderer Failed to create a logical device!\n" << oGFX::vkutils::tools::VkResultString(result) << std::endl;
-        throw std::runtime_error("VK Renderer Failed to create a logical device!\n" + oGFX::vkutils::tools::VkResultString(result));
+        __debugbreak();
     }
     VK_NAME(logicalDevice, "logicalDevice", logicalDevice);
 
@@ -225,7 +225,7 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
         if (result != VK_SUCCESS)
         {
             std::cerr << "Failed to create a command pool!" << std::endl;
-            throw std::runtime_error("Failed to create a command pool!");
+            __debugbreak();
         }
     }
   
@@ -297,8 +297,8 @@ bool VulkanDevice::CheckDeviceExtensionSupport(const oGFX::SetupInfo& si,VkPhysi
         }
         if (!hasExtension)
         {
-            //TODO: throw what extension not supported
-            std::cout << std::string("Does not support extension ") + deviceExtension << std::endl;
+            //TODO: what extension not supported
+            std::cerr << std::string("Does not support extension ") + deviceExtension << std::endl;
             return false;
         }
     }

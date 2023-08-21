@@ -327,7 +327,8 @@ namespace oGFX
 		VK_NAME(device.logicalDevice, "createImageView::imageView", imageView);
 		if (result != VK_SUCCESS)
 		{
-			throw std::runtime_error("Failed to create an image view!");
+			std::cerr << "Failed to create an image view!" << std::endl;
+			__debugbreak();
 		}
 
 		return imageView;
@@ -353,7 +354,8 @@ namespace oGFX
 			}
 		}
 
-		throw std::runtime_error("Failed to find a matching format!");
+		std::cerr << "Failed to find a matching format!" << std::endl;
+		__debugbreak();
 	}
 
 	VkImage CreateImage(VulkanDevice& device,uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags useFlags, VkMemoryPropertyFlags propFlags, VkDeviceMemory *imageMemory)
@@ -379,7 +381,8 @@ namespace oGFX
 		VK_NAME(device.logicalDevice, "CreateImage::image", image);
 		if (result != VK_SUCCESS)
 		{
-			throw std::runtime_error("Failed to create an image!");
+			std::cerr << "Failed to create an image!" << std::endl;
+			__debugbreak();
 		}
 		// Create memory for iamge
 		//get memeory requirements for a type of image
@@ -395,7 +398,8 @@ namespace oGFX
 		result = vkAllocateMemory(device.logicalDevice, &memoryAllocInfo, nullptr, imageMemory);
 		if (result != VK_SUCCESS)
 		{
-			throw std::runtime_error("Failed allocate memory for an image!");
+			std::cerr << "Failed allocate memory for an image!" << std::endl;
+			__debugbreak();
 		}
 
 		// connect memory to image
@@ -439,7 +443,8 @@ namespace oGFX
 		VK_NAME(device.logicalDevice, code.data(), shaderModule);
 		if (result != VK_SUCCESS)
 		{
-			throw std::runtime_error("Failed to create a shader module!");
+			std::cerr << "Failed to create a shader module!" << std::endl;
+			__debugbreak();
 		}
 		return shaderModule;
 	}
@@ -455,7 +460,7 @@ namespace oGFX
 		if (!file.is_open())
 		{
 			std::cerr << "Failed to open a file! : " << filename << std::endl;
-			throw std::runtime_error("Failed to open a file! : " + filename);
+			__debugbreak();
 		}
 
 		// get current read position and use to resize buffer
@@ -482,7 +487,8 @@ namespace oGFX
 		VkResult result = vkCreateBuffer(device, &bufferInfo, nullptr, buffer);
 		if (result != VK_SUCCESS)
 		{
-			throw std::runtime_error("Failed to create a Vertex Buffer!");
+			std::cerr << "Failed to create a Vertex Buffer!" << std::endl;
+			__debugbreak();
 		}
 
 		//get buffer memory requirements
@@ -506,8 +512,9 @@ namespace oGFX
 		result = vkAllocateMemory(device, &memoryAllocInfo, nullptr, bufferMemory);
 		if (result != VK_SUCCESS)
 		{
-			std::cout << oGFX::vkutils::tools::VkResultString(result) << std::endl;
-			throw std::runtime_error("Failed to allocate Vertex Buffer Memory!");
+			std::cerr << oGFX::vkutils::tools::VkResultString(result) << std::endl;
+			std::cerr << "Failed to allocate Vertex Buffer Memory!" << std::endl;
+			__debugbreak();
 		}
 
 		//Allocate memory to given vertex buffer

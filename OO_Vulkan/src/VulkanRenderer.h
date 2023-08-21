@@ -159,7 +159,7 @@ public:
 
 	static VulkanRenderer* get();
 
-	void Init(const oGFX::SetupInfo& setupSpecs, Window& window);
+	bool Init(const oGFX::SetupInfo& setupSpecs, Window& window);
 
 	void CreateInstance(const oGFX::SetupInfo& setupSpecs);
 	void CreateDebugCallback();

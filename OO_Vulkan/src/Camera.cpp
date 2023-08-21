@@ -236,7 +236,8 @@ oGFX::Frustum Camera::GetFrustum() const
 
 void Camera::LookAt(const glm::vec3& pos, const glm::vec3& target, const glm::vec3& upVec)
 {
-	throw;
+	//throw; why throw..
+	__debugbreak();
 	LookAtDirection(pos, target - pos, upVec);
 }
 

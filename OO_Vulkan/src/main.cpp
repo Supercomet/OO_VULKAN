@@ -177,36 +177,29 @@ int main(int argc, char argv[])
     setupSpec.useOwnImgui = true;
 
     VulkanRenderer* renderer = VulkanRenderer::get();
-    try
-    {
-        // Setup Dear ImGui context
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO();
-        //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-        //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
-        ImGui::StyleColorsDark();// Setup Dear ImGui style
+    
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+    //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+    ImGui::StyleColorsDark();// Setup Dear ImGui style
 
-        renderer->Init(setupSpec, mainWindow);
-       
-      
-        renderer->InitImGUI();
-
-        std::cout << "Created vulkan instance!"<< std::endl;
-    }
-    catch (std::runtime_error e)
+    auto result = renderer->Init(setupSpec, mainWindow);
+    if (result != oGFX::SUCCESS_VAL)
     {
         std::cout << "Cannot create vulkan instance! " << e.what() << std::endl;
         getchar();
         return 0;
     }
-    catch (...)
-    {
-        std::cout << "caught something unexpected" << std::endl; 
-        return 0;
-    }
+      
+    renderer->InitImGUI();
+
+    std::cout << "Created vulkan instance!"<< std::endl;
+  
 
     std::vector<oGFX::Vertex>triVerts{
             oGFX::Vertex{ {-0.5,-0.5,0.0}, { 1.0f,0.0f,0.0f }, { 1.0f,0.0f,0.0f }, { 0.0f,0.0f } },

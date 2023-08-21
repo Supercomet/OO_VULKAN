@@ -256,33 +256,33 @@ void TestApplication::Run()
     // Setup Graphics Engine
     //----------------------------------------------------------------------------------------------------
 
-    try
-    {
-        gs_RenderEngine->Init(setupSpec, mainWindow);
+    
+   
+    auto result = gs_RenderEngine->Init(setupSpec, mainWindow);
 
-        // Setup Dear ImGui context
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO();
-        //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // Enable Docking
-        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // Enable Multi-Viewport / Platform Windows
-
-
-        ImGui::StyleColorsDark(); // Setup Dear ImGui style
-        gs_RenderEngine->InitImGUI();
-
-        std::cout << "Created Vulkan instance!" << std::endl;
-    }
-    catch (const std::exception& e)
+    if (result != oGFX::SUCCESS_VAL)
     {
         std::cout << "Failed to create Vulkan instance!" << std::endl;
-        std::cout << e.what() << std::endl;
         getchar();
         return;
     }
 
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // Enable Docking
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // Enable Multi-Viewport / Platform Windows
+
+
+    ImGui::StyleColorsDark(); // Setup Dear ImGui style
+    gs_RenderEngine->InitImGUI();
+
+    std::cout << "Created Vulkan instance!" << std::endl;
+   
+  
     std::unique_ptr<oGFX::Font>testFont (gs_RenderEngine->LoadFont("../Application/fonts/Roboto-Medium.ttf"));
     {
        // using namespace msdfgen;

@@ -191,7 +191,8 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 	//check if instance extensions are supported
 	if (!checkInstanceExtensionSupport(&requiredExtensions))
 	{
-		throw std::runtime_error("VkInstance does not support required supportedExtensions!");
+		std::cerr << "VkInstance does not support required supportedExtensions!" << std::endl;
+		__debugbreak();
 	}
 
 	//create information for a VKinstance
@@ -215,13 +216,14 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 	VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to create a runtime instance!\n" + oGFX::vkutils::tools::VkResultString(result));
+		std::cerr << "Failed to create a runtime instance!" << std::endl;
+		__debugbreak();
 	}
 
-	return true;
+	return oGFX::SUCCESS_VAL;
 }
 
-void VulkanInstance::CreateSurface(Window& window, VkSurfaceKHR& surface)
+bool VulkanInstance::CreateSurface(Window& window, VkSurfaceKHR& surface)
 {
 	//
 	// Create the surface
@@ -232,7 +234,9 @@ void VulkanInstance::CreateSurface(Window& window, VkSurfaceKHR& surface)
 	auto VKCreateWin32Surface = (PFN_vkCreateWin32SurfaceKHR)vkGetInstanceProcAddr(instance, "vkCreateWin32SurfaceKHR");
 	if (nullptr == VKCreateWin32Surface)
 	{
-		throw std::runtime_error("Vulkan Driver missing the VK_KHR_win32_surface extension");
+		std::cerr << "Vulkan Driver missing the VK_KHR_win32_surface extension" << std::endl;
+		__debugbreak();
+		return oGFX::ERROR_VAL;
 	}
 
 	VkWin32SurfaceCreateInfoKHR SurfaceCreateInfo;
@@ -246,8 +250,12 @@ void VulkanInstance::CreateSurface(Window& window, VkSurfaceKHR& surface)
 
 	if (auto VKErr = VKCreateWin32Surface(instance, &SurfaceCreateInfo, nullptr, &surface); VKErr)
 	{
-		throw std::runtime_error("Vulkan Fail to create window surface");
+		std::cerr << "Vulkan Fail to create window surface" << std::endl;
+		__debugbreak();
+		return oGFX::ERROR_VAL;
 	}
+
+	return oGFX::SUCCESS_VAL;
 
 }
 

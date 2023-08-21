@@ -122,7 +122,8 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 	VkResult result = vkCreateSwapchainKHR(device.logicalDevice, &swapChainCreateInfo, nullptr, &swapchain);
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to create a Swapchain!");
+		std::cerr << "Failed to create a Swapchain!" << std::endl;
+		__debugbreak();
 	}
 	VK_NAME(device.logicalDevice, "Swapchain", swapchain);
 
