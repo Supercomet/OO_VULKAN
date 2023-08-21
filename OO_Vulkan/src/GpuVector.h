@@ -130,7 +130,11 @@ void GpuVector<T>::writeTo(size_t writeSize,const void* data, VkQueue queue, VkC
 
 	//MAP MEMORY TO VERTEX BUFFER
 	void *mappedData = nullptr;												
-	vkMapMemory(m_device->logicalDevice, stagingBufferMemory, 0, bufferBytes, 0, &mappedData);	
+	auto result = vkMapMemory(m_device->logicalDevice, stagingBufferMemory, 0, bufferBytes, 0, &mappedData);
+	if (result != VK_SUCCESS)
+	{
+		assert(false);
+	}
 	memcpy(mappedData, data, (size_t)bufferBytes);					
 	vkUnmapMemory(m_device->logicalDevice, stagingBufferMemory);					
 

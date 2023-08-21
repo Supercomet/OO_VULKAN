@@ -145,7 +145,7 @@ public:
 	static constexpr int MAX_FRAME_DRAWS = 2;
 	static constexpr int MAX_OBJECTS = 2048;
 	static constexpr VkFormat G_DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT_S8_UINT;
-	static constexpr VkFormat G_HDR_FORMAT = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+	static constexpr VkFormat G_HDR_FORMAT = VK_FORMAT_R16G16B16A16_SFLOAT;
 
 	static int ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface);
 
@@ -416,6 +416,7 @@ public:
 	std::mutex g_mut_globalModels;
 	std::vector<gfxModel> g_globalModels;
 
+	std::mutex g_mut_workQueue;
 	std::deque<std::function<void()>> g_workQueue;
 
 	uint32_t frameCounter = 0;
@@ -507,6 +508,7 @@ public:
 	static VkPipelineShaderStageCreateInfo LoadShader(VulkanDevice& device, const std::string& fileName, VkShaderStageFlagBits stage);
 	private:
 		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);		
+		uint32_t CreateTextureImageImmediate(const oGFX::FileImageData& imageInfo);		
 		uint32_t CreateTextureImage(const std::string& fileName);
 		uint32_t UpdateBindlessGlobalTexture(uint32_t textureID);		
 

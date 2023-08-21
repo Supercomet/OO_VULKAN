@@ -770,110 +770,112 @@ void TestApplication::Run()
                 ImGui::NewFrame();
             }          
 
-            ImGui::Begin("Problems");
-            ImGui::Checkbox("EditCam", &s_boolCamera);
-            ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
-            if(ImGui::TreeNode("Bloom") ){
-                auto& cs = gs_GraphicsWorld.bloomSettings;
-                ImGui::DragFloat("bloom thresh", &cs.threshold,0.001f,0.0f,1.0f);
-                ImGui::DragFloat("soft thresh", &cs.softThreshold,0.001f,0.0f,1.0f);
-
-                ImGui::TreePop();
-            }
-            if(ImGui::TreeNode("ColourCorreciton") ){
-                auto& cs = gs_GraphicsWorld.colourSettings;
-                ImGui::DragFloat("shadowThresh", &cs.shadowThreshold,0.001f,0.0f,1.0f);
-                ImGui::DragFloat("highThresh", &cs.highlightThreshold,0.001f,0.0f,1.0f);
-                ImGui::ColorEdit4("shadow", glm::value_ptr(cs.shadowColour));
-                ImGui::ColorEdit4("mid", glm::value_ptr(cs.midtonesColour));
-                ImGui::ColorEdit4("high", glm::value_ptr(cs.highlightColour));
-
-                ImGui::TreePop();
-            }
-            if(ImGui::TreeNode("vignette") ){
-                auto& vs = gs_GraphicsWorld.vignetteSettings;
-                ImGui::ColorEdit4("vigCol", glm::value_ptr(vs.colour));
-                ImGui::DragFloat("innerRadius", &vs.innerRadius,0.01f);
-                ImGui::DragFloat("outerRadius", &vs.outerRadius,0.01f);
-
-                ImGui::TreePop();
-            }
-            
-            if (ImGui::Button("Cause problems"))
             {
-                uint32_t col = 0x00FFFF00;
-                gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&col);
+                PROFILE_SCOPED("ImGui::Update");
+                ImGui::Begin("Problems");
+                ImGui::Checkbox("EditCam", &s_boolCamera);
+                ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
+                if(ImGui::TreeNode("Bloom") ){
+                    auto& cs = gs_GraphicsWorld.bloomSettings;
+                    ImGui::DragFloat("bloom thresh", &cs.threshold,0.001f,0.0f,1.0f);
+                    ImGui::DragFloat("soft thresh", &cs.softThreshold,0.001f,0.0f,1.0f);
+
+                    ImGui::TreePop();
+                }
+                if(ImGui::TreeNode("ColourCorreciton") ){
+                    auto& cs = gs_GraphicsWorld.colourSettings;
+                    ImGui::DragFloat("shadowThresh", &cs.shadowThreshold,0.001f,0.0f,1.0f);
+                    ImGui::DragFloat("highThresh", &cs.highlightThreshold,0.001f,0.0f,1.0f);
+                    ImGui::ColorEdit4("shadow", glm::value_ptr(cs.shadowColour));
+                    ImGui::ColorEdit4("mid", glm::value_ptr(cs.midtonesColour));
+                    ImGui::ColorEdit4("high", glm::value_ptr(cs.highlightColour));
+
+                    ImGui::TreePop();
+                }
+                if(ImGui::TreeNode("vignette") ){
+                    auto& vs = gs_GraphicsWorld.vignetteSettings;
+                    ImGui::ColorEdit4("vigCol", glm::value_ptr(vs.colour));
+                    ImGui::DragFloat("innerRadius", &vs.innerRadius,0.01f);
+                    ImGui::DragFloat("outerRadius", &vs.outerRadius,0.01f);
+
+                    ImGui::TreePop();
+                }
+            
+                if (ImGui::Button("Cause problems"))
+                {
+                    uint32_t col = 0x00FFFF00;
+                    gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&col);
                 
-            }
-            {
-                ImGui::PushID("uiID");
-                auto& ent = gs_GraphicsWorld.GetUIInstance(uiID);
-                ent.localToWorld = glm::mat4(1.0f);
-                if (ImGui::Checkbox("isText", &lolthisistext))
-                {
-                    ent.SetText(lolthisistext);
                 }
-
-                //ImGui::DragFloat3("Position", glm::value_ptr(ent.position));
-                //ImGui::DragFloat3("Scale", glm::value_ptr(ent.scale));
-                ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;              
-                ImGui::InputText("Text", &ent.textData);
-                ent.textData = "123 Come\nmake game";
-                float fontsize = ent.format.fontSize;
-                if (ImGui::DragFloat("FontSize", &fontsize))
                 {
-                    ent.format.fontSize = fontsize;
+                    ImGui::PushID("uiID");
+                    auto& ent = gs_GraphicsWorld.GetUIInstance(uiID);
+                    ent.localToWorld = glm::mat4(1.0f);
+                    if (ImGui::Checkbox("isText", &lolthisistext))
+                    {
+                        ent.SetText(lolthisistext);
+                    }
+
+                    //ImGui::DragFloat3("Position", glm::value_ptr(ent.position));
+                    //ImGui::DragFloat3("Scale", glm::value_ptr(ent.scale));
+                    ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;              
+                    ImGui::InputText("Text", &ent.textData);
+                    ent.textData = "123 Come\nmake game";
+                    float fontsize = ent.format.fontSize;
+                    if (ImGui::DragFloat("FontSize", &fontsize))
+                    {
+                        ent.format.fontSize = fontsize;
+                    }
+                    ImGui::ColorPicker4("Colour",glm::value_ptr(ent.colour ));
+                    ImGui::DragFloat2("Bmin", glm::value_ptr(ent.format.box.min));
+                    ImGui::DragFloat2("Bmax", glm::value_ptr(ent.format.box.max));
+                    ImGui::PopID();
+                    oGFX::AABB aabb;
+                    aabb.halfExt = glm::vec3{ (ent.format.box.max - ent.format.box.min) / 2.0f,0.0f };
+                    //oGFX::DebugDraw::AddAABB(aabb);
                 }
-                ImGui::ColorPicker4("Colour",glm::value_ptr(ent.colour ));
-                ImGui::DragFloat2("Bmin", glm::value_ptr(ent.format.box.min));
-                ImGui::DragFloat2("Bmax", glm::value_ptr(ent.format.box.max));
-                ImGui::PopID();
-                oGFX::AABB aabb;
-                aabb.halfExt = glm::vec3{ (ent.format.box.max - ent.format.box.min) / 2.0f,0.0f };
-                //oGFX::DebugDraw::AddAABB(aabb);
-            }
-            ImGui::End();
-
-            static bool ManyCamera{ true };
-            gs_GraphicsWorld.numCameras = 2;
-            ManyCamera = gs_GraphicsWorld.shouldRenderCamera[1];
-            if (ImGui::Checkbox("Many camera", &ManyCamera))
-            {
-                gs_GraphicsWorld.shouldRenderCamera[1] = ManyCamera;
-            }
-
-            //if (Input::GetKeyTriggered(KEY_P))
-            {
-                int32_t w = (int)m_WindowSize.x;
-                int32_t h = (int)m_WindowSize.y;
-
-                auto mpos = Input::GetMousePos();
-                mpos /= glm::vec2{ w,h };
-                //std::cout << "Mouse pos [" << mpos.x << "," << mpos.y << "]\n";
-
-                int32_t col = gs_RenderEngine->GetPixelValue(gs_GraphicsWorld.targetIDs[0], mpos);
-                //std::cout << "colour val : " << std::hex << col <<std::dec << " | " << col << std::endl;
-            }
-
-            if (ImGui::Begin("Main"))
-            {
-                if (gs_GraphicsWorld.imguiID[0])
-                {
-                    ImGui::Image(gs_GraphicsWorld.imguiID[0], {800,600});
-                }
-            }
                 ImGui::End();
+
+                static bool ManyCamera{ true };
+                gs_GraphicsWorld.numCameras = 2;
+                ManyCamera = gs_GraphicsWorld.shouldRenderCamera[1];
+                if (ImGui::Checkbox("Many camera", &ManyCamera))
+                {
+                    gs_GraphicsWorld.shouldRenderCamera[1] = ManyCamera;
+                }
+
+                if (Input::GetKeyTriggered(KEY_P))
+                {
+                    int32_t w = (int)m_WindowSize.x;
+                    int32_t h = (int)m_WindowSize.y;
+
+                    auto mpos = Input::GetMousePos();
+                    mpos /= glm::vec2{ w,h };
+                    //std::cout << "Mouse pos [" << mpos.x << "," << mpos.y << "]\n";
+
+                    int32_t col = gs_RenderEngine->GetPixelValue(gs_GraphicsWorld.targetIDs[0], mpos);
+                    //std::cout << "colour val : " << std::hex << col <<std::dec << " | " << col << std::endl;
+                }
+
+                if (ImGui::Begin("Main"))
+                {
+                    if (gs_GraphicsWorld.imguiID[0])
+                    {
+                        ImGui::Image(gs_GraphicsWorld.imguiID[0], {800,600});
+                    }
+                }
+                    ImGui::End();
            
-            if (ImGui::Begin("Editor"))
-            {
-                if (gs_GraphicsWorld.imguiID[1])
+                if (ImGui::Begin("Editor"))
                 {
-                    ImGui::Image(gs_GraphicsWorld.imguiID[1], {800,600});
+                    if (gs_GraphicsWorld.imguiID[1])
+                    {
+                        ImGui::Image(gs_GraphicsWorld.imguiID[1], {800,600});
+                    }
                 }
-            }
-                ImGui::End();
+                    ImGui::End();
             
-
+            }
 
             if (gs_RenderEngine->PrepareFrame() == true)
             {
