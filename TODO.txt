@@ -5,6 +5,9 @@ Tasks:
 • Only support 1 Camera
 • Get rid of presentation queue. Present on Graphics Queue
     • OMG!!!
+• No try-catch. Unacceptable method of error handling unless it's extremely specific edge case
+    • Get rid of all try-catch
+    • Use asserts instead, or use "__debugbreak()"
 • Proper Frame Fencing
     • Should only stall CPU before the FIRST command buffer submission
 • Support only 1 queue for now
