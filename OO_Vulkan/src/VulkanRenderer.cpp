@@ -2500,7 +2500,7 @@ void VulkanRenderer::Present()
 	
 	{
 		PROFILE_SCOPED("QueuePresent")
-		result = vkQueuePresentKHR(m_device.presentationQueue, &presentInfo);
+		result = vkQueuePresentKHR(m_device.graphicsQueue, &presentInfo);
 		if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR /*|| WINDOW_RESIZED*/)
 		{
 			resizeSwapchain = true;

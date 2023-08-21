@@ -38,7 +38,6 @@ struct VulkanDevice
 
 	VkQueue graphicsQueue{VK_NULL_HANDLE};
 	oGFX::QueueFamilyIndices queueIndices{};
-	VkQueue presentationQueue{VK_NULL_HANDLE};
 	VkQueue transferQueue{VK_NULL_HANDLE};
 
 	VkPhysicalDeviceFeatures enabledFeatures{};
