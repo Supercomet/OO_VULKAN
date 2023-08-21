@@ -1,4 +1,6 @@
 Tasks:
+• Minimal Vulkan API reference: https://github.com/NVIDIAGameWorks/nvrhi
+
 • Always enable VK_LAYER_KHRONOS_validation
     • Don't ignore any non-verbose messages
 
