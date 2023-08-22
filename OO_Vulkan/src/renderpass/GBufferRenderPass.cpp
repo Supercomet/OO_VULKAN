@@ -364,12 +364,13 @@ void GBufferRenderPass::SetupRenderpass()
 	for (uint32_t i = 0; i < GBufferAttachmentIndex::MAX_ATTACHMENTS; ++i)
 	{
 		attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
-		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		attachmentDescs[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		if (i == GBufferAttachmentIndex::DEPTH)
 		{
+			attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 			attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 			attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		}
