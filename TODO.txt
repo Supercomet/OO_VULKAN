@@ -6,19 +6,7 @@ Tasks:
     • It's linearly iterating through all Renderers & dynamic casting, which is bad for perf
     • It's also not necessary. Just declare a Renderer in Global scope in its own .cpp file, and extern the GfxRenderpass ptr in VulkanRenderer.
 
-• Always enable VK_LAYER_KHRONOS_validation
-    • Don't ignore any non-verbose messages
-
-• Get rid of "Debug" config. Only Release from now onwards
-
 • Only support 1 Camera
-
-• Get rid of presentation queue. Present on Graphics Queue
-    • OMG!!!
-
-• No try-catch. Unacceptable method of error handling unless it's extremely specific edge case
-    • Get rid of all try-catch
-    • Use asserts instead, or use "__debugbreak()"
 
 • Proper Frame Fencing
     • Should only stall CPU before the FIRST command buffer submission
