@@ -13,6 +13,7 @@ Technology is prohibited.
 *//*************************************************************************************/
 #pragma once
 #include <vulkan/vulkan.h>
+#include "buildDefs.h"
 #include "MathCommon.h"
 
 #include <string>
@@ -85,9 +86,7 @@ namespace oGFX
 
 #ifndef VK_NAME
 
-#ifdef _DEBUG
-
-
+#if GPU_MARKER
 
 #define VK_NAME(DEVICE, NAME, OBJ) do{\
 VkDebugMarkerObjectNameInfoEXT nameInfo = {};\
@@ -101,7 +100,7 @@ oGFX::SetVulkanObjectName(DEVICE,nameInfo);\
 }while(0)
 #else
 #define VK_NAME(DEVICE, NAME, OBJ)   
-#endif // DEBUG
+#endif // GPU_MARKER
 
 #endif
 

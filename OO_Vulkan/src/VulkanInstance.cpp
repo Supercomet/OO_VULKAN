@@ -56,9 +56,7 @@ std::vector<const char*> getSupportedValidationLayers(VulkanInstance& vkinstance
 {
 	auto s_ValidationLayerNames_Alt1 = std::vector<const char*>
 	{
-#ifdef _DEBUG
 		"VK_LAYER_KHRONOS_validation"
-#endif // DEBUG
 	};
 
 	auto s_ValidationLayerNames_Alt2 = std::vector<const char*>
@@ -172,7 +170,7 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 		validationLayers = getSupportedValidationLayers( *this );
 		if( validationLayers.size() ) 
 		{
-#ifdef _DEBUG
+#if VULKAN_VALIDATION
 			requiredExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 			requiredExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 
@@ -184,7 +182,7 @@ bool VulkanInstance::Init(const oGFX::SetupInfo& setupSpecs)
 				validationLayers.emplace_back( "VK_LAYER_RENDERDOC_Capture" );
 				//validationLayers.emplace_back( "VK_LAYER_LUNARG_api_dump" ); // for nuclear debugging
 			}
-#endif // DEBUG
+#endif // VULKAN_VALIDATION
 		}
 	}
 

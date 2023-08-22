@@ -99,10 +99,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	void* pUserData) {
 	
 	// Ignore all performance related warnings for now..
-	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT && !(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
+	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT )//&& !(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
 	{
 		int x;
-		std::cerr << pCallbackData->pMessage << std::endl<< std::endl;
+		std::cerr << pCallbackData->pMessage << "\n" << std::endl;
 		//assert(false); temp comment out
 		x=5; // for breakpoint
 	}
@@ -163,9 +163,9 @@ VulkanRenderer::~VulkanRenderer()
 
 	RenderPassDatabase::Shutdown();
 
-#ifdef _DEBUG
+#if VULKAN_MESSENGER
 	DestroyDebugMessenger();
-#endif // _DEBUG
+#endif // VULKAN_MESSENGER
 
 	fbCache.Cleanup();
 
@@ -255,9 +255,9 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	g_globalModels.reserve(MAX_OBJECTS);
 	CreateInstance(setupSpecs);
 
-#ifdef _DEBUG
+#if VULKAN_MESSENGER
 	CreateDebugCallback();
-#endif // _DEBUG
+#endif // VULKAN_MESSENGER
 
 	CreateSurface(setupSpecs,window);
 	// set surface for imgui

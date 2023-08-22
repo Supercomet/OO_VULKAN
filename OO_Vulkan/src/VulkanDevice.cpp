@@ -140,9 +140,9 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
 
     if (si.debug && si.renderDoc)
     {
-#ifdef _DEBUG
+#if VULKAN_VALIDATION
         deviceExtensions.emplace_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME); 
-#endif // DEBUG
+#endif // VULKAN_VALIDATION
     }
 
     //information to create logical device (somtimes called only "device")
@@ -277,9 +277,9 @@ bool VulkanDevice::CheckDeviceExtensionSupport(const oGFX::SetupInfo& si,VkPhysi
 
     if (si.debug && si.renderDoc)
     {
-#ifdef _DEBUG
+#if VULKAN_VALIDATION
         deviceExtensions.emplace_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
-#endif // DEBUG
+#endif // VULKAN_VALIDATION
     }
 
     //check extensions
