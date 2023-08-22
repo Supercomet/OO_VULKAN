@@ -80,6 +80,10 @@ Tasks:
     • Suballocate exact necessary bytes as neededed for culled instances
     • Pass buffer offset to VS
 
+• IBL rendering
+    • directional light
+    • scene cube map
+
 • True HDR pipeline
     • Luminance Histogram generation
     • Attenuate scene color based on scene luminance (eye adaptation)
