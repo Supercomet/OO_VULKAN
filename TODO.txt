@@ -6,6 +6,17 @@ Tasks:
     • It's linearly iterating through all Renderers & dynamic casting, which is bad for perf
     • It's also not necessary. Just declare a Renderer in Global scope in its own .cpp file, and extern the GfxRenderpass ptr in VulkanRenderer.
 
+• Remove all forms of stalling from the pipeline
+	• Debug why GpuVector::writeTo is always reserving
+
+• Remove all forms of binary semaphores
+	• Implement a frame counter and semaphore signal at end of present
+
+• Implement frame based deleter
+	• Use VK_SEMAPHORE_TYPE_TIMELINE counting semaphore to check frame on GPU
+
+• Change to from renderpasses to VK_KHR_dynamic_rendering
+
 • Only support 1 Camera
 
 • Proper Frame Fencing
@@ -14,6 +25,7 @@ Tasks:
 • Use Inverse Depth Buffer & Infinite Far Plane for your Projection Matrix
 
 • Support only 1 queue for now
+	• Remove transfer queue
 
 • GBuffer Render Targets:
     • Normal should be R10G10B10A2
