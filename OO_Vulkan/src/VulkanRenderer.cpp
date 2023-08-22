@@ -428,7 +428,7 @@ void VulkanRenderer::CreateDefaultRenderpass()
 	VkAttachmentDescription colourAttachment = {};
 	colourAttachment.format = m_swapchain.swapChainImageFormat;  //format to use for attachment
 	colourAttachment.samples = VK_SAMPLE_COUNT_1_BIT;//number of samples to use for multisampling
-	colourAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;//descripts what to do with attachment before rendering
+	colourAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;//descripts what to do with attachment before rendering
 	colourAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;//describes what to do with attachment after rendering
 	colourAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; //describes what do with with stencil before rendering
 	colourAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; //describes what do with with stencil before rendering
@@ -436,7 +436,7 @@ void VulkanRenderer::CreateDefaultRenderpass()
 	//frame buffer data will be stored as image, but images can be given different data layouts
 	//to give optimal use for certain operations
 	colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; //image data layout before render pass starts
-	//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; //image data layout aftet render pass ( to change to)
+	//colourAttachment.finalLayout = VK_IMAGE_LAYOUT_ENT_SRC_KHR; //image data layout aftet render pass ( to change to)
 	colourAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; //image data layout aftet render pass ( to change to)
 
 	

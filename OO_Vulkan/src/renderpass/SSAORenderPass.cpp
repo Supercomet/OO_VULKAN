@@ -395,7 +395,7 @@ void SSAORenderPass::SetupRenderpass()
 	VkAttachmentDescription colourAttachment = {};
 	colourAttachment.format = SSAO_renderTarget.format; // R32_F 
 	colourAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	colourAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colourAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colourAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	colourAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colourAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; 
