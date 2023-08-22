@@ -141,9 +141,13 @@ void GpuVector<T>::writeTo(size_t writeSize,const void* data, VkQueue queue, VkC
 	CopyBuffer(m_device->logicalDevice, queue,pool,
 		stagingBuffer, m_buffer, bufferBytes, writeBytesOffset);
 
-	//clean up staging buffer parts
-	vkDestroyBuffer(m_device->logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(m_device->logicalDevice, stagingBufferMemory, nullptr);
+	{
+		PROFILE_SCOPED("Clean buffer") 
+
+		//clean up staging buffer parts
+		vkDestroyBuffer(m_device->logicalDevice, stagingBuffer, nullptr);
+		vkFreeMemory(m_device->logicalDevice, stagingBufferMemory, nullptr);
+	}
 
 	//not sure what to do here, we just assume that its tightly packed
 	if (offset < m_size)
@@ -165,7 +169,7 @@ void GpuVector<T>::resize(size_t size, VkQueue queue, VkCommandPool pool)
 template <typename T>
 void GpuVector<T>::reserve(size_t size, VkQueue queue, VkCommandPool pool)
 {
-	if (size < m_capacity) return;
+	if (size <= m_capacity) return;
 	PROFILE_SCOPED();
 
 	using namespace oGFX;
@@ -186,9 +190,12 @@ void GpuVector<T>::reserve(size_t size, VkQueue queue, VkCommandPool pool)
 
 	//clean up old buffer
 	// stall here -- doesnt matter because this will never happen in final product
-	vkDeviceWaitIdle(m_device->logicalDevice);
-	vkDestroyBuffer(m_device->logicalDevice, m_buffer, nullptr);
-	vkFreeMemory(m_device->logicalDevice, m_gpuMemory, nullptr);
+	{
+		PROFILE_SCOPED("Clean up buffer");
+		vkDeviceWaitIdle(m_device->logicalDevice);
+		vkDestroyBuffer(m_device->logicalDevice, m_buffer, nullptr);
+		vkFreeMemory(m_device->logicalDevice, m_gpuMemory, nullptr);
+	}
 
 	m_buffer = tempBuffer;
 	m_gpuMemory = tempMemory;

@@ -481,6 +481,7 @@ namespace oGFX
 
 	void CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags bufferProperties, VkBuffer* buffer, VkDeviceMemory* bufferMemory)
 	{
+		PROFILE_SCOPED();
 		//CREATE VERTEX BUFFER
 		//information to create a buffer ( doesnt include assigning memory)
 		VkBufferCreateInfo bufferInfo = oGFX::vkutils::inits::bufferCreateInfo(bufferUsage,bufferSize);
@@ -525,6 +526,7 @@ namespace oGFX
 	void CopyBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,
 		VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize,VkDeviceSize dstOffset,VkDeviceSize srcOffset)
 	{
+		PROFILE_SCOPED();
 		//Create buffer
 		VkCommandBuffer transferCommandBuffer = beginCommandBuffer(device,transferCommandPool);
 
