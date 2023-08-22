@@ -1,6 +1,11 @@
 Tasks:
 • Minimal Vulkan API reference: https://github.com/NVIDIAGameWorks/nvrhi
 
+• Get rid of RenderPassDatabase
+    • dynamic_cast is not allowed in most AAA game engines
+    • It's linearly iterating through all Renderers & dynamic casting, which is bad for perf
+    • It's also not necessary. Just declare a Renderer in Global scope in its own .cpp file, and extern the GfxRenderpass ptr in VulkanRenderer.
+
 • Always enable VK_LAYER_KHRONOS_validation
     • Don't ignore any non-verbose messages
 
