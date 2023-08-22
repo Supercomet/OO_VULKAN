@@ -99,8 +99,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	void* pUserData) {
 	
 	// Ignore all performance related warnings for now..
-	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT )//&& !(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
+
+	constexpr int VALIDATION_MSG_Shader_OutputNotConsumed = 0x609a13b;
+	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT && pCallbackData->messageIdNumber != VALIDATION_MSG_Shader_OutputNotConsumed) //&& !(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
 	{
+		
 		int x;
 		std::cerr << pCallbackData->pMessage << "\n" << std::endl;
 		//assert(false); temp comment out
