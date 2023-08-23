@@ -361,6 +361,7 @@ public:
 	std::vector<VkSemaphore> presentSemaphore;
 	std::vector<VkSemaphore> renderSemaphore;
 	std::vector<VkFence> drawFences;
+	VkSemaphore frameSemaphore;
 
 	// - Pipeline
 	VkPipeline pso_utilFullscreenBlit;

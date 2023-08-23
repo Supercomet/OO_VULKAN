@@ -1428,7 +1428,7 @@ void VulkanRenderer::UploadLights()
 
 		spotLights.emplace_back(si);
 	}
-	std::cout << "Lights culled: " << sss << "\n";
+	//std::cout << "Lights culled: " << sss << "\n";
 	globalLightBuffer[getFrame()].writeTo(spotLights.size(),spotLights.data(),m_device.transferQueue,m_device.transferPools[getFrame()]);
 
 }
@@ -1452,6 +1452,18 @@ void VulkanRenderer::CreateSynchronisation()
 	VkFenceCreateInfo fenceCreateInfo = {};
 	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+	VkSemaphoreTypeCreateInfo timelineCreateInfo{};
+	timelineCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+	timelineCreateInfo.pNext = NULL;
+	timelineCreateInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+	timelineCreateInfo.initialValue = 0;
+
+	VkSemaphoreCreateInfo sci{};
+	sci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	sci.pNext = &timelineCreateInfo;
+	sci.flags = 0;
+	VK_CHK(vkCreateSemaphore(m_device.logicalDevice, &sci, nullptr, &frameSemaphore));
 
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
 	{
@@ -2229,6 +2241,8 @@ void VulkanRenderer::BeginDraw()
 	PROFILE_SCOPED();
 
 	//vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, UINT64_MAX);
+	uint64_t res{};
+	VK_CHK(vkGetSemaphoreCounterValue(m_device.logicalDevice, frameSemaphore, &res));
 
 	//wait for given fence to signal from last draw before continuing
 	VK_CHK(vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, std::numeric_limits<uint64_t>::max()));
@@ -2519,6 +2533,25 @@ void VulkanRenderer::Present()
 			std::cout << oGFX::vkutils::tools::VkResultString(result) << "\nFailed to present image!" << std::endl;
 		}
 	}
+
+	uint64_t  signalCounter = currentFrame + 1;
+	VkTimelineSemaphoreSubmitInfo computeTimelineInfo{};
+	computeTimelineInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+	computeTimelineInfo.pNext = nullptr;
+	computeTimelineInfo.waitSemaphoreValueCount = 0;
+	computeTimelineInfo.pWaitSemaphoreValues = nullptr;
+	computeTimelineInfo.signalSemaphoreValueCount = 1;
+	computeTimelineInfo.pSignalSemaphoreValues= &signalCounter;
+
+	VkSubmitInfo qsi{};
+	qsi.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	qsi.pNext = &computeTimelineInfo;
+	qsi.pWaitDstStageMask = waitStages; //stages to check semapheres at
+	qsi.commandBufferCount = 0;
+	qsi.pCommandBuffers = nullptr;	// command buffer to submit
+	qsi.signalSemaphoreCount = 1;						// number of semaphores to signal
+	qsi.pSignalSemaphores = &frameSemaphore;
+	vkQueueSubmit(m_device.graphicsQueue, 1, &qsi, nullptr);
 
 	//get next frame (use % MAX_FRAME_DRAWS to keep value below max frames)
 	//currentFrame = (currentFrame + 1) % MAX_FRAME_DRAWS;

@@ -167,11 +167,23 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
 
     deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 
+    
+
+    VkPhysicalDeviceVulkan12Features vk12Features{};
+    vk12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    vk12Features.descriptorIndexing = VK_TRUE;
+    vk12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    vk12Features.runtimeDescriptorArray = VK_TRUE; 
+    vk12Features.descriptorBindingVariableDescriptorCount = VK_TRUE; 
+    vk12Features.descriptorBindingPartiallyBound = VK_TRUE; 
+    vk12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE; 
+    vk12Features.timelineSemaphore = VK_TRUE;
 
     // required for instance base vertex
     VkPhysicalDeviceShaderDrawParametersFeatures shaderDrawFeatures{};
     shaderDrawFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
     shaderDrawFeatures.shaderDrawParameters = VK_TRUE;
+    shaderDrawFeatures.pNext = &vk12Features;
 
     // Bindless design requirement Descriptor indexing for descriptors
     VkPhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_features{};
@@ -183,8 +195,10 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
     descriptor_indexing_features.descriptorBindingPartiallyBound = VK_TRUE;
     descriptor_indexing_features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE; // needed for image descriptors
 
-    deviceCreateInfo.pNext = &descriptor_indexing_features;
+    deviceCreateInfo.pNext = &vk12Features;
     descriptor_indexing_features.pNext = &shaderDrawFeatures;
+
+    
 
     this->enabledFeatures = deviceFeatures;
 
