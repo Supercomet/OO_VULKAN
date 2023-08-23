@@ -100,6 +100,7 @@ for %%i in (*.vert *.frag *.comp *.geom) do (
 			:: This "CMD" here is needed as a hack...
 			CMD /C echo/
 			echo [91m%%~i [COMPILATION ERROR][0m
+			pause
 			exit /B 1
 			echo.
 		) else ( 

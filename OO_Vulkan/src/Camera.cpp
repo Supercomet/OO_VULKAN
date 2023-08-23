@@ -422,6 +422,28 @@ bool Camera::UpdatePad(glm::vec2 axisLeft, glm::vec2 axisRight, float deltaTime)
 	return retVal;
 }
 
+glm::mat4 inversed_infinite_perspectiveRH_ZO(float fovRad, float aspect, float n, float f) {
+	glm::mat4 result(0.0f);
+	assert(abs(aspect - std::numeric_limits<float>::epsilon()) > 0.0f);
+	float const tanHalfFovy = tan(fovRad / 2.0f);
+
+	float h = 1.0f / std::tan(fovRad * 0.5f);
+	float w = h / aspect;
+	float a = -n / (f - n);
+	float b = (n * f) / (f - n);
+	result[0][0] = w;
+	result[1][1] = h;
+	result[2][2] = a;
+	result[2][3] = -1.0f;
+	result[3][2] = b;
+	
+	result[2][2] = std::numeric_limits<float>::epsilon(); //infinite
+	result[3][2] = n; //infinite
+
+	return result;
+};
+
+
 void Camera::UpdateProjectionMatrix()
 {
 	if (m_aspectRatio != m_aspectRatio)
@@ -437,7 +459,16 @@ void Camera::UpdateProjectionMatrix()
 		matrices.perspective = glm::ortho(-m_orthoSize, m_orthoSize, -h, h, m_znear, m_zfar);
 	}
 	else
-	{
+	{		
+#define INVERSED_DEPTH
+#ifdef INVERSED_DEPTH
+
+		matrices.perspective = inversed_infinite_perspectiveRH_ZO(glm::radians(m_fovDegrees), m_aspectRatio, m_znear, m_zfar);
+
+#else
 		matrices.perspective = glm::perspective(glm::radians(m_fovDegrees), m_aspectRatio, m_znear, m_zfar);
+
+#endif // INVERSED_DEPTH
+
 	}
 }

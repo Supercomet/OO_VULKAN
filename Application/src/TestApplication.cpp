@@ -1213,6 +1213,25 @@ void TestApplication::ToolUI_Camera()
 	ImGui::DragFloat3("Target", glm::value_ptr(camera.m_TargetPosition), 0.01f);
 	ImGui::DragFloat("Distance", &camera.m_TargetDistance, 0.01f);
 
+    float val = camera.GetNearClip();
+    if (ImGui::DragFloat("camnear", &val)) camera.SetNearClip(val);
+    val = camera.GetFarClip();
+    if (ImGui::DragFloat("cam far", &val)) camera.SetFarClip(val);
+
+    val = camera.GetAspectRatio();
+    if (ImGui::DragFloat("ar", &val)) camera.SetAspectRatio(val);
+
+    val = camera.GetFov();
+    if (ImGui::DragFloat("fov", &val)) camera.SetFov(val);
+
+    ImGui::BeginDisabled();
+    auto proj = camera.matrices.perspective;
+    ImGui::DragFloat4("r0", &proj[0][0]);
+    ImGui::DragFloat4("r1", &proj[1][0]);
+    ImGui::DragFloat4("r2", &proj[2][0]);
+    ImGui::DragFloat4("r3", &proj[3][0]);
+    ImGui::EndDisabled();
+
 	bool fps = camera.m_CameraMovementType == Camera::CameraMovementType::firstperson;
 	if (ImGui::Checkbox("FPS", &fps))
 	{
@@ -1644,6 +1663,7 @@ void InitLights(int32_t* someLights)
         for (size_t i = 0; i < hardCodedLights; i++)
         {
             lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
+            SetLightEnabled(lights[i], true);
         }
         // put here so we can edit the light values
         lights[0]->position = glm::vec4(0.0f, 3.0f, 1.0f, 0.0f);
@@ -1651,6 +1671,7 @@ void InitLights(int32_t* someLights)
         lights[0]->radius.x = 30.0f;
         lights[0]->color.a = 90.0f; //intensity
         SetCastsShadows(*lights[0], true);
+        SetLightEnabled(*lights[0], true);
 
         return;
         // Red   

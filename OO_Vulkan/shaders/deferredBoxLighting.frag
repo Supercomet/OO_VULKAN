@@ -58,17 +58,17 @@ float ShadowCalculation(int lightIndex,int gridID , in vec4 fragPosLightSpace, f
 	uvs = vec2(uvs.x, 1.0-uvs.y);
 	
 	// Bounds check for the actual shadow map
-	float closestDepth = 1.0;
+	float sampledDepth = 0.0;
 	float boundsLimit = 0.99995;
 	if(projCoords.x >boundsLimit || projCoords.x < 0.0
 		|| projCoords.y >boundsLimit || projCoords.y < 0.0 
-		|| projCoords.z>1)
+		)//|| projCoords.z < 0.0)
 	{
 		return 1.0;
 	}
 	else
 	{
-		closestDepth = texture(samplerShadows,uvs).r;
+		sampledDepth = texture(samplerShadows,uvs).r;
 	}
 	float currDepth = projCoords.z;
 
@@ -76,9 +76,9 @@ float ShadowCalculation(int lightIndex,int gridID , in vec4 fragPosLightSpace, f
 	float mulBias = PC.mulBias;
 	float bias = max(mulBias * (1.0 - NdotL),maxbias);
 	float shadow = 1.0;
-	if (projCoords.w > 0.0 && currDepth - bias > closestDepth ) 
+	if (currDepth < sampledDepth - bias ) 
 	{
-		if(projCoords.z < 1)
+		if(currDepth > 0 && currDepth < 1.0)
 		{
 			shadow = 0.0;	
 		}

@@ -274,7 +274,7 @@ void DebugDrawRenderpass::CreatePipeline()
 	auto rasterizerCreateInfo    = Creator<VkPipelineRasterizationStateCreateInfo>(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 	const std::vector dynamicState{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 	auto dynamicStateCreateInfo  = Creator<VkPipelineDynamicStateCreateInfo>(dynamicState);
-	auto depthStencilCreateInfo  = Creator<VkPipelineDepthStencilStateCreateInfo>(VK_TRUE, VK_FALSE, VK_COMPARE_OP_LESS);
+	auto depthStencilCreateInfo  = Creator<VkPipelineDepthStencilStateCreateInfo>(VK_TRUE, VK_FALSE, vr.G_DEPTH_COMPARISON);
 
 	VkPipelineColorBlendAttachmentState colourState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0x0000000F,VK_TRUE);
 	colourState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -309,7 +309,7 @@ void DebugDrawRenderpass::CreatePipeline()
 		psoCreator.Set<VkPipelineRasterizationStateCreateInfo>(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 		const std::vector dynamicState{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 		psoCreator.Set<VkPipelineDynamicStateCreateInfo>(dynamicState);
-		psoCreator.Set<VkPipelineDepthStencilStateCreateInfo>(VK_TRUE, VK_FALSE, VK_COMPARE_OP_LESS);
+		psoCreator.Set<VkPipelineDepthStencilStateCreateInfo>(VK_TRUE, VK_FALSE, vr.G_DEPTH_COMPARISON);
 		auto cbas = psoCreator.Get<VkPipelineColorBlendAttachmentState>() = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0x0000000F, VK_TRUE);
 		cbas.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 		cbas.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;

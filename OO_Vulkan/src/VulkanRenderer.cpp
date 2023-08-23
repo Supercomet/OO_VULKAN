@@ -887,7 +887,7 @@ void VulkanRenderer::CreateDefaultPSO()
 	VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
 	VkPipelineColorBlendAttachmentState blendAttachmentState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(VK_COLOR_COMPONENT_R_BIT , VK_FALSE);
 	VkPipelineColorBlendStateCreateInfo colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
-	VkPipelineDepthStencilStateCreateInfo depthStencilState = oGFX::vkutils::inits::pipelineDepthStencilStateCreateInfo(VK_FALSE, VK_FALSE, VK_COMPARE_OP_LESS_OR_EQUAL);
+	VkPipelineDepthStencilStateCreateInfo depthStencilState = oGFX::vkutils::inits::pipelineDepthStencilStateCreateInfo(VK_FALSE, VK_FALSE, this->G_DEPTH_COMPARISON);
 	VkPipelineViewportStateCreateInfo viewportState = oGFX::vkutils::inits::pipelineViewportStateCreateInfo(1, 1, 0);
 	VkPipelineMultisampleStateCreateInfo multisampleState = oGFX::vkutils::inits::pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT, 0);
 	std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
@@ -1379,17 +1379,20 @@ void VulkanRenderer::UploadLights()
 		//oGFX::DebugDraw::AddSphere(s,e.color);
 		
 		auto existing = GetLightEnabled(e);
+		auto renderLight = GetLightEnabled(e);
 		if (oGFX::coll::SphereInFrustum(frust, s))		
 		{ 			
-			SetLightEnabled(e, existing && true);
+			//SetLightEnabled(e, existing && true);
+			renderLight = renderLight && true;
 		}
 		else
 		{
 			sss++;
-			SetLightEnabled(e, false);
+			//SetLightEnabled(e, false);
+			renderLight = false;
 		}
 
-		if (GetLightEnabled(e) == false)
+		if (renderLight == false)
 		{
 			continue;
 		}
@@ -1416,15 +1419,16 @@ void VulkanRenderer::UploadLights()
 			}
 		}
 
+		SetLightEnabled(si, true);
 		si.info = e.info;
 		si.position = e.position;
 		si.color = e.color;
 		si.radius = e.radius;
 		si.projection = e.projection;
-		
+
 		spotLights.emplace_back(si);
 	}
-	//std::cout << "Lights culled: " << sss << "\n";
+	std::cout << "Lights culled: " << sss << "\n";
 	globalLightBuffer[getFrame()].writeTo(spotLights.size(),spotLights.data(),m_device.transferQueue,m_device.transferPools[getFrame()]);
 
 }
