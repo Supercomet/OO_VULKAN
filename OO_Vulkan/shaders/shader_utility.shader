@@ -1,6 +1,9 @@
 #ifndef _SHADER_UTILITY_SHADER_H_
 #define _SHADER_UTILITY_SHADER_H_
 
+#define pi 3.1415
+#define EPSILON 0.00001
+
 uint wang_hash(uint seed)
 {
     seed = (seed ^ 61) ^ (seed >> 16);

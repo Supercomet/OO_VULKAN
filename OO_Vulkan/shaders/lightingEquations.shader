@@ -1,5 +1,5 @@
-float pi = 3.1415;
-float EPSILON = 0.0001;
+#include "shader_utility.shader"
+
 float approx_tan(vec3 V, vec3 N)
 {
     float VN = clamp(dot(V,N),EPSILON,1.0);
