@@ -437,7 +437,7 @@ glm::mat4 inversed_infinite_perspectiveRH_ZO(float fovRad, float aspect, float n
 	result[2][3] = -1.0f;
 	result[3][2] = b;
 	
-	result[2][2] = std::numeric_limits<float>::epsilon(); //infinite
+	result[2][2] = 0.0f; //infinite
 	result[3][2] = n; //infinite
 
 	return result;
