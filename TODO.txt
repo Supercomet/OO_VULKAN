@@ -111,6 +111,8 @@ Tasks:
     • Anything that can be run asyncronously with Graphics Queue, should
     • GPU Fence where necessary
 
+• Vulkan Memory Allocator: https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+
 • AMD ShadowFX: https://github.com/GPUOpen-Effects/ShadowFX
     
 • AMD Combined Adaptive Compute Ambient Occlusion (CACAO):  https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/combined-adaptive-compute-ambient-occlusion.md
