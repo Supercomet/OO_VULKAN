@@ -22,8 +22,6 @@ Tasks:
 • Proper Frame Fencing
     • Should only stall CPU before the FIRST command buffer submission
 
-• Use Inverse Depth Buffer & Infinite Far Plane for your Projection Matrix
-
 • Support only 1 queue for now
 	• Remove transfer queue
 
@@ -32,6 +30,20 @@ Tasks:
     • Don't store Entity ID as GBuffer RT
     • Emissive should be RGBA8
         • Optimization opportunity: Separate render pass for objects that have emissive, which should not be alot
+
+• IBL rendering
+    • Directional light
+    • Scene cube map
+    • Sky dome
+    • Once implemented, remove gbuffer albedo clear
+
+• True HDR pipeline
+    • Luminance Histogram generation
+    • Attenuate scene color based on scene luminance (eye adaptation)
+
+• HDR Render Targets:
+	• Should be R10G10B11
+	• Should return to RGBA8 after tonemapping
 
 • GPU-driven renderer
     • Implement this Step-by-Step. This is a huge & complex undertaking with multiple chained indirect dispatches
@@ -79,14 +91,6 @@ Tasks:
 • Use giant GPU circular buffers for gpu instance transforms
     • Suballocate exact necessary bytes as neededed for culled instances
     • Pass buffer offset to VS
-
-• IBL rendering
-    • directional light
-    • scene cube map
-
-• True HDR pipeline
-    • Luminance Histogram generation
-    • Attenuate scene color based on scene luminance (eye adaptation)
 
 • Don't clear GBuffer every frame
     • Your game should have every pixel in every GBuffer Render Target filled up.
