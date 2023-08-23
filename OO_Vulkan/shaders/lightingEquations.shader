@@ -122,3 +122,173 @@ vec3 GGXBRDF(vec3 L ,vec3 V , vec3 H , vec3 N , float alpha , vec3 Kd , vec3 Ks)
 
     return result;
 }
+
+
+
+vec2 GetShadowMapRegion(int gridID, in vec2 uv, in vec2 gridSize)
+{
+	
+    vec2 gridIncrement = vec2(1.0) / gridSize; // size for each cell
+
+    vec2 actualUV = gridIncrement * uv; // uv local to this cell
+
+	// avoid the modolus operator not sure how much that matters
+    int y = gridID / int(gridSize.x);
+    int x = gridID - int(gridSize.x * y);
+
+    vec2 offset = gridIncrement * vec2(x, y); // offset to our cell
+
+    return offset + actualUV; //sampled position
+}
+
+float ShadowCalculation(int lightIndex, int gridID, in vec4 fragPosLightSpace, float NdotL)
+{
+
+	// perspective divide
+    vec4 projCoords = fragPosLightSpace / fragPosLightSpace.w;
+	//normalization [0,1] tex coords only.. FOR VULKAN DONT DO Z
+    projCoords.xy = projCoords.xy * 0.5 + 0.5;
+
+    vec2 uvs = vec2(projCoords.x, projCoords.y);
+    uvs = GetShadowMapRegion(gridID, uvs, PC.shadowMapGridDim);
+	
+	// Flip y during sample
+    uvs = vec2(uvs.x, 1.0 - uvs.y);
+	
+	// Bounds check for the actual shadow map
+    float sampledDepth = 0.0;
+    float boundsLimit = 0.99995;
+    if (projCoords.x > boundsLimit || projCoords.x < 0.0
+		|| projCoords.y > boundsLimit || projCoords.y < 0.0
+		)//|| projCoords.z < 0.0)
+    {
+        return 1.0;
+    }
+    else
+    {
+        sampledDepth = texture(samplerShadows, uvs).r;
+    }
+    float currDepth = projCoords.z;
+
+    float maxbias = PC.maxBias;
+    float mulBias = PC.mulBias;
+    float bias = max(mulBias * (1.0 - NdotL), maxbias);
+    float shadow = 1.0;
+    if (currDepth < sampledDepth - bias)
+    {
+        if (currDepth > 0 && currDepth < 1.0)
+        {
+            shadow = 0.0;
+        }
+    }
+
+    return shadow;
+}
+
+float AttenuationFactor(float radius, float dist)
+{
+    float distsqr = dist * dist;
+    float rsqr = radius * radius;
+    float drsqr = distsqr + rsqr;
+    return 2.0 / (drsqr + dist * sqrt(drsqr));
+}
+
+float getSquareFalloffAttenuation(vec3 posToLight, float lightInvRadius)
+{
+    float distanceSquare = dot(posToLight, posToLight);
+    float factor = distanceSquare * lightInvRadius * lightInvRadius;
+    float smoothFactor = max(1.0 - factor * factor, 0.0);
+    return (smoothFactor * smoothFactor) / max(distanceSquare, 1e-4);
+}
+
+float UnrealFalloff(float dist, float radius)
+{
+    float num = clamp(1.0 - pow(dist / radius, 4.0), 0.0, 1.0);
+    num = num * num;
+    float denom = dist * dist + 1;
+    return num / denom;
+}
+
+vec3 EvalLight(int lightIndex, in vec3 fragPos, in vec3 normal, float roughness, in vec3 albedo, float specular)
+{
+    vec3 result = vec3(0.0f, 0.0f, 0.0f);
+    vec3 N = normalize(normal);
+    float alpha = roughness;
+    vec3 Kd = albedo;
+    vec3 Ks = vec3(specular);
+	//Ks = vec3(0);
+
+	
+	
+	// Vector to light
+    vec3 L = Lights_SSBO[lightIndex].position.xyz - fragPos;
+
+	// Distance from light to fragment position
+    float dist = length(L);
+	
+	// Viewer to fragment
+    vec3 V = uboFrameContext.cameraPosition.xyz - fragPos;
+	
+	// Light to fragment
+    L = normalize(L);
+    V = normalize(V);
+    vec3 H = normalize(L + V);
+    float NdotL = max(0.0, dot(N, L));
+
+	//if(dist < Lights_SSBO[lightIndex].radius.x)
+	{
+		//SpotLightInstance light = SpotLightInstance(Omni_LightSSBO[lightIndex]); 
+	    
+        float r1 = Lights_SSBO[lightIndex].radius.x;
+        float r2 = Lights_SSBO[lightIndex].radius.x * 0.9;
+        vec4 lightColInten = Lights_SSBO[lightIndex].color;
+
+		//distribute the light across the area
+        float LItensity = lightColInten.w / (4 * pi);
+        vec3 lCol = lightColInten.rgb * lightColInten.w;
+
+        float radii = pow(1.0 - pow(dist / r1, 4), 2);
+        float Evalue = (LItensity / max(dist * dist, 0.01 * 0.01)) * radii;
+
+    		// Attenuation
+        float atten = AttenuationFactor(r1, dist);
+			//if(atten<0.001) discard;
+        atten = getSquareFalloffAttenuation(L, 1.0 / Lights_SSBO[lightIndex].radius.x);
+        atten = UnrealFalloff(dist, Lights_SSBO[lightIndex].radius.x);
+	
+		// Diffuse part
+        vec3 diff = GGXBRDF(L, V, H, N, alpha, Kd, Ks) * NdotL * atten * lCol;
+
+
+		// Specular part
+		// Specular map values are stored in alpha of albedo mrt
+        vec3 R = -reflect(L, N);
+        float RdotV = max(0.0, dot(R, V));
+        vec3 spec = lCol * specular
+		* pow(RdotV, max(PC.specularModifier, 1.0))
+		* atten;
+		//vec3 spec = lCol  * pow(RdotV, 16.0) * atten;
+	
+		//result = diff;// + spec;	
+        result = diff + spec;
+    }
+
+	// calculate shadow if this is a shadow light
+    float shadow = 1.0;
+    if (Lights_SSBO[lightIndex].info.x > 0)
+    {
+        if (Lights_SSBO[lightIndex].info.x == 1)
+        {
+            int gridID = Lights_SSBO[lightIndex].info.y;
+            for (int i = 0; i < 6; ++i)
+            {
+                vec4 outFragmentLightPos = Lights_SSBO[lightIndex].projection * Lights_SSBO[lightIndex].view[i] * vec4(fragPos, 1.0);
+                shadow *= ShadowCalculation(lightIndex, gridID + i, outFragmentLightPos, NdotL);
+            }
+        }
+        result *= shadow;
+    }
+
+    return result;
+//	return fragPos;
+}

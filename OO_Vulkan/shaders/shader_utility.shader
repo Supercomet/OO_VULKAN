@@ -18,7 +18,7 @@ float RandomUnsignedNormalizedFloat(uint seed)
 
 vec4 ViewPosFromDepth(float depth, in vec2 uvCoord, in mat4 projInv) {
 
-    float z = depth;
+    float z = max(0.0, depth);
     // skip this step because vulkan
     // z = depth * 2.0 - 1.0;
 
