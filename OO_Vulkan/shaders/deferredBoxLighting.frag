@@ -58,12 +58,6 @@ void main()
 	float specular = material.g;
 	float roughness = 1.0 - material.r;
 
-	if(any(isnan(fragPos))){
-			fragPos = vec3(0);
-			outFragcolor = vec4(1.0,0.0,1.0,1.0);
-			return;
-	}
-
 	// Render-target composition
 	//float ambient = PC.ambient;
 	float ambient = 0.0;
@@ -87,11 +81,10 @@ void main()
 	
 	// Point Lights
 	vec3 lightContribution = vec3(0.0);
-	//for(int i = 0; i < PC.numLights; ++i)
+	/////////for(int i = 0; i < PC.numLights; ++i)
 	{
-		
 		vec3 res = EvalLight(inLightInstance, fragPos, normal, roughness ,albedo.rgb, specular);	
-		
+
 		lightContribution += res;
 	}
 

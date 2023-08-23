@@ -18,7 +18,7 @@ float RandomUnsignedNormalizedFloat(uint seed)
 
 vec4 ViewPosFromDepth(float depth, in vec2 uvCoord, in mat4 projInv) {
 
-    float z = max(0.0, depth);
+    float z = max(EPSILON, depth);
     // skip this step because vulkan
     // z = depth * 2.0 - 1.0;
 
@@ -31,7 +31,7 @@ vec4 ViewPosFromDepth(float depth, in vec2 uvCoord, in mat4 projInv) {
     vec4 viewSpacePosition = projInv * clipSpacePosition;
 
     // Perspective division
-    viewSpacePosition /= viewSpacePosition.w;
+    viewSpacePosition /=  viewSpacePosition.w;
 
     return viewSpacePosition;
 }

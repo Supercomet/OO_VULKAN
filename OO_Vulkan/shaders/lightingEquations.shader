@@ -107,19 +107,20 @@ float G_GGX(vec3 V, vec3 M , float a)
 vec3 GGXBRDF(vec3 L ,vec3 V , vec3 H , vec3 N , float alpha , vec3 Kd , vec3 Ks)
 {
     float LH = dot(L,H);
-
+  
     alpha = clamp(alpha, 0.001, 0.999);
+    LH = clamp(LH, 0.001, 0.999);
     
     float D = D_GGX(N,H,alpha);
-    vec3 F = Ks + (1.0-Ks) * pow(1-LH,5);
+    
+    vec3 comp1 = Ks + (vec3(1.0) - Ks);
+    float vall = 1.0 - LH;
+    float comp2 = pow(1.0 - LH, 5.0);
+    vec3 F = Ks + (1.0 - Ks) * pow(1 - LH, 5);
     float G = G_GGX(L,H,alpha) * G_GGX(V,H,alpha);
     
-    if (isnan(D))
-    {
-        return vec3(0.0);
-    }
     vec3 result = Kd / pi + D * F / 4.0 * G;   
-
+   
     return result;
 }
 
@@ -217,9 +218,7 @@ vec3 EvalLight(int lightIndex, in vec3 fragPos, in vec3 normal, float roughness,
     vec3 Kd = albedo;
     vec3 Ks = vec3(specular);
 	//Ks = vec3(0);
-
-	
-	
+    
 	// Vector to light
     vec3 L = Lights_SSBO[lightIndex].position.xyz - fragPos;
 
@@ -250,15 +249,16 @@ vec3 EvalLight(int lightIndex, in vec3 fragPos, in vec3 normal, float roughness,
         float radii = pow(1.0 - pow(dist / r1, 4), 2);
         float Evalue = (LItensity / max(dist * dist, 0.01 * 0.01)) * radii;
 
+       
     		// Attenuation
         float atten = AttenuationFactor(r1, dist);
 			//if(atten<0.001) discard;
+       
         atten = getSquareFalloffAttenuation(L, 1.0 / Lights_SSBO[lightIndex].radius.x);
         atten = UnrealFalloff(dist, Lights_SSBO[lightIndex].radius.x);
-	
+        
 		// Diffuse part
         vec3 diff = GGXBRDF(L, V, H, N, alpha, Kd, Ks) * NdotL * atten * lCol;
-
 
 		// Specular part
 		// Specular map values are stored in alpha of albedo mrt
@@ -288,6 +288,8 @@ vec3 EvalLight(int lightIndex, in vec3 fragPos, in vec3 normal, float roughness,
         }
         result *= shadow;
     }
+    
+   
 
     return result;
 //	return fragPos;
