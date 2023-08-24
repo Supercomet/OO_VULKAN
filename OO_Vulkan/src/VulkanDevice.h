@@ -54,9 +54,6 @@ struct VulkanDevice
 	VkResult CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags,
 		vkutils::Buffer* buffer, VkDeviceSize size,const void* data = nullptr);
 
-	void CopyBuffer(vkutils::Buffer* src, vkutils::Buffer* dst, VkQueue queue,
-			VkBufferCopy* copyRegion = nullptr);
-
 	VkCommandBuffer CreateCommandBuffer(VkCommandBufferLevel level, VkCommandPool pool, bool begin = false);
 	//VkCommandBuffer CreateCommandBuffer(VkCommandBufferLevel level, bool begin = false);
 	void FlushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool pool, bool free = true);

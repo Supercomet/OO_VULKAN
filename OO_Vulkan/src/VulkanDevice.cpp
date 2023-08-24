@@ -419,28 +419,4 @@ void VulkanDevice::FlushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue que
 //    return FlushCommandBuffer(commandBuffer, queue, commandPool, free);
 //}
 
-void VulkanDevice::CopyBuffer(vkutils::Buffer* src, vkutils::Buffer* dst, VkQueue queue, VkBufferCopy* copyRegion)
-{
-    assert(dst->size >= src->size);
-    assert(src->buffer);
-    //VkCommandBuffer copyCmd = CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, commandPools[0], true);
-    VkCommandBuffer copyCmd = commandPoolManagers[0].GetCommandBuffer(true);
-    VkBufferCopy bufferCopy{};
-    if (copyRegion == nullptr)
-    {
-        bufferCopy.size = src->size;
-    }
-    else
-    {
-        bufferCopy = *copyRegion;
-    }
-
-    vkCmdCopyBuffer(copyCmd, src->buffer, dst->buffer, 1, &bufferCopy);
-
-    commandPoolManagers[0].SubmitCommandBuffer(queue,copyCmd);
-    vkQueueWaitIdle(queue); // TODO: REMOVE THIS
-
-   // FlushCommandBuffer(copyCmd, queue,commandPools[0]);
-}
-
 

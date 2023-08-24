@@ -593,59 +593,6 @@ namespace oGFX
 		//std::cout << " Free comand buffer 2 " << commandBuffer << "\n";
 	}
 
-	void TransitionImageLayout(VkDevice device, VkQueue queue, VkCommandPool commandPool, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout)
-	{
-			//Create buffer
-			VkCommandBuffer commandBuffer = beginCommandBuffer(device, commandPool);
-
-			VkImageMemoryBarrier imageMemoryBarrier{};
-			imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;	
-			imageMemoryBarrier.oldLayout = oldLayout;							// Layout to transition from
-			imageMemoryBarrier.newLayout = newLayout;							// Layout to transition to
-			imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;	// Queue family to transition from
-			imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;	// Queue family to transition to
-			imageMemoryBarrier.image = image;									// image being accessed and modified as part of barrier
-			imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // Aspect of image being altered
-			imageMemoryBarrier.subresourceRange.baseMipLevel = 0;				// First mip level to start alterations on													   // 
-			imageMemoryBarrier.subresourceRange.levelCount = 1;					// number of mip levels to alter starting from base value
-			imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;				// First layer to start alterations on
-			imageMemoryBarrier.subresourceRange.layerCount = 1;					// Number of layers to alter starting from base array layer
-
-			VkPipelineStageFlags srcStage{};
-			VkPipelineStageFlags dstStage{};
-
-
-			// If transitioning from new image to image ready to recieve data..
-			if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-			{
-				imageMemoryBarrier.srcAccessMask = 0;								// Memory access stage transition must happen after..
-				imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;	// Memory access stage transition must happen before...
-
-				srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-				dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-			}
-			// If transitioning from trasnferred destination to shader readable format..
-			else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-			{
-				imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-				imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-				dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; //ready to be read before we reach the fragment shader
-
-			}
-
-			vkCmdPipelineBarrier(commandBuffer,
-				srcStage,dstStage,					// pipline stages (match to src and dst access masks)
-				0,						// depencendy flags
-				0, nullptr,			// Memory barrier count and data
-				0, nullptr,			// Buffer memory barrier and data
-				1,&imageMemoryBarrier	// Image memeory barrier count + data
-			);
-
-			endAndSubmitCommandBuffer(device, commandPool, queue, commandBuffer);
-	}
-
 	void CopyImageBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool, VkBuffer srcBuffer, VkImage image, uint32_t width, uint32_t height)
 	{
 		//Create buffer

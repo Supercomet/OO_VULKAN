@@ -215,9 +215,6 @@ namespace oGFX
 
 	void endAndSubmitCommandBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkCommandBuffer commandBuffer);
 
-	void TransitionImageLayout(VkDevice device, VkQueue queue, VkCommandPool commandPool,
-		VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
-
 	void CopyImageBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,
 		VkBuffer srcBuffer, VkImage image, uint32_t width, uint32_t height);
 

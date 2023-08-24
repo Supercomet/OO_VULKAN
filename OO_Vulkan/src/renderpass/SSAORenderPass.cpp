@@ -258,7 +258,8 @@ void SSAORenderPass::InitRandomFactors()
 	}
 	randomVectorsSSBO.Init(&vr.m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	randomVectorsSSBO.reserve(ssaoKernel.size(),vr.m_device.transferQueue,vr.m_device.commandPoolManagers[vr.getFrame()].GetCommandPool());
-	randomVectorsSSBO.writeTo(ssaoKernel.size(), ssaoKernel.data(),vr.m_device.transferQueue,vr.m_device.commandPoolManagers[vr.getFrame()].GetCommandPool());
+	// todo elegant way to do this
+	randomVectorsSSBO.blockingWriteTo(ssaoKernel.size(), ssaoKernel.data(),vr.m_device.transferQueue,vr.m_device.commandPoolManagers[vr.getFrame()].GetCommandPool());
 
 	uint32_t width = 4;
 	uint32_t height = 4;
