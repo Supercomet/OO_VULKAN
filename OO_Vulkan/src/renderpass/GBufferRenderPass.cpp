@@ -69,11 +69,10 @@ void GBufferRenderPass::Draw()
 
 	auto& device = vr.m_device;
 	auto& swapchain = vr.m_swapchain;
-	auto& commandBuffers = vr.commandBuffers;
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-    const VkCommandBuffer cmdlist = commandBuffers[currFrame];
+    const VkCommandBuffer cmdlist = vr.GetCommandBuffer();
     PROFILE_GPU_CONTEXT(cmdlist);
 
 	glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f };
@@ -153,6 +152,8 @@ void GBufferRenderPass::Draw()
 
 	// Manually set layout for blit reason
 	attachments[GBufferAttachmentIndex::ENTITY_ID].currentLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	
 
 	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
 	renderPassBeginInfo.renderPass =  renderpass_GBuffer.pass;

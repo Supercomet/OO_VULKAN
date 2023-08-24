@@ -53,7 +53,6 @@ void DebugDrawRenderpass::Draw()
 
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
-	auto& commandBuffers = vr.commandBuffers;
 
 	std::array<VkClearValue, 2> clearValues{};
 	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
@@ -77,7 +76,7 @@ void DebugDrawRenderpass::Draw()
 
 	renderPassBeginInfo.framebuffer = fb;
 	
-	const VkCommandBuffer cmdlist = vr.commandBuffers[currFrame];
+	const VkCommandBuffer cmdlist = vr.GetCommandBuffer();;
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("DebugDraw");
 

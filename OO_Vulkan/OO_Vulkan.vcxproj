@@ -56,6 +56,7 @@
     <ClCompile Include="..\vendor\msdfgen\ext\import-font.cpp" />
     <ClCompile Include="..\vendor\msdfgen\ext\resolve-shape-geometry.cpp" />
     <ClCompile Include="..\vendor\msdfgen\ext\save-png.cpp" />
+    <ClCompile Include="src\CommandBufferManager.cpp" />
     <ClCompile Include="src\Font.cpp" />
     <ClCompile Include="src\DebugDraw.cpp" />
     <ClCompile Include="src\DelayedDeleter.cpp" />
@@ -116,6 +117,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\buildDefs.h" />
+    <ClInclude Include="src\CommandBufferManager.h" />
     <ClInclude Include="src\Font.h" />
     <ClInclude Include="src\DebugDraw.h" />
     <ClInclude Include="src\DelayedDeleter.h" />

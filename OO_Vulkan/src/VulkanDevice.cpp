@@ -35,14 +35,11 @@ VulkanDevice::~VulkanDevice()
 {
     for (size_t i = 0; i < 2; i++)
     {
-        if (commandPools[i])
-        {
-            vkDestroyCommandPool(logicalDevice, commandPools[i], nullptr);
-        }
-        if (transferPools[i])
-        {
-            vkDestroyCommandPool(logicalDevice, transferPools[i], nullptr);
-        }
+        commandPoolManagers[i].DestroyPool();
+        //if (transferPools[i])
+        //{
+        //    //vkDestroyCommandPool(logicalDevice, transferPools[i], nullptr);
+        //}
     }
     
     // no need destory phys device
@@ -196,9 +193,7 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
     descriptor_indexing_features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE; // needed for image descriptors
 
     deviceCreateInfo.pNext = &vk12Features;
-    descriptor_indexing_features.pNext = &shaderDrawFeatures;
-
-    
+    descriptor_indexing_features.pNext = &shaderDrawFeatures;    
 
     this->enabledFeatures = deviceFeatures;
 
@@ -217,24 +212,29 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
     // From given logical device of given queue family of given index, place reference in VKqueue
     vkGetDeviceQueue(logicalDevice, indices.graphicsFamily, 0, &graphicsQueue);
     vkGetDeviceQueue(logicalDevice, indices.transferFamily, 0, &transferQueue);
+    transferQueue = graphicsQueue;
 
     VkCommandPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolInfo.queueFamilyIndex = indices.graphicsFamily; //Queue family type that buffers from this command pool will use
 
-    commandPools.resize(2);
-    transferPools.resize(2);
+
+    commandPoolManagers.resize(2);
+    // commandPools.resize(2);
+    //transferPools.resize(2);
     for (size_t i = 0; i < 2; i++)
     {
+        result = commandPoolManagers[i].InitPool(logicalDevice, indices.graphicsFamily);
         //create a graphics queue family command pool
-        poolInfo.queueFamilyIndex = indices.graphicsFamily; //Queue family type that buffers from this command pool will use
-        result = vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPools[i]);
-        VK_NAME(logicalDevice, "commandPool", commandPools[i]);
-
-        poolInfo.queueFamilyIndex = indices.transferFamily;
-        result = vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &transferPools[i]);
-        VK_NAME(logicalDevice, "transferPool", transferPools[i]);
+        // poolInfo.queueFamilyIndex = indices.graphicsFamily; //Queue family type that buffers from this command pool will use
+        // result = vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPools[i]);
+        // VK_NAME(logicalDevice, "commandPool", commandPools[i]);
+        // 
+        // //poolInfo.queueFamilyIndex = indices.transferFamily;
+        // //result = vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &transferPools[i]);
+        // //VK_NAME(logicalDevice, "transferPool", transferPools[i]);
+        // transferPools[i] = commandPools[i];
         if (result != VK_SUCCESS)
         {
             std::cerr << "Failed to create a command pool!" << std::endl;
@@ -423,7 +423,8 @@ void VulkanDevice::CopyBuffer(vkutils::Buffer* src, vkutils::Buffer* dst, VkQueu
 {
     assert(dst->size >= src->size);
     assert(src->buffer);
-    VkCommandBuffer copyCmd = CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, commandPools[0], true);
+    //VkCommandBuffer copyCmd = CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, commandPools[0], true);
+    VkCommandBuffer copyCmd = commandPoolManagers[0].GetCommandBuffer(true);
     VkBufferCopy bufferCopy{};
     if (copyRegion == nullptr)
     {
@@ -436,7 +437,10 @@ void VulkanDevice::CopyBuffer(vkutils::Buffer* src, vkutils::Buffer* dst, VkQueu
 
     vkCmdCopyBuffer(copyCmd, src->buffer, dst->buffer, 1, &bufferCopy);
 
-    FlushCommandBuffer(copyCmd, queue,commandPools[0]);
+    commandPoolManagers[0].SubmitCommandBuffer(queue,copyCmd);
+    vkQueueWaitIdle(queue); // TODO: REMOVE THIS
+
+   // FlushCommandBuffer(copyCmd, queue,commandPools[0]);
 }
 
 

@@ -66,11 +66,11 @@ void ShadowPass::Draw()
 
 	auto& device = vr.m_device;
 	auto& swapchain = vr.m_swapchain;
-	auto& commandBuffers = vr.commandBuffers;
+	//auto& commandBuffers = vr.commandBuffers;
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-    const VkCommandBuffer cmdlist = commandBuffers[currFrame];
+    const VkCommandBuffer cmdlist = vr.GetCommandBuffer();
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("Shadow");
 

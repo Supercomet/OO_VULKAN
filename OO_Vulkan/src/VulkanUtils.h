@@ -50,11 +50,11 @@ namespace oGFX::vkutils::tools
 #ifndef VK_CHK
 #define VK_CHK(x) \
 	do{\
-	VkResult result = x;\
-	if(result != VK_SUCCESS)\
+	VkResult mangledNameResult = x;\
+	if(mangledNameResult != VK_SUCCESS)\
 	{\
-		std::cerr << oGFX::vkutils::tools::VkResultString(result) << std::endl;\
-		assert(result == VK_SUCCESS);\
+		std::cerr << oGFX::vkutils::tools::VkResultString(mangledNameResult) << std::endl;\
+		assert(mangledNameResult == VK_SUCCESS);\
 		std::cerr << "Failed Vulkan Check" << std::endl;\
 		__debugbreak();\
 	}\

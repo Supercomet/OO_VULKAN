@@ -181,6 +181,8 @@ public:
 	void CreateFramebuffers(); 
 	void CreateCommandBuffers();
 
+	VkCommandBuffer GetCommandBuffer();
+
 	ImTextureID myImg;
 
 	bool useSSAO = true;
@@ -217,8 +219,6 @@ public:
 	VkDescriptorSet descriptorSet_fullscreenBlit;
 	// For UBO with the corresponding swap chain image
 	std::vector<VkDescriptorSet> descriptorSets_uniform;
-
-	void ResizeDeferredFB();
 
 	void SetWorld(GraphicsWorld* world);
 	void InitWorld(GraphicsWorld* world);
@@ -409,8 +409,6 @@ public:
 	FramebufferCache fbCache;
 
 	GfxSamplerManager samplerManager;
-
-	std::vector<VkCommandBuffer> commandBuffers;
 
 	// Store the indirect draw commands containing index offsets and instance count per object
 

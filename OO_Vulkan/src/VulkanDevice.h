@@ -16,6 +16,7 @@ Technology is prohibited.
 #include <vulkan/vulkan.h>
 #include "VulkanUtils.h"
 #include "VulkanBuffer.h"
+#include "CommandBufferManager.h"
 
 #include "gpuCommon.h"
 
@@ -43,8 +44,9 @@ struct VulkanDevice
 	VkPhysicalDeviceFeatures enabledFeatures{};
 	VkPhysicalDeviceProperties properties{};
 
-	std::vector<VkCommandPool>commandPools{  };
-	std::vector<VkCommandPool> transferPools{  };
+	std::vector<oGFX::CommandBufferManager> commandPoolManagers;
+	//std::vector<VkCommandPool>commandPools{  };
+	//std::vector<VkCommandPool> transferPools{  };
 
 	bool CheckDeviceSuitable(const oGFX::SetupInfo& si,VkPhysicalDevice device);
 	bool CheckDeviceExtensionSupport(const oGFX::SetupInfo& si,VkPhysicalDevice device);	
