@@ -32,6 +32,9 @@ public:
 	void blockingWriteTo(size_t size, const void* data, VkQueue queue, VkCommandPool pool, size_t offset = 0);
 	void writeToCmd(size_t writeSize, const void* data, VkCommandBuffer command, VkQueue queue, VkCommandPool pool, size_t offset = 0);
 
+	void addWriteCommand(size_t size, const void* data, size_t offset = 0);
+	void flushToGPU(VkCommandBuffer command, VkQueue queue, VkCommandPool pool);
+
 	void resize(size_t size, VkQueue queue, VkCommandPool pool);
 	void reserve(size_t size, VkQueue queue, VkCommandPool pool);
 	size_t size() const;
@@ -58,6 +61,8 @@ public:
 	VulkanDevice* m_device{ nullptr };
 
 	bool m_mustUpdate;
+	std::vector<VkBufferCopy>m_copyRegions;
+	std::vector<T>m_cpuBuffer;
 };
 
 #ifndef GPU_VECTOR_CPP
@@ -229,6 +234,91 @@ void GpuVector<T>::writeToCmd(size_t writeSize, const void* data,VkCommandBuffer
 
 }
 
+template<typename T>
+inline void GpuVector<T>::addWriteCommand(size_t writeSize, const void* data, size_t offset)
+{
+	VkDeviceSize dataBytes = writeSize * sizeof(T);
+	VkDeviceSize writeBytesOffset = offset * sizeof(T);
+
+	auto oldSize = m_cpuBuffer.size();
+	VkDeviceSize cpuBytesOffset = oldSize * sizeof(T);
+
+	VkBufferCopy bufferCopyRegion{};
+	bufferCopyRegion.srcOffset = cpuBytesOffset;
+	bufferCopyRegion.dstOffset = writeBytesOffset;
+	bufferCopyRegion.size = dataBytes;
+
+	m_copyRegions.push_back(bufferCopyRegion);
+	
+	m_cpuBuffer.resize(oldSize + writeSize);
+	memcpy(m_cpuBuffer.data() + oldSize, data, dataBytes);
+
+	m_mustUpdate = true;
+
+}
+
+template<typename T>
+inline void GpuVector<T>::flushToGPU(VkCommandBuffer command, VkQueue queue, VkCommandPool pool)
+{
+	VkDeviceSize totalDataSize{};
+	size_t largestWrite{};
+	for (const auto& copycmd: m_copyRegions)
+	{
+		totalDataSize += copycmd.size;
+		largestWrite = std::max(largestWrite, copycmd.dstOffset + copycmd.size);
+	}
+	size_t maxElement = largestWrite / sizeof(T);
+
+	if (totalDataSize == 0)
+	{
+		return;
+	}
+
+	PROFILE_SCOPED();
+	if ((maxElement) > m_capacity)
+	{
+		assert(true);
+		resize(maxElement, queue, pool);
+	}
+
+	//temporary buffer to stage vertex data before transferring to GPU
+	VkBuffer stagingBuffer{};
+	VkDeviceMemory stagingBufferMemory{};
+
+	//create buffer and allocate memory to it
+	oGFX::CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, totalDataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
+
+	//MAP MEMORY TO VERTEX BUFFER
+	void* mappedData = nullptr;
+	auto result = vkMapMemory(m_device->logicalDevice, stagingBufferMemory, 0, totalDataSize, 0, &mappedData);
+	if (result != VK_SUCCESS)
+	{
+		assert(false);
+	}
+	memcpy(mappedData, m_cpuBuffer.data(), (size_t)totalDataSize);
+	vkUnmapMemory(m_device->logicalDevice, stagingBufferMemory);
+	
+	//m_cpuBuffer.clear(); // good for small memory..
+	m_cpuBuffer = {}; // release the memory because it could be quite big
+
+	auto commandBuffer = command;
+
+	// command to copy src buffer to dst buffer
+	vkCmdCopyBuffer(commandBuffer, stagingBuffer, m_buffer, m_copyRegions.size(), m_copyRegions.data());
+	m_copyRegions.clear();
+
+	auto fun = [oldBuffer = stagingBuffer, logical = m_device->logicalDevice, oldMemory = stagingBufferMemory]() {
+		PROFILE_SCOPED("Clean buffer");
+		//clean up staging buffer parts
+		vkFreeMemory(logical, oldMemory, nullptr);
+		vkDestroyBuffer(logical, oldBuffer, nullptr);
+	};
+	DelayedDeleter::get()->DeleteAfterFrames(fun);
+
+	m_mustUpdate = false;
+}
+
 template <typename T>
 void GpuVector<T>::resize(size_t size, VkQueue queue, VkCommandPool pool)
 {
@@ -254,7 +344,6 @@ void GpuVector<T>::reserve(size_t size, VkQueue queue, VkCommandPool pool)
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tempBuffer, &tempMemory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
 																		//copy staging buffer to vertex buffer on GPU
 
-	std::cout << "Create staging - " << (size_t)tempBuffer << std::endl;
 	if (m_size != 0)
 	{
 		CopyBuffer(m_device->logicalDevice, queue, pool, m_buffer, tempBuffer, m_size* sizeof(T));

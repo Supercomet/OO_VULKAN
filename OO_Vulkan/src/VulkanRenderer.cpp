@@ -2315,6 +2315,10 @@ void VulkanRenderer::BeginDraw()
 					g_workQueue.pop_front();
 				}
 			}
+			auto cmd = GetCommandBuffer();
+			if (g_GlobalMeshBuffers.IdxBuffer.m_mustUpdate) g_GlobalMeshBuffers.IdxBuffer.flushToGPU(cmd, m_device.transferQueue, m_device.commandPoolManagers[getFrame()].GetCommandPool());
+			if (g_GlobalMeshBuffers.VtxBuffer.m_mustUpdate) g_GlobalMeshBuffers.VtxBuffer.flushToGPU(cmd, m_device.transferQueue, m_device.commandPoolManagers[getFrame()].GetCommandPool());
+			if (skinningVertexBuffer.m_mustUpdate) skinningVertexBuffer.flushToGPU(cmd, m_device.transferQueue, m_device.commandPoolManagers[getFrame()].GetCommandPool());
 			
 			UpdateUniformBuffers();
 			UploadInstanceData();
@@ -3295,10 +3299,8 @@ ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
 		auto& indices = model->cpuModel->indices;
 		auto& vertex = model->cpuModel->vertices;
 		
-		g_GlobalMeshBuffers.IdxBuffer.blockingWriteTo(model->indicesCount, indices.data() + model->baseIndices, m_device.transferQueue, m_device.commandPoolManagers[getFrame()].GetCommandPool(),
-			g_GlobalMeshBuffers.IdxOffset);
-		g_GlobalMeshBuffers.VtxBuffer.blockingWriteTo(model->vertexCount, vertex.data() + model->baseVertex, m_device.transferQueue, m_device.commandPoolManagers[getFrame()].GetCommandPool(),
-			g_GlobalMeshBuffers.VtxOffset);
+		g_GlobalMeshBuffers.IdxBuffer.addWriteCommand(model->indicesCount, indices.data() + model->baseIndices,g_GlobalMeshBuffers.IdxOffset);
+		g_GlobalMeshBuffers.VtxBuffer.addWriteCommand(model->vertexCount, vertex.data() + model->baseVertex,g_GlobalMeshBuffers.VtxOffset);
 
 		model->baseIndices = g_GlobalMeshBuffers.IdxOffset;
 		model->baseVertex = g_GlobalMeshBuffers.VtxOffset;
@@ -3309,7 +3311,7 @@ ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
 		if (model->skeleton)
 		{
 			auto& sk = model->skeleton;
-			skinningVertexBuffer.blockingWriteTo(sk->boneWeights.size(), sk->boneWeights.data(), m_device.transferQueue, m_device.commandPoolManagers[getFrame()].GetCommandPool(), model->baseVertex);
+			skinningVertexBuffer.addWriteCommand(sk->boneWeights.size(), sk->boneWeights.data(), model->baseVertex);
 		}
 	};
 
