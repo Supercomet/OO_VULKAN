@@ -1183,7 +1183,7 @@ void TestApplication::RunTest_DebugDraw()
 				const int screenWidth = (int)m_WindowSize.x;
 				const int screenHeight = (int)m_WindowSize.y;
 				const glm::mat4& viewMatrix =gs_GraphicsWorld.cameras.front().matrices.view;
-				const glm::mat4& projectionMatrix = gs_GraphicsWorld.cameras.front().matrices.perspective;
+				const glm::mat4& projectionMatrix = gs_GraphicsWorld.cameras.front().GetNonInvProjectionMatrix();
 				// World Space to NDC Space
 				glm::vec4 ndcPosition = projectionMatrix * viewMatrix * glm::vec4{ worldPosition, 1.0f };
 				// Perspective Division
@@ -1354,7 +1354,7 @@ void TestApplication::Tool_HandleGizmoManipulation()
 		const auto mainViewportPosition = ImGui::GetMainViewport()->Pos;
 		ImGuizmo::SetRect(mainViewportPosition.x, mainViewportPosition.y, io.DisplaySize.x, io.DisplaySize.y);
 		glm::mat4x4 viewMatrix = gs_GraphicsWorld.cameras.front().matrices.view;
-		glm::mat4x4 projMatrix = gs_GraphicsWorld.cameras.front().matrices.perspective;
+		glm::mat4x4 projMatrix = gs_GraphicsWorld.cameras.front().GetNonInvProjectionMatrix();
 
 		static glm::mat4x4 localToWorld{ 1.0f };
 		float* matrixPtr = glm::value_ptr(localToWorld);

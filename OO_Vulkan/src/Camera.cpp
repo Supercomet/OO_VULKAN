@@ -472,3 +472,8 @@ void Camera::UpdateProjectionMatrix()
 
 	}
 }
+
+glm::mat4 Camera::GetNonInvProjectionMatrix()
+{
+	return glm::perspective(glm::radians(m_fovDegrees), m_aspectRatio, m_znear, m_zfar);
+}
