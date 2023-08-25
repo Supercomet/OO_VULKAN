@@ -91,7 +91,6 @@ Technology is prohibited.
 
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
-#pragma optimize("",off)
 // vulkan debug callback
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -113,7 +112,6 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
 	return VK_FALSE;
 }
-#pragma optimize("",on)
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
@@ -371,10 +369,10 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		
 	InitDefaultPrimatives();
 
-	std::array<VkQueue, 2> cmdQueues{m_device.graphicsQueue,m_device.transferQueue};
-	std::array<uint32_t, 2> cmdFamily{m_device.queueIndices.graphicsFamily,m_device.queueIndices.transferFamily};
-	std::array<VkPhysicalDevice, 2> physDevs{ m_device.physicalDevice,m_device.physicalDevice};
-	std::array<VkDevice, 2> logicDevs{ m_device.logicalDevice,m_device.logicalDevice};
+	std::array<VkQueue, 1> cmdQueues{m_device.graphicsQueue};
+	std::array<uint32_t, 1> cmdFamily{m_device.queueIndices.graphicsFamily};
+	std::array<VkPhysicalDevice, 1> physDevs{ m_device.physicalDevice};
+	std::array<VkDevice, 1> logicDevs{ m_device.logicalDevice};
 
 	PROFILE_INIT_VULKAN(logicDevs.data(), physDevs.data(), cmdQueues.data(), cmdFamily.data(), 1, nullptr);
 	
@@ -1437,7 +1435,7 @@ void VulkanRenderer::UploadLights()
 	}
 	//std::cout << "Lights culled: " << sss << "\n";
 	auto cmd = GetCommandBuffer();
-	globalLightBuffer[getFrame()].writeToCmd(spotLights.size(), spotLights.data(), cmd, m_device.transferQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+	globalLightBuffer[getFrame()].writeToCmd(spotLights.size(), spotLights.data(), cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
 
 }
 
@@ -1904,7 +1902,7 @@ void VulkanRenderer::InitializeRenderBuffers()
 		VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer[i].getBuffer()); 
 
 		shadowCasterCommandsBuffer[i].Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT );
-		shadowCasterCommandsBuffer[i].reserve(MAX_OBJECTS,m_device.transferQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+		shadowCasterCommandsBuffer[i].reserve(MAX_OBJECTS,m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
 		VK_NAME(m_device.logicalDevice, "Shadow Command Buffer", shadowCasterCommandsBuffer[i].m_buffer);
 
 		// Note: Moved here from VulkanRenderer::UpdateInstanceData
@@ -2017,7 +2015,7 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		}
 
 		auto cmd = GetCommandBuffer();
-		indirectCommandsBuffer[getFrame()].writeToCmd(allObjectsCommands.size(), allObjectsCommands.data(),cmd,m_device.transferQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+		indirectCommandsBuffer[getFrame()].writeToCmd(allObjectsCommands.size(), allObjectsCommands.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
 
 	}
 
@@ -2030,7 +2028,7 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		}
 		shadowCasterCommandsBuffer[getFrame()].clear();
 		auto cmd = GetCommandBuffer();
-		shadowCasterCommandsBuffer[getFrame()].writeToCmd(shadowObjects.size(), (void*)shadowObjects.data(),cmd,m_device.transferQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+		shadowCasterCommandsBuffer[getFrame()].writeToCmd(shadowObjects.size(), (void*)shadowObjects.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
 	}
 
 	{
@@ -2041,8 +2039,8 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		g_particleDatas[getFrame()].clear();
 
 		auto cmd = GetCommandBuffer();
-		g_particleCommandsBuffer[getFrame()].writeToCmd(particleCommands.size(), particleCommands.data(),cmd,m_device.transferQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);		
-		g_particleDatas[getFrame()].writeToCmd(particleData.size(), particleData.data(),cmd,m_device.transferQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+		g_particleCommandsBuffer[getFrame()].writeToCmd(particleCommands.size(), particleCommands.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);		
+		g_particleDatas[getFrame()].writeToCmd(particleData.size(), particleData.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
 		
 	}
 
@@ -2191,10 +2189,10 @@ void VulkanRenderer::UploadInstanceData()
 		return;
 	}
 	auto cmd = GetCommandBuffer();
-	gpuTransformBuffer[getFrame()].writeToCmd(gpuTransform.size(), gpuTransform.data(),cmd,m_device.transferQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
-	gpuBoneMatrixBuffer[getFrame()].writeToCmd(boneMatrices.size(), boneMatrices.data(),cmd,m_device.transferQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+	gpuTransformBuffer[getFrame()].writeToCmd(gpuTransform.size(), gpuTransform.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+	gpuBoneMatrixBuffer[getFrame()].writeToCmd(boneMatrices.size(), boneMatrices.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
 
-	objectInformationBuffer[getFrame()].writeToCmd(objectInformation.size(), objectInformation.data(),cmd,m_device.transferQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+	objectInformationBuffer[getFrame()].writeToCmd(objectInformation.size(), objectInformation.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
 
     // Better to catch this on the software side early than the Vulkan validation layer
 	// TODO: Fix this gracefully
@@ -2203,7 +2201,7 @@ void VulkanRenderer::UploadInstanceData()
 		MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of instance buffer.", L"BAD ERROR");
     }
 
-	instanceBuffer[getFrame()].writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd,m_device.transferQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+	instanceBuffer[getFrame()].writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
 
 }
 
@@ -2228,8 +2226,8 @@ void VulkanRenderer::UploadUIData()
 	}
 
 	auto cmd = GetCommandBuffer();
-	g_UIVertexBufferGPU[getFrame()].writeToCmd(verts.size(), verts.data(),cmd,m_device.transferQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
-	g_UIIndexBufferGPU[getFrame()].writeToCmd(idx.size(), idx.data(),cmd,m_device.transferQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+	g_UIVertexBufferGPU[getFrame()].writeToCmd(verts.size(), verts.data(),cmd,m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+	g_UIIndexBufferGPU[getFrame()].writeToCmd(idx.size(), idx.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
 
 
 }
@@ -2265,6 +2263,7 @@ void VulkanRenderer::BeginDraw()
 	{
 		PROFILE_SCOPED("Begin Command Buffer");
 
+		m_device.commandPoolManagers[getFrame()].ResetPool();
 		//Information about how to begin each command buffer
 		VkCommandBufferBeginInfo bufferBeginInfo = oGFX::vkutils::inits::commandBufferBeginInfo();
 		//start recording commanders to command buffer!
@@ -2298,6 +2297,7 @@ void VulkanRenderer::BeginDraw()
 		//std::cout << currentFrame << " Setting " << std::to_string(swapchainIdx) <<" " << oGFX::vkutils::tools::VkImageLayoutString(m_swapchain.swapChainImages[swapchainIdx].currentLayout) << std::endl;
 
 		DelayedDeleter::get()->Update();
+
 		descAllocs[getFrame()].ResetPools();
 
 		shadowsRendered = false;
@@ -2320,9 +2320,9 @@ void VulkanRenderer::BeginDraw()
 				}
 			}
 			auto cmd = GetCommandBuffer();
-			if (g_GlobalMeshBuffers.IdxBuffer.m_mustUpdate) g_GlobalMeshBuffers.IdxBuffer.flushToGPU(cmd, m_device.transferQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
-			if (g_GlobalMeshBuffers.VtxBuffer.m_mustUpdate) g_GlobalMeshBuffers.VtxBuffer.flushToGPU(cmd, m_device.transferQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
-			if (skinningVertexBuffer.m_mustUpdate) skinningVertexBuffer.flushToGPU(cmd, m_device.transferQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+			if (g_GlobalMeshBuffers.IdxBuffer.m_mustUpdate) g_GlobalMeshBuffers.IdxBuffer.flushToGPU(cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+			if (g_GlobalMeshBuffers.VtxBuffer.m_mustUpdate) g_GlobalMeshBuffers.VtxBuffer.flushToGPU(cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+			if (skinningVertexBuffer.m_mustUpdate) skinningVertexBuffer.flushToGPU(cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
 			
 			UpdateUniformBuffers();
 			UploadInstanceData();
@@ -3634,7 +3634,7 @@ bool VulkanRenderer::ReloadTexture(uint32_t textureID,const std::string& file)
 
 	//vkDeviceWaitIdle(m_device.logicalDevice);
 	UnloadTexture(textureID);
-	texture.fromBuffer((void*)imageData.imgData.data(), imageSize, imageData.format, imageData.w, imageData.h, imageData.mipInformation, &m_device, m_device.transferQueue);
+	texture.fromBuffer((void*)imageData.imgData.data(), imageSize, imageData.format, imageData.w, imageData.h, imageData.mipInformation, &m_device, m_device.graphicsQueue);
 	texture.updateDescriptor();
 	UpdateBindlessGlobalTexture(textureID);
 
@@ -3690,13 +3690,13 @@ bool VulkanRenderer::UploadDebugDrawBuffers()
 		return false; // Do not run any debug draw render pass
 	}
 
-	g_DebugDrawVertexBufferGPU[getFrame()].reserve(g_DebugDrawVertexBufferCPU.size() ,m_device.transferQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
-	g_DebugDrawIndexBufferGPU[getFrame()].reserve(g_DebugDrawIndexBufferCPU.size(),m_device.transferQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+	g_DebugDrawVertexBufferGPU[getFrame()].reserve(g_DebugDrawVertexBufferCPU.size() ,m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+	g_DebugDrawIndexBufferGPU[getFrame()].reserve(g_DebugDrawIndexBufferCPU.size(),m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
 
 	// Copy CPU debug draw buffers to the GPU
 	auto cmd = GetCommandBuffer();
-	g_DebugDrawVertexBufferGPU[getFrame()].writeToCmd(g_DebugDrawVertexBufferCPU.size() , g_DebugDrawVertexBufferCPU.data(),cmd,m_device.transferQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
-	g_DebugDrawIndexBufferGPU[getFrame()].writeToCmd(g_DebugDrawIndexBufferCPU.size() , g_DebugDrawIndexBufferCPU.data(),cmd,m_device.transferQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+	g_DebugDrawVertexBufferGPU[getFrame()].writeToCmd(g_DebugDrawVertexBufferCPU.size() , g_DebugDrawVertexBufferCPU.data(),cmd,m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+	g_DebugDrawIndexBufferGPU[getFrame()].writeToCmd(g_DebugDrawIndexBufferCPU.size() , g_DebugDrawIndexBufferCPU.data(),cmd,m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
 
 	// Clear the CPU debug draw buffers for this frame
 	g_DebugDrawVertexBufferCPU.clear();
@@ -3819,7 +3819,7 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 	auto lam = [this, indx, imageInfo]() {
 		auto& texture = g_Textures[indx];
 
-		texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.transferQueue);
+		texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 		texture.name = imageInfo.name;
 
 		//setup imgui binding
@@ -3858,7 +3858,7 @@ uint32_t VulkanRenderer::CreateTextureImageImmediate(const oGFX::FileImageData& 
 	
 	auto& texture = g_Textures[indx];
 
-	texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.transferQueue);
+	texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 	texture.name = imageInfo.name;
 
 	//setup imgui binding

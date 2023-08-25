@@ -258,9 +258,9 @@ void SSAORenderPass::InitRandomFactors()
 		ssaoKernel.push_back(sample);  
 	}
 	randomVectorsSSBO.Init(&vr.m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	randomVectorsSSBO.reserve(ssaoKernel.size(),vr.m_device.transferQueue,vr.m_device.commandPoolManagers[vr.getFrame()].m_commandpool);
+	randomVectorsSSBO.reserve(ssaoKernel.size(),vr.m_device.graphicsQueue,vr.m_device.commandPoolManagers[vr.getFrame()].m_commandpool);
 	// todo elegant way to do this
-	randomVectorsSSBO.blockingWriteTo(ssaoKernel.size(), ssaoKernel.data(),vr.m_device.transferQueue,vr.m_device.commandPoolManagers[vr.getFrame()].m_commandpool);
+	randomVectorsSSBO.blockingWriteTo(ssaoKernel.size(), ssaoKernel.data(),vr.m_device.graphicsQueue,vr.m_device.commandPoolManagers[vr.getFrame()].m_commandpool);
 
 	uint32_t width = 4;
 	uint32_t height = 4;
@@ -288,7 +288,7 @@ void SSAORenderPass::InitRandomFactors()
 	std::vector<VkBufferImageCopy> copies{copyRegion};
 
 	randomNoise_texture.fromBuffer(ssaoNoise.data(), ssaoNoise.size() * sizeof(glm::vec4), VK_FORMAT_R32G32B32A32_SFLOAT,
-		width,height,copies,&vr.m_device,vr.m_device.transferQueue,VK_FILTER_NEAREST);
+		width,height,copies,&vr.m_device,vr.m_device.graphicsQueue,VK_FILTER_NEAREST);
 }
 
 
