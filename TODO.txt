@@ -7,13 +7,9 @@ Tasks:
     • It's also not necessary. Just declare a Renderer in Global scope in its own .cpp file, and extern the GfxRenderpass ptr in VulkanRenderer.
 
 • Remove all forms of stalling from the pipeline
-	• Debug why GpuVector::writeTo is always reserving
 
 • Remove all forms of binary semaphores
-	• Implement a frame counter and semaphore signal at end of present
-
-• Implement frame based deleter
-	• Use VK_SEMAPHORE_TYPE_TIMELINE counting semaphore to check frame on GPU
+	• Only left with necessary semaphores for acquireImage
 
 • Change to from renderpasses to VK_KHR_dynamic_rendering
 
@@ -21,9 +17,6 @@ Tasks:
 
 • Proper Frame Fencing
     • Should only stall CPU before the FIRST command buffer submission
-
-• Support only 1 queue for now
-	• Remove transfer queue
 
 • GBuffer Render Targets:
     • Normal should be R10G10B10A2
