@@ -18,6 +18,12 @@ Technology is prohibited.
 namespace oGFX
 {
 
+	enum eRECSTATUS : int8_t {
+		INVALID = -1,
+		RECORDING = 0,
+		SUBMITTED = 1,
+};
+
 class CommandBufferManager
 {
 public:
@@ -27,16 +33,19 @@ public:
 	VkCommandPool GetCommandPool();
 	void DestroyPool();
 	void SubmitCommandBuffer(VkQueue queue, VkCommandBuffer cmd);
+	void SubmitAll(VkQueue queue);
 
 	VkCommandBuffer TEMP_GET_FIRST_CMD();
 
 private:
 	void AllocateCommandBuffer();
+	size_t counter{ };
 
 	VkDevice m_device{};
 	uint32_t nextIdx{};
 	VkCommandPool m_commandpool{};
 	std::vector<VkCommandBuffer>commandBuffers;
+	std::vector<int8_t>submitted{};
 };
 
 

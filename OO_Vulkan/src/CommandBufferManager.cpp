@@ -12,9 +12,12 @@ without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
 #include "gpuCommon.h"
+#include <algorithm>
 #include "VulkanDevice.h"
 #include "VulkanUtils.h"
 #include "CommandBufferManager.h"
+
+#pragma optimize("", off)
 
 VkResult oGFX::CommandBufferManager::InitPool(VkDevice device, uint32_t queueIndex)
 {
@@ -40,10 +43,12 @@ VkCommandBuffer oGFX::CommandBufferManager::GetCommandBuffer(bool begin)
     {
         AllocateCommandBuffer();
     }
-    VkCommandBuffer result = commandBuffers[nextIdx++];
+    auto idx = nextIdx++;
+    VkCommandBuffer result = commandBuffers[idx];
     if (begin) {
         VkCommandBufferBeginInfo cmdBufInfo = oGFX::vkutils::inits::commandBufferBeginInfo();
         vkBeginCommandBuffer(result, &cmdBufInfo);
+        submitted[idx] = eRECSTATUS::RECORDING;
     }
     return result;
 }
@@ -54,7 +59,10 @@ void oGFX::CommandBufferManager::ResetPool()
 
     VkCommandPoolResetFlags flags{ VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT };
 
+    std::fill(submitted.begin(), submitted.end(), eRECSTATUS::INVALID);
     VK_CHK(vkResetCommandPool(m_device, m_commandpool, flags));
+
+    counter = 0;
 }
 
 VkCommandPool oGFX::CommandBufferManager::GetCommandPool()
@@ -71,9 +79,18 @@ void oGFX::CommandBufferManager::DestroyPool()
 
 void oGFX::CommandBufferManager::SubmitCommandBuffer(VkQueue queue, VkCommandBuffer cmd)
 {
+    auto iter = std::find(commandBuffers.begin(), commandBuffers.end(), cmd);
+    if (iter == commandBuffers.end()) {
+        std::cerr << "invalid usage" << std::endl;
+        __debugbreak();
+    }
+    auto idx = iter - commandBuffers.begin();
+    submitted[idx] = eRECSTATUS::SUBMITTED;
+
     // End commands
     // TODO: Perhaps dont end here?
     vkEndCommandBuffer(cmd);
+
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -83,6 +100,43 @@ void oGFX::CommandBufferManager::SubmitCommandBuffer(VkQueue queue, VkCommandBuf
     //assuming we have only a few meshes to load we will pause here until we load the previous object
     //submit transfer commands to transfer queue and wait until it finishes
     vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+}
+
+void oGFX::CommandBufferManager::SubmitAll(VkQueue queue)
+{
+    std::vector<VkCommandBuffer> buffers;
+    buffers.reserve(commandBuffers.size());
+    for (size_t i = 0; i < submitted.size(); i++)
+    {
+        if (submitted[i] == eRECSTATUS::RECORDING)
+        {
+            buffers.emplace_back(commandBuffers[i]);           
+        }
+    }
+
+    for (size_t i = 0; i < buffers.size(); i++)
+    {
+        vkEndCommandBuffer(buffers[i]);
+    }
+    //for (auto cmd : buffers)
+    //{
+    //    
+    //}
+    for (auto& sub : submitted)
+    {
+        if (sub == eRECSTATUS::RECORDING)
+            sub = eRECSTATUS::SUBMITTED;
+    }
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = buffers.size();
+    submitInfo.pCommandBuffers = buffers.data();
+
+    //assuming we have only a few meshes to load we will pause here until we load the previous object
+    //submit transfer commands to transfer queue and wait until it finishes
+    vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+
 }
 
 VkCommandBuffer oGFX::CommandBufferManager::TEMP_GET_FIRST_CMD()
@@ -96,6 +150,7 @@ VkCommandBuffer oGFX::CommandBufferManager::TEMP_GET_FIRST_CMD()
 
 void oGFX::CommandBufferManager::AllocateCommandBuffer()
 {
+    std::cout << __FUNCTION__ << std::endl;
 	VkCommandBufferAllocateInfo cbAllocInfo = {};
 	cbAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	cbAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;	// VK_COMMAND_BUFFER_LEVEL_PRIMARY : buffer you submit directly to queue, cant be called  by other buffers
@@ -113,5 +168,6 @@ void oGFX::CommandBufferManager::AllocateCommandBuffer()
 	}
 
     commandBuffers.emplace_back(cb);
+    submitted.emplace_back(eRECSTATUS::INVALID);
 }
 

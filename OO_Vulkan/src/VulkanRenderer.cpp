@@ -91,6 +91,7 @@ Technology is prohibited.
 
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
+#pragma optimize("",off)
 // vulkan debug callback
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -112,6 +113,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
 	return VK_FALSE;
 }
+#pragma optimize("",on)
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
@@ -1011,7 +1013,8 @@ void VulkanRenderer::CreateCommandBuffers()
 
 VkCommandBuffer VulkanRenderer::GetCommandBuffer()
 {
-	return m_device.commandPoolManagers[getFrame()].TEMP_GET_FIRST_CMD();
+	constexpr bool beginBuffer = true;
+	return m_device.commandPoolManagers[getFrame()].GetCommandBuffer(beginBuffer);
 }
 
 void VulkanRenderer::SetWorld(GraphicsWorld* world)
@@ -2265,12 +2268,12 @@ void VulkanRenderer::BeginDraw()
 		VkCommandBufferBeginInfo bufferBeginInfo = oGFX::vkutils::inits::commandBufferBeginInfo();
 		//start recording commanders to command buffer!
 		auto cmd = GetCommandBuffer();
-		VkResult result = vkBeginCommandBuffer(cmd, &bufferBeginInfo);
-		if (result != VK_SUCCESS)
-		{
-			std::cerr << "Failed to start recording a Command Buffer!" << std::endl;
-			__debugbreak();
-		}
+		//VkResult result = vkBeginCommandBuffer(cmd, &bufferBeginInfo);
+		//if (result != VK_SUCCESS)
+		//{
+		//	std::cerr << "Failed to start recording a Command Buffer!" << std::endl;
+		//	__debugbreak();
+		//}
 	}
 
 	{
@@ -2478,12 +2481,13 @@ void VulkanRenderer::Present()
 	
 	//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[swapchainImageIndex]);
 	//stop recording to command buffer
-	VkResult result = vkEndCommandBuffer(GetCommandBuffer());
-	if (result != VK_SUCCESS)
-	{
-		std::cerr << "Failed to stop recording a Command Buffer!" << std::endl;
-		__debugbreak();
-	}
+	//VkResult result = vkEndCommandBuffer(GetCommandBuffer());
+	VkResult result{};
+	//if (result != VK_SUCCESS)
+	//{
+	//	std::cerr << "Failed to stop recording a Command Buffer!" << std::endl;
+	//	__debugbreak();
+	//}
 
 	
 
@@ -2512,8 +2516,9 @@ void VulkanRenderer::Present()
 
 																				//submit command buffer to queue
 	{
-		PROFILE_SCOPED("SubmitQueue");
-		result = vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, drawFences[getFrame()]);
+		PROFILE_SCOPED("SubmitMainQueue");
+		m_device.commandPoolManagers[getFrame()].SubmitAll(m_device.graphicsQueue);
+		//result = vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, drawFences[getFrame()]);
 		if (result != VK_SUCCESS)
 		{
 			std::cerr << "Failed to submit command buffer to queue! " << oGFX::vkutils::tools::VkResultString(result) << std::endl;
@@ -3557,7 +3562,7 @@ void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer)
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
-	std::cout << __FUNCTION__ << " SUBMIT" << std::endl;
+	std::cout << __FUNCTION__ << (size_t)commandBuffer << std::endl;
 	vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
 
 }
