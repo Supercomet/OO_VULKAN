@@ -139,9 +139,9 @@ void ForwardUIPass::Draw()
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	
 	rhi::CommandList cmd{ cmdlist, "Forward UI Pass"};
-	cmd.SetDefaultViewportAndScissor();
 
 	cmd.BindPSO(pso_Forward_UI);
+	cmd.SetDefaultViewportAndScissor();
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 																												vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
 	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 

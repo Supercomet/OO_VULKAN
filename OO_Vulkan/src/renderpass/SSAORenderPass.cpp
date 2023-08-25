@@ -129,10 +129,11 @@ void SSAORenderPass::Draw()
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	rhi::CommandList cmd{ cmdlist, "SSAO Pass"};
 	std::array<VkViewport, 1>viewports{ VkViewport{0,renderSize.y * 1.0f,renderSize.x * 1.0f,renderSize.y * -1.0f} };
-	cmd.SetViewport(0, static_cast<uint32_t>(viewports.size()), viewports.data());
 
 	CreateDescriptors();
 	cmd.BindPSO(pso_SSAO);
+	cmd.SetDefaultViewportAndScissor();
+	cmd.SetViewport(0, static_cast<uint32_t>(viewports.size()), viewports.data());
 
 	SSAOPC pc{};
 	pc.screenDim.x = static_cast<float>(renderSize.x);
@@ -188,8 +189,8 @@ void SSAORenderPass::Draw()
 	renderPassBeginInfo.renderArea.extent = { SSAO_finalTarget.width, SSAO_finalTarget.height };
 
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);	
-	cmd.SetDefaultViewportAndScissor();
 	cmd.BindPSO(pso_SSAO_blur);
+	cmd.SetDefaultViewportAndScissor();
 	cmd.BindDescriptorSet(PSOLayoutDB::SSAOBlurLayout, 0,
 		std::array<VkDescriptorSet, 2>
 	{
@@ -257,9 +258,9 @@ void SSAORenderPass::InitRandomFactors()
 		ssaoKernel.push_back(sample);  
 	}
 	randomVectorsSSBO.Init(&vr.m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	randomVectorsSSBO.reserve(ssaoKernel.size(),vr.m_device.transferQueue,vr.m_device.commandPoolManagers[vr.getFrame()].GetCommandPool());
+	randomVectorsSSBO.reserve(ssaoKernel.size(),vr.m_device.transferQueue,vr.m_device.commandPoolManagers[vr.getFrame()].m_commandpool);
 	// todo elegant way to do this
-	randomVectorsSSBO.blockingWriteTo(ssaoKernel.size(), ssaoKernel.data(),vr.m_device.transferQueue,vr.m_device.commandPoolManagers[vr.getFrame()].GetCommandPool());
+	randomVectorsSSBO.blockingWriteTo(ssaoKernel.size(), ssaoKernel.data(),vr.m_device.transferQueue,vr.m_device.commandPoolManagers[vr.getFrame()].m_commandpool);
 
 	uint32_t width = 4;
 	uint32_t height = 4;

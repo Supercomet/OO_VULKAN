@@ -103,8 +103,8 @@ void DeferredCompositionRenderpass::Draw()
 
 	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	rhi::CommandList cmd{ cmdlist, "Lighting Pass"};
-	cmd.SetDefaultViewportAndScissor();
 	cmd.BindPSO(pso_DeferredLightingComposition);
+	cmd.SetDefaultViewportAndScissor();
 
 	const auto& info = vr.globalLightBuffer[currFrame].GetDescriptorBufferInfo();
 	DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[currFrame])
@@ -164,6 +164,11 @@ void DeferredCompositionRenderpass::Draw()
 
 	const auto& cube = vr.g_globalModels[vr.GetDefaultCubeID()];
 	cmd.BindPSO(pso_deferredBox);
+	cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
+	cmd.BindVertexBuffer(BIND_POINT_WEIGHTS_BUFFER_ID, 1, vr.skinningVertexBuffer.getBufferPtr());
+	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer[currFrame].getBufferPtr());
+
 	//for (size_t i = 0; i < lightCnt; i++)
 	{
 		vkCmdDrawIndexed(cmdlist, cube.indicesCount, lightCnt, cube.baseIndices, cube.baseVertex, 0);

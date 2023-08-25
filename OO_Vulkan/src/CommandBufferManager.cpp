@@ -37,7 +37,7 @@ VkResult oGFX::CommandBufferManager::InitPool(VkDevice device, uint32_t queueInd
     return res;
 }
 
-VkCommandBuffer oGFX::CommandBufferManager::GetCommandBuffer(bool begin)
+VkCommandBuffer oGFX::CommandBufferManager::GetNextCommandBuffer(bool begin)
 {
     if (nextIdx == commandBuffers.size()) 
     {
@@ -63,11 +63,6 @@ void oGFX::CommandBufferManager::ResetPool()
     VK_CHK(vkResetCommandPool(m_device, m_commandpool, flags));
 
     counter = 0;
-}
-
-VkCommandPool oGFX::CommandBufferManager::GetCommandPool()
-{
-    return m_commandpool;
 }
 
 void oGFX::CommandBufferManager::DestroyPool()
@@ -102,7 +97,7 @@ void oGFX::CommandBufferManager::SubmitCommandBuffer(VkQueue queue, VkCommandBuf
     vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
 }
 
-void oGFX::CommandBufferManager::SubmitAll(VkQueue queue)
+void oGFX::CommandBufferManager::SubmitAll(VkQueue queue, VkSubmitInfo inInfo, VkFence signalFence)
 {
     std::vector<VkCommandBuffer> buffers;
     buffers.reserve(commandBuffers.size());
@@ -133,24 +128,24 @@ void oGFX::CommandBufferManager::SubmitAll(VkQueue queue)
     submitInfo.commandBufferCount = buffers.size();
     submitInfo.pCommandBuffers = buffers.data();
 
+    submitInfo.pSignalSemaphores = inInfo.pSignalSemaphores;
+    submitInfo.signalSemaphoreCount = inInfo.signalSemaphoreCount;
+
+    submitInfo.pWaitSemaphores= inInfo.pWaitSemaphores;
+    submitInfo.waitSemaphoreCount = inInfo.waitSemaphoreCount;
+    submitInfo.pWaitDstStageMask = inInfo.pWaitDstStageMask;
+
+    submitInfo.pNext = inInfo.pNext;
+
     //assuming we have only a few meshes to load we will pause here until we load the previous object
     //submit transfer commands to transfer queue and wait until it finishes
-    vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueSubmit(queue, 1, &submitInfo, signalFence);
 
-}
-
-VkCommandBuffer oGFX::CommandBufferManager::TEMP_GET_FIRST_CMD()
-{
-    if (commandBuffers.empty())
-    {
-        AllocateCommandBuffer();
-    }
-    return commandBuffers.front();
 }
 
 void oGFX::CommandBufferManager::AllocateCommandBuffer()
 {
-    std::cout << __FUNCTION__ << std::endl;
+    //std::cout << __FUNCTION__ << std::endl;
 	VkCommandBufferAllocateInfo cbAllocInfo = {};
 	cbAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	cbAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;	// VK_COMMAND_BUFFER_LEVEL_PRIMARY : buffer you submit directly to queue, cant be called  by other buffers

@@ -28,22 +28,19 @@ class CommandBufferManager
 {
 public:
 	VkResult InitPool(VkDevice device, uint32_t queueIndex);
-	VkCommandBuffer GetCommandBuffer(bool begin = false);
+	VkCommandBuffer GetNextCommandBuffer(bool begin = false);
 	void ResetPool();
-	VkCommandPool GetCommandPool();
 	void DestroyPool();
 	void SubmitCommandBuffer(VkQueue queue, VkCommandBuffer cmd);
-	void SubmitAll(VkQueue queue);
+	void SubmitAll(VkQueue queue, VkSubmitInfo submitInfo = {}, VkFence signalFence = VK_NULL_HANDLE);
 
-	VkCommandBuffer TEMP_GET_FIRST_CMD();
-
+	VkCommandPool m_commandpool{};
 private:
 	void AllocateCommandBuffer();
 	size_t counter{ };
 
 	VkDevice m_device{};
 	uint32_t nextIdx{};
-	VkCommandPool m_commandpool{};
 	std::vector<VkCommandBuffer>commandBuffers;
 	std::vector<int8_t>submitted{};
 };
