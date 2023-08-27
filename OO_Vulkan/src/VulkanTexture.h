@@ -19,6 +19,7 @@ Technology is prohibited.
 #include <vector>
 
 #include "vulkan/vulkan.h"
+#include "VmaUsage.h"
 
 //#include "VulkanBuffer.h"
 #include "VulkanDevice.h"

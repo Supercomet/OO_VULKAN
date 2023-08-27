@@ -18,6 +18,7 @@ Technology is prohibited.
 #include "VulkanBuffer.h"
 #include "CommandBufferManager.h"
 
+#include "VmaUsage.h"
 #include "gpuCommon.h"
 
 struct Window;
@@ -30,12 +31,15 @@ struct VulkanDevice
 
 	void InitPhysicalDevice(const oGFX::SetupInfo& si,VulkanInstance& instance);
 	void InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& instance);
+	void InitAllocator(const oGFX::SetupInfo& si,VulkanInstance& instance);
 	
 
 	friend class VulkanRenderer;
 	VkPhysicalDevice physicalDevice{VK_NULL_HANDLE};
 	VkDevice logicalDevice{VK_NULL_HANDLE};
 	VulkanInstance* m_instancePtr{nullptr};
+
+	VmaAllocator m_allocator{};
 
 	VkQueue graphicsQueue{VK_NULL_HANDLE};
 	oGFX::QueueFamilyIndices queueIndices{};
@@ -47,9 +51,6 @@ struct VulkanDevice
 
 	bool CheckDeviceSuitable(const oGFX::SetupInfo& si,VkPhysicalDevice device);
 	bool CheckDeviceExtensionSupport(const oGFX::SetupInfo& si,VkPhysicalDevice device);	
-
-	VkResult CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags,
-		vkutils::Buffer* buffer, VkDeviceSize size,const void* data = nullptr);
 
 	VkCommandBuffer CreateCommandBuffer(VkCommandBufferLevel level, VkCommandPool pool, bool begin = false);
 	//VkCommandBuffer CreateCommandBuffer(VkCommandBufferLevel level, bool begin = false);

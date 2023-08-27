@@ -103,6 +103,7 @@
     <ClCompile Include="src\renderpass\SSAORenderPass.cpp" />
     <ClCompile Include="src\rhi\CommandList.cpp" />
     <ClCompile Include="src\Tests_Assignment1.cpp" />
+    <ClCompile Include="src\VmaUsage.cpp" />
     <ClCompile Include="src\VulkanInstance.cpp" />
     <ClCompile Include="src\VulkanRenderer.cpp" />
     <ClCompile Include="src\VulkanDevice.cpp" />
@@ -177,6 +178,7 @@
     <ClInclude Include="src\gpuCommon.h" />
     <ClInclude Include="src\loader\stb_image.h" />
     <ClInclude Include="src\Tests_Assignment1.h" />
+    <ClInclude Include="src\VmaUsage.h" />
     <ClInclude Include="src\VulkanInstance.h" />
     <ClInclude Include="src\VulkanRenderer.h" />
     <ClInclude Include="src\VulkanDevice.h" />
@@ -294,7 +296,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)src/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src/;C:\Users\J.Kong\Desktop\GAM300\Ouroboros-2\Editor\vendor\vulkan\OO_Vulkan\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>

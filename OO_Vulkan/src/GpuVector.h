@@ -16,6 +16,7 @@ Technology is prohibited.
 #include <iostream>
 #include "Profiling.h"
 #include "DelayedDeleter.h"
+#include "VulkanUtils.h"
 
 struct VulkanDevice;
 
@@ -54,8 +55,7 @@ public:
 	size_t m_size{ 0 };
 	size_t m_capacity{ 0 };
 	VkBufferUsageFlags m_usage{};
-	VkBuffer m_buffer{ VK_NULL_HANDLE };
-	VkDeviceMemory m_gpuMemory{ VK_NULL_HANDLE };
+	oGFX::AllocatedBuffer m_buffer{};
 	VkDescriptorBufferInfo m_descriptor{};
 
 	VulkanDevice* m_device{ nullptr };
@@ -95,8 +95,9 @@ void GpuVector<T>::Init(VkBufferUsageFlags usage)
 	assert(m_buffer == VK_NULL_HANDLE); // called init twice
 	assert(m_gpuMemory == VK_NULL_HANDLE); // called init twice
 	m_usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-	oGFX::CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, 1, m_usage,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_buffer, &m_gpuMemory);
+	VmaAllocatorCreateFlags noflags = 0;
+	oGFX::CreateBuffer(m_device->m_allocator, 1, m_usage,
+		noflags, m_buffer);
 }
 
 template<typename T>
@@ -128,33 +129,31 @@ void GpuVector<T>::blockingWriteTo(size_t writeSize,const void* data, VkQueue qu
 	VkDeviceSize writeBytesOffset = offset * sizeof(T);
 
 	//temporary buffer to stage vertex data before transferring to GPU
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory; 
-
+	oGFX::AllocatedBuffer stagingBuffer{};
+	
 	//create buffer and allocate memory to it
-	CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, bufferBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
+	CreateBuffer(m_device->m_allocator, bufferBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, stagingBuffer);
 
 	//MAP MEMORY TO VERTEX BUFFER
 	void *mappedData = nullptr;												
-	auto result = vkMapMemory(m_device->logicalDevice, stagingBufferMemory, 0, bufferBytes, 0, &mappedData);
+	auto result = vmaMapMemory(m_device->m_allocator, stagingBuffer.alloc, &mappedData);
 	if (result != VK_SUCCESS)
 	{
 		assert(false);
 	}
 	memcpy(mappedData, data, (size_t)bufferBytes);					
-	vkUnmapMemory(m_device->logicalDevice, stagingBufferMemory);					
+	vmaUnmapMemory(m_device->m_allocator, stagingBuffer.alloc);					
 
 	CopyBuffer(m_device->logicalDevice, queue,pool,
-		stagingBuffer, m_buffer, bufferBytes, writeBytesOffset);
+		stagingBuffer.buffer, m_buffer.buffer, bufferBytes, writeBytesOffset);
 
 
 	{
-		PROFILE_SCOPED("Clean buffer") 
+		PROFILE_SCOPED("Clean buffer");
 
 		//clean up staging buffer parts
-		vkDestroyBuffer(m_device->logicalDevice, stagingBuffer, nullptr);
-		vkFreeMemory(m_device->logicalDevice, stagingBufferMemory, nullptr);
+		vmaDestroyBuffer(m_device->m_allocator, stagingBuffer.buffer, stagingBuffer.alloc);
 	}
 
 	//not sure what to do here, we just assume that its tightly packed
@@ -188,22 +187,21 @@ void GpuVector<T>::writeToCmd(size_t writeSize, const void* data,VkCommandBuffer
 	VkDeviceSize writeBytesOffset = offset * sizeof(T);
 
 	//temporary buffer to stage vertex data before transferring to GPU
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
+	oGFX::AllocatedBuffer stagingBuffer{};
 
 	//create buffer and allocate memory to it
-	CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, bufferBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
+	CreateBuffer(m_device->m_allocator, bufferBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, stagingBuffer);
 
 	//MAP MEMORY TO VERTEX BUFFER
 	void* mappedData = nullptr;
-	auto result = vkMapMemory(m_device->logicalDevice, stagingBufferMemory, 0, bufferBytes, 0, &mappedData);
+	auto result = vmaMapMemory(m_device->m_allocator, stagingBuffer.alloc, &mappedData);
 	if (result != VK_SUCCESS)
 	{
 		assert(false);
 	}
 	memcpy(mappedData, data, (size_t)bufferBytes);
-	vkUnmapMemory(m_device->logicalDevice, stagingBufferMemory);
+	vmaUnmapMemory(m_device->m_allocator, stagingBuffer.alloc);
 
 	
 	auto commandBuffer = command;
@@ -215,13 +213,12 @@ void GpuVector<T>::writeToCmd(size_t writeSize, const void* data,VkCommandBuffer
 	bufferCopyRegion.size = bufferBytes;
 	
 	// command to copy src buffer to dst buffer
-	vkCmdCopyBuffer(commandBuffer, stagingBuffer, m_buffer, 1, &bufferCopyRegion);
+	vkCmdCopyBuffer(commandBuffer, stagingBuffer.buffer, m_buffer.buffer, 1, &bufferCopyRegion);
 	
-	auto fun = [oldBuffer = stagingBuffer, logical = m_device->logicalDevice, oldMemory = stagingBufferMemory]() {
+	auto fun = [oldBuffer = stagingBuffer, alloc = m_device->m_allocator]() {
 		PROFILE_SCOPED("Clean buffer")
-		//clean up staging buffer parts
-		vkFreeMemory(logical, oldMemory, nullptr);
-		vkDestroyBuffer(logical, oldBuffer, nullptr);
+			//clean up staging buffer parts
+			vmaDestroyBuffer(alloc, oldBuffer.buffer, oldBuffer.alloc);
 	};
 	DelayedDeleter::get()->DeleteAfterFrames(fun);
 
@@ -282,22 +279,21 @@ inline void GpuVector<T>::flushToGPU(VkCommandBuffer command, VkQueue queue, VkC
 	}
 
 	//temporary buffer to stage vertex data before transferring to GPU
-	VkBuffer stagingBuffer{};
-	VkDeviceMemory stagingBufferMemory{};
+	oGFX::AllocatedBuffer stagingBuffer;
 
 	//create buffer and allocate memory to it
-	oGFX::CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, totalDataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
+	oGFX::CreateBuffer(m_device->m_allocator, totalDataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, stagingBuffer);
 
 	//MAP MEMORY TO VERTEX BUFFER
 	void* mappedData = nullptr;
-	auto result = vkMapMemory(m_device->logicalDevice, stagingBufferMemory, 0, totalDataSize, 0, &mappedData);
+	auto result = vmaMapMemory(m_device->m_allocator, stagingBuffer.alloc, &mappedData);
 	if (result != VK_SUCCESS)
 	{
 		assert(false);
 	}
 	memcpy(mappedData, m_cpuBuffer.data(), (size_t)totalDataSize);
-	vkUnmapMemory(m_device->logicalDevice, stagingBufferMemory);
+	vmaUnmapMemory(m_device->m_allocator, stagingBuffer.alloc);
 	
 	//m_cpuBuffer.clear(); // good for small memory..
 	m_cpuBuffer = {}; // release the memory because it could be quite big
@@ -305,14 +301,13 @@ inline void GpuVector<T>::flushToGPU(VkCommandBuffer command, VkQueue queue, VkC
 	auto commandBuffer = command;
 
 	// command to copy src buffer to dst buffer
-	vkCmdCopyBuffer(commandBuffer, stagingBuffer, m_buffer, m_copyRegions.size(), m_copyRegions.data());
+	vkCmdCopyBuffer(commandBuffer, stagingBuffer.buffer, m_buffer.buffer, m_copyRegions.size(), m_copyRegions.data());
 	m_copyRegions.clear();
 
-	auto fun = [oldBuffer = stagingBuffer, logical = m_device->logicalDevice, oldMemory = stagingBufferMemory]() {
+	auto fun = [oldBuffer = stagingBuffer, alloc = m_device->m_allocator]() {
 		PROFILE_SCOPED("Clean buffer");
 		//clean up staging buffer parts
-		vkFreeMemory(logical, oldMemory, nullptr);
-		vkDestroyBuffer(logical, oldBuffer, nullptr);
+		vmaDestroyBuffer(alloc, oldBuffer.buffer, oldBuffer.alloc);
 	};
 	DelayedDeleter::get()->DeleteAfterFrames(fun);
 
@@ -338,27 +333,26 @@ void GpuVector<T>::reserve(size_t size, VkQueue queue, VkCommandPool pool)
 
 	if (bufferSize == 0) return;
 
-	VkBuffer tempBuffer;
-	VkDeviceMemory tempMemory;
-	CreateBuffer(m_device->physicalDevice, m_device->logicalDevice, bufferSize, m_usage,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tempBuffer, &tempMemory); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
+	oGFX::AllocatedBuffer tempBuffer;
+	
+	VmaPoolCreateFlags noflags = 0;
+	CreateBuffer(m_device->m_allocator, bufferSize, m_usage,
+		noflags , tempBuffer); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
 																		//copy staging buffer to vertex buffer on GPU
 
 	if (m_size != 0)
 	{
-		CopyBuffer(m_device->logicalDevice, queue, pool, m_buffer, tempBuffer, m_size* sizeof(T));
+		CopyBuffer(m_device->logicalDevice, queue, pool, m_buffer.buffer, tempBuffer.buffer, m_size* sizeof(T));
 	}
 
-	auto fun = [oldBuffer = m_buffer, logical = m_device->logicalDevice, oldMemory = m_gpuMemory]() {
+	auto fun = [oldBuffer = m_buffer, alloc = m_device->m_allocator]() {
 			PROFILE_SCOPED("Clean up buffer");
-			vkDestroyBuffer(logical, oldBuffer, nullptr);
-			vkFreeMemory(logical, oldMemory, nullptr);
+			vmaDestroyBuffer(alloc, oldBuffer.buffer, oldBuffer.alloc);
 		};
 	DelayedDeleter::get()->DeleteAfterFrames(fun);
 
 
 	m_buffer = tempBuffer;
-	m_gpuMemory = tempMemory;
 
 	// accumulate bytes
 	accumulatedBytes -= m_capacity;
@@ -377,21 +371,21 @@ size_t GpuVector<T>::size() const
 template <typename T>
 VkBuffer GpuVector<T>::getBuffer() const
 {
-	return m_buffer;
+	return m_buffer.buffer;
 }
 template <typename T>
 const VkBuffer* GpuVector<T>::getBufferPtr() const
 {
-	return &m_buffer;
+	return &m_buffer.buffer;
 }
 template <typename T>
 void GpuVector<T>::destroy()
 {
 	//clean up old buffer
-	if (m_buffer)
+	if (m_buffer.buffer)
 	{
-		vkDestroyBuffer(m_device->logicalDevice, m_buffer, nullptr);
-		vkFreeMemory(m_device->logicalDevice, m_gpuMemory, nullptr);
+		vmaDestroyBuffer(m_device->m_allocator, m_buffer.buffer, m_buffer.alloc);
+		m_buffer.buffer = VK_NULL_HANDLE;
 	}
 }
 template <typename T>
@@ -403,7 +397,7 @@ void GpuVector<T>::clear()
 template<typename T>
 inline const VkDescriptorBufferInfo& GpuVector<T>::GetDescriptorBufferInfo()
 {
-	m_descriptor.buffer = m_buffer;
+	m_descriptor.buffer = m_buffer.buffer;
 	m_descriptor.offset = 0;
 	m_descriptor.range = VK_WHOLE_SIZE;
 	return m_descriptor;
@@ -412,7 +406,7 @@ inline const VkDescriptorBufferInfo& GpuVector<T>::GetDescriptorBufferInfo()
 template<typename T>
 inline const VkDescriptorBufferInfo* GpuVector<T>::GetBufferInfoPtr()
 {
-	m_descriptor.buffer = m_buffer;
+	m_descriptor.buffer = m_buffer.buffer;
 	m_descriptor.offset = 0;
 	m_descriptor.range = VK_WHOLE_SIZE;
 	return &m_descriptor;

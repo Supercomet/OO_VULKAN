@@ -41,13 +41,20 @@ VulkanDevice::~VulkanDevice()
         //    //vkDestroyCommandPool(logicalDevice, transferPools[i], nullptr);
         //}
     }
-    
+
+    if (m_allocator)
+    {
+        vmaDestroyAllocator(m_allocator);
+        m_allocator = NULL;
+    }
+
     // no need destory phys device
 	if (logicalDevice)
 	{
 		vkDestroyDevice(logicalDevice,NULL);
 		logicalDevice = NULL;
 	}
+
 }
 
 void VulkanDevice::InitPhysicalDevice(const oGFX::SetupInfo& si, VulkanInstance& instance)
@@ -243,6 +250,19 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
 
 }
 
+void VulkanDevice::InitAllocator(const oGFX::SetupInfo& si, VulkanInstance& instance)
+{
+
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.physicalDevice= physicalDevice;
+    allocatorInfo.device = logicalDevice;
+    allocatorInfo.flags = {};
+    allocatorInfo.instance = instance.instance;    
+    allocatorInfo.vulkanApiVersion = VMA_VULKAN_VERSION;    
+
+    VK_CHK(vmaCreateAllocator(&allocatorInfo, &m_allocator));
+}
+
 bool VulkanDevice::CheckDeviceSuitable(const oGFX::SetupInfo& si,VkPhysicalDevice device)
 {
 	VkPhysicalDeviceFeatures deviceFeatures;
@@ -317,53 +337,6 @@ bool VulkanDevice::CheckDeviceExtensionSupport(const oGFX::SetupInfo& si,VkPhysi
     return true;
 }
 
-VkResult VulkanDevice::CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, vkutils::Buffer* buffer, VkDeviceSize size,const void* data)
-{
-    buffer->device = logicalDevice;
-
-    // Create the buffer handle
-    VkBufferCreateInfo bufferCreateInfo = oGFX::vkutils::inits::bufferCreateInfo(usageFlags, size);
-    vkCreateBuffer(logicalDevice, &bufferCreateInfo, nullptr, &buffer->buffer);
-    VK_NAME(logicalDevice, "CreateBuffer::buffer", buffer->buffer);
-
-    // Create the memory backing up the buffer handle
-    VkMemoryRequirements memReqs;
-    VkMemoryAllocateInfo memAlloc = oGFX::vkutils::inits::memoryAllocateInfo();
-    vkGetBufferMemoryRequirements(logicalDevice, buffer->buffer, &memReqs);
-    memAlloc.allocationSize = memReqs.size;
-    // Find a memory type index that fits the properties of the buffer
-    memAlloc.memoryTypeIndex = oGFX::FindMemoryTypeIndex(physicalDevice,memReqs.memoryTypeBits, memoryPropertyFlags);
-    // If the buffer has VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT set we also need to enable the appropriate flag during allocation
-    VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
-    if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
-        allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
-        allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
-        memAlloc.pNext = &allocFlagsInfo;
-    }
-    vkAllocateMemory(logicalDevice, &memAlloc, nullptr, &buffer->memory);
-
-    buffer->alignment = memReqs.alignment;
-    buffer->size = size;
-    buffer->usageFlags = usageFlags;
-    buffer->memoryPropertyFlags = memoryPropertyFlags;
-
-    // If a pointer to the buffer data has been passed, map the buffer and copy over the data
-    if (data != nullptr)
-    {
-        (buffer->map());
-        memcpy(buffer->mapped, data, size);
-        if ((memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
-            buffer->flush();
-
-        buffer->unmap();
-    }
-
-    // Initialize a default descriptor that covers the whole buffer size
-    buffer->setupDescriptor();
-
-    // Attach the memory to the buffer object
-    return buffer->bind();
-}
 
 VkCommandBuffer VulkanDevice::CreateCommandBuffer(VkCommandBufferLevel level, VkCommandPool pool, bool begin)
 {

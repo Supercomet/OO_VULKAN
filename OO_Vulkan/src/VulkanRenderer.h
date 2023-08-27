@@ -168,6 +168,7 @@ public:
 	void CreateSurface(const oGFX::SetupInfo& setupSpecs, Window& window);
 	void AcquirePhysicalDevice(const oGFX::SetupInfo& setupSpecs);
 	void CreateLogicalDevice(const oGFX::SetupInfo& setupSpecs);
+	void InitVMA(const oGFX::SetupInfo& setupSpecs);
 	void SetupSwapchain();
 	void CreateDefaultRenderpass();
 	void CreateDefaultDescriptorSetLayout();
@@ -400,8 +401,7 @@ public:
 	GpuVector<GPUObjectInformation> objectInformationBuffer[MAX_FRAME_DRAWS];
 	
 	// SSBO
-	std::vector<VkBuffer> vpUniformBuffer{};
-	std::vector<VkDeviceMemory> vpUniformBufferMemory{};
+	std::vector<oGFX::AllocatedBuffer> vpUniformBuffer{};
 
 	std::vector<DescriptorAllocator> descAllocs;
 	DescriptorLayoutCache DescLayoutCache;

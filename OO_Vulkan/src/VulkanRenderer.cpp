@@ -219,8 +219,7 @@ VulkanRenderer::~VulkanRenderer()
 	vkDestroyDescriptorPool(m_device.logicalDevice, descriptorPool, nullptr);
 	for (size_t i = 0; i < vpUniformBuffer.size(); i++)
 	{
-		vkDestroyBuffer(m_device.logicalDevice, vpUniformBuffer[i], nullptr);
-		vkFreeMemory(m_device.logicalDevice, vpUniformBufferMemory[i], nullptr);
+		vmaDestroyBuffer(m_device.m_allocator, vpUniformBuffer[i].buffer, vpUniformBuffer[i].alloc);
 	}
 
 	for (size_t i = 0; i < drawFences.size(); i++)
@@ -271,6 +270,8 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 	AcquirePhysicalDevice(setupSpecs);
 	CreateLogicalDevice(setupSpecs);
+
+	InitVMA(setupSpecs);
 
 	//if (m_device.debugMarker)
 	//{
@@ -413,6 +414,11 @@ void VulkanRenderer::AcquirePhysicalDevice(const oGFX::SetupInfo& setupSpecs)
 void VulkanRenderer::CreateLogicalDevice(const oGFX::SetupInfo& setupSpecs)
 {
     m_device.InitLogicalDevice(setupSpecs,m_instance);
+}
+
+void VulkanRenderer::InitVMA(const oGFX::SetupInfo& setupSpecs)
+{
+	m_device.InitAllocator(setupSpecs, m_instance);
 }
 
 void VulkanRenderer::SetupSwapchain()
@@ -572,7 +578,7 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 	for (size_t i = 0; i < m_swapchain.swapChainImages.size(); i++)
 	{
 		VkDescriptorBufferInfo vpBufferInfo{};
-		vpBufferInfo.buffer = vpUniformBuffer[i];	// buffer to get data from
+		vpBufferInfo.buffer = vpUniformBuffer[i].buffer;	// buffer to get data from
 		vpBufferInfo.offset = 0;					// position of start of data
 		vpBufferInfo.range = sizeof(CB::FrameContextUBO);// size of data
 
@@ -1499,17 +1505,16 @@ void VulkanRenderer::CreateUniformBuffers()
 
 	// One uniform buffer for each image (and by extension, command buffer)
 	vpUniformBuffer.resize(m_swapchain.swapChainImages.size());
-	vpUniformBufferMemory.resize(m_swapchain.swapChainImages.size());
 	//modelDUniformBuffer.resize(swapChainImages.size());
 	//modelDUniformBufferMemory.resize(swapChainImages.size());
 
 	//create uniform buffers
 	for (size_t i = 0; i < m_swapchain.swapChainImages.size(); i++)
 	{
-		oGFX::CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, vpBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT 
+		oGFX::CreateBuffer(m_device.m_allocator, vpBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
 			//| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-			, &vpUniformBuffer[i], &vpUniformBufferMemory[i]);
+			, vpUniformBuffer[i]);
 		/*createBuffer(mainDevice.physicalDevice, mainDevice.logicalDevice, modelBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &modelDUniformBuffer[i], &modelDUniformBufferMemory[i]);*/
 	}
@@ -1903,7 +1908,7 @@ void VulkanRenderer::InitializeRenderBuffers()
 
 		shadowCasterCommandsBuffer[i].Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT );
 		shadowCasterCommandsBuffer[i].reserve(MAX_OBJECTS,m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
-		VK_NAME(m_device.logicalDevice, "Shadow Command Buffer", shadowCasterCommandsBuffer[i].m_buffer);
+		VK_NAME(m_device.logicalDevice, "Shadow Command Buffer", shadowCasterCommandsBuffer[i].getBuffer());
 
 		// Note: Moved here from VulkanRenderer::UpdateInstanceData
 		instanceBuffer[i].Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT| VK_BUFFER_USAGE_STORAGE_BUFFER_BIT );
@@ -2341,7 +2346,7 @@ void VulkanRenderer::BeginDraw()
 			auto paddedAlignment = oGFX::vkutils::tools::UniformBufferPaddedSize(2*sizeof(CB::FrameContextUBO), uniformMinAlignment);
 			
 			VkDescriptorBufferInfo vpBufferInfo{};
-			vpBufferInfo.buffer = vpUniformBuffer[getFrame()];	// buffer to get data from
+			vpBufferInfo.buffer = vpUniformBuffer[getFrame()].buffer;	// buffer to get data from
 			vpBufferInfo.offset = 0;				// position of start of data
 			vpBufferInfo.range = sizeof(CB::FrameContextUBO);		// size of data
 			DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
@@ -3757,18 +3762,19 @@ void VulkanRenderer::UpdateUniformBuffers()
 	void *data;
 	auto alignedRange = oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), m_device.properties.limits.minUniformBufferOffsetAlignment);
 	// map whole aligned range
-	vkMapMemory(m_device.logicalDevice, vpUniformBufferMemory[getFrame()], 0, numCameras*alignedRange, 0, &data);
+	vmaMapMemory(m_device.m_allocator, vpUniformBuffer[getFrame()].alloc, &data);
 
 	memcpy(data, &frameContextUBO[0], sizeof(CB::FrameContextUBO));
+	// Maybe dont need to check align range for this
 	memcpy((char*)data+alignedRange, &frameContextUBO[1], sizeof(CB::FrameContextUBO));
 
-	VkMappedMemoryRange memRng{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
-	memRng.memory = vpUniformBufferMemory[getFrame()];
-	memRng.offset =  0;
-	memRng.size =  numCameras*alignedRange;
-	VK_CHK(vkFlushMappedMemoryRanges(m_device.logicalDevice, 1, &memRng));
+	//VkMappedMemoryRange memRng{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
+	//memRng.memory = vpUniformBuffer[getFrame()];
+	//memRng.offset =  0;
+	//memRng.size =  numCameras*alignedRange;
+	//VK_CHK(vkFlushMappedMemoryRanges(m_device.logicalDevice, 1, &memRng));
 
-	vkUnmapMemory(m_device.logicalDevice, vpUniformBufferMemory[getFrame()]);
+	vmaUnmapMemory(m_device.m_allocator, vpUniformBuffer[getFrame()].alloc);
 }
 
 uint32_t VulkanRenderer::CreateTextureImage(const std::string& fileName)

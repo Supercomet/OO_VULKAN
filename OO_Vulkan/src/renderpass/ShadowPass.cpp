@@ -186,7 +186,7 @@ void ShadowPass::Draw()
 						sizeof(glm::mat4),			// size of data being pushed
 						glm::value_ptr(mm));		// actualy data being pushed (could be an array));
 
-					cmd.DrawIndexedIndirect(vr.shadowCasterCommandsBuffer[currFrame].m_buffer, 0, static_cast<uint32_t>(vr.shadowCasterCommandsBuffer[currFrame].size()));
+					cmd.DrawIndexedIndirect(vr.shadowCasterCommandsBuffer[currFrame].getBuffer(), 0, static_cast<uint32_t>(vr.shadowCasterCommandsBuffer[currFrame].size()));
 				}
 				
 			}			

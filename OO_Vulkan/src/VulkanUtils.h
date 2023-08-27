@@ -15,6 +15,7 @@ Technology is prohibited.
 #include <vulkan/vulkan.h>
 #include "buildDefs.h"
 #include "MathCommon.h"
+#include "VmaUsage.h"
 
 #include <string>
 #include <vector>
@@ -182,6 +183,13 @@ namespace oGFX
 		*/
 	};
 
+	struct AllocatedBuffer
+	{
+		VkBuffer buffer;
+		VmaAllocation alloc;
+		VmaAllocationInfo allocInfo;
+	};
+
 	const std::vector<VkVertexInputBindingDescription>& GetGFXVertexInputBindings();	
 	const std::vector<VkVertexInputAttributeDescription>& GetGFXVertexInputAttributes();
 
@@ -204,9 +212,8 @@ namespace oGFX
 
 	std::vector<char> readFile(const std::string& filename);
 
-	void CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize bufferSize,
-		VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags bufferProperties,
-		VkBuffer* buffer, VkDeviceMemory* bufferMemory);
+	void CreateBuffer(VmaAllocator allocator, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage,
+		VmaAllocationCreateFlags allocationInfo, oGFX::AllocatedBuffer& vmabuffer);
 
 	void CopyBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,
 		VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize bufferSize, VkDeviceSize dstOffset = 0, VkDeviceSize srcOffset = 0);

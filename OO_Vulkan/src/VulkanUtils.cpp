@@ -479,47 +479,22 @@ namespace oGFX
 		return fileBuffer;
 	}
 
-	void CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags bufferProperties, VkBuffer* buffer, VkDeviceMemory* bufferMemory)
+	void CreateBuffer(VmaAllocator allocator, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage,
+		VmaAllocationCreateFlags allocationFlags, oGFX::AllocatedBuffer& vmabuffer)
 	{
 		PROFILE_SCOPED();
 		//CREATE VERTEX BUFFER
 		//information to create a buffer ( doesnt include assigning memory)
+		VmaAllocationCreateInfo vmaCI{};
+		vmaCI.usage = VMA_MEMORY_USAGE_AUTO;
+		vmaCI.flags = allocationFlags;
 		VkBufferCreateInfo bufferInfo = oGFX::vkutils::inits::bufferCreateInfo(bufferUsage,bufferSize);
-		VkResult result = vkCreateBuffer(device, &bufferInfo, nullptr, buffer);
+		VkResult result = vmaCreateBuffer(allocator, &bufferInfo, &vmaCI, &vmabuffer.buffer, &vmabuffer.alloc, &vmabuffer.allocInfo);
 		if (result != VK_SUCCESS)
 		{
-			std::cerr << "Failed to create a Vertex Buffer!" << std::endl;
+			std::cerr << "Failed to create a Buffer!" << std::endl;
 			__debugbreak();
 		}
-
-		//get buffer memory requirements
-		VkMemoryRequirements memoryRequirements;
-		vkGetBufferMemoryRequirements(device, *buffer, &memoryRequirements);
-
-		// Allocate memory to buffer
-		VkMemoryAllocateInfo memoryAllocInfo = oGFX::vkutils::inits::memoryAllocateInfo();
-		memoryAllocInfo.allocationSize = memoryRequirements.size;
-		memoryAllocInfo.memoryTypeIndex = FindMemoryTypeIndex(physicalDevice,memoryRequirements.memoryTypeBits,bufferProperties); //index of memory type on physical device that has required bit flags
-			
-		// If the buffer has VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT set we also need to enable the appropriate flag during allocation
-		VkMemoryAllocateFlagsInfoKHR allocFlagsInfo{};
-		if (bufferUsage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
-			allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
-			allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
-			memoryAllocInfo.pNext = &allocFlagsInfo;
-		}
-																							
-		//Allocate memory to VkDeviceMemory
-		result = vkAllocateMemory(device, &memoryAllocInfo, nullptr, bufferMemory);
-		if (result != VK_SUCCESS)
-		{
-			std::cerr << oGFX::vkutils::tools::VkResultString(result) << std::endl;
-			std::cerr << "Failed to allocate Vertex Buffer Memory!" << std::endl;
-			__debugbreak();
-		}
-
-		//Allocate memory to given vertex buffer
-		vkBindBufferMemory(device, *buffer, *bufferMemory, 0);
 	}
 
 	// TODO: Allow this to make multiple segmented copies
