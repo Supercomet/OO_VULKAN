@@ -1,5 +1,5 @@
 Tasks:
-• Minimal Vulkan API reference: https://github.com/NVIDIAGameWorks/nvrhi
+• Move IMGUI rendering to its own GfxRenderer
 
 • Get rid of RenderPassDatabase
     • dynamic_cast is not allowed in most AAA game engines
