@@ -79,21 +79,30 @@ void ShadowPass::Draw()
 	// Clear values for all attachments written in the fragment shader
 	VkClearValue clearValues;
 	clearValues.depthStencil = { 0.0f, 0 };
-	
-	VkFramebuffer fb_shadow;
-	FramebufferBuilder::Begin(&vr.fbCache)
-		.BindImage(&shadow_depth)
-		.Build(fb_shadow,renderpass_Shadow);
 
-	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
-	renderPassBeginInfo.renderPass =  renderpass_Shadow.pass;
-	renderPassBeginInfo.framebuffer = fb_shadow;
-	renderPassBeginInfo.renderArea.extent.width = shadowmapSize.width;
-	renderPassBeginInfo.renderArea.extent.height = shadowmapSize.height;
-	renderPassBeginInfo.clearValueCount = 1;
-	renderPassBeginInfo.pClearValues = &clearValues;
+	VkRenderingAttachmentInfo depthInfo{};
+	depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+	depthInfo.pNext = NULL;
+	depthInfo.resolveMode = {};
+	depthInfo.resolveImageView = {};
+	depthInfo.resolveImageLayout = {};
+	depthInfo.imageView = shadow_depth.view;
+	depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	depthInfo.clearValue = { 0.0f,0.0f };
+	vkutils::TransitionImage(cmdlist, shadow_depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	VkRenderingInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderingInfo.renderArea = { 0, 0, (uint32_t)shadow_depth.width, (uint32_t)shadow_depth.height };
+	renderingInfo.layerCount = 1;
+	renderingInfo.colorAttachmentCount = 0;
+	renderingInfo.pColorAttachments = NULL;
+	renderingInfo.pDepthAttachment = &depthInfo;
+	renderingInfo.pStencilAttachment = &depthInfo;
+
+	vkCmdBeginRendering(cmdlist, &renderingInfo);
 	
 	const float vpHeight = (float)shadowmapSize.height;
 	const float vpWidth = (float)shadowmapSize.width;
@@ -193,7 +202,9 @@ void ShadowPass::Draw()
 		}		
 	}
 
-	vkCmdEndRenderPass(cmdlist);
+	vkCmdEndRendering(cmdlist);
+
+	vkutils::TransitionImage(cmdlist, shadow_depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void ShadowPass::Shutdown()
@@ -348,22 +359,22 @@ void ShadowPass::CreatePipeline()
 	shaderStages[1] = vr.LoadShader(m_device, "Shaders/bin/shadow.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	// Separate render pass
-	pipelineCI.renderPass = renderpass_Shadow.pass;
+	pipelineCI.renderPass = VK_NULL_HANDLE;
+
+	VkPipelineRenderingCreateInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+	renderingInfo.viewMask = {};
+	renderingInfo.colorAttachmentCount = 0;
+	renderingInfo.pColorAttachmentFormats = NULL;
+	renderingInfo.depthAttachmentFormat = vr.G_DEPTH_FORMAT;
+	renderingInfo.stencilAttachmentFormat =  vr.G_DEPTH_FORMAT;
+
+	pipelineCI.pNext = &renderingInfo;
 
 	// Blend attachment states required for all color attachments
 	// This is important, as color write mask will otherwise be 0x0 and you
 	// won't see anything rendered to the attachment
 	
-	//std::array<VkPipelineColorBlendAttachmentState, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> blendAttachmentStates =
-	//{
-	//	oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
-	//	oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
-	//	oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
-	//	oGFX::vk::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE)
-	//};
-	//
-	//colorBlendState.attachmentCount = static_cast<uint32_t>(blendAttachmentStates.size());
-	//colorBlendState.pAttachments = blendAttachmentStates.data();
 
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_ShadowDefault));
 	VK_NAME(m_device.logicalDevice, "ShadowPipline", pso_ShadowDefault);
