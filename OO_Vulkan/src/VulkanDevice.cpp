@@ -82,9 +82,9 @@ void VulkanDevice::InitPhysicalDevice(const oGFX::SetupInfo& si, VulkanInstance&
 		auto& device = deviceList[i];
 		VkPhysicalDeviceProperties props;
 		vkGetPhysicalDeviceProperties(device, &props);
-		if (props.limits.maxComputeWorkGroupInvocations > memory)
+		if (props.limits.sparseAddressSpaceSize > memory)
 		{
-			memory = props.limits.maxComputeWorkGroupInvocations;
+			memory = props.limits.sparseAddressSpaceSize;
 			std::swap(deviceList[i], deviceList[best]);
             best = static_cast<uint32_t>(i);
 		}
@@ -93,8 +93,12 @@ void VulkanDevice::InitPhysicalDevice(const oGFX::SetupInfo& si, VulkanInstance&
 	// find a suitable device
 	for (const auto& device : deviceList)
 	{
-		if (CheckDeviceSuitable(si, device))
+        VkPhysicalDeviceProperties props;
+        vkGetPhysicalDeviceProperties(device, &props);
+        if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && CheckDeviceSuitable(si, device))
 		{
+            
+            printf("Selected device %s\n", props.deviceName);
 			//found a nice device
 			physicalDevice = device;
 			break;
@@ -257,12 +261,17 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
 void VulkanDevice::InitAllocator(const oGFX::SetupInfo& si, VulkanInstance& instance)
 {
 
+    VmaVulkanFunctions vulkanFuns{};
+    vulkanFuns.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
+    vulkanFuns.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
+
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.physicalDevice= physicalDevice;
     allocatorInfo.device = logicalDevice;
     allocatorInfo.flags = {};
-    allocatorInfo.instance = instance.instance;    
-    allocatorInfo.vulkanApiVersion = VMA_VULKAN_VERSION;    
+    allocatorInfo.instance = instance.instance;
+    allocatorInfo.pVulkanFunctions = &vulkanFuns;
+    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
 
     VK_CHK(vmaCreateAllocator(&allocatorInfo, &m_allocator));
 }

@@ -92,8 +92,6 @@ template <typename T>
 void GpuVector<T>::Init(VkBufferUsageFlags usage)
 {
 	assert(m_device != nullptr); // invalid device ptr. or didnt provide
-	assert(m_buffer == VK_NULL_HANDLE); // called init twice
-	assert(m_gpuMemory == VK_NULL_HANDLE); // called init twice
 	m_usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	VmaAllocatorCreateFlags noflags = 0;
 	oGFX::CreateBuffer(m_device->m_allocator, 1, m_usage,
