@@ -78,33 +78,37 @@ void SSAORenderPass::Draw()
 	std::array<VkClearValue, 1> clearValues{};
 	clearValues[0].color = { 0.0f,0.0f,0.0f,0.0f };
 
-	//Information about how to begin a render pass (only needed for graphical applications)
-	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
-	renderPassBeginInfo.renderPass = renderpass_SSAO.pass;                  //render pass to begin
-	renderPassBeginInfo.renderArea.offset = { 0,0 };                                     //start point of render pass in pixels
-	glm::uvec2 renderSize = glm::vec2{ SSAO_renderTarget.width,SSAO_renderTarget.height };
+	VkRenderingAttachmentInfo albedoInfo{};
+	albedoInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+	albedoInfo.pNext = NULL;
+	albedoInfo.resolveMode = {};
+	albedoInfo.resolveImageView = {};
+	albedoInfo.resolveImageLayout = {};
+	albedoInfo.imageView = SSAO_renderTarget.view;
+	albedoInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	albedoInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	albedoInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	albedoInfo.clearValue = VkClearValue{ {} };
+	vkutils::TransitionImage(cmdlist, SSAO_renderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-	renderPassBeginInfo.renderArea.extent = VkExtent2D{ renderSize.x,renderSize.y }; //size of region to run render pass on (Starting from offset)
-	renderPassBeginInfo.pClearValues = clearValues.data();                               //list of clear values
-	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-
-	renderPassBeginInfo.framebuffer = vr.swapChainFramebuffers[currFrame];
-
-	VkFramebuffer currentFB;
-	FramebufferBuilder::Begin(&vr.fbCache)
-		.BindImage(&SSAO_renderTarget)
-		//.BindImage(&vr.renderTargets[vr.renderTargetInUseID].depth) //no depth
-		.Build(currentFB, renderpass_SSAO);
-	renderPassBeginInfo.framebuffer = currentFB;
+	VkRenderingInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderingInfo.renderArea = { 0, 0, (uint32_t)SSAO_renderTarget.width, (uint32_t)SSAO_renderTarget.height };
+	renderingInfo.layerCount = 1;
+	renderingInfo.colorAttachmentCount = 1;
+	renderingInfo.pColorAttachments = &albedoInfo;
+	renderingInfo.pDepthAttachment = NULL;
+	renderingInfo.pStencilAttachment = NULL;
 
 	// transition depth buffer
 	auto gbuffer = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
 	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRendering(cmdlist, &renderingInfo);
+	
 	rhi::CommandList cmd{ cmdlist, "SSAO Pass"};
-	std::array<VkViewport, 1>viewports{ VkViewport{0,renderSize.y * 1.0f,renderSize.x * 1.0f,renderSize.y * -1.0f} };
+	std::array<VkViewport, 1>viewports{ VkViewport{0,SSAO_renderTarget.height * 1.0f,SSAO_renderTarget.width * 1.0f,SSAO_renderTarget.height * -1.0f} };
 
 	CreateDescriptors();
 	cmd.BindPSO(pso_SSAO);
@@ -112,8 +116,8 @@ void SSAORenderPass::Draw()
 	cmd.SetViewport(0, static_cast<uint32_t>(viewports.size()), viewports.data());
 
 	SSAOPC pc{};
-	pc.screenDim.x = static_cast<float>(renderSize.x);
-	pc.screenDim.y = static_cast<float>(renderSize.y);
+	pc.screenDim.x = static_cast<float>(SSAO_renderTarget.width);
+	pc.screenDim.y = static_cast<float>(SSAO_renderTarget.height);
 	pc.sampleDim.x = 4;
 	pc.sampleDim.y = 4;
 	pc.radius = vr.currWorld->ssaoSettings.radius;
@@ -140,31 +144,15 @@ void SSAORenderPass::Draw()
 
 	cmd.DrawFullScreenQuad();
 
-	vkCmdEndRenderPass(cmdlist);
+	vkCmdEndRendering(cmdlist);
 
 	// wait for SSAO buffer before next pass
-	//auto ssao = RenderPassDatabase::GetRenderPass<SSAORenderPass>();
-	oGFX::vkutils::tools::insertImageMemoryBarrier(
-		cmdlist,
-		SSAO_renderTarget.image,
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+	vkutils::TransitionImage(cmdlist, SSAO_renderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, SSAO_finalTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
+	albedoInfo.imageView = SSAO_finalTarget.view;
+	vkCmdBeginRendering(cmdlist, &renderingInfo);
 
-	VkFramebuffer blurFB;
-	FramebufferBuilder::Begin(&vr.fbCache)
-		.BindImage(&SSAO_finalTarget)
-		//.BindImage(&vr.renderTargets[vr.renderTargetInUseID].depth) //no depth
-		.Build(blurFB, renderpass_SSAO);
-	renderPassBeginInfo.framebuffer = blurFB;
-	renderPassBeginInfo.renderArea.extent = { SSAO_finalTarget.width, SSAO_finalTarget.height };
-
-	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);	
 	cmd.BindPSO(pso_SSAO_blur);
 	cmd.SetDefaultViewportAndScissor();
 	cmd.BindDescriptorSet(PSOLayoutDB::SSAOBlurLayout, 0,
@@ -177,19 +165,10 @@ void SSAORenderPass::Draw()
 	1, & dynamicOffset);
 
 	cmd.DrawFullScreenQuad();
-	vkCmdEndRenderPass(cmdlist);
+	vkCmdEndRendering(cmdlist);
 
 	// wait for blurred image before next
-	oGFX::vkutils::tools::insertImageMemoryBarrier(
-		cmdlist,
-		SSAO_finalTarget.image,
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+	vkutils::TransitionImage(cmdlist, SSAO_finalTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void SSAORenderPass::Shutdown()
@@ -461,15 +440,28 @@ void SSAORenderPass::CreatePipeline()
 	// Empty vertex input state, vertices are generated by the vertex shader
 	VkPipelineVertexInputStateCreateInfo emptyInputState = oGFX::vkutils::inits::pipelineVertexInputStateCreateInfo();
 	pipelineCI.pVertexInputState = &emptyInputState;
-	pipelineCI.renderPass = renderpass_SSAO.pass;
+	//pipelineCI.renderPass = renderpass_SSAO.pass;
+	pipelineCI.renderPass = nullptr;
 	pipelineCI.layout = PSOLayoutDB::SSAOPSOLayout;
 	colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
 	blendAttachmentState= oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
+
+	VkFormat format = SSAO_renderTarget.format;
+	VkPipelineRenderingCreateInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+	renderingInfo.viewMask = {};
+	renderingInfo.colorAttachmentCount = 1;
+	renderingInfo.pColorAttachmentFormats = &format;
+	renderingInfo.depthAttachmentFormat = {};
+	renderingInfo.stencilAttachmentFormat = {};
+
+	pipelineCI.pNext = &renderingInfo;
 
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_SSAO));
 	VK_NAME(m_device.logicalDevice, "SSAO_PSO", pso_SSAO);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr); // destroy fragment
 
+	format = SSAO_finalTarget.format;
 
 	shaderStages[1] = vr.LoadShader(m_device, "Shaders/bin/ssaoBlur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 	pipelineCI.layout = PSOLayoutDB::SSAOBlurLayout;
