@@ -37,11 +37,6 @@ struct SSAORenderPass : public GfxRenderpass
 	void CreatePipelineLayout();
 	void CreateDescriptors();
 
-	std::array<vkutils::Texture2D, GBufferAttachmentIndex::MAX_ATTACHMENTS> attachments{};
-
-	// This is for ImGui
-	std::array<ImTextureID, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> deferredImg{};
-
 	VulkanRenderpass renderpass_SSAO{};
 
 	//VkPushConstantRange pushConstantRange;

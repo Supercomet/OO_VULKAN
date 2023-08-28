@@ -634,8 +634,7 @@ namespace vkutils
 		samplerCreateInfo.maxAnisotropy = device->enabledFeatures.samplerAnisotropy ? device->properties.limits.maxSamplerAnisotropy : 1.0f;
 		VK_CHK(vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler));
 		VK_NAME(device->logicalDevice, n? "forFramebuffer::sampler" : name.c_str(), sampler);
-
-		imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+			
 	}
 
 	void Texture2D::Resize(uint32_t texWidth, uint32_t texHeight)
@@ -789,7 +788,8 @@ namespace vkutils
 
 	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout)
 	{
-		
+		//printf("\t Transition::%s -> %s\n", texture.name, oGFX::vkutils::tools::VkImageLayoutString(targetLayout).c_str());
+
 		auto subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 		if (texture.format == VK_FORMAT_D32_SFLOAT_S8_UINT)
 		{

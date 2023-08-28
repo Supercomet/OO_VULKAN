@@ -319,9 +319,9 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	GfxRenderpass* ptr;
 	ptr = new ShadowPass;
 	rpd->RegisterRenderPass(ptr);
-	ptr = new DebugDrawRenderpass;
-	rpd->RegisterRenderPass(ptr);
 	ptr = new GBufferRenderPass;
+	rpd->RegisterRenderPass(ptr);
+	ptr = new DebugDrawRenderpass;
 	rpd->RegisterRenderPass(ptr);
 	ptr = new DeferredCompositionRenderpass;
 	rpd->RegisterRenderPass(ptr);
@@ -1070,7 +1070,7 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 			}
 			if (image.image&&renderTargets[wrdID].imguiTex == 0)
 			{
-				renderTargets[wrdID].imguiTex = CreateImguiBinding(samplerManager.GetDefaultSampler(), image.view, image.imageLayout);				
+				renderTargets[wrdID].imguiTex = CreateImguiBinding(samplerManager.GetDefaultSampler(), image.view, VK_IMAGE_LAYOUT_GENERAL);				
 			}
 			auto& depth =  renderTargets[wrdID].depth;
 			if (depth.image == VK_NULL_HANDLE)

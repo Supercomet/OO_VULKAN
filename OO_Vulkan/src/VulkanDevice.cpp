@@ -140,6 +140,7 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
     std::vector<const char*>deviceExtensions{
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
     };
 
     if (si.debug && si.renderDoc)
@@ -171,7 +172,9 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
 
     deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 
-    
+    VkPhysicalDeviceDynamicRenderingFeatures dynamicRendering{};
+    dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+    dynamicRendering.dynamicRendering = VK_TRUE;
 
     VkPhysicalDeviceVulkan12Features vk12Features{};
     vk12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
@@ -187,20 +190,21 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
     VkPhysicalDeviceShaderDrawParametersFeatures shaderDrawFeatures{};
     shaderDrawFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
     shaderDrawFeatures.shaderDrawParameters = VK_TRUE;
-    shaderDrawFeatures.pNext = &vk12Features;
 
-    // Bindless design requirement Descriptor indexing for descriptors
-    VkPhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_features{};
-    descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-    // Enable non-uniform indexing
-    descriptor_indexing_features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-    descriptor_indexing_features.runtimeDescriptorArray = VK_TRUE;
-    descriptor_indexing_features.descriptorBindingVariableDescriptorCount = VK_TRUE;
-    descriptor_indexing_features.descriptorBindingPartiallyBound = VK_TRUE;
-    descriptor_indexing_features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE; // needed for image descriptors
+    // Bindless design requirement Descriptor indexing for descriptors // contained in vulkan12 features
+    // VkPhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_features{};
+    // descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    // // Enable non-uniform indexing
+    // descriptor_indexing_features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    // descriptor_indexing_features.runtimeDescriptorArray = VK_TRUE;
+    // descriptor_indexing_features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    // descriptor_indexing_features.descriptorBindingPartiallyBound = VK_TRUE;
+    // descriptor_indexing_features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE; // needed for image descriptors
 
     deviceCreateInfo.pNext = &vk12Features;
-    descriptor_indexing_features.pNext = &shaderDrawFeatures;    
+    vk12Features.pNext = &shaderDrawFeatures;
+    shaderDrawFeatures.pNext = &dynamicRendering;
+    dynamicRendering.pNext = NULL;
 
     this->enabledFeatures = deviceFeatures;
 
