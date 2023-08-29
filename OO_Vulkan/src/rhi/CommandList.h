@@ -16,6 +16,7 @@ Technology is prohibited.
 #include "MathCommon.h"
 #include <array>
 #include <vulkan/vulkan.h>
+#include <VulkanTexture.h>
 
 namespace rhi
 {
@@ -31,6 +32,8 @@ public:
 	//----------------------------------------------------------------------------------------------------
 	// Binding Commands
 	//----------------------------------------------------------------------------------------------------
+	void BindAttachment(uint32_t bindPoint, vkutils::Texture2D* tex, bool clearOnDraw = false);
+	void BindDepthAttachment(vkutils::Texture2D* tex, bool clearOnDraw = false);
 
 	void BindVertexBuffer(
 		uint32_t firstBinding,
@@ -43,6 +46,9 @@ public:
 		VkDeviceSize offset,
 		VkIndexType indexType
 	);
+
+	void BeginRendering(VkRect2D renderArea);
+	void EndRendering();
 
 	void BindPSO(const VkPipeline& pso, const VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
 
@@ -141,6 +147,10 @@ private:
 
 	std::array<VkRect2D, 8> m_scissor;
 	std::array<VkViewport, 8> m_viewport;
+	std::array<VkRenderingAttachmentInfo, 8> m_attachments{};
+	int32_t m_highestAttachmentBound{-1};
+	bool m_depthBound = false;
+	VkRenderingAttachmentInfo m_depth;
 	float m_push_constant[128 / sizeof(float)]{0.0f};
 	// TODO: Handle VK_PIPELINE_BIND_POINT_GRAPHICS etc nicely next time.
 	// TODO: Maybe we can cache the stuff that is bound, for easier debugging, else taking GPU captures is really unproductive.

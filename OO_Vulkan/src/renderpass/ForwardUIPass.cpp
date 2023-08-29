@@ -95,28 +95,15 @@ void ForwardUIPass::Draw()
 
 	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	VkFramebuffer currentFB;
-	FramebufferBuilder::Begin(&vr.fbCache)
-		.BindImage(&vr.renderTargets[vr.renderTargetInUseID].texture)
-		.BindImage(&attachments[GBufferAttachmentIndex::ENTITY_ID])
-		.BindImage(&attachments[GBufferAttachmentIndex::DEPTH])
-		.Build(currentFB,renderpass_ForwardUI);
-
-	// Manually set layout for blit reason
-
-	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
-	renderPassBeginInfo.renderPass =  renderpass_ForwardUI.pass;
-	renderPassBeginInfo.framebuffer = currentFB;
-	renderPassBeginInfo.renderArea.extent.width = swapchain.swapChainExtent.width;
-	renderPassBeginInfo.renderArea.extent.height = swapchain.swapChainExtent.height;
-	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-	renderPassBeginInfo.pClearValues = clearValues.data();
-
-	// vr.ResizeSwapchain() destroys the depth attachment. This causes the renderpass to fail on resize
-	// TODO: handle all framebuffer resizes gracefully
-	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	
 	rhi::CommandList cmd{ cmdlist, "Forward UI Pass"};
+
+	cmd.BindAttachment(0, &vr.renderTargets[vr.renderTargetInUseID].texture);
+	cmd.BindAttachment(1, &attachments[GBufferAttachmentIndex::ENTITY_ID]);
+
+	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
+
+	cmd.BeginRendering({ 0,0,{swapchain.swapChainExtent.width,swapchain.swapChainExtent.height} });
 
 	cmd.BindPSO(pso_Forward_UI);
 	cmd.SetDefaultViewportAndScissor();
@@ -168,7 +155,12 @@ void ForwardUIPass::Draw()
 	cmd.DrawIndexed(static_cast<uint32_t>(ScreenSpaceIndices), static_cast<uint32_t>(ScreenSpaceCnt)
 		, ScreenSpaceIdxOffset, 0, 0);
 
-	vkCmdEndRenderPass(cmdlist);
+	// vkCmdEndRenderPass(cmdlist);
+	cmd.EndRendering();
+
+	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
 void ForwardUIPass::Shutdown()
@@ -342,7 +334,8 @@ void ForwardUIPass::CreatePipeline()
 	pipelineCI.pVertexInputState = &vertexInputCreateInfo;
 
 	// Separate render pass
-	pipelineCI.renderPass = renderpass_ForwardUI.pass;
+	// pipelineCI.renderPass = renderpass_ForwardUI.pass;
+	pipelineCI.renderPass = VK_NULL_HANDLE;
 
 	// Blend attachment states required for all color attachments
 	// This is important, as color write mask will otherwise be 0x0 and you
@@ -366,6 +359,20 @@ void ForwardUIPass::CreatePipeline()
 
 	colorBlendState.attachmentCount = static_cast<uint32_t>(blendAttachmentStates.size());
 	colorBlendState.pAttachments = blendAttachmentStates.data();
+
+	std::array<VkFormat, 2> formats{
+		vr.G_HDR_FORMAT,
+		VK_FORMAT_R32_SINT
+	};
+	VkPipelineRenderingCreateInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+	renderingInfo.viewMask = {};
+	renderingInfo.colorAttachmentCount = formats.size();
+	renderingInfo.pColorAttachmentFormats = formats.data();
+	renderingInfo.depthAttachmentFormat = vr.G_DEPTH_FORMAT;
+	renderingInfo.stencilAttachmentFormat = vr.G_DEPTH_FORMAT;
+
+	pipelineCI.pNext = &renderingInfo;
 
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_Forward_UI));
 	VK_NAME(m_device.logicalDevice, "forwardUIPSO", pso_Forward_UI);

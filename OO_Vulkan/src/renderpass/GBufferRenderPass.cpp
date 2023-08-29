@@ -146,52 +146,17 @@ void GBufferRenderPass::Draw()
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ALBEDO], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-	VkFramebuffer currentFB;
-	FramebufferBuilder::Begin(&vr.fbCache)
-		//.BindImage(&attachments[GBufferAttachmentIndex::POSITION])
-		.BindImage(&attachments[GBufferAttachmentIndex::NORMAL  ])
-		.BindImage(&attachments[GBufferAttachmentIndex::ALBEDO  ])
-		.BindImage(&attachments[GBufferAttachmentIndex::MATERIAL])
-		.BindImage(&attachments[GBufferAttachmentIndex::EMISSIVE])
-		.BindImage(&attachments[GBufferAttachmentIndex::ENTITY_ID])
-		.BindImage(&attachments[GBufferAttachmentIndex::DEPTH   ])
-		.Build(currentFB,renderpass_GBuffer);
-
-	// Manually set layout for blit reason
-	attachments[GBufferAttachmentIndex::ENTITY_ID].currentLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	
 	const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height;
 	const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width;
 
-	std::array<VkRenderingAttachmentInfo, GBufferAttachmentIndex::MAX_ATTACHMENTS> raInfo;
-	for (size_t i = 0; i < raInfo.size(); i++)
-	{		
-		raInfo[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-		raInfo[i].pNext = NULL;
-		raInfo[i].resolveMode = {};
-		raInfo[i].resolveImageView = {};
-		raInfo[i].resolveImageLayout = {};
-		raInfo[i].imageView = attachments[i].view;
-		raInfo[i].imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
-		raInfo[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		raInfo[i].storeOp= VK_ATTACHMENT_STORE_OP_STORE;
-		raInfo[i].clearValue = VkClearValue{ {} };
-		if (i == GBufferAttachmentIndex::DEPTH)
-		{
-			raInfo[i].clearValue = { 0.0f,0.0f };
-		}
-		
+	constexpr bool clearOnDraw = true;
+	for (size_t i = 0; i < GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS; i++)
+	{
+		cmd.BindAttachment(i, &attachments[i], clearOnDraw);
 	}
-
-	VkRenderingInfo renderingInfo{};
-	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-	renderingInfo.renderArea = { 0, 0, (uint32_t)vpWidth, (uint32_t)vpHeight };
-	renderingInfo.layerCount = 1;
-	renderingInfo.colorAttachmentCount = GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS;
-	renderingInfo.pColorAttachments = raInfo.data();
-	renderingInfo.pDepthAttachment = &raInfo[GBufferAttachmentIndex::DEPTH];
-	renderingInfo.pStencilAttachment = &raInfo[GBufferAttachmentIndex::DEPTH];
-	vkCmdBeginRendering(cmdlist, &renderingInfo);
+	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH], clearOnDraw);
+	cmd.BeginRendering({ 0, 0, (uint32_t)vpWidth, (uint32_t)vpHeight });
 	
 	cmd.BindPSO(pso_GBufferDefault);
 	cmd.SetDefaultViewportAndScissor();
@@ -720,3 +685,6 @@ void GBufferRenderPass::SetupResources() {
 	vr.m_device.commandPoolManagers[vr.getFrame()].SubmitCommandBuffer(vr.m_device.graphicsQueue, cmd);
 
 }
+
+static GBufferRenderPass gs_GBufferRenderPass;
+GfxRenderpass* gfxPtr = &gs_GBufferRenderPass;

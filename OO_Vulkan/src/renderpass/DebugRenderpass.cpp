@@ -58,13 +58,6 @@ void DebugDrawRenderpass::Draw()
 	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
 	clearValues[0].color = { 0.1f,0.1f,0.1f,0.0f };
 	clearValues[1].depthStencil.depth = {1.0f };
-	//Information about how to begin a render pass (only needed for graphical applications)
-	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
-	renderPassBeginInfo.renderPass = debugRenderpass.pass;									//render pass to begin
-	renderPassBeginInfo.renderArea.offset = { 0,0 };								//start point of render pass in pixels
-	renderPassBeginInfo.renderArea.extent = vr.m_swapchain.swapChainExtent;			//size of region to run render pass on (Starting from offset)
-	renderPassBeginInfo.pClearValues = clearValues.data();							//list of clear values
-	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size()); // no clearing
 
 	auto& depthAtt = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments[GBufferAttachmentIndex::DEPTH];
 

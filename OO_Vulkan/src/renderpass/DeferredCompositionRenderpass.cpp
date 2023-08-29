@@ -78,41 +78,16 @@ void DeferredCompositionRenderpass::Draw()
 	auto tex = &vr.renderTargets[vr.renderTargetInUseID].texture; // layout undefined
 	auto depth = &vr.renderTargets[vr.renderTargetInUseID].depth; // layout undefined
 
-	VkRenderingAttachmentInfo albedoInfo{};
-	albedoInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-	albedoInfo.pNext = NULL;
-	albedoInfo.resolveMode = {};
-	albedoInfo.resolveImageView = {};
-	albedoInfo.resolveImageLayout = {};
-	albedoInfo.imageView = tex->view;
-	albedoInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	albedoInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	albedoInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	albedoInfo.clearValue = VkClearValue{ {} };
 
-	VkRenderingAttachmentInfo depthInfo{};
-	depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-	depthInfo.pNext = NULL;
-	depthInfo.resolveMode = {};
-	depthInfo.resolveImageView = {};
-	depthInfo.resolveImageLayout = {};
-	depthInfo.imageView = depth->view;
-	depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	depthInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	depthInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	depthInfo.clearValue = { 0.0f,0.0f };
-
-	VkRenderingInfo renderingInfo{};
-	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-	renderingInfo.renderArea = { 0, 0, (uint32_t)tex->width, (uint32_t)tex->height };
-	renderingInfo.layerCount = 1;
-	renderingInfo.colorAttachmentCount = 1;
-	renderingInfo.pColorAttachments = &albedoInfo;
-	renderingInfo.pDepthAttachment = &depthInfo;
-	renderingInfo.pStencilAttachment = &depthInfo;
-	vkCmdBeginRendering(cmdlist, &renderingInfo);
+	
 
 	rhi::CommandList cmd{ cmdlist, "Lighting Pass"};
+	cmd.BindAttachment(0, tex);
+	cmd.BindDepthAttachment(depth);
+
+	cmd.BeginRendering({ 0, 0, (uint32_t)tex->width, (uint32_t)tex->height });
+	
+
 	cmd.BindPSO(pso_DeferredLightingComposition);
 	cmd.SetDefaultViewportAndScissor();
 
