@@ -1,4 +1,42 @@
-Tasks:
+Graphic Features:
+• IBL rendering
+    • Directional light
+    • Scene cube map
+    • Sky dome
+    • Once implemented, remove gbuffer albedo clear
+
+• Automatic texture mip generation on GPU
+    • Utilize this if you want: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/single-pass-downsampler.md
+    • Use anisotropic sampler in GBuffer Pass
+
+• True HDR pipeline
+    • Luminance Histogram generation
+    • Attenuate scene color based on scene luminance (eye adaptation)
+
+• Shadow mask
+    • deferred lighting pass should not compute shadows, only sample shadow mask texture
+
+• Tile-based Deferred Rendering
+    • Support point lights only for now
+    • Classify tiles on screen based on complexity
+        • nb local lights
+        • material complexity?
+    • Generate screen-space grid, using grid index as index to lights buffer
+    • Dispatch draw calls on screen via DrawIndirect. Build tile screen positions & offsets in separate CS
+
+• Implement Full Z-PrePass
+    • Treat every Opaque object as an occluder to keep things simple
+
+• AMD ShadowFX: https://github.com/GPUOpen-Effects/ShadowFX
+    
+• AMD Combined Adaptive Compute Ambient Occlusion (CACAO):  https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/combined-adaptive-compute-ambient-occlusion.md
+
+• AMD Stochastic Screen-Space Reflections: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/stochastic-screen-space-reflections.md
+
+• AMD FSR 2.0: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/super-resolution-temporal.md
+
+///////////////////////////////////////////////////////////////////////////////
+Engineering Tasks:
 • Move IMGUI rendering to its own GfxRenderer
 
 • Get rid of RenderPassDatabase
@@ -23,16 +61,6 @@ Tasks:
     • Don't store Entity ID as GBuffer RT
     • Emissive should be RGBA8
         • Optimization opportunity: Separate render pass for objects that have emissive, which should not be alot
-
-• IBL rendering
-    • Directional light
-    • Scene cube map
-    • Sky dome
-    • Once implemented, remove gbuffer albedo clear
-
-• True HDR pipeline
-    • Luminance Histogram generation
-    • Attenuate scene color based on scene luminance (eye adaptation)
 
 • HDR Render Targets:
 	• Should be R10G10B11
@@ -61,25 +89,10 @@ Tasks:
         • it shouldbe from a constant buffer, like say, a PassContext UBO
         • Best if it's a separate Shader Permutation
 
-• Automatic texture mip generation on GPU
-    • Utilize this if you want: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/single-pass-downsampler.md
-    • Use anisotropic sampler
-
-• Generate shadow mask in a seperate PS
-    • deferred lighting pass should not compute shadows, only sample shadow mask texture
-
 • Oct-tree culling on CPU
     • Practically mandatory. Uploading the entire scene's worth of instance transforms every frame cannot scale up.
     • Same for Directional Light Shadow pass
     • Cull objects ONCE per view-proj (Should only be 2. Camera & Dir Light), then re-use culled lists of objects in all Renderers
-
-• Tile-based Deferred Rendering
-    • Support point lights only for now
-    • Classify tiles on screen based on complexity
-        • nb local lights
-        • material complexity?
-    • Generate screen-space grid, using grid index as index to lights buffer
-    • Dispatch draw calls on screen via DrawIndirect. Build tile screen positions & offsets in separate CS
 
 • Use giant GPU circular buffers for gpu instance transforms
     • Suballocate exact necessary bytes as neededed for culled instances
@@ -89,9 +102,6 @@ Tasks:
     • Your game should have every pixel in every GBuffer Render Target filled up.
 
 • Encapsulate as many Vulkan API calls as possible inside your "CommandList" class
-
-• Implement Full Z-PrePass
-    • Treat every Opaque object as an occluder to keep things simple
 
 • Multi-thread all Graphic Tasks & Renderers
     • Implement free-list of command buffers. They must all be properly fenced before re-used
@@ -109,11 +119,3 @@ Tasks:
     • GPU Fence where necessary
 
 • Vulkan Memory Allocator: https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
-
-• AMD ShadowFX: https://github.com/GPUOpen-Effects/ShadowFX
-    
-• AMD Combined Adaptive Compute Ambient Occlusion (CACAO):  https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/combined-adaptive-compute-ambient-occlusion.md
-
-• AMD Stochastic Screen-Space Reflections: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/stochastic-screen-space-reflections.md
-
-• AMD FSR 2.0: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/super-resolution-temporal.md
