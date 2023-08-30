@@ -23,6 +23,7 @@ Graphic Features:
 • True HDR pipeline
     • Luminance Histogram generation
     • Attenuate scene color based on scene luminance (eye adaptation)
+    • Tonemapping result & everything after should be in LDR space (RGBA8)
 
 • Shadow mask
     • deferred lighting pass should not compute shadows, only sample shadow mask texture
