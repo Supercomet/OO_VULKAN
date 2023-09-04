@@ -148,6 +148,7 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 		swapChainImages[i].width = swapChainExtent.width;
 		swapChainImages[i].height = swapChainExtent.height;
 		swapChainImages[i].format = swapChainImageFormat;
+		swapChainImages[i].mipLevels = 1;
 		
 		VK_NAME(device.logicalDevice, swapChainImages[i].name.c_str(), swapChainImages[i].image);
 	}

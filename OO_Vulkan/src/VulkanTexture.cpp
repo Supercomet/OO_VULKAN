@@ -375,6 +375,8 @@ namespace vkutils
 		format = _format;
 		usage = imageUsageFlags;
 		mipLevels =static_cast<uint32_t>(mipInfo.size());
+		
+		mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
 
 		VkMemoryAllocateInfo memAllocInfo = oGFX::vkutils::inits::memoryAllocateInfo();
 		VkMemoryRequirements memReqs;
@@ -469,7 +471,7 @@ namespace vkutils
 			stagingBuffer,
 			image,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			mipLevels,
+			bufferCopyRegion.size(), // copy over as many mips as have
 			bufferCopyRegion.data()
 		);
 
@@ -501,7 +503,7 @@ namespace vkutils
 		samplerCreateInfo.mipLodBias = 0.0f;
 		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
 		samplerCreateInfo.minLod = 0.0f;
-		samplerCreateInfo.maxLod = 0.0f;
+		samplerCreateInfo.maxLod = (float)mipLevels;
 		samplerCreateInfo.maxAnisotropy = 1.0f;
 		samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 		vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler);
@@ -515,7 +517,7 @@ namespace vkutils
 		viewCreateInfo.format = format;
 		viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 		viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-		viewCreateInfo.subresourceRange.levelCount = 1;
+		viewCreateInfo.subresourceRange.levelCount = mipLevels;
 		viewCreateInfo.image = image;
 		vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view);
 		VK_NAME(device->logicalDevice, "fromBuffer::view", view);
@@ -613,6 +615,7 @@ namespace vkutils
 		viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		viewCreateInfo.format = format;
 		viewCreateInfo.subresourceRange = { aspectMask, 0, 1, 0, 1 };
+		viewCreateInfo.subresourceRange.levelCount = mipLevels;
 		viewCreateInfo.image = image;
 		VK_CHK(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
 		VK_NAME(device->logicalDevice, n?"forFramebuffer::view" : name.c_str(), view);
@@ -795,6 +798,7 @@ namespace vkutils
 		{
 			subresrange =  VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT|VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 };
 		}
+		subresrange.layerCount = texture.mipLevels;
 		oGFX::vkutils::tools::insertImageMemoryBarrier(
 			cmd,
 			texture.image,
