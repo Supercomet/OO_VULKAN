@@ -175,9 +175,9 @@ namespace vkutils
 			imageCreateInfo.extent = { width, height, 1 };
 			imageCreateInfo.usage = imageUsageFlags;
 			// Ensure that the TRANSFER_DST bit is set for staging
-			if (!(imageCreateInfo.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT))
+			//if (!(imageCreateInfo.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT))
 			{
-				imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+				imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
 			}
 			vkCreateImage(device->logicalDevice, &imageCreateInfo, nullptr, &image);
 			VK_NAME(device->logicalDevice, "loadFromFile::image", image);
@@ -485,6 +485,15 @@ namespace vkutils
 			imageLayout,
 			subresourceRange);
 
+		//uboDynamicAlignment = oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), m_device.properties.limits.minUniformBufferOffsetAlignment);
+		//
+		//VkDeviceSize vpBufferSize = numCameras * uboDynamicAlignment;
+		//
+		//oGFX::CreateBuffer(device->m_allocator, vpBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		//	VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+		//	, vpUniformBuffer[i]);
+
+
 		device->FlushCommandBuffer(copyCmd, copyQueue, device->commandPoolManagers[0].m_commandpool);
 
 		// Clean up staging resources
@@ -500,7 +509,7 @@ namespace vkutils
 		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.mipLodBias = 0.0f;
+		samplerCreateInfo.mipLodBias = mipLevels * 0.5f;
 		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
 		samplerCreateInfo.minLod = 0.0f;
 		samplerCreateInfo.maxLod = (float)mipLevels;
@@ -521,6 +530,18 @@ namespace vkutils
 		viewCreateInfo.image = image;
 		vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view);
 		VK_NAME(device->logicalDevice, "fromBuffer::view", view);
+
+
+		for (size_t i = 0; i < mipLevels; i++)
+		{
+			viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+			viewCreateInfo.subresourceRange.levelCount = 1;
+			viewCreateInfo.subresourceRange.baseMipLevel = i;
+			viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+
+			vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &mipChainViews[i]);
+			VK_NAME(device->logicalDevice, "fromBuffer::viewMip", &mipChainViews[i]);
+		}
 
 		// Update descriptor image info member that can be used for setting up descriptor sets
 		updateDescriptor();
@@ -789,7 +810,7 @@ namespace vkutils
 		vkDestroyBuffer(device->logicalDevice, stagingBuffer, nullptr);
 	}
 
-	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout)
+	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
 	{
 		//printf("\t Transition::%s -> %s\n", texture.name, oGFX::vkutils::tools::VkImageLayoutString(targetLayout).c_str());
 
@@ -798,7 +819,16 @@ namespace vkutils
 		{
 			subresrange =  VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT|VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 };
 		}
-		subresrange.layerCount = texture.mipLevels;
+		
+		// default behavior transitiona all mips
+		subresrange.baseMipLevel = mipBegin;
+		subresrange.levelCount = mipEnd - mipBegin;
+		
+		if (mipEnd == 0) 
+		{// transition some mips
+			subresrange.levelCount = texture.mipLevels - mipBegin;
+		}
+
 		oGFX::vkutils::tools::insertImageMemoryBarrier(
 			cmd,
 			texture.image,
@@ -811,9 +841,24 @@ namespace vkutils
 			subresrange);
 		texture.currentLayout = targetLayout;
 	}
-
-	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout)
+#pragma optimize("",off)
+	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
 	{
+		auto subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+		if (texture.format == VK_FORMAT_D32_SFLOAT_S8_UINT)
+		{
+			subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 };
+		}
+		
+		// default behavior transitiona all mips
+		subresrange.baseMipLevel = mipBegin;
+		subresrange.levelCount = mipEnd - mipBegin;
+
+		if (mipEnd == 0)
+		{// transition some mips
+			subresrange.levelCount = texture.mipLevels - mipBegin;
+		}
+
 		oGFX::vkutils::tools::insertImageMemoryBarrier(
 			cmd,
 			texture.image,
@@ -823,7 +868,7 @@ namespace vkutils
 			targetLayout,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+			subresrange);
 		texture.currentLayout = targetLayout;
 	}
 

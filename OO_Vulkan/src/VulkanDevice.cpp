@@ -195,6 +195,8 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
     shaderDrawFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
     shaderDrawFeatures.shaderDrawParameters = VK_TRUE;
 
+    VkPhysicalDeviceMaintenance4FeaturesKHR maintainence4{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES }; // AMD_SPD req: LocalSizeId 
+    maintainence4.maintenance4 = VK_TRUE;
     // Bindless design requirement Descriptor indexing for descriptors // contained in vulkan12 features
     // VkPhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_features{};
     // descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
@@ -205,10 +207,12 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
     // descriptor_indexing_features.descriptorBindingPartiallyBound = VK_TRUE;
     // descriptor_indexing_features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE; // needed for image descriptors
 
+
     deviceCreateInfo.pNext = &vk12Features;
     vk12Features.pNext = &shaderDrawFeatures;
     shaderDrawFeatures.pNext = &dynamicRendering;
-    dynamicRendering.pNext = NULL;
+    dynamicRendering.pNext = &maintainence4;
+    maintainence4.pNext = NULL;
 
     this->enabledFeatures = deviceFeatures;
 

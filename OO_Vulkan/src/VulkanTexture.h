@@ -17,6 +17,7 @@ Technology is prohibited.
 #include <stdlib.h>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "vulkan/vulkan.h"
 #include "VmaUsage.h"
@@ -40,6 +41,7 @@ namespace vkutils
 		VkImageView view{};
 		uint32_t width{}, height{};
 		uint32_t mipLevels{};
+		std::array<VkImageView, 12> mipChainViews{};
 		uint32_t layerCount{};
 		VkDescriptorImageInfo descriptor{};
 		VkSampler sampler{};
@@ -78,7 +80,7 @@ namespace vkutils
 			VulkanDevice* device,
 			VkQueue copyQueue,
 			VkFilter filter = VK_FILTER_LINEAR,
-			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
+			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 			VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		void forFrameBuffer(VulkanDevice* device,
@@ -104,10 +106,11 @@ namespace vkutils
 			VkQueue copyQueue,
 			VkFilter filter = VK_FILTER_LINEAR,
 			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT);
+
 	};
 
 
-	void TransitionImage(VkCommandBuffer cmd,Texture2D& texture, VkImageLayout targetLayout);
-	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout);
+	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
+	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
 
 }

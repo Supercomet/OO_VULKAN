@@ -85,6 +85,7 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout compute_doubleImageStore;
 	inline static VkDescriptorSetLayout compute_shadowPrepass;
 	inline static VkDescriptorSetLayout compute_singleSSBO;
+	inline static VkDescriptorSetLayout compute_AMDSPD;
 
 };
 
@@ -101,6 +102,7 @@ struct PSOLayoutDB
 	inline static VkPipelineLayout doubleImageStoreLayout; 
 	inline static VkPipelineLayout singleSSBOlayout; 
 	inline static VkPipelineLayout shadowPrepassLayout; 
+	inline static VkPipelineLayout AMDSPDLayout; 
 };
 
 // Moving all constant buffer structures into this CB namespace.
@@ -131,6 +133,19 @@ namespace CB
 		glm::vec4 vector4_values7{};
 		glm::vec4 vector4_values8{};
 		glm::vec4 vector4_values9{};
+	};
+
+	struct AMDSPD_UBO
+	{
+		uint32_t	mips;
+		uint32_t	numWorkGroups;
+		uint32_t	workGroupOffset[2];
+		glm::vec2	invInputSize; 
+		glm::vec2	padding;
+	};
+
+	struct AMDSPD_ATOMIC {
+		uint32_t counter[6];
 	};
 
 }
@@ -287,6 +302,7 @@ public:
 	uint32_t CreateTexture(const std::string& fileName);
 	bool ReloadTexture(uint32_t textureID, const std::string& file);
 	void UnloadTexture(uint32_t textureID);
+	void GenerateMipmaps(vkutils::Texture2D& texture);
 
 	oGFX::Font* LoadFont(const std::string& filename);
 	oGFX::TexturePacker CreateFontAtlas(const std::string& filename, oGFX::Font& font);
@@ -366,6 +382,7 @@ public:
 
 	// - Pipeline
 	VkPipeline pso_utilFullscreenBlit;
+	VkPipeline pso_utilAMDSPD;
 
 	VulkanRenderpass renderPass_default{};
 	VulkanRenderpass renderPass_default_noDepth{};
@@ -402,6 +419,8 @@ public:
 	
 	// SSBO
 	std::vector<oGFX::AllocatedBuffer> vpUniformBuffer{};
+	oGFX::AllocatedBuffer SPDatomicBuffer;
+	oGFX::AllocatedBuffer SPDconstantBuffer;
 
 	std::vector<DescriptorAllocator> descAllocs;
 	DescriptorLayoutCache DescLayoutCache;

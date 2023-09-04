@@ -852,6 +852,22 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::PSO_fullscreenBlitLayout));
 	VK_NAME(m_device.logicalDevice, "fullscreenPSOLayout", PSOLayoutDB::PSO_fullscreenBlitLayout);
 	
+	
+	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
+		.BindImage(0, nullptr, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(3000, gpuTransformBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(2002, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT,13)
+		.BindImage(2001, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(2000, objectInformationBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BuildLayout(SetLayoutDB::compute_AMDSPD);
+
+	// create compute here
+	pipelineLayoutCreateInfo.setLayoutCount = 1;
+	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::compute_AMDSPD;
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::AMDSPDLayout));
+	VK_NAME(m_device.logicalDevice, "AMDSPD_PSOLayout", PSOLayoutDB::AMDSPDLayout);
+
+
 }
 
 void VulkanRenderer::CreateDefaultPSO()
@@ -911,6 +927,22 @@ void VulkanRenderer::CreateDefaultPSO()
 	VK_NAME(m_device.logicalDevice, "pso_blit", pso_utilFullscreenBlit);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr); // destroy vert
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr); // destroy fragment
+	
+
+	
+	const char* computeShader = "Shaders/bin/amd_spd.comp.spv";
+	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::AMDSPDLayout);
+	computeCI.stage = LoadShader(m_device, computeShader, VK_SHADER_STAGE_COMPUTE_BIT);
+	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_utilAMDSPD));
+	VK_NAME(m_device.logicalDevice, "pso_AMDSPD", pso_utilAMDSPD);
+	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
+
+
+
+
+	
+
+
 
 }
 
@@ -1497,7 +1529,6 @@ void VulkanRenderer::CreateUniformBuffers()
 	{
 		oGFX::CreateBuffer(m_device.m_allocator, vpBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
-			//| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 			, vpUniformBuffer[i]);
 		/*createBuffer(mainDevice.physicalDevice, mainDevice.logicalDevice, modelBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &modelDUniformBuffer[i], &modelDUniformBufferMemory[i]);*/
@@ -1507,17 +1538,11 @@ void VulkanRenderer::CreateUniformBuffers()
 void VulkanRenderer::CreateDescriptorPool()
 {
 	// CREATE UNIFORM DESCRIPTOR POOL
-	//descriptor is an individual piece of data // it is NOT a descriptor SET
 	// Type of descriptors + how many DESCRIPTORS, not DESCRIPTOR_SETS (combined makes the pool size)
 
 	// ViewProjection pool
 	VkDescriptorPoolSize vpPoolsize = oGFX::vkutils::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, static_cast<uint32_t>(vpUniformBuffer.size()));
 	VkDescriptorPoolSize attachmentPool = oGFX::vkutils::inits::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000);
-
-	//// LightData pool (DYNAMIC)
-	//VkDescriptorPoolSize modelPoolSize{};
-	//modelPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	//modelPoolSize.descriptorCount = static_cast<uint32_t>(modelDUniformBuffer.size());
 
 	//list of pool sizes
 	std::vector<VkDescriptorPoolSize> descriptorPoolSizes = { vpPoolsize,attachmentPool /*, modelPoolSize*/ };
@@ -1941,8 +1966,11 @@ void VulkanRenderer::InitializeRenderBuffers()
 		g_particleDatas[i].Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 		//g_particleDatas[i].reserve(100000*10); // 10 max particle systems
 	}
-
 	
+
+	oGFX::CreateBuffer(m_device.m_allocator, sizeof(CB::AMDSPD_ATOMIC), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, SPDatomicBuffer);
+	oGFX::CreateBuffer(m_device.m_allocator, sizeof(CB::AMDSPD_UBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, SPDconstantBuffer);
+
 
 	// TODO: Move other global GPU buffer initialization here...
 }
@@ -2568,6 +2596,178 @@ void VulkanRenderer::Present()
 	++currentFrame;
 }
 
+void ffxSpdSetup(uint32_t*    dispatchThreadGroupCountXY,
+                         uint32_t*    workGroupOffset,
+                         uint32_t*    numWorkGroupsAndMips,
+					     uint32_t*     rectInfo,
+                         int32_t mips)
+{
+    // determines the offset of the first tile to downsample based on
+    // left (rectInfo[0]) and top (rectInfo[1]) of the subregion.
+    workGroupOffset[0] = rectInfo[0] / 64;
+    workGroupOffset[1] = rectInfo[1] / 64;
+
+    uint32_t endIndexX = (rectInfo[0] + rectInfo[2] - 1) / 64;  // rectInfo[0] = left, rectInfo[2] = width
+	uint32_t endIndexY = (rectInfo[1] + rectInfo[3] - 1) / 64;  // rectInfo[1] = top, rectInfo[3] = height
+
+    // we only need to dispatch as many thread groups as tiles we need to downsample
+    // number of tiles per slice depends on the subregion to downsample
+    dispatchThreadGroupCountXY[0] = endIndexX + 1 - workGroupOffset[0];
+    dispatchThreadGroupCountXY[1] = endIndexY + 1 - workGroupOffset[1];
+
+    // number of thread groups per slice
+    numWorkGroupsAndMips[0] = (dispatchThreadGroupCountXY[0]) * (dispatchThreadGroupCountXY[1]);
+
+    if (mips >= 0)
+    {
+        numWorkGroupsAndMips[1] = uint32_t(mips);
+    }
+    else
+    {
+        // calculate based on rect width and height
+		uint32_t resolution    = std::max(rectInfo[2], rectInfo[3]);
+        numWorkGroupsAndMips[1] = uint32_t((std::max(std::floor(std::log2(float(resolution))), float(12))));
+    }
+}
+
+
+#pragma optimize("",off)
+void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
+{
+	auto cmd = beginSingleTimeCommands();
+
+	auto oldLayout = texture.currentLayout;
+
+	vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_GENERAL);
+	// orig(A) -> shader read(A)
+	//vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_GENERAL, 1, texture.mipLevels);
+	// shader read(2-A) -> general(2-A)
+
+	std::array<VkDescriptorImageInfo, 13> samplers{};
+	for (size_t i = 0; i < samplers.size(); i++)
+	{
+		samplers[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		samplers[i].imageView = texture.mipChainViews[0];
+		samplers[i].sampler = samplerManager.GetSampler_SSAOEdgeClamp();
+	}
+	for (size_t i = 0; i < texture.mipLevels ; i++)
+	{		
+		samplers[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		samplers[i].imageView = texture.mipChainViews[i];
+		samplers[i].sampler = samplerManager.GetSampler_SSAOEdgeClamp();
+	}
+
+	VkDescriptorBufferInfo cb{};
+	cb.buffer = SPDconstantBuffer.buffer;
+	cb.offset = 0;
+	cb.range = VK_WHOLE_SIZE;
+
+	VkDescriptorBufferInfo atomic{};
+	atomic.buffer = SPDatomicBuffer.buffer;
+	atomic.offset = 0;
+	atomic.range = VK_WHOLE_SIZE;
+
+	VkDescriptorImageInfo dii{};
+	dii.imageLayout = texture.currentLayout;
+	dii.imageView = texture.view;
+	dii.sampler = samplerManager.GetSampler_SSAOEdgeClamp();
+	
+	
+	static vkutils::Texture2D scratchBuffer;
+	bool once = [&]() {
+		scratchBuffer.forFrameBuffer(&m_device, texture.format, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, texture.width >> 6, texture.height >> 6, false);
+		return true; }();
+
+	vkutils::TransitionImage(cmd, scratchBuffer, VK_IMAGE_LAYOUT_GENERAL);
+
+	VkDescriptorImageInfo midmip{};
+	midmip.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	midmip.imageView = scratchBuffer.view;
+	midmip.sampler = samplerManager.GetSampler_SSAOEdgeClamp();
+
+	std::array<VkDescriptorSet, 1> dstsets;
+	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
+		.BindImage(0, &dii, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(3000, &cb, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(2002, samplers.data(), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 13)
+		.BindImage(2001, &midmip, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(2000, &atomic, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.Build(dstsets[0], SetLayoutDB::compute_AMDSPD);
+
+	//clear buffer
+	vkCmdFillBuffer(cmd, atomic.buffer, atomic.offset, VK_WHOLE_SIZE, 0);
+	
+	VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+	bmb.buffer = atomic.buffer;
+	bmb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+	bmb.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+	bmb.offset = 0;
+	bmb.size = VK_WHOLE_SIZE;
+	bmb.srcQueueFamilyIndex = m_device.queueIndices.graphicsFamily;
+
+	vkCmdPipelineBarrier(
+		cmd,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		0,
+		0, nullptr,
+		1,&bmb,
+		0, nullptr);
+
+
+	//vmaAllocateMemory
+	void* data{};
+	vmaMapMemory(m_device.m_allocator, SPDconstantBuffer.alloc, &data);
+	CB::AMDSPD_UBO spdConstants{};
+	spdConstants.mips = texture.mipLevels;
+	spdConstants.numWorkGroups = 1;
+	spdConstants.invInputSize = {}; // not used;
+	spdConstants.padding = {};
+	memcpy(data, &spdConstants, sizeof(CB::AMDSPD_UBO));
+	vmaUnmapMemory(m_device.m_allocator, SPDconstantBuffer.alloc);
+
+	{
+
+	rhi::CommandList cmdlist{ cmd, "Mipmap generation" };
+	cmdlist.BindPSO(pso_utilAMDSPD, VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmdlist.BindDescriptorSet(PSOLayoutDB::AMDSPDLayout, 0, dstsets, VK_PIPELINE_BIND_POINT_COMPUTE, 0);
+
+
+
+	// Get SPD info for run
+	uint32_t dispatchThreadGroupCountXY[2];
+	uint32_t numWorkGroupsAndMips[2];
+	uint32_t rectInfo[4] = { 0, 0, texture.width, texture.height }; // left, top, width, height
+	ffxSpdSetup(dispatchThreadGroupCountXY, spdConstants.workGroupOffset, numWorkGroupsAndMips, rectInfo, -1);
+
+	// Complete setting up the constant buffer data
+	spdConstants.mips = numWorkGroupsAndMips[1];
+	spdConstants.numWorkGroups = numWorkGroupsAndMips[0];
+	spdConstants.invInputSize[0] = 1.f / texture.width;
+	spdConstants.invInputSize[1] = 1.f / texture.height;
+
+	// This value is the image region dimension that each thread group of the FSR shader operates on
+	uint32_t dispatchX = dispatchThreadGroupCountXY[0];
+	uint32_t dispatchY = dispatchThreadGroupCountXY[1];
+	uint32_t dispatchZ = 1; // tex.depth
+
+
+
+	vkCmdDispatch(cmd, dispatchX, dispatchY, dispatchZ);
+
+	//vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, texture.mipLevels);
+	// shader read(2-A) -> general(2-A)
+	vkutils::ComputeImageBarrier(cmd, texture, oldLayout);
+	// shader read(A) -> orig(A)  
+	}
+
+	//m_device.commandPoolManagers[getFrame()].SubmitCommandBuffer(m_device.graphicsQueue, cmd);
+	endSingleTimeCommands(cmd);
+	vkQueueWaitIdle(m_device.graphicsQueue);
+	vkFreeCommandBuffers(m_device.logicalDevice,m_device.commandPoolManagers[getFrame()].m_commandpool, 1, &cmd);
+	//DelayedDeleter::get()->DeleteAfterFrames([buffer = std::move(scratchBuffer)]() mutable {buffer.destroy(); });
+}
+#pragma optimize("",on)
 bool VulkanRenderer::ResizeSwapchain()
 {
 	while (windowPtr->m_height == 0 || windowPtr->m_width == 0)
@@ -3530,7 +3730,6 @@ VkCommandBuffer VulkanRenderer::beginSingleTimeCommands()
 
 	VkCommandBuffer commandBuffer;
 	vkAllocateCommandBuffers(m_device.logicalDevice, &allocInfo, &commandBuffer);
-	//std::cout << " Begin single time" << commandBuffer << "\n";
 
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -3545,7 +3744,6 @@ VkCommandBuffer VulkanRenderer::beginSingleTimeCommands()
 void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer)
 {
 
-	//std::cout << " End single time " << commandBuffer << "\n";
 	vkEndCommandBuffer(commandBuffer);
 
 	VkSubmitInfo submitInfo{};
@@ -3624,7 +3822,10 @@ bool VulkanRenderer::ReloadTexture(uint32_t textureID,const std::string& file)
 	//vkDeviceWaitIdle(m_device.logicalDevice);
 	UnloadTexture(textureID);
 	texture.fromBuffer((void*)imageData.imgData.data(), imageSize, imageData.format, imageData.w, imageData.h, imageData.mipInformation, &m_device, m_device.graphicsQueue);
+	
+	GenerateMipmaps(texture);
 	texture.updateDescriptor();
+
 	UpdateBindlessGlobalTexture(textureID);
 
 	//texture.Update((void*)imageData.imgData.data(), imageSize, imageData.format, imageData.w, imageData.h,imageData.mipInformation, &m_device, m_device.graphicsQueue);
@@ -3811,6 +4012,8 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 
 		texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 		texture.name = imageInfo.name;
+
+		GenerateMipmaps(texture);
 
 		//setup imgui binding
 		g_imguiIDs[indx] = CreateImguiBinding(texture.sampler, texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
