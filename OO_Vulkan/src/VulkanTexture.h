@@ -41,12 +41,12 @@ namespace vkutils
 		VkImageView view{};
 		uint32_t width{}, height{};
 		uint32_t mipLevels{};
-		std::array<VkImageView, 12> mipChainViews{};
 		uint32_t layerCount{};
 		VkDescriptorImageInfo descriptor{};
 		VkSampler sampler{};
 		VkImageUsageFlags usage{};
 		VkImageAspectFlags aspectMask{};
+		VkFilter filter{};
 		VkMemoryPropertyFlags MemProps{};
 		bool targetSwapchain = true;
 		bool isValid = false;
@@ -83,7 +83,7 @@ namespace vkutils
 			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 			VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-		void AllocateImageMemory(VulkanDevice* device, const VkImageUsageFlags& imageUsageFlags);
+		void AllocateImageMemory(VulkanDevice* device, const VkImageUsageFlags& imageUsageFlags, uint32_t mips = 1);
 
 		void forFrameBuffer(VulkanDevice* device,
 			VkFormat format,
@@ -109,6 +109,8 @@ namespace vkutils
 			VkFilter filter = VK_FILTER_LINEAR,
 			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT);
 
+		void CreateImageView();
+		void CreateSampler(bool aniso = true);
 	};
 
 

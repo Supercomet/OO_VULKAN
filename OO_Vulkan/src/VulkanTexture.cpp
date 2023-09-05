@@ -41,10 +41,6 @@ namespace vkutils
 		// deletion func
 		auto delFunctor = [=](){
 			vkDestroyImageView(deviceCpy, viewCpy, nullptr);
-			for (size_t i = 0; i < mipLevels; i++)
-			{
-				vkDestroyImageView(deviceCpy, mipChainViews[i], nullptr);
-			}
 
 			vkDestroyImage(deviceCpy, imageCpy, nullptr);
 			if (samplerCpy)
@@ -195,8 +191,9 @@ namespace vkutils
 			vkAllocateMemory(device->logicalDevice, &memAllocInfo, nullptr, &deviceMemory);
 			vkBindImageMemory(device->logicalDevice, image, deviceMemory, 0);
 
+			aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			VkImageSubresourceRange subresourceRange = {};
-			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			subresourceRange.aspectMask = aspectMask;
 			subresourceRange.baseMipLevel = 0;
 			subresourceRange.levelCount = mipLevels;
 			subresourceRange.layerCount = 1;
@@ -313,26 +310,10 @@ namespace vkutils
 
 		stbi_image_free(ktxTextureData);
 
-		// Create a default sampler
-		VkSamplerCreateInfo samplerCreateInfo = {};
-		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-		samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
-		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.mipLodBias = 0.0f;
-		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-		samplerCreateInfo.minLod = 0.0f;
-		// Max level-of-detail should match mip level count
-		samplerCreateInfo.maxLod = (useStaging) ? (float)mipLevels : 0.0f;
-		// Only enable anisotropic filtering if enabled on the device
-		samplerCreateInfo.maxAnisotropy = device->enabledFeatures.samplerAnisotropy ? device->properties.limits.maxSamplerAnisotropy : 1.0f;
-		samplerCreateInfo.anisotropyEnable = device->enabledFeatures.samplerAnisotropy;
-		samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-		vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler);
-		VK_NAME(device->logicalDevice, "LoadFromFile::sampler", sampler);
+		filter = VK_FILTER_LINEAR;
+
+		CreateSampler();
+		
 
 		// Create image view
 		// Textures are not directly accessed by the shaders and
@@ -370,7 +351,7 @@ namespace vkutils
 	* @param (Optional) imageLayout Usage layout for the texture (defaults VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 	*/
 	void Texture2D::fromBuffer(void* buffer, VkDeviceSize bufferSize, VkFormat _format,
-		uint32_t texWidth, uint32_t texHeight, std::vector<VkBufferImageCopy> mipInfo,VulkanDevice* device, VkQueue copyQueue, VkFilter filter, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout)
+		uint32_t texWidth, uint32_t texHeight, std::vector<VkBufferImageCopy> mipInfo,VulkanDevice* device, VkQueue copyQueue, VkFilter _filter, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout)
 	{
 		assert(buffer);
 
@@ -380,11 +361,10 @@ namespace vkutils
 		format = _format;
 		usage = imageUsageFlags;
 		mipLevels =static_cast<uint32_t>(mipInfo.size());
-		
-		mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
+		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-		
-		
+		//mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1; //generated mips
+
 
 		VkCommandBuffer copyCmd = device->CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, device->commandPoolManagers[0].m_commandpool, true);
 
@@ -418,7 +398,7 @@ namespace vkutils
 		AllocateImageMemory(device,imageUsageFlags);
 
 		VkImageSubresourceRange subresourceRange = {};
-		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		subresourceRange.aspectMask = aspectMask;
 		subresourceRange.baseMipLevel = 0;
 		subresourceRange.levelCount = mipLevels;
 		subresourceRange.layerCount = 1;
@@ -467,25 +447,9 @@ namespace vkutils
 		vkFreeMemory(device->logicalDevice, stagingMemory, nullptr);
 		vkDestroyBuffer(device->logicalDevice, stagingBuffer, nullptr);
 
-		// Create sampler
-		VkSamplerCreateInfo samplerCreateInfo = {};
-		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerCreateInfo.magFilter = filter;
-		samplerCreateInfo.minFilter = filter; 
-		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.mipLodBias = 0.0f;
-		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-		samplerCreateInfo.minLod = 0.0f;
-		samplerCreateInfo.maxLod = (float)mipLevels;
-		samplerCreateInfo.maxAnisotropy = 1.0f;
-		samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-		vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler);
-		VK_NAME(device->logicalDevice, "fromBuffer::sampler", sampler);
+		
 
-		// Create image view
+		//// Create image view
 		VkImageViewCreateInfo viewCreateInfo = {};
 		viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		viewCreateInfo.pNext = NULL;
@@ -495,8 +459,12 @@ namespace vkutils
 		viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 		viewCreateInfo.subresourceRange.levelCount = mipLevels; // generate mip maps will set this
 		viewCreateInfo.image = image;
-		vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view);
-		VK_NAME(device->logicalDevice, "fromBuffer::view", view);
+		//vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view);
+		//VK_NAME(device->logicalDevice, "fromBuffer::view", view);
+
+		CreateImageView();
+
+		CreateSampler();
 
 		for (size_t i = 0; i < mipLevels; i++)
 		{
@@ -505,17 +473,18 @@ namespace vkutils
 			viewCreateInfo.subresourceRange.baseMipLevel = i;
 			viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 
-			vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &mipChainViews[i]);
-			VK_NAME(device->logicalDevice, "fromBuffer::viewMip", &mipChainViews[i]);
+			//vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &mipChainViews[i]);
+			//VK_NAME(device->logicalDevice, "fromBuffer::viewMip", &mipChainViews[i]);
 		}
 
 		// Update descriptor image info member that can be used for setting up descriptor sets
 		updateDescriptor();
 	}
 
-	void Texture2D::AllocateImageMemory(VulkanDevice* device, const VkImageUsageFlags& imageUsageFlags)
+	void Texture2D::AllocateImageMemory(VulkanDevice* device, const VkImageUsageFlags& imageUsageFlags, uint32_t mips)
 	{
-		
+		mipLevels = mips;
+
 		// Create optimal tiled target image
 		VkImageCreateInfo imageCreateInfo = oGFX::vkutils::inits::imageCreateInfo();
 		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -529,12 +498,13 @@ namespace vkutils
 		imageCreateInfo.extent = { width, height, 1 };
 		imageCreateInfo.usage = imageUsageFlags;
 		// Ensure that the TRANSFER_DST bit is set for staging
-		if (!(imageCreateInfo.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT))
+		// if (!(imageCreateInfo.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT))
 		{
 			imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+			imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		}
 		vkCreateImage(device->logicalDevice, &imageCreateInfo, nullptr, &image);
-		VK_NAME(device->logicalDevice, "fromBuffer::image", image);
+		VK_NAME(device->logicalDevice, name.empty() ? "AllocateImage" : name.c_str(), image);
 		VkMemoryRequirements memReqs{};
 		vkGetImageMemoryRequirements(device->logicalDevice, image, &memReqs);
 
@@ -555,7 +525,7 @@ namespace vkutils
 		float _renderscale,
 		uint32_t _mipLevels,
 		VkMemoryPropertyFlags properties,
-		VkFilter filter
+		VkFilter _filter
 	)
 	{
 		this->device = device;
@@ -565,6 +535,7 @@ namespace vkutils
 		height = static_cast<uint32_t>(texHeight* renderScale);
 		format = _format;
 		MemProps = properties;
+		filter = _filter;
 
 		aspectMask = 0;
 
@@ -592,35 +563,12 @@ namespace vkutils
 		bool n = name.empty();
 		AllocateImageMemory(device, usage);
 
-		// Create image view
-		VkImageViewCreateInfo viewCreateInfo = {};
-		viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewCreateInfo.pNext = NULL;
-		viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewCreateInfo.format = format;
-		viewCreateInfo.subresourceRange = { aspectMask, 0, 1, 0, 1 };
-		viewCreateInfo.subresourceRange.levelCount = mipLevels;
-		viewCreateInfo.image = image;
-		VK_CHK(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
-		VK_NAME(device->logicalDevice, n?"forFramebuffer::view" : name.c_str(), view);
+		CreateImageView();
+
+		filter = _filter;
 
 		// Create sampler
-		VkSamplerCreateInfo samplerCreateInfo = {};
-		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerCreateInfo.magFilter = filter;
-		samplerCreateInfo.minFilter = filter;
-		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.mipLodBias = 0.0f;
-		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER; // VK_COMPARE_OP_ALWAYS ??
-		samplerCreateInfo.minLod = 0.0f;
-		samplerCreateInfo.maxLod = 0.0f;
-		samplerCreateInfo.anisotropyEnable = device->enabledFeatures.samplerAnisotropy; // VK_TRUE / VK_FALSE ??
-		samplerCreateInfo.maxAnisotropy = device->enabledFeatures.samplerAnisotropy ? device->properties.limits.maxSamplerAnisotropy : 1.0f;
-		VK_CHK(vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler));
-		VK_NAME(device->logicalDevice, n? "forFramebuffer::sampler" : name.c_str(), sampler);
+		CreateSampler();
 			
 	}
 
@@ -644,23 +592,14 @@ namespace vkutils
 
 		AllocateImageMemory(device, usage);
 
-		// Create image view
-		VkImageViewCreateInfo viewCreateInfo = {};
-		viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewCreateInfo.pNext = NULL;
-		viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewCreateInfo.format = format;
-		viewCreateInfo.subresourceRange = { aspectMask, 0, 1, 0, 1 };
-		viewCreateInfo.image = image;
-		VK_CHK(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
-		VK_NAME(device->logicalDevice, n?"forFramebuffer::view" : name.c_str(), view);
+		CreateImageView();
 
 	}
 
 	void Texture2D::Update(void* buffer, VkDeviceSize bufferSize, 
 		VkFormat _format, uint32_t texWidth, uint32_t texHeight, 
 		std::vector<VkBufferImageCopy> mipInfo, VulkanDevice* device,
-		VkQueue copyQueue, VkFilter filter, VkImageUsageFlags imageUsageFlags)
+		VkQueue copyQueue, VkFilter _filter, VkImageUsageFlags imageUsageFlags)
 	{
 		assert(buffer);
 
@@ -707,8 +646,11 @@ namespace vkutils
 
 		std::vector<VkBufferImageCopy>bufferCopyRegion = mipInfo;
 
+		// be careful
+		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
 		VkImageSubresourceRange subresourceRange = {};
-		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		subresourceRange.aspectMask = aspectMask;
 		subresourceRange.baseMipLevel = 0;
 		subresourceRange.levelCount = mipLevels;
 		subresourceRange.layerCount = 1;
@@ -745,6 +687,52 @@ namespace vkutils
 		// Clean up staging resources
 		vkFreeMemory(device->logicalDevice, stagingMemory, nullptr);
 		vkDestroyBuffer(device->logicalDevice, stagingBuffer, nullptr);
+	}
+
+	void Texture2D::CreateImageView()
+	{
+		assert(view == VK_NULL_HANDLE);
+
+		// Create image view
+		VkImageViewCreateInfo viewCreateInfo = {};
+		viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewCreateInfo.pNext = NULL;
+		viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewCreateInfo.format = format;
+		viewCreateInfo.subresourceRange = { aspectMask, 0, 1, 0, 1 };
+		viewCreateInfo.subresourceRange.levelCount = mipLevels;
+		viewCreateInfo.image = image;
+		VK_CHK(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
+		VK_NAME(device->logicalDevice, name.empty() ? "CreateImage::view" : name.c_str(), view);
+	}
+
+	void Texture2D::CreateSampler(bool aniso)
+	{
+		assert(sampler == VK_NULL_HANDLE);
+		// Create sampler
+		VkSamplerCreateInfo samplerCreateInfo = {};
+		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerCreateInfo.magFilter = filter;
+		samplerCreateInfo.minFilter = filter;
+		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.mipLodBias = 0.0f;
+		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
+		samplerCreateInfo.minLod = 0.0f;
+		// Max level-of-detail should match mip level count
+		samplerCreateInfo.maxLod = mipLevels;
+		// Only enable anisotropic filtering if enabled on the device
+		samplerCreateInfo.maxAnisotropy = 1.0f;
+		if (aniso == true && device->enabledFeatures.samplerAnisotropy == VK_TRUE) 
+		{
+			samplerCreateInfo.maxAnisotropy = device->properties.limits.maxSamplerAnisotropy;
+			samplerCreateInfo.anisotropyEnable = VK_TRUE;
+		}
+		samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler);
+		VK_NAME(device->logicalDevice, "Texture::sampler", sampler);
 	}
 
 	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)

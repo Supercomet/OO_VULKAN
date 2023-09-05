@@ -25,7 +25,8 @@ public:
     static const VkSampler GetDefaultSampler() { return textureSampler; }
     static const VkSampler GetSampler_Deferred() { return deferredSampler; }
     static const VkSampler GetSampler_ShowMapClamp() { return shadowSampler; }
-    static const VkSampler GetSampler_SSAOEdgeClamp() { return edgeClampSampler; }
+    static const VkSampler GetSampler_SSAOEdgeClamp() { return ssaoClampSampler; }
+    static const VkSampler GetSampler_EdgeClamp() { return edgeClampSampler; }
     static const VkSampler GetSampler_BlackBorder() { return blackBorderSampler; }
     static const VkSampler GetSampler_BlackBorderFloat() { return blackBorderFloatSampler; }
     // TODO: Add more sampler objects as needed...
@@ -48,6 +49,7 @@ private:
     static VkSampler textureSampler;
     static VkSampler deferredSampler;
     static VkSampler shadowSampler;
+    static VkSampler ssaoClampSampler;
     static VkSampler edgeClampSampler;
     static VkSampler blackBorderSampler;
     static VkSampler blackBorderFloatSampler;

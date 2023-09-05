@@ -92,6 +92,7 @@ Technology is prohibited.
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
 // vulkan debug callback
+#pragma optimize("" ,off)
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -112,6 +113,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
 	return VK_FALSE;
 }
+#pragma optimize("" ,on)
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
@@ -2631,7 +2633,7 @@ void ffxSpdSetup(uint32_t*    dispatchThreadGroupCountXY,
     {
         // calculate based on rect width and height
 		uint32_t resolution    = std::max(rectInfo[2], rectInfo[3]);
-        numWorkGroupsAndMips[1] = uint32_t((std::max(std::floor(std::log2(float(resolution))), float(12))));
+        numWorkGroupsAndMips[1] = uint32_t((std::min(std::floor(std::log2(float(resolution))), float(12))));
     }
 }
 
@@ -2642,37 +2644,51 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 	constexpr size_t maxNumMips = 13;
 	auto texMips = std::floor(std::log2(std::max(texture.width, texture.height))) + 1;
 
-	vkutils::Texture2D generatedTexture;
+	if (texMips < 2) return;
 
-	
+	vkutils::Texture2D generatedTexture; // writing into a new texture
+	generatedTexture = texture;
+	generatedTexture.image = VK_NULL_HANDLE;
+	generatedTexture.deviceMemory = VK_NULL_HANDLE;
+	generatedTexture.view = VK_NULL_HANDLE;
+	generatedTexture.sampler = VK_NULL_HANDLE;
+	generatedTexture.name += " xd";
+	generatedTexture.currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	generatedTexture.AllocateImageMemory(&m_device, generatedTexture.usage, texMips);
+	generatedTexture.CreateImageView();
+	generatedTexture.CreateSampler();
 
 	VkImageViewCreateInfo viewCreateInfo = {};
 	viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	viewCreateInfo.pNext = NULL;
-	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	viewCreateInfo.format = texture.format;
+	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY; // for shader
+	viewCreateInfo.format = generatedTexture.format;
 	viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 	viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-	viewCreateInfo.subresourceRange.levelCount = texMips;
-	viewCreateInfo.image = texture.image;
+	viewCreateInfo.subresourceRange.levelCount = 1;
+	viewCreateInfo.subresourceRange.baseMipLevel = 0;
+	
+	viewCreateInfo.image = generatedTexture.image;
 	std::array < VkImageView, maxNumMips> mipViews;
 	for (size_t i = 0; i < texMips; i++)
 	{
-		//vkCreateImageView(m_device.logicalDevice, mipViews[i]);
+		viewCreateInfo.subresourceRange.baseMipLevel = i;
+		vkCreateImageView(m_device.logicalDevice,&viewCreateInfo,nullptr, &mipViews[i]);
 	}
 
 	std::array<VkDescriptorImageInfo, maxNumMips> samplers{};
 	for (size_t i = 0; i < samplers.size(); i++)
 	{
 		samplers[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		samplers[i].imageView = texture.mipChainViews[0];
-		samplers[i].sampler = samplerManager.GetSampler_SSAOEdgeClamp();
+		samplers[i].imageView = mipViews[0];
+		samplers[i].sampler = samplerManager.GetSampler_EdgeClamp();
 	}
-	for (size_t i = 0; i < texture.mipLevels ; i++)
+	for (size_t i = 0; i < texMips; i++)
 	{		
 		samplers[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		samplers[i].imageView = texture.mipChainViews[i];
-		samplers[i].sampler = samplerManager.GetSampler_SSAOEdgeClamp();
+		samplers[i].imageView = mipViews[i];
+		samplers[i].sampler = samplerManager.GetSampler_EdgeClamp();
 	}
 
 	VkDescriptorBufferInfo cb{};
@@ -2696,7 +2712,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 		.BindImage(0, &dii, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindBuffer(3000, &cb, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2002, samplers.data(), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 13)
-		.BindImage(2001, &samplers[texture.mipLevels/2+1], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(2001, &samplers[6], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindBuffer(2000, &atomic, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.Build(dstsets[0], SetLayoutDB::compute_AMDSPD);
 
@@ -2705,11 +2721,23 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 
 	{
 		rhi::CommandList cmdlist{ cmd, "Mipmap generation" };
+		vkutils::ComputeImageBarrier(cmd, generatedTexture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		VkImageCopy region{};
+		region.srcSubresource = VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT,0,0,1};
+		region.srcOffset = {};
+		region.dstSubresource = VkImageSubresourceLayers{ VK_IMAGE_ASPECT_COLOR_BIT,0,0,1 };
+		region.dstOffset={};
+		region.extent = { texture.width,texture.height,1 };
+		vkCmdCopyImage(cmd, texture.image, texture.currentLayout
+			, generatedTexture.image, generatedTexture.currentLayout,
+			1, &region);
 
+		vkutils::ComputeImageBarrier(cmd, generatedTexture, VK_IMAGE_LAYOUT_GENERAL);
 		vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_GENERAL);
 
 		//clear buffer
-		//vkCmdFillBuffer(cmd, atomic.buffer, atomic.offset, VK_WHOLE_SIZE, 0);
+		vkCmdFillBuffer(cmd, atomic.buffer, atomic.offset, VK_WHOLE_SIZE, 0);
 		VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
 		bmb.buffer = atomic.buffer;
 		bmb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
@@ -2733,7 +2761,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 		// Get SPD info for run
 		uint32_t dispatchThreadGroupCountXY[2];
 		uint32_t numWorkGroupsAndMips[2];
-		uint32_t rectInfo[4] = { 0, 0, texture.width, texture.height }; // left, top, width, height
+		uint32_t rectInfo[4] = { 0, 0, generatedTexture.width, generatedTexture.height }; // left, top, width, height
 		ffxSpdSetup(dispatchThreadGroupCountXY, spdConstants.workGroupOffset, numWorkGroupsAndMips, rectInfo, -1);
 
 		// Complete setting up the constant buffer data
@@ -2749,8 +2777,6 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 		//vmaAllocateMemory
 		void* data{};
 		vmaMapMemory(m_device.m_allocator, SPDconstantBuffer.alloc, &data);
-
-
 		memcpy(data, &spdConstants, sizeof(CB::AMDSPD_UBO));
 		vmaUnmapMemory(m_device.m_allocator, SPDconstantBuffer.alloc);
 
@@ -2760,6 +2786,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 		//vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, texture.mipLevels);
 		// shader read(2-A) -> general(2-A)
 		vkutils::ComputeImageBarrier(cmd, texture, oldLayout);
+		vkutils::ComputeImageBarrier(cmd, generatedTexture, oldLayout);
 		// shader read(A) -> orig(A)  
 	}
 
@@ -2767,6 +2794,16 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 	endSingleTimeCommands(cmd);
 	vkQueueWaitIdle(m_device.graphicsQueue);
 	vkFreeCommandBuffers(m_device.logicalDevice,m_device.commandPoolManagers[getFrame()].m_commandpool, 1, &cmd);
+
+	generatedTexture.updateDescriptor();
+
+	std::swap(texture, generatedTexture);
+	generatedTexture.destroy();
+
+	for (size_t i = 0; i < texMips; i++)
+	{
+		vkDestroyImageView(m_device.logicalDevice, mipViews[i], nullptr);
+	}
 	//DelayedDeleter::get()->DeleteAfterFrames([buffer = std::move(scratchBuffer)]() mutable {buffer.destroy(); });
 }
 
@@ -2876,7 +2913,8 @@ oGFX::Font * VulkanRenderer::LoadFont(const std::string & filename)
 	size_t channels = 4;
 	//atlas.buffer.resize(atlas.textureSize.x * atlas.textureSize.y * channels);
 
-	font->m_atlasID = CreateTexture(atlas.textureSize.x, atlas.textureSize.y, (uint8_t*)atlas.buffer.data());
+	bool generateMips = false;
+	font->m_atlasID = CreateTexture(atlas.textureSize.x, atlas.textureSize.y, (uint8_t*)atlas.buffer.data(),generateMips);
 
 	return font;
 }
@@ -3757,7 +3795,7 @@ void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer)
 
 }
 
-uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData)
+uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData, bool generateMips)
 {
 	using namespace oGFX;
 	FileImageData fileData;
@@ -3782,8 +3820,12 @@ uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned
 	//fileData.imgData = imgData;
 
 	auto ind = CreateTextureImageImmediate(fileData);
+	auto& tex = g_Textures[ind];
 
-	GenerateMipmaps(g_Textures[ind]);
+	if (generateMips)
+	{
+		GenerateMipmaps(tex);
+	}
 
 	//create texture descriptor
 	int descriptorLoc = UpdateBindlessGlobalTexture(ind);

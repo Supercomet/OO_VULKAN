@@ -19,9 +19,10 @@ Technology is prohibited.
 VkSampler GfxSamplerManager::textureSampler = nullptr;
 VkSampler GfxSamplerManager::deferredSampler = nullptr;
 VkSampler GfxSamplerManager::shadowSampler = nullptr;
-VkSampler GfxSamplerManager::edgeClampSampler = nullptr;
+VkSampler GfxSamplerManager::ssaoClampSampler = nullptr;
 VkSampler GfxSamplerManager::blackBorderSampler = nullptr;
 VkSampler GfxSamplerManager::blackBorderFloatSampler = nullptr;
+VkSampler GfxSamplerManager::edgeClampSampler = nullptr;
 // TODO: Add more sampler objects as needed...
 
 void GfxSamplerManager::Init()
@@ -107,10 +108,26 @@ void GfxSamplerManager::Init()
         samplerCreateInfo.minLod = 0.0f;
         samplerCreateInfo.maxLod = 1.0f;
         samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-        VK_CHK(vkCreateSampler(device, &samplerCreateInfo, nullptr, &edgeClampSampler));
-        VK_NAME(device, "ssaoSampler", edgeClampSampler);
+        VK_CHK(vkCreateSampler(device, &samplerCreateInfo, nullptr, &ssaoClampSampler));
+        VK_NAME(device, "ssaoSampler", ssaoClampSampler);
     }
 
+    {
+        VkSamplerCreateInfo samplerCreateInfo = oGFX::vkutils::inits::samplerCreateInfo();
+        samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+        samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+        samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerCreateInfo.mipLodBias = 0.0f;
+        samplerCreateInfo.maxAnisotropy = maxAni;
+        samplerCreateInfo.anisotropyEnable = aniEnabled;
+        samplerCreateInfo.minLod = 0.0f;
+        samplerCreateInfo.maxLod = 1.0f;
+        VK_CHK(vkCreateSampler(device, &samplerCreateInfo, nullptr, &edgeClampSampler));
+        VK_NAME(device, "edgeClampSampler", edgeClampSampler);
+    }
 
     {
         VkSamplerCreateInfo samplerCreateInfo = oGFX::vkutils::inits::samplerCreateInfo();
@@ -158,6 +175,7 @@ void GfxSamplerManager::Shutdown()
     vkDestroySampler(device, textureSampler, nullptr);
     vkDestroySampler(device, deferredSampler, nullptr);
     vkDestroySampler(device, shadowSampler, nullptr);
+    vkDestroySampler(device, ssaoClampSampler, nullptr);
     vkDestroySampler(device, edgeClampSampler, nullptr);
     vkDestroySampler(device, blackBorderSampler, nullptr);
     vkDestroySampler(device, blackBorderFloatSampler, nullptr);
