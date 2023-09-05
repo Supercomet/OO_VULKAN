@@ -383,33 +383,30 @@ namespace vkutils
 		
 		mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
 
-		VkMemoryAllocateInfo memAllocInfo = oGFX::vkutils::inits::memoryAllocateInfo();
-		VkMemoryRequirements memReqs;
+		
+		
 
-		// Use a separate command buffer for texture loading
 		VkCommandBuffer copyCmd = device->CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, device->commandPoolManagers[0].m_commandpool, true);
 
-		// Create a host-visible staging buffer that contains the raw image data
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingMemory;
-
-		// This buffer is used as a transfer source for the buffer copy
+		
 		VkBufferCreateInfo bufferCreateInfo = oGFX::vkutils::inits::bufferCreateInfo(VK_BUFFER_USAGE_TRANSFER_SRC_BIT,bufferSize);
 		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
+		VkBuffer stagingBuffer;
 		vkCreateBuffer(device->logicalDevice, &bufferCreateInfo, nullptr, &stagingBuffer);
 
-		// Get memory requirements for the staging buffer (alignment, memory type bits)
+		VkMemoryRequirements memReqs;
 		vkGetBufferMemoryRequirements(device->logicalDevice, stagingBuffer, &memReqs);
 
+		VkMemoryAllocateInfo memAllocInfo = oGFX::vkutils::inits::memoryAllocateInfo();
 		memAllocInfo.allocationSize = memReqs.size;
-		// Get memory type index for a host visible buffer
 		memAllocInfo.memoryTypeIndex = oGFX::FindMemoryTypeIndex(device->physicalDevice,memReqs.memoryTypeBits,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
+		
+		VkDeviceMemory stagingMemory;
 		vkAllocateMemory(device->logicalDevice, &memAllocInfo, nullptr, &stagingMemory);
 		vkBindBufferMemory(device->logicalDevice, stagingBuffer, stagingMemory, 0);
 
-		// Copy texture data into staging buffer
+		
 		uint8_t *data;
 		vkMapMemory(device->logicalDevice, stagingMemory, 0, memReqs.size, 0, (void **)&data);
 		memcpy(data, buffer, bufferSize);
@@ -417,43 +414,8 @@ namespace vkutils
 
 
 		std::vector<VkBufferImageCopy>bufferCopyRegion = mipInfo;
-		//VkBufferImageCopy bufferCopyRegion = {};
-		//bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		//bufferCopyRegion.imageSubresource.mipLevel = mipLevels;
-		//bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
-		//bufferCopyRegion.imageSubresource.layerCount = 1;
-		//bufferCopyRegion.imageExtent.width = width;
-		//bufferCopyRegion.imageExtent.height = height;
-		//bufferCopyRegion.imageExtent.depth = 1;
-		//bufferCopyRegion.bufferOffset = 0;
 
-		// Create optimal tiled target image
-		VkImageCreateInfo imageCreateInfo = oGFX::vkutils::inits::imageCreateInfo();
-		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageCreateInfo.format = format;
-		imageCreateInfo.mipLevels = mipLevels;
-		imageCreateInfo.arrayLayers = 1;
-		imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageCreateInfo.extent = { width, height, 1 };
-		imageCreateInfo.usage = imageUsageFlags;
-		// Ensure that the TRANSFER_DST bit is set for staging
-		if (!(imageCreateInfo.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT))
-		{
-			imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-		}
-		vkCreateImage(device->logicalDevice, &imageCreateInfo, nullptr, &image);
-		VK_NAME(device->logicalDevice, "fromBuffer::image", image);
-
-		vkGetImageMemoryRequirements(device->logicalDevice, image, &memReqs);
-
-		memAllocInfo.allocationSize = memReqs.size;
-
-		memAllocInfo.memoryTypeIndex = oGFX::FindMemoryTypeIndex(device->physicalDevice, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		vkAllocateMemory(device->logicalDevice, &memAllocInfo, nullptr, &deviceMemory);
-		vkBindImageMemory(device->logicalDevice, image, deviceMemory, 0);
+		AllocateImageMemory(device,imageUsageFlags);
 
 		VkImageSubresourceRange subresourceRange = {};
 		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -551,6 +513,40 @@ namespace vkutils
 		updateDescriptor();
 	}
 
+	void Texture2D::AllocateImageMemory(VulkanDevice* device, const VkImageUsageFlags& imageUsageFlags)
+	{
+		
+		// Create optimal tiled target image
+		VkImageCreateInfo imageCreateInfo = oGFX::vkutils::inits::imageCreateInfo();
+		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageCreateInfo.format = format;
+		imageCreateInfo.mipLevels = mipLevels;
+		imageCreateInfo.arrayLayers = 1;
+		imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageCreateInfo.extent = { width, height, 1 };
+		imageCreateInfo.usage = imageUsageFlags;
+		// Ensure that the TRANSFER_DST bit is set for staging
+		if (!(imageCreateInfo.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT))
+		{
+			imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		}
+		vkCreateImage(device->logicalDevice, &imageCreateInfo, nullptr, &image);
+		VK_NAME(device->logicalDevice, "fromBuffer::image", image);
+		VkMemoryRequirements memReqs{};
+		vkGetImageMemoryRequirements(device->logicalDevice, image, &memReqs);
+
+		VkMemoryAllocateInfo memAllocInfo = oGFX::vkutils::inits::memoryAllocateInfo();
+		memAllocInfo.memoryTypeIndex = oGFX::FindMemoryTypeIndex(device->physicalDevice, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		memAllocInfo.allocationSize = memReqs.size;
+
+		memAllocInfo.memoryTypeIndex = oGFX::FindMemoryTypeIndex(device->physicalDevice, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		vkAllocateMemory(device->logicalDevice, &memAllocInfo, nullptr, &deviceMemory);
+		vkBindImageMemory(device->logicalDevice, image, deviceMemory, 0);
+	}
+
 	void Texture2D::forFrameBuffer(VulkanDevice* device,
 		VkFormat _format,
 		VkImageUsageFlags imageUsageFlags,
@@ -592,46 +588,9 @@ namespace vkutils
 
 		//uint mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
 		mipLevels = 1;
-	
-		// Does this matter in signiature? 
-		//imageUsageFlags =  VK_IMAGE_USAGE_TRANSFER_DST_BIT
-		//	| VK_IMAGE_USAGE_SAMPLED_BIT
-		//	| VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-		//	| VK_IMAGE_USAGE_STORAGE_BIT
-		//	| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
 
 		bool n = name.empty();
-	
-		VkImageCreateInfo imageinfo = oGFX::vkutils::inits::imageCreateInfo();
-		imageinfo.imageType = VK_IMAGE_TYPE_2D;
-		imageinfo.extent.width = width;
-		imageinfo.extent.height = height;
-		imageinfo.extent.depth = 1;
-		imageinfo.mipLevels = mipLevels;
-		imageinfo.arrayLayers = 1;
-		imageinfo.format = format;
-		imageinfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageinfo.usage = usage;
-		imageinfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageinfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		VkImageFormatProperties props{};
-		vkGetPhysicalDeviceImageFormatProperties(device->physicalDevice, imageinfo.format, imageinfo.imageType, imageinfo.tiling, imageinfo.usage, imageinfo.flags, &props);
-		VK_CHK(vkCreateImage(device->logicalDevice, &imageinfo, nullptr, &image));
-		VK_NAME(device->logicalDevice, n? "forFramebuffer::image" :name.c_str(), image);
-
-		VkMemoryRequirements memReqs;
-		vkGetImageMemoryRequirements(device->logicalDevice, image, &memReqs);
-
-		VkMemoryAllocateInfo memAllocInfo = oGFX::vkutils::inits::memoryAllocateInfo();
-		memAllocInfo.allocationSize = memReqs.size;
-		// Get memory type index for a host visible buffer
-		memAllocInfo.memoryTypeIndex = oGFX::FindMemoryTypeIndex(device->physicalDevice,memReqs.memoryTypeBits,properties);
-		
-		VK_CHK(vkAllocateMemory(device->logicalDevice, &memAllocInfo, nullptr, &deviceMemory));
-		VK_NAME(device->logicalDevice, n?"forFramebuffer::deviceMemory" : name.c_str(), deviceMemory);
-
-		VK_CHK(vkBindImageMemory(device->logicalDevice, image, deviceMemory, 0));
+		AllocateImageMemory(device, usage);
 
 		// Create image view
 		VkImageViewCreateInfo viewCreateInfo = {};
@@ -683,33 +642,7 @@ namespace vkutils
 
 		bool n = name.empty();
 
-		VkImageCreateInfo imageinfo = oGFX::vkutils::inits::imageCreateInfo();
-		imageinfo.imageType = VK_IMAGE_TYPE_2D;
-		imageinfo.extent.width = width;
-		imageinfo.extent.height = height;
-		imageinfo.extent.depth = 1;
-		imageinfo.mipLevels = mipLevels;
-		imageinfo.arrayLayers = 1;
-		imageinfo.format = format;
-		imageinfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageinfo.usage = usage | VK_IMAGE_USAGE_SAMPLED_BIT;
-		imageinfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageinfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		VK_CHK(vkCreateImage(device->logicalDevice, &imageinfo, nullptr, &image));
-		VK_NAME(device->logicalDevice, n? "forFramebuffer::image" :name.c_str(), image);
-
-		VkMemoryRequirements memReqs;
-		vkGetImageMemoryRequirements(device->logicalDevice, image, &memReqs);
-
-		VkMemoryAllocateInfo memAllocInfo = oGFX::vkutils::inits::memoryAllocateInfo();
-		memAllocInfo.allocationSize = memReqs.size;
-		// Get memory type index for a host visible buffer
-		memAllocInfo.memoryTypeIndex = oGFX::FindMemoryTypeIndex(device->physicalDevice,memReqs.memoryTypeBits,MemProps);
-
-		VK_CHK(vkAllocateMemory(device->logicalDevice, &memAllocInfo, nullptr, &deviceMemory));
-		VK_NAME(device->logicalDevice, n?"forFramebuffer::deviceMemory" : name.c_str(), deviceMemory);
-
-		VK_CHK(vkBindImageMemory(device->logicalDevice, image, deviceMemory, 0));
+		AllocateImageMemory(device, usage);
 
 		// Create image view
 		VkImageViewCreateInfo viewCreateInfo = {};

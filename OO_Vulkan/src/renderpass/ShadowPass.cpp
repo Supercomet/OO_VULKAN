@@ -228,7 +228,8 @@ void ShadowPass::SetupRenderpass()
 
 	shadow_depth.name = "SHADOW_ATLAS";
 	shadow_depth.forFrameBuffer(&m_device, vr.G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height, false);
-	
+	vr.fbCache.RegisterFramebuffer(shadow_depth);
+
 	vkutils::Texture2D tex;
 	tex.image = shadow_depth.image;
 

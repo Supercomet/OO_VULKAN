@@ -1084,7 +1084,7 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 				image.name = "GW_"+std::to_string(wrdID)+":COL";
 				image.forFrameBuffer(&m_device, G_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 					m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height);
-						
+				fbCache.RegisterFramebuffer(image);
 			}
 			if (image.image&&renderTargets[wrdID].imguiTex == 0)
 			{
@@ -1096,7 +1096,7 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 				depth.name = "GW_"+std::to_string(wrdID)+":DEPTH";
 				depth.forFrameBuffer(&m_device, G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 					m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height);
-				
+				fbCache.RegisterFramebuffer(depth);
 				//world->imguiID[0] = CreateImguiBinding(samplerManager.GetDefaultSampler(), depth.view, depth.imageLayout);
 			}
 
@@ -2637,16 +2637,31 @@ void ffxSpdSetup(uint32_t*    dispatchThreadGroupCountXY,
 
 void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 {
-	auto cmd = beginSingleTimeCommands();
-
 	auto oldLayout = texture.currentLayout;
+	
+	constexpr size_t maxNumMips = 13;
+	auto texMips = std::floor(std::log2(std::max(texture.width, texture.height))) + 1;
 
-	vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_GENERAL);
-	// orig(A) -> shader read(A)
-	//vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_GENERAL, 1, texture.mipLevels);
-	// shader read(2-A) -> general(2-A)
+	vkutils::Texture2D generatedTexture;
 
-	std::array<VkDescriptorImageInfo, 13> samplers{};
+	
+
+	VkImageViewCreateInfo viewCreateInfo = {};
+	viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewCreateInfo.pNext = NULL;
+	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewCreateInfo.format = texture.format;
+	viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+	viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+	viewCreateInfo.subresourceRange.levelCount = texMips;
+	viewCreateInfo.image = texture.image;
+	std::array < VkImageView, maxNumMips> mipViews;
+	for (size_t i = 0; i < texMips; i++)
+	{
+		//vkCreateImageView(m_device.logicalDevice, mipViews[i]);
+	}
+
+	std::array<VkDescriptorImageInfo, maxNumMips> samplers{};
 	for (size_t i = 0; i < samplers.size(); i++)
 	{
 		samplers[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -2685,68 +2700,67 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 		.BindBuffer(2000, &atomic, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.Build(dstsets[0], SetLayoutDB::compute_AMDSPD);
 
-	//clear buffer
-	//vkCmdFillBuffer(cmd, atomic.buffer, atomic.offset, VK_WHOLE_SIZE, 0);
 	
-	VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
-	bmb.buffer = atomic.buffer;
-	bmb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-	bmb.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-	bmb.offset = 0;
-	bmb.size = VK_WHOLE_SIZE;
-	bmb.srcQueueFamilyIndex = m_device.queueIndices.graphicsFamily;
-
-	vkCmdPipelineBarrier(
-		cmd,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		0,
-		0, nullptr,
-		1,&bmb,
-		0, nullptr);
-
-
-
+	auto cmd = beginSingleTimeCommands();
 
 	{
+		rhi::CommandList cmdlist{ cmd, "Mipmap generation" };
 
-	rhi::CommandList cmdlist{ cmd, "Mipmap generation" };
-	cmdlist.BindPSO(pso_utilAMDSPD, VK_PIPELINE_BIND_POINT_COMPUTE);
-	cmdlist.BindDescriptorSet(PSOLayoutDB::AMDSPDLayout, 0, dstsets, VK_PIPELINE_BIND_POINT_COMPUTE, 0);
+		vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_GENERAL);
 
-
-	CB::AMDSPD_UBO spdConstants{};
-	// Get SPD info for run
-	uint32_t dispatchThreadGroupCountXY[2];
-	uint32_t numWorkGroupsAndMips[2];
-	uint32_t rectInfo[4] = { 0, 0, texture.width, texture.height }; // left, top, width, height
-	ffxSpdSetup(dispatchThreadGroupCountXY, spdConstants.workGroupOffset, numWorkGroupsAndMips, rectInfo, -1);
-
-	// Complete setting up the constant buffer data
-	spdConstants.mips = numWorkGroupsAndMips[1];
-	spdConstants.numWorkGroups = numWorkGroupsAndMips[0];
-	spdConstants.invInputSize[0] = 1.f / texture.width;
-	spdConstants.invInputSize[1] = 1.f / texture.height;
-
-	// This value is the image region dimension that each thread group of the FSR shader operates on
-	uint32_t dispatchX = dispatchThreadGroupCountXY[0];
-	uint32_t dispatchY = dispatchThreadGroupCountXY[1];
-	uint32_t dispatchZ = 1; // tex.depth
-	//vmaAllocateMemory
-	void* data{};
-	vmaMapMemory(m_device.m_allocator, SPDconstantBuffer.alloc, &data);
+		//clear buffer
+		//vkCmdFillBuffer(cmd, atomic.buffer, atomic.offset, VK_WHOLE_SIZE, 0);
+		VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+		bmb.buffer = atomic.buffer;
+		bmb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+		bmb.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+		bmb.offset = 0;
+		bmb.size = VK_WHOLE_SIZE;
+		bmb.srcQueueFamilyIndex = m_device.queueIndices.graphicsFamily;
+		vkCmdPipelineBarrier(
+			cmd,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0,
+			0, nullptr,
+			1, &bmb,
+			0, nullptr);
+		cmdlist.BindPSO(pso_utilAMDSPD, VK_PIPELINE_BIND_POINT_COMPUTE);
+		cmdlist.BindDescriptorSet(PSOLayoutDB::AMDSPDLayout, 0, dstsets, VK_PIPELINE_BIND_POINT_COMPUTE, 0);
 
 
-	memcpy(data, &spdConstants, sizeof(CB::AMDSPD_UBO));
-	vmaUnmapMemory(m_device.m_allocator, SPDconstantBuffer.alloc);
+		CB::AMDSPD_UBO spdConstants{};
+		// Get SPD info for run
+		uint32_t dispatchThreadGroupCountXY[2];
+		uint32_t numWorkGroupsAndMips[2];
+		uint32_t rectInfo[4] = { 0, 0, texture.width, texture.height }; // left, top, width, height
+		ffxSpdSetup(dispatchThreadGroupCountXY, spdConstants.workGroupOffset, numWorkGroupsAndMips, rectInfo, -1);
+
+		// Complete setting up the constant buffer data
+		spdConstants.mips = numWorkGroupsAndMips[1];
+		spdConstants.numWorkGroups = numWorkGroupsAndMips[0];
+		spdConstants.invInputSize[0] = 1.f / texture.width;
+		spdConstants.invInputSize[1] = 1.f / texture.height;
+
+		// This value is the image region dimension that each thread group of the FSR shader operates on
+		uint32_t dispatchX = dispatchThreadGroupCountXY[0];
+		uint32_t dispatchY = dispatchThreadGroupCountXY[1];
+		uint32_t dispatchZ = 1; // tex.depth
+		//vmaAllocateMemory
+		void* data{};
+		vmaMapMemory(m_device.m_allocator, SPDconstantBuffer.alloc, &data);
 
 
-	vkCmdDispatch(cmd, dispatchX, dispatchY, dispatchZ);
+		memcpy(data, &spdConstants, sizeof(CB::AMDSPD_UBO));
+		vmaUnmapMemory(m_device.m_allocator, SPDconstantBuffer.alloc);
 
-	//vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, texture.mipLevels);
-	// shader read(2-A) -> general(2-A)
-	vkutils::ComputeImageBarrier(cmd, texture, oldLayout);
-	// shader read(A) -> orig(A)  
+
+		vkCmdDispatch(cmd, dispatchX, dispatchY, dispatchZ);
+
+		//vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, texture.mipLevels);
+		// shader read(2-A) -> general(2-A)
+		vkutils::ComputeImageBarrier(cmd, texture, oldLayout);
+		// shader read(A) -> orig(A)  
 	}
 
 	//m_device.commandPoolManagers[getFrame()].SubmitCommandBuffer(m_device.graphicsQueue, cmd);
@@ -2755,6 +2769,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 	vkFreeCommandBuffers(m_device.logicalDevice,m_device.commandPoolManagers[getFrame()].m_commandpool, 1, &cmd);
 	//DelayedDeleter::get()->DeleteAfterFrames([buffer = std::move(scratchBuffer)]() mutable {buffer.destroy(); });
 }
+
 bool VulkanRenderer::ResizeSwapchain()
 {
 	while (windowPtr->m_height == 0 || windowPtr->m_width == 0)
@@ -2788,7 +2803,7 @@ bool VulkanRenderer::ResizeSwapchain()
 			VkDescriptorImageInfo desc_image[1] = {};
 			desc_image[0].sampler = image.sampler;
 			desc_image[0].imageView = image.view;
-			desc_image[0].imageLayout = image.imageLayout;
+			desc_image[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 			VkWriteDescriptorSet write_desc[1] = {};
 			write_desc[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			write_desc[0].dstSet = (VkDescriptorSet)currWorld->imguiID[x];

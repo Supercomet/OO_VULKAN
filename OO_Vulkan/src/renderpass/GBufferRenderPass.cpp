@@ -661,17 +661,23 @@ void GBufferRenderPass::SetupResources() {
 	//attachments[GBufferAttachmentIndex::POSITION].forFrameBuffer(&m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
 	attachments[GBufferAttachmentIndex::NORMAL	].name = "GB_Normal";
 	attachments[GBufferAttachmentIndex::NORMAL	].forFrameBuffer(&m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::NORMAL]);
 	// linear texture
 	attachments[GBufferAttachmentIndex::ALBEDO	].name = "GB_Albedo";
 	attachments[GBufferAttachmentIndex::ALBEDO	].forFrameBuffer(&m_device, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::ALBEDO]);
 	attachments[GBufferAttachmentIndex::MATERIAL].name = "GB_Material";
 	attachments[GBufferAttachmentIndex::MATERIAL].forFrameBuffer(&m_device, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::MATERIAL]);
 	attachments[GBufferAttachmentIndex::ENTITY_ID].name = "GB_Entity";
 	attachments[GBufferAttachmentIndex::ENTITY_ID].forFrameBuffer(&m_device, VK_FORMAT_R32_SINT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::ENTITY_ID]);
 	attachments[GBufferAttachmentIndex::DEPTH	].name = "GB_DEPTH";
 	attachments[GBufferAttachmentIndex::DEPTH	].forFrameBuffer(&m_device, vr.G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height);
+	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::DEPTH]);
 	attachments[GBufferAttachmentIndex::EMISSIVE	].name = "GB_Emissive";
 	attachments[GBufferAttachmentIndex::EMISSIVE	].forFrameBuffer(&m_device, vr.G_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::EMISSIVE]);
 
 	auto cmd = vr.GetCommandBuffer();
 	for (size_t i = 0; i < GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS; i++)
@@ -681,6 +687,7 @@ void GBufferRenderPass::SetupResources() {
 
 	shadowMask.name = "GB_ShadowMask";
 	shadowMask.forFrameBuffer(&m_device, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	vr.fbCache.RegisterFramebuffer(shadowMask);
 
 	vr.m_device.commandPoolManagers[vr.getFrame()].SubmitCommandBuffer(vr.m_device.graphicsQueue, cmd);
 

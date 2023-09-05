@@ -32,7 +32,7 @@ void BloomPass::Init()
 	Bloom_brightTarget.name = "bloom_bright";
 	Bloom_brightTarget.forFrameBuffer(&vr.m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		swapchainext.width, swapchainext.height, true, 1.0f);
-
+	vr.fbCache.RegisterFramebuffer(Bloom_brightTarget);
 	float renderScale = 0.5f;
 	for (size_t i = 0; i < MAX_BLOOM_SAMPLES; i++)
 	{
@@ -40,9 +40,7 @@ void BloomPass::Init()
 		Bloom_downsampleTargets[i].name = "bloom_down_" + std::to_string(i);
 		Bloom_downsampleTargets[i].forFrameBuffer(&vr.m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 			swapchainext.width, swapchainext.height, true, renderScale);
-		Bloom_upsampleTargets[i].name = "bloom_up_" + std::to_string(i);
-		Bloom_upsampleTargets[i].forFrameBuffer(&vr.m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-			swapchainext.width, swapchainext.height, true, renderScale);
+		vr.fbCache.RegisterFramebuffer(Bloom_downsampleTargets[i]);
 
 		renderScale /= 2.0f;
 	}
@@ -460,7 +458,6 @@ void BloomPass::Shutdown()
 	{
 		// destroy
 		Bloom_downsampleTargets[i].destroy();
-		Bloom_upsampleTargets[i].destroy();
 	}
 	vkDestroyPipelineLayout(device, PSOLayoutDB::BloomLayout, nullptr);
 	vkDestroyPipelineLayout(device, PSOLayoutDB::doubleImageStoreLayout, nullptr);

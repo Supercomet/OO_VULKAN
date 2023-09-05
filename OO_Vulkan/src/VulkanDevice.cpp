@@ -124,7 +124,8 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
     //vector for queue creation information and set for family indices
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set<int> queueFamilyIndices = { indices.graphicsFamily,indices.presentationFamily, indices.transferFamily };
-
+    
+    float priority = 1.0f;
     //queues the logical device needs to create in the info to do so.
     for (int queueFamilyIndex : queueFamilyIndices)
     {
@@ -135,7 +136,7 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
         //number of queues to create
         queueCreateInfo.queueCount = 1;
         //vulkan needs to know how to handle multiple queues and thus we need a priority, 1.0 is the highest priority
-        float priority = 1.0f;
+        
         queueCreateInfo.pQueuePriorities = &priority;
 
         queueCreateInfos.push_back(queueCreateInfo);

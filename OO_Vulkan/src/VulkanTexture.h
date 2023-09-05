@@ -83,6 +83,8 @@ namespace vkutils
 			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 			VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+		void AllocateImageMemory(VulkanDevice* device, const VkImageUsageFlags& imageUsageFlags);
+
 		void forFrameBuffer(VulkanDevice* device,
 			VkFormat format,
 			VkImageUsageFlags imageUsageFlags,

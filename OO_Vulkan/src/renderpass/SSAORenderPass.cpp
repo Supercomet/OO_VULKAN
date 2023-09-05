@@ -32,10 +32,12 @@ void SSAORenderPass::Init()
 	SSAO_renderTarget.name = "SSAO_COL";
 	SSAO_renderTarget.forFrameBuffer(&vr.m_device, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 		swapchainext.width, swapchainext.height, true, 0.5f);
+	vr.fbCache.RegisterFramebuffer(SSAO_renderTarget);
 
 	SSAO_finalTarget.name = "SSAO_FINAL";
 	SSAO_finalTarget.forFrameBuffer(&vr.m_device, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 		swapchainext.width, swapchainext.height, true, 1.0f); // full scale image
+	vr.fbCache.RegisterFramebuffer(SSAO_finalTarget);
 
 	InitRandomFactors();
 

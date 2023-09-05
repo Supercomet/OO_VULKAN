@@ -70,6 +70,7 @@ void ForwardParticlePass::Draw()
 	auto& swapchain = vr.m_swapchain;
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
+	auto& renderTarget = vr.renderTargets[vr.renderTargetInUseID];
 
     const VkCommandBuffer cmdlist = vr.GetCommandBuffer();
     PROFILE_GPU_CONTEXT(cmdlist);
@@ -92,17 +93,17 @@ void ForwardParticlePass::Draw()
 	clearValues[GBufferAttachmentIndex::ENTITY_ID].color = rMinusOne;
 	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 1.0f, 0 };
 
-	assert(vr.renderTargets[vr.renderTargetInUseID].texture.currentLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutils::TransitionImage(cmdlist,vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	assert(.texture.currentLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, renderTarget.texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, renderTarget.texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 	rhi::CommandList cmd{ cmdlist, "Forward Particles Pass"};
-	cmd.BindAttachment(0, &vr.renderTargets[vr.renderTargetInUseID].texture);
+	cmd.BindAttachment(0, &renderTarget.texture);
 	cmd.BindAttachment(1, &attachments[GBufferAttachmentIndex::ENTITY_ID]);
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 
-	cmd.BeginRendering({ 0,0,{swapchain.swapChainExtent.width, swapchain.swapChainExtent.height } });
+	cmd.BeginRendering({ 0,0,{renderTarget.texture.width, renderTarget.texture.height } });
 	
 
 	cmd.BindPSO(pso_GBufferParticles);

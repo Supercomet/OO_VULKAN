@@ -53,7 +53,6 @@ struct BloomPass : public GfxRenderpass
 
 	// TODO: compute i guess
 	std::array<vkutils::Texture2D, MAX_BLOOM_SAMPLES> Bloom_downsampleTargets;
-	std::array<vkutils::Texture2D, MAX_BLOOM_SAMPLES> Bloom_upsampleTargets;
 
 
 private:
