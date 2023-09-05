@@ -41,6 +41,11 @@ namespace vkutils
 		// deletion func
 		auto delFunctor = [=](){
 			vkDestroyImageView(deviceCpy, viewCpy, nullptr);
+			for (size_t i = 0; i < mipLevels; i++)
+			{
+				vkDestroyImageView(deviceCpy, mipChainViews[i], nullptr);
+			}
+
 			vkDestroyImage(deviceCpy, imageCpy, nullptr);
 			if (samplerCpy)
 			{
@@ -509,7 +514,7 @@ namespace vkutils
 		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.mipLodBias = mipLevels * 0.5f;
+		samplerCreateInfo.mipLodBias = 0.0f;
 		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
 		samplerCreateInfo.minLod = 0.0f;
 		samplerCreateInfo.maxLod = (float)mipLevels;
@@ -526,11 +531,10 @@ namespace vkutils
 		viewCreateInfo.format = format;
 		viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 		viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-		viewCreateInfo.subresourceRange.levelCount = mipLevels;
+		viewCreateInfo.subresourceRange.levelCount = mipLevels; // generate mip maps will set this
 		viewCreateInfo.image = image;
 		vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view);
 		VK_NAME(device->logicalDevice, "fromBuffer::view", view);
-
 
 		for (size_t i = 0; i < mipLevels; i++)
 		{
@@ -841,7 +845,7 @@ namespace vkutils
 			subresrange);
 		texture.currentLayout = targetLayout;
 	}
-#pragma optimize("",off)
+
 	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
 	{
 		auto subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };

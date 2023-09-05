@@ -17,8 +17,6 @@ Technology is prohibited.
 #include "VulkanUtils.h"
 #include "CommandBufferManager.h"
 
-#pragma optimize("", off)
-
 VkResult oGFX::CommandBufferManager::InitPool(VkDevice device, uint32_t queueIndex)
 {
     assert(device);
