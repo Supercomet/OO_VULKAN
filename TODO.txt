@@ -48,6 +48,9 @@ Graphic Features:
 Engineering Tasks:
 • Move IMGUI rendering to its own GfxRenderer
 
+• Separate sampler from image
+    • create & store globally accessible common samplers to use & bind, such as Linear-Clamp, Point-Wrap etc...
+
 • Get rid of RenderPassDatabase
     • dynamic_cast is not allowed in most AAA game engines
     • It's linearly iterating through all Renderers & dynamic casting, which is bad for perf
