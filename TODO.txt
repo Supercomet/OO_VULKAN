@@ -5,10 +5,6 @@ Graphic Features:
     • Sky dome
     • Once implemented, remove gbuffer albedo clear
 
-• Automatic texture mip generation on GPU
-    • Utilize this if you want: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/single-pass-downsampler.md
-    • Use anisotropic sampler in GBuffer Pass
-
 • GBuffer Render Targets:
     • Normal should be R10G10B10A2
     • Remove Entity ID GBuffer RT
@@ -27,6 +23,7 @@ Graphic Features:
 
 • Shadow mask
     • deferred lighting pass should not compute shadows, only sample shadow mask texture
+	• superior soft shadows
 
 • Tile-based Deferred Rendering
     • Support point lights only for now
@@ -55,15 +52,6 @@ Engineering Tasks:
     • dynamic_cast is not allowed in most AAA game engines
     • It's linearly iterating through all Renderers & dynamic casting, which is bad for perf
     • It's also not necessary. Just declare a Renderer in Global scope in its own .cpp file, and extern the GfxRenderpass ptr in VulkanRenderer.
-
-• Remove all forms of stalling from the pipeline
-
-• Remove all forms of binary semaphores
-	• Only left with necessary semaphores for acquireImage
-
-• Change to from renderpasses to VK_KHR_dynamic_rendering
-
-• Only support 1 Camera
 
 • Proper Frame Fencing
     • Should only stall CPU before the FIRST command buffer submission
@@ -95,6 +83,10 @@ Engineering Tasks:
         • it shouldbe from a constant buffer, like say, a PassContext UBO
         • Best if it's a separate Shader Permutation
 
+• Seperation of mipmaps generation from texture
+
+• Shader hot-reloading
+
 • Use giant GPU circular buffers for gpu instance transforms
     • Suballocate exact necessary bytes as neededed for culled instances
     • Pass buffer offset to VS
@@ -105,6 +97,7 @@ Engineering Tasks:
 • Encapsulate as many Vulkan API calls as possible inside your "CommandList" class
 
 • Multi-thread all Graphic Tasks & Renderers
+	• Must be pooled per-thread
     • Implement free-list of command buffers. They must all be properly fenced before re-used
 
 • Render Graph
@@ -120,3 +113,38 @@ Engineering Tasks:
     • GPU Fence where necessary
 
 • Vulkan Memory Allocator: https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+
+///////////////////////////////////////////////////////////////////////////////
+Done:
+
+• Change to from Vulkan renderpasses to VK_KHR_dynamic_rendering
+
+• Support only 1 queue for now
+	• Remove transfer queue
+	
+• Remove all forms of binary semaphores
+	• Implement a frame counter and semaphore signal at end of present
+	• Only left with necessary semaphores for acquireImage
+
+• Implement frame based deleter
+	• Use VK_SEMAPHORE_TYPE_TIMELINE counting semaphore to check frame on GPU
+	
+• Use Inverse Depth Buffer & Infinite Far Plane for your Projection Matrix
+
+• Get rid of presentation queue. Present on Graphics Queue
+
+• No try-catch. Unacceptable method of error handling unless it's extremely specific edge case
+    • Get rid of all try-catch
+    • Use asserts instead, or use "__debugbreak()"
+	
+• Always enable VK_LAYER_KHRONOS_validation
+    • Don't ignore any non-verbose messages
+
+• Get rid of "Debug" config. Only Release from now onwards
+    • Use pragma optimize("", off) to debug code
+	
+• Only support 1 Camera
+
+• Automatic texture mip generation on GPU
+    • Utilize this if you want: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/single-pass-downsampler.md
+    • Use anisotropic sampler in GBuffer Pass
