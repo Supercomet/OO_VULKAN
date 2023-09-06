@@ -3416,6 +3416,8 @@ void VulkanRenderer::LoadSubmesh(gfxModel& mdl,
 	auto cacheVoffset = vertices.size();
 	auto cacheIoffset = indices.size();
 
+	bool once = false;
+
 	vertices.reserve(vertices.size() + aimesh->mNumVertices);
 	for (size_t i = 0; i < aimesh->mNumVertices; i++)
 	{
@@ -3439,6 +3441,24 @@ void VulkanRenderer::LoadSubmesh(gfxModel& mdl,
 			vertex.col = glm::vec4{ color.r, color.g, color.b, color.a };
 		}
 		vertices.emplace_back(vertex);
+
+
+		if (once == false) {
+			auto tanlen = glm::dot(vertex.tangent, vertex.tangent);
+			auto nlen = glm::dot(vertex.norm, vertex.norm);
+			auto bt = glm::cross(vertex.tangent, vertex.norm);
+			auto blen = glm::dot(bt, bt);
+
+			// we can reject here if needed
+			if (tanlen == 0.0f || nlen == 0.0f || blen == 0.0f) {
+				once = true;
+				std::string namestring;
+				if (aimesh->mName.C_Str()) namestring = aimesh->mName.C_Str();
+				printf("Model %s has vertex normal issues v[%d]\n", namestring.c_str(), i);
+				printf("Fixing vertex normals...\n", namestring.c_str(), i);
+				//__debugbreak();
+			}
+		}
 	}
 
 	uint32_t indicesCnt{};
@@ -3449,6 +3469,30 @@ void VulkanRenderer::LoadSubmesh(gfxModel& mdl,
 		for (uint32_t j = 0; j < face.mNumIndices; j++)
 		{
 			indices.push_back(face.mIndices[j]);
+		}
+
+
+		assert(face.mNumIndices == 3);
+		std::array<oGFX::Vertex, 3> vert{
+			vertices[face.mIndices[0]],
+			vertices[face.mIndices[1]],
+			vertices[face.mIndices[2]],
+		};
+
+		auto line0= vert[0].pos-vert[1].pos;
+		auto line1= vert[2].pos-vert[2].pos;
+		auto normal = glm::normalize(glm::cross(line0,line1));
+		if (glm::dot(normal, normal) == 0) {
+			__debugbreak();
+		}
+
+		for (uint32_t j = 0; j < face.mNumIndices; j++)
+		{			
+			if (glm::dot(vert[j].norm, vert[j].norm) == 0)
+			{
+				// fix zero normals
+				vert[j].norm = normal;
+			}
 		}
 	}
 
