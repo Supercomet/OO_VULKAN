@@ -48,8 +48,9 @@ Graphic Features:
 Engineering Tasks:
 • Move IMGUI rendering to its own GfxRenderer
 
-• Separate sampler from image
-    • create & store globally accessible common samplers to use & bind, such as Linear-Clamp, Point-Wrap etc...
+• Standardize resource SRV and UAV access in each GfxRenderer
+	• Have an initial state that each resource should be in
+	• If the renderer needs to use the resource it has the responsilibity to return it to the initial state
 
 • Get rid of RenderPassDatabase
     • dynamic_cast is not allowed in most AAA game engines
@@ -86,10 +87,6 @@ Engineering Tasks:
         • it shouldbe from a constant buffer, like say, a PassContext UBO
         • Best if it's a separate Shader Permutation
 
-• Seperation of mipmaps generation from texture
-
-• Shader hot-reloading
-
 • Use giant GPU circular buffers for gpu instance transforms
     • Suballocate exact necessary bytes as neededed for culled instances
     • Pass buffer offset to VS
@@ -119,7 +116,17 @@ Engineering Tasks:
 
 ///////////////////////////////////////////////////////////////////////////////
 Done:
+• Separate sampler from image
+    • create & store globally accessible common samplers to use & bind, such as Linear-Clamp, Point-Wrap etc...
 
+• Shader hot-reloading
+
+• Seperation of mipmaps generation from texture
+
+• Automatic texture mip generation on GPU
+    • Utilize this if you want: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/single-pass-downsampler.md
+    • Use anisotropic sampler in GBuffer Pass
+	
 • Change to from Vulkan renderpasses to VK_KHR_dynamic_rendering
 
 • Support only 1 queue for now
@@ -148,6 +155,4 @@ Done:
 	
 • Only support 1 Camera
 
-• Automatic texture mip generation on GPU
-    • Utilize this if you want: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/single-pass-downsampler.md
-    • Use anisotropic sampler in GBuffer Pass
+
