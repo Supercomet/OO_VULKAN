@@ -926,7 +926,7 @@ void VulkanRenderer::CreateDefaultPSO()
 	pipelineCI.layout = PSOLayoutDB::PSO_fullscreenBlitLayout;
 	colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
 	blendAttachmentState= oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
-
+	
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_utilFullscreenBlit));
 	VK_NAME(m_device.logicalDevice, "pso_blit", pso_utilFullscreenBlit);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr); // destroy vert
@@ -934,20 +934,13 @@ void VulkanRenderer::CreateDefaultPSO()
 	
 
 	
-	const char* computeShader = "Shaders/bin/amd_spd.comp.spv";
+	const char* computeShader = "Shaders/bin/ffx_spd_downsample_pass.glsl.spv";
 	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::AMDSPDLayout);
 	computeCI.stage = LoadShader(m_device, computeShader, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_utilAMDSPD));
 	VK_NAME(m_device.logicalDevice, "pso_AMDSPD", pso_utilAMDSPD);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
-
-
-
-
 	
-
-
-
 }
 
 void VulkanRenderer::CreateDebugCallback()
