@@ -43,7 +43,6 @@ namespace vkutils
 		uint32_t mipLevels{};
 		uint32_t layerCount{};
 		VkDescriptorImageInfo descriptor{};
-		VkSampler sampler{};
 		VkImageUsageFlags usage{};
 		VkImageAspectFlags aspectMask{};
 		VkFilter filter{};
@@ -110,7 +109,6 @@ namespace vkutils
 			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT);
 
 		void CreateImageView();
-		void CreateSampler(bool aniso = true);
 	};
 
 

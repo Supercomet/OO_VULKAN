@@ -32,7 +32,7 @@ void GfxSamplerManager::Init()
     float maxAni = vr.m_device.properties.limits.maxSamplerAnisotropy;
     VkBool32 aniEnabled = vr.m_device.enabledFeatures.samplerAnisotropy;
 
-    {
+    {        
         VkSamplerCreateInfo samplerCreateInfo{};
         samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         samplerCreateInfo.magFilter = VK_FILTER_LINEAR;							// how to render when image is magnified on screen
@@ -45,9 +45,9 @@ void GfxSamplerManager::Init()
         samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;			// Mipmap interpolation mode
         samplerCreateInfo.mipLodBias = 0.0f;									// Level of details bias for mip level
         samplerCreateInfo.minLod = 0.0f;										// minimum level of detail to pick mip level
-        samplerCreateInfo.maxLod = 0.0f;										// maximum level of detail to pick mip level
-        samplerCreateInfo.anisotropyEnable = aniEnabled;							// Enable anisotropy
-        samplerCreateInfo.maxAnisotropy = maxAni;									// Anisotropy sample level
+        samplerCreateInfo.maxLod = FLT_MAX;										// maximum level of detail to pick mip level
+        samplerCreateInfo.anisotropyEnable = aniEnabled;						// Enable anisotropy
+        samplerCreateInfo.maxAnisotropy = maxAni;								// Anisotropy sample level
 
         VkResult result = vkCreateSampler(device, &samplerCreateInfo, nullptr, &textureSampler);
         VK_NAME(device, "textureSampler", textureSampler);

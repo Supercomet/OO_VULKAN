@@ -8,14 +8,14 @@ layout(set = 1, binding = 0) uniform UboFrameContext
 };
 #include "shared_structs.h"
 
-layout (set = 0, binding = 1) uniform sampler2D samplerDepth;
-// layout (set = 0, binding = 1) uniform sampler2D samplerposition; we construct position using depth
-layout (set = 0, binding = 2) uniform sampler2D samplerNormal;
-layout (set = 0, binding = 3) uniform sampler2D samplerAlbedo;
-layout (set = 0, binding = 4) uniform sampler2D samplerMaterial;
-layout (set = 0, binding = 5) uniform sampler2D samplerEmissive;
-layout (set = 0, binding = 6) uniform sampler2D samplerShadows;
-layout (set = 0, binding = 7) uniform sampler2D samplerSSAO;
+layout (set = 0, binding = 0) uniform sampler basicSampler; 
+layout (set = 0, binding = 1) uniform texture2D samplerDepth;
+layout (set = 0, binding = 2) uniform texture2D samplerNormal;
+layout (set = 0, binding = 3) uniform texture2D samplerAlbedo;
+layout (set = 0, binding = 4) uniform texture2D samplerMaterial;
+layout (set = 0, binding = 5) uniform texture2D samplerEmissive;
+layout (set = 0, binding = 6) uniform texture2D samplerShadows;
+layout (set = 0, binding = 7) uniform texture2D samplerSSAO;
 
 #include "lights.shader"
 
@@ -37,13 +37,13 @@ uint DecodeFlags(in float value)
 void main()
 {
 	// just perform ambient
-	vec4 albedo = texture(samplerAlbedo, inUV);
+	vec4 albedo = texture(sampler2D(samplerAlbedo,basicSampler), inUV);
 	float ambient = PC.ambient;
 	
 	const float gamma = 2.2;
 	albedo.rgb =  pow(albedo.rgb, vec3(1.0/gamma));
 	// Ambient part
-	vec3 emissive = texture(samplerEmissive,inUV).rgb;
+	vec3 emissive = texture(sampler2D(samplerEmissive,basicSampler),inUV).rgb;
 	vec3 result = albedo.rgb  * ambient + emissive;
 	outFragcolor = vec4(result, albedo.a);	
 

@@ -25,7 +25,6 @@ namespace vkutils
 {
 	void Texture::updateDescriptor()
 	{
-		descriptor.sampler = sampler;
 		descriptor.imageView = view;
 		descriptor.imageLayout = imageLayout;
 	}
@@ -34,7 +33,6 @@ namespace vkutils
 	{
 		auto viewCpy = view;
 		auto imageCpy = image;
-		auto samplerCpy = sampler;
 		auto memoryCpy = deviceMemory;
 		auto deviceCpy = device->logicalDevice;
 
@@ -42,11 +40,7 @@ namespace vkutils
 		auto delFunctor = [=](){
 			vkDestroyImageView(deviceCpy, viewCpy, nullptr);
 
-			vkDestroyImage(deviceCpy, imageCpy, nullptr);
-			if (samplerCpy)
-			{
-				vkDestroySampler(deviceCpy, samplerCpy, nullptr);
-			}
+			vkDestroyImage(deviceCpy, imageCpy, nullptr);			
 			vkFreeMemory(deviceCpy, memoryCpy, nullptr);
 		};
 
@@ -62,7 +56,6 @@ namespace vkutils
 		
 		view = VK_NULL_HANDLE;		
 		image = VK_NULL_HANDLE;
-		sampler = VK_NULL_HANDLE;
 		deviceMemory = VK_NULL_HANDLE;
 	}
 
@@ -312,7 +305,6 @@ namespace vkutils
 
 		filter = VK_FILTER_LINEAR;
 
-		CreateSampler();
 		
 
 		// Create image view
@@ -464,7 +456,6 @@ namespace vkutils
 
 		CreateImageView();
 
-		CreateSampler();
 
 		for (size_t i = 0; i < mipLevels; i++)
 		{
@@ -567,8 +558,6 @@ namespace vkutils
 
 		filter = _filter;
 
-		// Create sampler
-		CreateSampler();
 			
 	}
 
@@ -704,35 +693,6 @@ namespace vkutils
 		viewCreateInfo.image = image;
 		VK_CHK(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
 		VK_NAME(device->logicalDevice, name.empty() ? "CreateImage::view" : name.c_str(), view);
-	}
-
-	void Texture2D::CreateSampler(bool aniso)
-	{
-		assert(sampler == VK_NULL_HANDLE);
-		// Create sampler
-		VkSamplerCreateInfo samplerCreateInfo = {};
-		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerCreateInfo.magFilter = filter;
-		samplerCreateInfo.minFilter = filter;
-		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.mipLodBias = 0.0f;
-		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-		samplerCreateInfo.minLod = 0.0f;
-		// Max level-of-detail should match mip level count
-		samplerCreateInfo.maxLod = mipLevels;
-		// Only enable anisotropic filtering if enabled on the device
-		samplerCreateInfo.maxAnisotropy = 1.0f;
-		if (aniso == true && device->enabledFeatures.samplerAnisotropy == VK_TRUE) 
-		{
-			samplerCreateInfo.maxAnisotropy = device->properties.limits.maxSamplerAnisotropy;
-			samplerCreateInfo.anisotropyEnable = VK_TRUE;
-		}
-		samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-		vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler);
-		VK_NAME(device->logicalDevice, "Texture::sampler", sampler);
 	}
 
 	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)

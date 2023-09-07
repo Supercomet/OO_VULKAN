@@ -167,7 +167,7 @@ float ShadowCalculation(int lightIndex, int gridID, in vec4 fragPosLightSpace, f
     }
     else
     {
-        sampledDepth = texture(samplerShadows, uvs).r;
+        sampledDepth = texture(sampler2D(samplerShadows,basicSampler), uvs).r;
     }
     float currDepth = projCoords.z;
 

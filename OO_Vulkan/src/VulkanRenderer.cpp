@@ -92,7 +92,6 @@ Technology is prohibited.
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
 // vulkan debug callback
-#pragma optimize("" ,off)
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -113,7 +112,6 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
 	return VK_FALSE;
 }
-#pragma optimize("" ,on)
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
@@ -289,6 +287,9 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 	InitializeRenderBuffers();
 
+	// Initialize all sampler objects
+	samplerManager.Init();
+
 	CreateDefaultRenderpass();
 	CreateUniformBuffers();
 	CreateDefaultDescriptorSetLayout();
@@ -315,8 +316,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 	CreateLightingBuffers();
 
-	// Initialize all sampler objects
-	samplerManager.Init();
+	
 
 	// Calls "Init()" on all registered render passes. Order is not guarunteed.
 	auto rpd = RenderPassDatabase::Get();
@@ -677,11 +677,15 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& s
 	VkRect2D scissor{ {}, {renderSize.x,renderSize.y} };
 	cmd.SetScissor(scissor);
 
-
+	VkDescriptorImageInfo sampler = oGFX::vkutils::inits::descriptorImageInfo(
+		GfxSamplerManager::GetDefaultSampler(),
+		VK_NULL_HANDLE,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	// create descriptor for this pass
 	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
-		.BindImage(1, &texdesc, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.BindImage(0, &sampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.BindImage(1, &texdesc, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.Build(descriptorSet_fullscreenBlit, SetLayoutDB::util_fullscreenBlit);
 
 	cmd.BindPSO(pso_utilFullscreenBlit);
@@ -856,9 +860,14 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	VK_NAME(m_device.logicalDevice, "defaultPSOLayout", PSOLayoutDB::defaultPSOLayout);
 	
 	//create dummy for desciptorlayout
-	VkDescriptorSetLayoutBinding binding = oGFX::vkutils::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1, 1);
-	VkDescriptorSetLayoutCreateInfo dci = oGFX::vkutils::inits::descriptorSetLayoutCreateInfo(&binding,1);
-	SetLayoutDB::util_fullscreenBlit= DescLayoutCache.CreateDescriptorLayout(&dci);
+	VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
+		GfxSamplerManager::GetDefaultSampler(),
+		0,
+		VK_IMAGE_LAYOUT_UNDEFINED);
+	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
+		.BindImage(0, nullptr, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.BindImage(1, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.BuildLayout(SetLayoutDB::util_fullscreenBlit);
 
 	pipelineLayoutCreateInfo.setLayoutCount = 1;
 	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::util_fullscreenBlit;
@@ -867,7 +876,7 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	
 	
 	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
-		.BindImage(0, nullptr, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindBuffer(3000, gpuTransformBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2002, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT,13)
 		.BindImage(2001, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
@@ -1614,7 +1623,13 @@ void VulkanRenderer::CreateDescriptorSets_GPUScene()
 	info.offset = 0;
 	info.range = VK_WHOLE_SIZE;
 
+	VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
+		GfxSamplerManager::GetDefaultSampler(),
+		0,
+		VK_IMAGE_LAYOUT_UNDEFINED);
+
 	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
+		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.BindBuffer(3, gpuTransformBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.BindBuffer(4, gpuBoneMatrixBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.BindBuffer(5, objectInformationBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
@@ -2369,7 +2384,13 @@ void VulkanRenderer::BeginDraw()
 
 			GenerateCPUIndirectDrawCommands();
 	
+			VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
+				GfxSamplerManager::GetDefaultSampler(),
+				0,
+				VK_IMAGE_LAYOUT_UNDEFINED);
+
 			DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
+				.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
 				.BindBuffer(3, gpuTransformBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 				.BindBuffer(4, gpuBoneMatrixBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 				.BindBuffer(5, objectInformationBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
@@ -2665,13 +2686,11 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 	generatedTexture.image = VK_NULL_HANDLE;
 	generatedTexture.deviceMemory = VK_NULL_HANDLE;
 	generatedTexture.view = VK_NULL_HANDLE;
-	generatedTexture.sampler = VK_NULL_HANDLE;
 	generatedTexture.name += " xd";
 	generatedTexture.currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 	generatedTexture.AllocateImageMemory(&m_device, generatedTexture.usage, texMips);
 	generatedTexture.CreateImageView();
-	generatedTexture.CreateSampler();
 
 	VkImageViewCreateInfo viewCreateInfo = {};
 	viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -2723,7 +2742,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 
 	std::array<VkDescriptorSet, 1> dstsets;
 	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
-		.BindImage(0, &dii, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(0, &dii, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindBuffer(3000, &cb, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2002, samplers.data(), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 13)
 		.BindImage(2001, &samplers[6], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
@@ -2852,7 +2871,7 @@ bool VulkanRenderer::ResizeSwapchain()
 			const auto targetID = currWorld->targetIDs[x];
 			auto& image = renderTargets[targetID].texture;
 			VkDescriptorImageInfo desc_image[1] = {};
-			desc_image[0].sampler = image.sampler;
+			desc_image[0].sampler = samplerManager.GetDefaultSampler();
 			desc_image[0].imageView = image.view;
 			desc_image[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 			VkWriteDescriptorSet write_desc[1] = {};
@@ -4119,7 +4138,7 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 		GenerateMipmaps(texture);
 
 		//setup imgui binding
-		g_imguiIDs[indx] = CreateImguiBinding(texture.sampler, texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		g_imguiIDs[indx] = CreateImguiBinding(samplerManager.GetDefaultSampler(), texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	};
 	{
 		std::scoped_lock s{ g_mut_workQueue };
@@ -4158,7 +4177,7 @@ uint32_t VulkanRenderer::CreateTextureImageImmediate(const oGFX::FileImageData& 
 	texture.name = imageInfo.name;
 
 	//setup imgui binding
-	g_imguiIDs[indx] = CreateImguiBinding(texture.sampler, texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	g_imguiIDs[indx] = CreateImguiBinding(samplerManager.GetDefaultSampler(), texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	
 
 	// Return index of new texture image
@@ -4192,6 +4211,7 @@ uint32_t VulkanRenderer::UpdateBindlessGlobalTexture(uint32_t textureID)
 {
 
 	auto& texture = g_Textures[textureID];
+	texture.descriptor.sampler = samplerManager.GetDefaultSampler();
 	std::vector<VkWriteDescriptorSet> writeSets
 	{
 		oGFX::vkutils::inits::writeDescriptorSet(descriptorSet_bindless, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &texture.descriptor),
