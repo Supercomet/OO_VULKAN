@@ -527,26 +527,38 @@ void GBufferRenderPass::CreatePipeline()
 
 	pipelineCI.pNext = &renderingInfo;
 
+	if (pso_GBufferDefault != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_GBufferDefault, nullptr);
+	}
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_GBufferDefault));
 	VK_NAME(m_device.logicalDevice, "GBufferDefaultPSO", pso_GBufferDefault);
 
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr);
 
-
+	if (pso_ComputeCull != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_ComputeCull, nullptr);
+	}
 	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::singleSSBOlayout);
 	computeCI.stage = vr.LoadShader(m_device, compute, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_ComputeCull));
+	VK_NAME(m_device.logicalDevice, "pso_ComputeCull", pso_ComputeCull);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
 
 
 	{// shadow prepass moveout one day
 
 		const char* shaderCS = "Shaders/bin/shadowPrepass.comp.spv";
-
+		if (pso_ComputeShadowPrepass != VK_NULL_HANDLE)
+		{
+			vkDestroyPipeline(m_device.logicalDevice, pso_ComputeShadowPrepass, nullptr);
+		}
 		VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::shadowPrepassLayout);
 		computeCI.stage = vr.LoadShader(m_device, shaderCS, VK_SHADER_STAGE_COMPUTE_BIT);
 		VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_ComputeShadowPrepass));
+		VK_NAME(m_device.logicalDevice, "pso_ComputeShadowPrepass", pso_ComputeShadowPrepass);
 		vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
 	}
 

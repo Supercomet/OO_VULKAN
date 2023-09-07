@@ -176,6 +176,8 @@ public:
 	static VulkanRenderer* get();
 
 	bool Init(const oGFX::SetupInfo& setupSpecs, Window& window);
+	
+	void ReloadShaders();
 
 	void CreateInstance(const oGFX::SetupInfo& setupSpecs);
 	void CreateDebugCallback();
@@ -457,6 +459,7 @@ public:
 
 	bool resizeSwapchain = false;
 	bool m_prepared = false;
+	bool m_reloadShaders = false;
 
 
 	// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.

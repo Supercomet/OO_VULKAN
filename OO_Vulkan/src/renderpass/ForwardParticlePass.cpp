@@ -346,7 +346,10 @@ void ForwardParticlePass::CreatePipeline()
 	renderingInfo.stencilAttachmentFormat = vr.G_DEPTH_FORMAT;
 
 	pipelineCI.pNext = &renderingInfo;
-
+	if (pso_GBufferParticles != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_GBufferParticles, nullptr);
+	}
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_GBufferParticles));
 	VK_NAME(m_device.logicalDevice, "forwardParticlesPSO", pso_GBufferParticles);
 

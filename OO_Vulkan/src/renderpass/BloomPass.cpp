@@ -69,8 +69,7 @@ void BloomPass::Init()
 
 void BloomPass::CreatePSO()
 {
-	CreateDescriptors();
-	CreatePipelineLayout();
+	
 	CreatePipeline(); // Dependency on GBuffer Init()
 }
 
@@ -542,8 +541,9 @@ void BloomPass::CreatePipelineLayout()
 void BloomPass::SetupRenderpass()
 {
 	auto& vr = *VulkanRenderer::get();
-	
-
+	CreateDescriptors();
+	CreatePipelineLayout();
+	CreatePSO();
 }
 
 void BloomPass::CreatePipeline()
@@ -559,36 +559,71 @@ void BloomPass::CreatePipeline()
 	const char* vignette = "Shaders/bin/vignette.comp.spv";
 	const char* fxaa = "Shaders/bin/fxaa.comp.spv";
 
+	if (pso_bloom_bright != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_bloom_bright, nullptr);
+	}
 	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::doubleImageStoreLayout);
 	computeCI.stage = vr.LoadShader(m_device, shaderCS, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_bloom_bright));
+	VK_NAME(m_device.logicalDevice, "pso_bloom_bright", pso_bloom_bright);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
 
+	if (pso_bloom_down != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_bloom_down, nullptr);
+	}
 	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::BloomLayout);
 	computeCI.stage = vr.LoadShader(m_device, shaderDownsample, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_bloom_down));
+	VK_NAME(m_device.logicalDevice, "pso_bloom_down", pso_bloom_down);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
 
+	if (pso_bloom_up != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_bloom_up, nullptr);
+	}
 	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::doubleImageStoreLayout);
 	computeCI.stage = vr.LoadShader(m_device, shaderUpample, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_bloom_up));
+	VK_NAME(m_device.logicalDevice, "pso_bloom_up", pso_bloom_up);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
 
+	if (pso_additive_composite != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_additive_composite, nullptr);
+	}
 	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::BloomLayout);
 	computeCI.stage = vr.LoadShader(m_device, compositeAdditive, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_additive_composite));
+	VK_NAME(m_device.logicalDevice, "pso_additive_composite", pso_additive_composite);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
 
+	if (pso_tone_mapping != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_tone_mapping, nullptr);
+	}
 	computeCI.stage = vr.LoadShader(m_device, toneMap, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_tone_mapping));
+	VK_NAME(m_device.logicalDevice, "pso_tone_mapping", pso_tone_mapping);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
 
+	if (pso_vignette != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_vignette, nullptr);
+	}
 	computeCI.stage = vr.LoadShader(m_device, vignette, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_vignette));
+	VK_NAME(m_device.logicalDevice, "pso_vignette", pso_vignette);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
 
+	if (pso_fxaa != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_fxaa, nullptr);
+	}
 	computeCI.stage = vr.LoadShader(m_device, fxaa, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_fxaa));
+	VK_NAME(m_device.logicalDevice, "pso_fxaa", pso_fxaa);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
 	
 }

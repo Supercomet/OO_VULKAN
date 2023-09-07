@@ -376,7 +376,10 @@ void ShadowPass::CreatePipeline()
 	// This is important, as color write mask will otherwise be 0x0 and you
 	// won't see anything rendered to the attachment
 	
-
+	if (pso_ShadowDefault != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_ShadowDefault, nullptr);
+	}
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_ShadowDefault));
 	VK_NAME(m_device.logicalDevice, "ShadowPipline", pso_ShadowDefault);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr);

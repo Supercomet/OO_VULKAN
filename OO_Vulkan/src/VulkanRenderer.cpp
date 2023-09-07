@@ -389,6 +389,15 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	
 }
 
+void VulkanRenderer::ReloadShaders()
+{
+	vkDeviceWaitIdle(m_device.logicalDevice);
+	
+	CreateDefaultPSO();
+	
+	RenderPassDatabase::ReloadAllShaders();
+}
+
 void VulkanRenderer::CreateInstance(const oGFX::SetupInfo& setupSpecs)
 {
 		m_instance.Init(setupSpecs);
@@ -876,7 +885,7 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 
 void VulkanRenderer::CreateDefaultPSO()
 {
-
+	
 	const char* shaderVS = "Shaders/bin/genericFullscreen.vert.spv";
 	const char* shaderPS = "Shaders/bin/Blit.frag.spv";
 	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages
@@ -927,13 +936,20 @@ void VulkanRenderer::CreateDefaultPSO()
 	colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
 	blendAttachmentState= oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
 	
+	if (pso_utilFullscreenBlit != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_utilFullscreenBlit, nullptr);
+	}
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_utilFullscreenBlit));
 	VK_NAME(m_device.logicalDevice, "pso_blit", pso_utilFullscreenBlit);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[0].module, nullptr); // destroy vert
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr); // destroy fragment
 	
-
 	
+	if (pso_utilAMDSPD != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_utilAMDSPD, nullptr); 
+	}
 	const char* computeShader = "Shaders/bin/ffx_spd_downsample_pass.glsl.spv";
 	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::AMDSPDLayout);
 	computeCI.stage = LoadShader(m_device, computeShader, VK_SHADER_STAGE_COMPUTE_BIT);
@@ -2257,6 +2273,11 @@ bool VulkanRenderer::PrepareFrame()
 		if (m_prepared == false)
 			return false;
 		resizeSwapchain = false;
+	}
+
+	if (m_reloadShaders == true) {
+		ReloadShaders();
+		m_reloadShaders = false;
 	}
 
 	this->BeginDraw(); // TODO: Clean this up...

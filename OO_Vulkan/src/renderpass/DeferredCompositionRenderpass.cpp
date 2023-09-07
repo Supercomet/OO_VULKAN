@@ -28,13 +28,12 @@ DECLARE_RENDERPASS(DeferredCompositionRenderpass);
 
 void DeferredCompositionRenderpass::Init()
 {
-
+	CreateDescriptors();
+	CreatePipelineLayout();
 }
 
 void DeferredCompositionRenderpass::CreatePSO()
-{
-	CreateDescriptors();
-	CreatePipelineLayout();
+{	
 	CreatePipeline(); // Dependency on GBuffer Init()
 }
 
@@ -328,7 +327,10 @@ void DeferredCompositionRenderpass::CreatePipeline()
 	renderingInfo.stencilAttachmentFormat = vr.G_DEPTH_FORMAT;
 
 	pipelineCI.pNext = &renderingInfo;
-
+	if (pso_DeferredLightingComposition != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_DeferredLightingComposition, nullptr);
+	}
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_DeferredLightingComposition));
 	VK_NAME(m_device.logicalDevice, "deferredLightingCompositionPSO", pso_DeferredLightingComposition);
 
@@ -354,6 +356,10 @@ void DeferredCompositionRenderpass::CreatePipeline()
 	VkPipelineColorBlendStateCreateInfo colourBlendingCreateInfo = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1,&colourState);
 	pipelineCI.pColorBlendState = &colourBlendingCreateInfo;
 
+	if (pso_deferredBox != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_deferredBox, nullptr);
+	}
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_deferredBox));
 	VK_NAME(m_device.logicalDevice, "deferredBoxLights", pso_deferredBox);
 

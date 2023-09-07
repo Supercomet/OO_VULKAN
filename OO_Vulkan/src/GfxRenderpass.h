@@ -59,6 +59,7 @@ public:
     static void Shutdown();
     void RegisterRenderPass(std::unique_ptr<GfxRenderpass>&& renderPass);
     void RegisterRenderPass(GfxRenderpass* renderPass);
+    static void ReloadAllShaders();
 
     // Call this once to call "Init()" on all registered render passes.
     // Take note the order of initialization is undefined.

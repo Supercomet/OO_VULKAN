@@ -773,6 +773,10 @@ void TestApplication::Run()
             {
                 PROFILE_SCOPED("ImGui::Update");
                 ImGui::Begin("Problems");
+                if(ImGui::Button("Reload Shaders") )
+                {
+                    gs_RenderEngine->m_reloadShaders = true;
+                }
                 ImGui::Checkbox("EditCam", &s_boolCamera);
                 ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
                 if(ImGui::TreeNode("Bloom") ){

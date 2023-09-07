@@ -383,6 +383,10 @@ void DebugDrawRenderpass::CreatePipeline()
 				// Create all permutations of PSO needed
 				{
 					VkPipeline& pso = m_DebugDrawPSOSelector.psos[i + 2ull * j];
+					if (pso != VK_NULL_HANDLE) 
+					{
+						vkDestroyPipeline(m_device.logicalDevice,pso, nullptr);
+					}
 					VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &pso));
 					VK_NAME(m_device.logicalDevice, "DebugDrawLinesPSO", pso);
 				}

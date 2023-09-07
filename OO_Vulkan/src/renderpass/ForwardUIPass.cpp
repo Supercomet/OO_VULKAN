@@ -374,9 +374,17 @@ void ForwardUIPass::CreatePipeline()
 
 	pipelineCI.pNext = &renderingInfo;
 
+	if (pso_Forward_UI != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_Forward_UI, nullptr);
+	}
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_Forward_UI));
 	VK_NAME(m_device.logicalDevice, "forwardUIPSO", pso_Forward_UI);
 
+	if (pso_Forward_UI_NO_DEPTH != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_Forward_UI_NO_DEPTH, nullptr);
+	}
 	depthStencilState.depthTestEnable = VK_FALSE;
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_Forward_UI_NO_DEPTH));
 	VK_NAME(m_device.logicalDevice, "forwardUIPSO_NO_DEPTH", pso_Forward_UI_NO_DEPTH);

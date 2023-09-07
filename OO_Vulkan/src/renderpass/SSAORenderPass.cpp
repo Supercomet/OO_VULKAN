@@ -47,8 +47,7 @@ void SSAORenderPass::Init()
 
 void SSAORenderPass::CreatePSO()
 {
-	CreateDescriptors();
-	CreatePipelineLayout();
+	
 	CreatePipeline(); // Dependency on GBuffer Init()
 }
 
@@ -403,6 +402,8 @@ void SSAORenderPass::SetupRenderpass()
 	renderpass_SSAO.name = "Renderpass_SSAO";
 	renderpass_SSAO.Init(vr.m_device, renderPassCreateInfo);
 
+	CreateDescriptors();
+	CreatePipelineLayout();
 }
 
 void SSAORenderPass::CreatePipeline()
@@ -459,6 +460,10 @@ void SSAORenderPass::CreatePipeline()
 
 	pipelineCI.pNext = &renderingInfo;
 
+	if (pso_SSAO != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_SSAO, nullptr);
+	}
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_SSAO));
 	VK_NAME(m_device.logicalDevice, "SSAO_PSO", pso_SSAO);
 	vkDestroyShaderModule(m_device.logicalDevice, shaderStages[1].module, nullptr); // destroy fragment
@@ -467,6 +472,10 @@ void SSAORenderPass::CreatePipeline()
 
 	shaderStages[1] = vr.LoadShader(m_device, "Shaders/bin/ssaoBlur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 	pipelineCI.layout = PSOLayoutDB::SSAOBlurLayout;
+	if (pso_SSAO_blur != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_SSAO_blur, nullptr);
+	}
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_SSAO_blur));
 	VK_NAME(m_device.logicalDevice, "SSAO_PSO_blur", pso_SSAO_blur);
 
