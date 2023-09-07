@@ -128,7 +128,8 @@ struct EntityInfo
 
     ObjectInstanceFlags flags{static_cast<ObjectInstanceFlags>(ObjectInstanceFlags::RENDER_ENABLED 
         | ObjectInstanceFlags::SHADOW_RECEIVER 
-        | ObjectInstanceFlags::SHADOW_CASTER)};
+        | ObjectInstanceFlags::SHADOW_CASTER
+        | ObjectInstanceFlags::SHADOW_ENABLED)};
 
     oGFX::CPUSkeletonInstance* localSkeleton;
 
@@ -480,7 +481,7 @@ void TestApplication::Run()
             ed.name = std::string("Sphere_") + std::to_string(i * metalic.size() + y);
             ed.entityID = FastRandomMagic();
             ed.modelID = model_sphere->meshResource;
-            ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
+            //ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
             
             ed.position = { gridSize*i - halfGrid,5.0f,gridSize*y - halfGrid };
             ed.scale = { 1.0f,1.0f,1.0f };

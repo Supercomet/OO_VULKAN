@@ -8,8 +8,8 @@ void CameraController::Update(float dt)
         return;
 
     // Poll input states
-    const bool left  = Input::GetKeyHeld(KEY_A);
-    const bool right = Input::GetKeyHeld(KEY_D);
+    const bool left  = Input::GetKeyHeld(KEY_D);
+    const bool right = Input::GetKeyHeld(KEY_A);
     const bool down  = Input::GetKeyHeld(KEY_S);
     const bool up    = Input::GetKeyHeld(KEY_W);
     const glm::vec2 mousedelta = Input::GetMouseDelta();
