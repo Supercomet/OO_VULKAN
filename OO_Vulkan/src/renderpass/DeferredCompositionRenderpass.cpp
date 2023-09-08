@@ -26,6 +26,15 @@ Technology is prohibited.
 
 DECLARE_RENDERPASS(DeferredCompositionRenderpass);
 
+VkRenderPass renderpass_DeferredLightingComposition{};
+
+VkPipeline pso_DeferredLightingComposition{};
+VkPipeline pso_deferredBox{};
+
+uint64_t uboDynamicAlignment{};
+
+bool m_log{ false };
+
 void DeferredCompositionRenderpass::Init()
 {
 	
@@ -62,12 +71,12 @@ void DeferredCompositionRenderpass::Draw()
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("DeferredComposition");
 
-	auto gbuffer = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
-	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::EMISSIVE], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::ALBEDO], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::MATERIAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	auto& attachments = Attachments::attachments;
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::EMISSIVE], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ALBEDO], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::MATERIAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	std::array<VkClearValue, 2> clearValues{};
 	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
@@ -100,8 +109,8 @@ void DeferredCompositionRenderpass::Draw()
 	LightPC pc{};
 	pc.useSSAO = vr.useSSAO ? 1 : 0;
 	pc.specularModifier = vr.currWorld->lightSettings.specularModifier;
-	pc.resolution.x = vr.renderTargets[vr.renderTargetInUseID].texture.width;
-	pc.resolution.y = vr.renderTargets[vr.renderTargetInUseID].texture.height;
+	pc.resolution.x = (float)vr.renderTargets[vr.renderTargetInUseID].texture.width;
+	pc.resolution.y = (float)vr.renderTargets[vr.renderTargetInUseID].texture.height;
 
 	size_t lightCnt = 0;
 	auto& lights = vr.currWorld->GetAllOmniLightInstances();
@@ -155,7 +164,7 @@ void DeferredCompositionRenderpass::Draw()
 
 	//for (size_t i = 0; i < lightCnt; i++)
 	{
-		vkCmdDrawIndexed(cmdlist, cube.indicesCount, lightCnt, cube.baseIndices, cube.baseVertex, 0);
+		vkCmdDrawIndexed(cmdlist, cube.indicesCount, (uint32_t)lightCnt, cube.baseIndices, cube.baseVertex, 0);
 	}
 	
 
@@ -183,51 +192,41 @@ void DeferredCompositionRenderpass::CreateDescriptors()
 
 	auto& vr = *VulkanRenderer::get();
 	// At this point, all dependent resources (gbuffer etc) must be ready.
-	auto gbuffer = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
-	assert(gbuffer != nullptr);
-
-	auto ssao = RenderPassDatabase::GetRenderPass<SSAORenderPass>();
-	assert(ssao != nullptr);
-
-    // Image descriptors for the offscreen color attachments
-    // VkDescriptorImageInfo texDescriptorPosition = oGFX::vkutils::inits::descriptorImageInfo(
-    //     GfxSamplerManager::GetSampler_Deferred(),
-	// 	gbuffer->attachments[GBufferAttachmentIndex::POSITION].view,
-    //     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	auto& attachments= Attachments::attachments;
 
     VkDescriptorImageInfo texDescriptorNormal = oGFX::vkutils::inits::descriptorImageInfo(
         GfxSamplerManager::GetSampler_Deferred(),
-		gbuffer->attachments[GBufferAttachmentIndex::NORMAL]  .view,
+		attachments[GBufferAttachmentIndex::NORMAL]  .view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     VkDescriptorImageInfo texDescriptorAlbedo = oGFX::vkutils::inits::descriptorImageInfo(
         GfxSamplerManager::GetSampler_Deferred(),
-		gbuffer->attachments[GBufferAttachmentIndex::ALBEDO]  .view,
+		attachments[GBufferAttachmentIndex::ALBEDO]  .view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     VkDescriptorImageInfo texDescriptorMaterial = oGFX::vkutils::inits::descriptorImageInfo(
         GfxSamplerManager::GetSampler_Deferred(),
-        gbuffer->attachments[GBufferAttachmentIndex::MATERIAL].view,
+        attachments[GBufferAttachmentIndex::MATERIAL].view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	VkDescriptorImageInfo texDescriptorEmissive = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_Deferred(),
-		gbuffer->attachments[GBufferAttachmentIndex::EMISSIVE].view,
+		attachments[GBufferAttachmentIndex::EMISSIVE].view,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     VkDescriptorImageInfo texDescriptorDepth = oGFX::vkutils::inits::descriptorImageInfo(
         GfxSamplerManager::GetSampler_Deferred(),
-        gbuffer->attachments[GBufferAttachmentIndex::DEPTH]   .view,
+        attachments[GBufferAttachmentIndex::DEPTH]   .view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	
-	auto& shadowTex = RenderPassDatabase::GetRenderPass<ShadowPass>()->shadow_depth;
-	auto& maskTex = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->shadowMask;
+	auto& shadowTex = Attachments::shadow_depth;
+	auto& maskTex = Attachments::shadowMask;
 	VkDescriptorImageInfo texDescriptorShadow = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_ShowMapClamp(),
 		shadowTex.view,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	auto& ssaoTex = ssao->SSAO_finalTarget;
+	auto& ssaoTex = Attachments::SSAO_finalTarget;
 	VkDescriptorImageInfo texDescriptorSSAO = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_Deferred(),
 		ssaoTex.view,

@@ -33,6 +33,11 @@ Technology is prohibited.
 
 DECLARE_RENDERPASS(ForwardParticlePass);
 
+VulkanRenderpass renderpass_ForwardParticles{};
+
+//VkPushConstantRange pushConstantRange;
+VkPipeline pso_GBufferParticles{};
+
 void ForwardParticlePass::Init()
 {
 	SetupRenderpass();
@@ -80,7 +85,7 @@ void ForwardParticlePass::Draw()
 	VkClearColorValue rMinusOne = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
 	rMinusOne.int32[0] = -1;
 
-	auto& attachments = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments;
+	auto& attachments = Attachments::attachments;
 
 	assert(attachments[GBufferAttachmentIndex::DEPTH].currentLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
@@ -186,7 +191,7 @@ void ForwardParticlePass::SetupRenderpass()
 		attachmentDescs[2].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachmentDescs[2].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		auto& attachments = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments;
+		auto& attachments = Attachments::attachments;
 	// Formats
 	//attachmentDescs[GBufferAttachmentIndex::POSITION].format = attachments[GBufferAttachmentIndex::POSITION].format;
 	attachmentDescs[0]  .format = vr.G_HDR_FORMAT;
@@ -250,7 +255,7 @@ void ForwardParticlePass::SetupFramebuffer()
 	const uint32_t width = m_swapchain.swapChainExtent.width;
 	const uint32_t height = m_swapchain.swapChainExtent.height;
 
-	auto& attachments = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments;
+	auto& attachments = Attachments::attachments;
 }
 
 
@@ -340,7 +345,7 @@ void ForwardParticlePass::CreatePipeline()
 	VkPipelineRenderingCreateInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 	renderingInfo.viewMask = {};
-	renderingInfo.colorAttachmentCount = formats.size();
+	renderingInfo.colorAttachmentCount = (uint32_t)formats.size();
 	renderingInfo.pColorAttachmentFormats = formats.data();
 	renderingInfo.depthAttachmentFormat = vr.G_DEPTH_FORMAT;
 	renderingInfo.stencilAttachmentFormat = vr.G_DEPTH_FORMAT;

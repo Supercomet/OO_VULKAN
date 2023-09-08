@@ -41,6 +41,7 @@ Technology is prohibited.
 #include "imgui/imgui.h"
 
 #include "GfxSampler.h"
+#include "GfxRenderpass.h"
 
 #include "GraphicsWorld.h"
 #include "GraphicsBatch.h"
@@ -88,6 +89,30 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout compute_AMDSPD;
 
 };
+
+struct Attachments {
+	inline static std::array<vkutils::Texture2D, GBufferAttachmentIndex::MAX_ATTACHMENTS> attachments{};
+	inline static vkutils::Texture2D shadowMask{};
+
+	inline static vkutils::Texture2D SSAO_renderTarget{};
+	inline static vkutils::Texture2D SSAO_finalTarget{};
+	inline static vkutils::Texture2D randomNoise_texture{};
+
+	inline static vkutils::Texture2D shadow_depth{};
+
+
+	static constexpr size_t MAX_BLOOM_SAMPLES = 5;
+	static inline vkutils::Texture2D Bloom_brightTarget;
+	static inline std::array<vkutils::Texture2D, MAX_BLOOM_SAMPLES> Bloom_downsampleTargets;
+
+};
+
+struct Attachments_imguiBinding {
+	inline static std::array<ImTextureID, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> deferredImg{};
+
+	inline static ImTextureID shadowImg{};
+};
+
 
 // Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...
 struct PSOLayoutDB

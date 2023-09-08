@@ -31,6 +31,12 @@ Technology is prohibited.
 
 #include <array>
 
+VulkanRenderpass renderpass_ForwardUI{};
+
+//VkPushConstantRange pushConstantRange;
+VkPipeline pso_Forward_UI{};
+VkPipeline pso_Forward_UI_NO_DEPTH{};
+
 DECLARE_RENDERPASS(ForwardUIPass);
 
 void ForwardUIPass::Init()
@@ -79,7 +85,7 @@ void ForwardUIPass::Draw()
 	VkClearColorValue rMinusOne = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
 	rMinusOne.int32[0] = -1;
 
-	auto& attachments = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments;
+	auto& attachments = Attachments::attachments;
 
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
@@ -209,7 +215,7 @@ void ForwardUIPass::SetupRenderpass()
 		attachmentDescs[2].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachmentDescs[2].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		auto& attachments = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments;
+		auto& attachments = Attachments::attachments;
 	// Formats
 	//attachmentDescs[GBufferAttachmentIndex::POSITION].format = attachments[GBufferAttachmentIndex::POSITION].format;
 	attachmentDescs[0]  .format = vr.G_HDR_FORMAT;
@@ -274,7 +280,7 @@ void ForwardUIPass::SetupFramebuffer()
 	const uint32_t height = m_swapchain.swapChainExtent.height;
 
 	// maybe dont use this??
-	auto& attachments = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments;
+	auto& attachments = Attachments::attachments;
 
 }
 

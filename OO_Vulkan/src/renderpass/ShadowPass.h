@@ -30,18 +30,7 @@ struct ShadowPass : public GfxRenderpass
 
 	bool SetupDependencies() override;
 	void CreatePSO() override;
-	
-	vkutils::Texture2D shadow_depth{};
 
-	// This is for ImGui
-	std::array<ImTextureID, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> deferredImg{};
-	ImTextureID shadowImg{};
-
-	VkExtent2D shadowmapSize = { 4096, 4096};
-
-	VulkanRenderpass renderpass_Shadow{};
-
-	VkPipeline pso_ShadowDefault{};
 
 private:
 	void SetupRenderpass();

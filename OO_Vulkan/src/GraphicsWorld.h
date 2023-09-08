@@ -113,7 +113,7 @@ struct UIInstance
     glm::vec4 colour{1.0f};
 
     oGFX::FontFormatting format;
-    oGFX::Font* fontAsset;
+    oGFX::Font* fontAsset{ nullptr };
 
     uint8_t instanceData{ 0 }; // Per Instance unique data (not to be in material)
     glm::mat4x4 localToWorld{ 1.0f };

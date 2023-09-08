@@ -14,12 +14,6 @@ Technology is prohibited.
 #pragma once
 
 #include "GfxRenderpass.h"
-#include "vulkan/vulkan.h"
-#include "imgui/imgui.h"
-#include "VulkanTexture.h"
-#include "GpuVector.h"
-
-#include <array>
 
 struct SSAORenderPass : public GfxRenderpass
 {
@@ -37,24 +31,7 @@ struct SSAORenderPass : public GfxRenderpass
 	void CreatePipelineLayout();
 	void CreateDescriptors();
 
-	VulkanRenderpass renderpass_SSAO{};
-
-	//VkPushConstantRange pushConstantRange;
-	VkPipeline pso_SSAO{};
-	// TODO: compute i guess
-	VkPipeline pso_SSAO_blur{};
-
-	vkutils::Texture2D SSAO_renderTarget;
-	vkutils::Texture2D SSAO_finalTarget;
-	vkutils::Texture2D randomNoise_texture;
-
-	GpuVector<glm::vec3> randomVectorsSSBO;
-
 private:
-
-
-	std::vector<glm::vec4> ssaoNoise;
-	std::vector<glm::vec3> ssaoKernel;
 	void SetupRenderpass();
 	void CreatePipeline();
 

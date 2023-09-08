@@ -34,6 +34,13 @@ Technology is prohibited.
 
 DECLARE_RENDERPASS(ShadowPass);
 
+
+VkExtent2D shadowmapSize = { 4096, 4096 };
+
+VulkanRenderpass renderpass_Shadow{};
+
+VkPipeline pso_ShadowDefault{};
+
 void ShadowPass::Init()
 {
 	SetupRenderpass();
@@ -86,16 +93,16 @@ void ShadowPass::Draw()
 	depthInfo.resolveMode = {};
 	depthInfo.resolveImageView = {};
 	depthInfo.resolveImageLayout = {};
-	depthInfo.imageView = shadow_depth.view;
+	depthInfo.imageView = Attachments::shadow_depth.view;
 	depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	depthInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	depthInfo.clearValue = { 0.0f,0.0f };
-	vkutils::TransitionImage(cmdlist, shadow_depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, Attachments::shadow_depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 	VkRenderingInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-	renderingInfo.renderArea = { 0, 0, (uint32_t)shadow_depth.width, (uint32_t)shadow_depth.height };
+	renderingInfo.renderArea = { 0, 0, (uint32_t)Attachments::shadow_depth.width, (uint32_t)Attachments::shadow_depth.height };
 	renderingInfo.layerCount = 1;
 	renderingInfo.colorAttachmentCount = 0;
 	renderingInfo.pColorAttachments = NULL;
@@ -204,7 +211,7 @@ void ShadowPass::Draw()
 
 	vkCmdEndRendering(cmdlist);
 
-	vkutils::TransitionImage(cmdlist, shadow_depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, Attachments::shadow_depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void ShadowPass::Shutdown()
@@ -212,7 +219,7 @@ void ShadowPass::Shutdown()
 	auto& vr = *VulkanRenderer::get();
 	auto& device = vr.m_device.logicalDevice;
 
-	shadow_depth.destroy();
+	Attachments::shadow_depth.destroy();
 	renderpass_Shadow.destroy();
 	vkDestroyPipeline(device, pso_ShadowDefault, nullptr);
 }
@@ -226,12 +233,10 @@ void ShadowPass::SetupRenderpass()
 	const uint32_t width = shadowmapSize.width;
 	const uint32_t height = shadowmapSize.height;
 
-	shadow_depth.name = "SHADOW_ATLAS";
-	shadow_depth.forFrameBuffer(&m_device, vr.G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height, false);
-	vr.fbCache.RegisterFramebuffer(shadow_depth);
+	Attachments::shadow_depth.name = "SHADOW_ATLAS";
+	Attachments::shadow_depth.forFrameBuffer(&m_device, vr.G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height, false);
+	vr.fbCache.RegisterFramebuffer(Attachments::shadow_depth);
 
-	vkutils::Texture2D tex;
-	tex.image = shadow_depth.image;
 
 	// Set up separate renderpass with references to the color and depth attachments
 	VkAttachmentDescription attachmentDescs = {};
@@ -245,7 +250,7 @@ void ShadowPass::SetupRenderpass()
 	attachmentDescs.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	//attachmentDescs.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	attachmentDescs.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	attachmentDescs.format = shadow_depth.format;
+	attachmentDescs.format = Attachments::shadow_depth.format;
 
 
 	VkAttachmentReference depthReference = {};
@@ -295,17 +300,7 @@ void ShadowPass::SetupFramebuffer()
 	auto& vr = *VulkanRenderer::get();
 	auto& m_device = vr.m_device;
 
-	VkImageView depthView = shadow_depth.view;
-
-	VkFramebuffer fb;
-	UNREFERENCED_PARAMETER(fb);
-	//FramebufferBuilder::Begin(&vr.fbCache)
-	//	.BindImage(&shadow_depth)
-	//	.Build(fb,renderpass_Shadow);
-
-	// TODO: Fix imgui depth rendering
-	//deferredImg[GBufferAttachmentIndex::DEPTH]    = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-	shadowImg = vr.CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), shadow_depth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	Attachments_imguiBinding::shadowImg = vr.CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), Attachments::shadow_depth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void ShadowPass::CreatePipeline()

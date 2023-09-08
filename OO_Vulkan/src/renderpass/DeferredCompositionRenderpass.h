@@ -14,9 +14,6 @@ Technology is prohibited.
 #pragma once
 
 #include "GfxRenderpass.h"
-#include "vulkan/vulkan.h"
-
-#include <memory>
 
 struct DeferredCompositionRenderpass : public GfxRenderpass
 {
@@ -29,17 +26,9 @@ struct DeferredCompositionRenderpass : public GfxRenderpass
 	bool SetupDependencies() override;
 	void CreatePSO() override;
 
-	VkRenderPass renderpass_DeferredLightingComposition{};
-	
-	VkPipeline pso_DeferredLightingComposition{};
-	VkPipeline pso_deferredBox{};
-
-	uint64_t uboDynamicAlignment{};
-
 	void CreatePipeline();
 private:
 	void CreateDescriptors();
 	void CreatePipelineLayout();
-	bool m_log{ false };
 };
 

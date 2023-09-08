@@ -14,11 +14,6 @@ Technology is prohibited.
 #pragma once
 
 #include "GfxRenderpass.h"
-#include "vulkan/vulkan.h"
-#include "imgui/imgui.h"
-#include "VulkanTexture.h"
-
-#include <array>
 
 struct ForwardUIPass : public GfxRenderpass
 {
@@ -31,13 +26,6 @@ struct ForwardUIPass : public GfxRenderpass
 	bool SetupDependencies() override;
 
 	void CreatePSO() override;
-
-	VulkanRenderpass renderpass_ForwardUI{};
-	VkFramebuffer framebuffer_GBufferSecondPass{};
-
-	//VkPushConstantRange pushConstantRange;
-	VkPipeline pso_Forward_UI{};
-	VkPipeline pso_Forward_UI_NO_DEPTH{};
 	
 private:
 	void SetupRenderpass();

@@ -80,6 +80,10 @@ Technology is prohibited.
 #include FT_OUTLINE_H
 #include FT_MULTIPLE_MASTERS_H
 
+
+#pragma warning( push )
+#pragma warning( disable : 26451 )
+
 #define MSDFGEN_CORE_ONLY
 #include "msdfgen.h"
 #include "msdfgen-ext.h"
@@ -88,6 +92,7 @@ Technology is prohibited.
 #define MSDF_ATLAS_NO_ARTERY_FONT 
 #include "msdf-atlas-gen.h"
 
+#pragma warning( pop )
 
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
@@ -365,7 +370,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	RenderPassDatabase::InitAllRegisteredPasses();
 
 		
-	auto& shadowTexture =RenderPassDatabase::GetRenderPass<ShadowPass>()->shadow_depth;
+	auto& shadowTexture = Attachments::shadow_depth;
 	shadowTexture.updateDescriptor();
 
 	CreateSynchronisation();
@@ -375,7 +380,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	InitDefaultPrimatives();
 
 	std::array<VkQueue, 1> cmdQueues{m_device.graphicsQueue};
-	std::array<uint32_t, 1> cmdFamily{m_device.queueIndices.graphicsFamily};
+	std::array<uint32_t, 1> cmdFamily{(uint32_t)m_device.queueIndices.graphicsFamily};
 	std::array<VkPhysicalDevice, 1> physDevs{ m_device.physicalDevice};
 	std::array<VkDevice, 1> logicDevs{ m_device.logicalDevice};
 
@@ -1160,7 +1165,7 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	VkFormatProperties formatProps;
 
 	
-	auto& target = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments[GBufferAttachmentIndex::ENTITY_ID];
+	auto& target = Attachments::attachments[GBufferAttachmentIndex::ENTITY_ID];
 	if (target.currentLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 		return -1;
 
@@ -1803,9 +1808,8 @@ void VulkanRenderer::DebugGUIcalls()
 		if (deferredRendering)
 		{
 			const auto sz = ImGui::GetContentRegionAvail();
-			auto gbuff = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
+			auto deferredImg = Attachments_imguiBinding::deferredImg;
 	
-			auto shadows = RenderPassDatabase::GetRenderPass<ShadowPass>();
 	
 			const float renderWidth = float(windowPtr->m_width);
 			const float renderHeight = float(windowPtr->m_height);
@@ -1816,14 +1820,14 @@ void VulkanRenderer::DebugGUIcalls()
 			//ImGui::BulletText("World Position");
 			//ImGui::Image(gbuff->deferredImg[POSITION], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("World Normal");
-			ImGui::Image(gbuff->deferredImg[NORMAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::Image(deferredImg[NORMAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("Albedo");
-			ImGui::Image(gbuff->deferredImg[ALBEDO], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::Image(deferredImg[ALBEDO], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("Material");
-			ImGui::Image(gbuff->deferredImg[MATERIAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::Image(deferredImg[MATERIAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("Depth (TODO)");
 			//ImGui::Image(gbuff->deferredImg[3], { sz.x,sz.y/4 });
-			ImGui::Image(shadows->shadowImg ,imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::Image(Attachments_imguiBinding::shadowImg ,imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 		}
 	}
 	ImGui::End();
@@ -2492,7 +2496,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 #endif				
 		//if (shouldRunDebugDraw) // for now need to run regardless because of transition.. TODO: FIX IT ONE DAY
 		{
-			RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
+			// RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
 			RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
 		}
 
@@ -2689,7 +2693,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 	generatedTexture.name += " xd";
 	generatedTexture.currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-	generatedTexture.AllocateImageMemory(&m_device, generatedTexture.usage, texMips);
+	generatedTexture.AllocateImageMemory(&m_device, generatedTexture.usage, (uint32_t)texMips);
 	generatedTexture.CreateImageView();
 
 	VkImageViewCreateInfo viewCreateInfo = {};
@@ -2706,7 +2710,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 	std::array < VkImageView, maxNumMips> mipViews;
 	for (size_t i = 0; i < texMips; i++)
 	{
-		viewCreateInfo.subresourceRange.baseMipLevel = i;
+		viewCreateInfo.subresourceRange.baseMipLevel = (uint32_t)i;
 		vkCreateImageView(m_device.logicalDevice,&viewCreateInfo,nullptr, &mipViews[i]);
 	}
 
@@ -3103,7 +3107,7 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		auto mdlResourceIdx = g_globalModels.size();
 		modelFile->meshResource = static_cast<uint32_t>(mdlResourceIdx);
 		g_globalModels.emplace_back(gfxModel{});
-		indx = mdlResourceIdx;
+		indx = (uint32_t)mdlResourceIdx;
 	}
 	std::string s("Iniitalizing " + std::to_string(indx) + "\n");
 	std::cout << s;
@@ -3487,8 +3491,8 @@ void VulkanRenderer::LoadSubmesh(gfxModel& mdl,
 				once = true;
 				std::string namestring;
 				if (aimesh->mName.C_Str()) namestring = aimesh->mName.C_Str();
-				printf("Model %s has vertex normal issues v[%d]\n", namestring.c_str(), i);
-				printf("Fixing vertex normals...\n", namestring.c_str(), i);
+				printf("Model %s has vertex normal issues v[%llu]\n", namestring.c_str(), i);
+				printf("Fixing vertex normals...\n");
 				//__debugbreak();
 			}
 		}
@@ -4121,8 +4125,8 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 		g_Textures.push_back(vkutils::Texture2D());
 		g_imguiIDs.push_back({});
 
-		uint32_t texSiz = g_Textures.size();
-		uint32_t imguiSiz = g_imguiIDs.size();
+		uint32_t texSiz = (uint32_t)g_Textures.size();
+		uint32_t imguiSiz = (uint32_t)g_imguiIDs.size();
 
 		assert(g_Textures.size() == g_imguiIDs.size());
 
@@ -4162,8 +4166,8 @@ uint32_t VulkanRenderer::CreateTextureImageImmediate(const oGFX::FileImageData& 
 		g_Textures.push_back(vkutils::Texture2D());
 		g_imguiIDs.push_back({});
 
-		uint32_t texSiz = g_Textures.size();
-		uint32_t imguiSiz = g_imguiIDs.size();
+		uint32_t texSiz = (uint32_t)g_Textures.size();
+		uint32_t imguiSiz = (uint32_t)g_imguiIDs.size();
 
 		assert(g_Textures.size() == g_imguiIDs.size());
 

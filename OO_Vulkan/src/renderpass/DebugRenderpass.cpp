@@ -29,6 +29,26 @@ DECLARE_RENDERPASS(DebugRenderpass);
 
 DECLARE_RENDERPASS(DebugDrawRenderpass);
 
+VulkanRenderpass debugRenderpass{};
+
+bool dodebugRendering = true;
+
+struct DebugDrawPSOSelector
+{
+	std::array<VkPipeline, 6> psos = {};
+
+	// Ghetto... Need a more robust solution
+	VkPipeline GetPSO(bool isDepthTest, bool isWireframe, bool isPoint)
+	{
+		int i = isWireframe ? 1 : 0;
+		i = isPoint ? 2 : i;
+		int j = isDepthTest ? 1 : 0;
+		const int idx = i + 2 * j;
+		return psos[idx];
+	}
+
+}m_DebugDrawPSOSelector;
+
 void DebugDrawRenderpass::Init()
 {
 	CreateDebugRenderpass();
@@ -59,14 +79,14 @@ void DebugDrawRenderpass::Draw()
 	clearValues[0].color = { 0.1f,0.1f,0.1f,0.0f };
 	clearValues[1].depthStencil.depth = {1.0f };
 
-	auto& depthAtt = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments[GBufferAttachmentIndex::DEPTH];
+	auto& depthAtt = Attachments::attachments[GBufferAttachmentIndex::DEPTH];
 
 	
 	const VkCommandBuffer cmdlist = vr.GetCommandBuffer();;
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("DebugDraw");
 
-	auto gbuffer = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
+	auto& attachments = Attachments::attachments;
 	
 	const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height;
 	const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width;
@@ -90,12 +110,12 @@ void DebugDrawRenderpass::Draw()
 	depthInfo.resolveMode = {};
 	depthInfo.resolveImageView = {};
 	depthInfo.resolveImageLayout = {};
-	depthInfo.imageView = gbuffer->attachments[GBufferAttachmentIndex::DEPTH].view;
+	depthInfo.imageView = attachments[GBufferAttachmentIndex::DEPTH].view;
 	depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	depthInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	depthInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	depthInfo.clearValue = { 0.0f,0.0f };
-	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 	VkRenderingInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -134,7 +154,7 @@ void DebugDrawRenderpass::Draw()
 	vkCmdEndRendering(cmdlist);
 
 	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
 void DebugDrawRenderpass::Shutdown()
@@ -306,7 +326,6 @@ void DebugDrawRenderpass::CreatePipeline()
 	pipelineCreateInfo.pColorBlendState = &colourBlendingCreateInfo;
 	pipelineCreateInfo.pDepthStencilState = &depthStencilCreateInfo;
 	
-	auto gbuffer = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
 	VkPipelineRenderingCreateInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 	renderingInfo.viewMask = {};

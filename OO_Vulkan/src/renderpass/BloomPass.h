@@ -14,12 +14,6 @@ Technology is prohibited.
 #pragma once
 
 #include "GfxRenderpass.h"
-#include "vulkan/vulkan.h"
-#include "imgui/imgui.h"
-#include "VulkanTexture.h"
-#include "GpuVector.h"
-
-#include <array>
 
 struct BloomPass : public GfxRenderpass
 {
@@ -34,26 +28,6 @@ struct BloomPass : public GfxRenderpass
 	void CreatePSO() override;
 	void CreatePipelineLayout();
 	void CreateDescriptors();
-
-	VulkanRenderpass renderpass_bright{};
-	VulkanRenderpass renderpass_bloomDownsample{};
-	VulkanRenderpass renderpass_bloomUpsample{};
-
-	//VkPushConstantRange pushConstantRange;
-	VkPipeline pso_bloom_bright{};
-	VkPipeline pso_bloom_down{};
-	VkPipeline pso_bloom_up{};
-	VkPipeline pso_additive_composite{};
-	VkPipeline pso_tone_mapping{};
-	VkPipeline pso_vignette{};
-	VkPipeline pso_fxaa{};
-
-	static constexpr size_t MAX_BLOOM_SAMPLES = 5;
-	vkutils::Texture2D Bloom_brightTarget;
-
-	// TODO: compute i guess
-	std::array<vkutils::Texture2D, MAX_BLOOM_SAMPLES> Bloom_downsampleTargets;
-
 
 private:
 
