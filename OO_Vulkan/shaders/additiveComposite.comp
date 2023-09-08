@@ -9,7 +9,7 @@ void main()
 {	
     // Note: Load operations from any texel that is outside of the boundaries of the bound image will return all zeros.
 	vec2 srcSz = vec2(textureSize(sampler2D(inputImage,basicSampler),0));
-	vec4 inImg = texture(sampler2D(inputImage,basicSampler), vec2(gl_GlobalInvocationID.xy)/srcSz );
+	vec4 inImg = texture(sampler2D(inputImage,basicSampler), (vec2(gl_GlobalInvocationID.xy)+0.5)/srcSz );
 	vec4 res = imageLoad(resultImage, ivec2(gl_GlobalInvocationID.xy) );
 
 	res = inImg + res;
