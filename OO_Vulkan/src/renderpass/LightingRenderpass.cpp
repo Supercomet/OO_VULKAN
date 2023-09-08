@@ -86,7 +86,7 @@ void LightingPass::Draw()
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("DeferredComposition");
 
-	auto& attachments = Attachments::attachments;
+	auto& attachments = vr.attachments.gbuffer;
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::EMISSIVE], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -207,7 +207,7 @@ void LightingPass::CreateDescriptors()
 
 	auto& vr = *VulkanRenderer::get();
 	// At this point, all dependent resources (gbuffer etc) must be ready.
-	auto& attachments= Attachments::attachments;
+	auto& attachments= vr.attachments.gbuffer;
 
     VkDescriptorImageInfo texDescriptorNormal = oGFX::vkutils::inits::descriptorImageInfo(
         GfxSamplerManager::GetSampler_Deferred(),
@@ -234,14 +234,14 @@ void LightingPass::CreateDescriptors()
         attachments[GBufferAttachmentIndex::DEPTH]   .view,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	
-	auto& shadowTex = Attachments::shadow_depth;
-	auto& maskTex = Attachments::shadowMask;
+	auto& shadowTex = vr.attachments.shadow_depth;
+	auto& maskTex = vr.attachments.shadowMask;
 	VkDescriptorImageInfo texDescriptorShadow = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_ShowMapClamp(),
 		shadowTex.view,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	auto& ssaoTex = Attachments::SSAO_finalTarget;
+	auto& ssaoTex = vr.attachments.SSAO_finalTarget;
 	VkDescriptorImageInfo texDescriptorSSAO = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_Deferred(),
 		ssaoTex.view,

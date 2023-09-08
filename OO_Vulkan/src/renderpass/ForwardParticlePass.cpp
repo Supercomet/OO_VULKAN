@@ -102,7 +102,7 @@ void ForwardParticlePass::Draw()
 	VkClearColorValue rMinusOne = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
 	rMinusOne.int32[0] = -1;
 
-	auto& attachments = Attachments::attachments;
+	auto& attachments = vr.attachments.gbuffer;
 
 	assert(attachments[GBufferAttachmentIndex::DEPTH].currentLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
@@ -208,7 +208,7 @@ void ForwardParticlePass::SetupRenderpass()
 		attachmentDescs[2].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachmentDescs[2].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		auto& attachments = Attachments::attachments;
+		auto& attachments = vr.attachments.gbuffer;
 	// Formats
 	//attachmentDescs[GBufferAttachmentIndex::POSITION].format = attachments[GBufferAttachmentIndex::POSITION].format;
 	attachmentDescs[0]  .format = vr.G_HDR_FORMAT;
@@ -272,7 +272,7 @@ void ForwardParticlePass::SetupFramebuffer()
 	const uint32_t width = m_swapchain.swapChainExtent.width;
 	const uint32_t height = m_swapchain.swapChainExtent.height;
 
-	auto& attachments = Attachments::attachments;
+	auto& attachments = vr.attachments.gbuffer;
 }
 
 

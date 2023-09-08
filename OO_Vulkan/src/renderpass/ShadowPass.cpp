@@ -110,16 +110,16 @@ void ShadowPass::Draw()
 	depthInfo.resolveMode = {};
 	depthInfo.resolveImageView = {};
 	depthInfo.resolveImageLayout = {};
-	depthInfo.imageView = Attachments::shadow_depth.view;
+	depthInfo.imageView = vr.attachments.shadow_depth.view;
 	depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	depthInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	depthInfo.clearValue = { 0.0f,0.0f };
-	vkutils::TransitionImage(cmdlist, Attachments::shadow_depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, vr.attachments.shadow_depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 	VkRenderingInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-	renderingInfo.renderArea = { 0, 0, (uint32_t)Attachments::shadow_depth.width, (uint32_t)Attachments::shadow_depth.height };
+	renderingInfo.renderArea = { 0, 0, (uint32_t)vr.attachments.shadow_depth.width, (uint32_t)vr.attachments.shadow_depth.height };
 	renderingInfo.layerCount = 1;
 	renderingInfo.colorAttachmentCount = 0;
 	renderingInfo.pColorAttachments = NULL;
@@ -228,7 +228,7 @@ void ShadowPass::Draw()
 
 	vkCmdEndRendering(cmdlist);
 
-	vkutils::TransitionImage(cmdlist, Attachments::shadow_depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, vr.attachments.shadow_depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void ShadowPass::Shutdown()
@@ -236,7 +236,7 @@ void ShadowPass::Shutdown()
 	auto& vr = *VulkanRenderer::get();
 	auto& device = vr.m_device.logicalDevice;
 
-	Attachments::shadow_depth.destroy();
+	vr.attachments.shadow_depth.destroy();
 	renderpass_Shadow.destroy();
 	vkDestroyPipeline(device, pso_ShadowDefault, nullptr);
 }
@@ -250,9 +250,9 @@ void ShadowPass::SetupRenderpass()
 	const uint32_t width = shadowmapSize.width;
 	const uint32_t height = shadowmapSize.height;
 
-	Attachments::shadow_depth.name = "SHADOW_ATLAS";
-	Attachments::shadow_depth.forFrameBuffer(&m_device, vr.G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height, false);
-	vr.fbCache.RegisterFramebuffer(Attachments::shadow_depth);
+	vr.attachments.shadow_depth.name = "SHADOW_ATLAS";
+	vr.attachments.shadow_depth.forFrameBuffer(&m_device, vr.G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height, false);
+	vr.fbCache.RegisterFramebuffer(vr.attachments.shadow_depth);
 
 
 	// Set up separate renderpass with references to the color and depth attachments
@@ -267,7 +267,7 @@ void ShadowPass::SetupRenderpass()
 	attachmentDescs.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	//attachmentDescs.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	attachmentDescs.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	attachmentDescs.format = Attachments::shadow_depth.format;
+	attachmentDescs.format = vr.attachments.shadow_depth.format;
 
 
 	VkAttachmentReference depthReference = {};
@@ -317,7 +317,7 @@ void ShadowPass::SetupFramebuffer()
 	auto& vr = *VulkanRenderer::get();
 	auto& m_device = vr.m_device;
 
-	Attachments_imguiBinding::shadowImg = vr.CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), Attachments::shadow_depth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	Attachments_imguiBinding::shadowImg = vr.CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), vr.attachments.shadow_depth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void ShadowPass::CreatePipeline()

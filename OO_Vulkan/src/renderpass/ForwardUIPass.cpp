@@ -104,7 +104,7 @@ void ForwardUIPass::Draw()
 	VkClearColorValue rMinusOne = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
 	rMinusOne.int32[0] = -1;
 
-	auto& attachments = Attachments::attachments;
+	auto& attachments = vr.attachments.gbuffer;
 
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
@@ -234,7 +234,7 @@ void ForwardUIPass::SetupRenderpass()
 		attachmentDescs[2].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachmentDescs[2].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		auto& attachments = Attachments::attachments;
+		auto& attachments = vr.attachments.gbuffer;
 	// Formats
 	//attachmentDescs[GBufferAttachmentIndex::POSITION].format = attachments[GBufferAttachmentIndex::POSITION].format;
 	attachmentDescs[0]  .format = vr.G_HDR_FORMAT;
@@ -299,7 +299,7 @@ void ForwardUIPass::SetupFramebuffer()
 	const uint32_t height = m_swapchain.swapChainExtent.height;
 
 	// maybe dont use this??
-	auto& attachments = Attachments::attachments;
+	auto& attachments = vr.attachments.gbuffer;
 
 }
 

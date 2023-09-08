@@ -363,7 +363,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		
 	RenderPassDatabase::InitAllRegisteredPasses();
 
-	auto& shadowTexture = Attachments::shadow_depth;
+	auto& shadowTexture = attachments.shadow_depth;
 	shadowTexture.updateDescriptor();
 
 	CreateSynchronisation();
@@ -1152,7 +1152,7 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	vkDeviceWaitIdle(device);
 
 	
-	auto& target = Attachments::attachments[GBufferAttachmentIndex::ENTITY_ID];
+	auto& target = attachments.gbuffer[GBufferAttachmentIndex::ENTITY_ID];
 	if (target.currentLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 		return -1;
 

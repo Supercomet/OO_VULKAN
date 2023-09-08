@@ -60,18 +60,18 @@ void BloomPass::Init()
 {
 	auto& vr = *VulkanRenderer::get();
 	auto swapchainext = vr.m_swapchain.swapChainExtent;
-	Attachments::Bloom_brightTarget.name = "bloom_bright";
-	Attachments::Bloom_brightTarget.forFrameBuffer(&vr.m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+	vr.attachments.Bloom_brightTarget.name = "bloom_bright";
+	vr.attachments.Bloom_brightTarget.forFrameBuffer(&vr.m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		swapchainext.width, swapchainext.height, true, 1.0f);
-	vr.fbCache.RegisterFramebuffer(Attachments::Bloom_brightTarget);
+	vr.fbCache.RegisterFramebuffer(vr.attachments.Bloom_brightTarget);
 	float renderScale = 0.5f;
-	for (size_t i = 0; i < Attachments::MAX_BLOOM_SAMPLES; i++)
+	for (size_t i = 0; i < vr.attachments.MAX_BLOOM_SAMPLES; i++)
 	{
 		// generate textures with half sizes
-		Attachments::Bloom_downsampleTargets[i].name = "bloom_down_" + std::to_string(i);
-		Attachments::Bloom_downsampleTargets[i].forFrameBuffer(&vr.m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+		vr.attachments.Bloom_downsampleTargets[i].name = "bloom_down_" + std::to_string(i);
+		vr.attachments.Bloom_downsampleTargets[i].forFrameBuffer(&vr.m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 			swapchainext.width, swapchainext.height, true, renderScale);
-		vr.fbCache.RegisterFramebuffer(Attachments::Bloom_downsampleTargets[i]);
+		vr.fbCache.RegisterFramebuffer(vr.attachments.Bloom_downsampleTargets[i]);
 
 		renderScale /= 2.0f;
 	}
@@ -80,12 +80,12 @@ void BloomPass::Init()
 	std::vector<VkImageView> dummyViews;
 	std::vector<vkutils::Texture2D*> textures;
 
-	textures.push_back(&Attachments::Bloom_brightTarget);
-	dummyViews.push_back(Attachments::Bloom_brightTarget.view);
-	for (size_t i = 0; i < Attachments::MAX_BLOOM_SAMPLES; i++)
+	textures.push_back(&vr.attachments.Bloom_brightTarget);
+	dummyViews.push_back(vr.attachments.Bloom_brightTarget.view);
+	for (size_t i = 0; i < vr.attachments.MAX_BLOOM_SAMPLES; i++)
 	{
-		dummyViews.push_back(Attachments::Bloom_downsampleTargets[i].view);
-		textures.push_back(&Attachments::Bloom_downsampleTargets[i]);
+		dummyViews.push_back(vr.attachments.Bloom_downsampleTargets[i].view);
+		textures.push_back(&vr.attachments.Bloom_downsampleTargets[i]);
 	}
 
 	blankInfo.attachmentCount = (uint32_t)dummyViews.size();
@@ -159,15 +159,15 @@ void BloomPass::Draw()
 
 		VkDescriptorImageInfo texOut = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_Deferred(),  
-			Attachments::Bloom_brightTarget  .view,
+			vr.attachments.Bloom_brightTarget  .view,
 			VK_IMAGE_LAYOUT_GENERAL);
-		vkutils::TransitionImage(cmdlist, Attachments::Bloom_brightTarget,VK_IMAGE_LAYOUT_GENERAL);
+		vkutils::TransitionImage(cmdlist, vr.attachments.Bloom_brightTarget,VK_IMAGE_LAYOUT_GENERAL);
 
 		VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
 			0,
 			VK_IMAGE_LAYOUT_UNDEFINED);
-		vkutils::TransitionImage(cmdlist, Attachments::Bloom_brightTarget, VK_IMAGE_LAYOUT_GENERAL);
+		vkutils::TransitionImage(cmdlist, vr.attachments.Bloom_brightTarget, VK_IMAGE_LAYOUT_GENERAL);
 
 		DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[currFrame])
 			.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
@@ -186,7 +186,7 @@ void BloomPass::Draw()
 		vkCmdPushConstants(cmdlist, PSOLayoutDB::doubleImageStoreLayout, VK_SHADER_STAGE_ALL, 0, sizeof(BloomPC), &pc);
 		vkCmdBindDescriptorSets(cmdlist , VK_PIPELINE_BIND_POINT_COMPUTE, PSOLayoutDB::doubleImageStoreLayout, 0, 1, &vr.descriptorSet_fullscreenBlit, 0, 0);
 
-		vkCmdDispatch(cmdlist, (Attachments::Bloom_brightTarget .width-1) / 16 + 1, (Attachments::Bloom_brightTarget .height-1) / 16 + 1, 1);
+		vkCmdDispatch(cmdlist, (vr.attachments.Bloom_brightTarget .width-1) / 16 + 1, (vr.attachments.Bloom_brightTarget .height-1) / 16 + 1, 1);
 		if (regionEnd)
 		{
 			regionEnd(cmdlist);
@@ -199,13 +199,13 @@ void BloomPass::Draw()
 		{		
 			regionBegin(cmdlist, &marker);
 		}
-		vkutils::Texture2D* prevImage = &Attachments::Bloom_brightTarget;
+		vkutils::Texture2D* prevImage = &vr.attachments.Bloom_brightTarget;
 		vkutils::Texture2D* currImage;
 		//downsample
 		vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_COMPUTE, pso_bloom_down);
-		for (size_t i = 0; i < Attachments::MAX_BLOOM_SAMPLES; i++)
+		for (size_t i = 0; i < vr.attachments.MAX_BLOOM_SAMPLES; i++)
 		{
-			currImage = &Attachments::Bloom_downsampleTargets[i];
+			currImage = &vr.attachments.Bloom_downsampleTargets[i];
 			if (prevImage->width / 2 != currImage->width || prevImage->height / 2 != currImage->height)
 			{
 				// what do i do here?
@@ -253,10 +253,10 @@ void BloomPass::Draw()
 		regionBegin(cmdlist, &marker);
 	}
 	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_COMPUTE, pso_bloom_up);
-	for (int i = static_cast<int>(Attachments::MAX_BLOOM_SAMPLES - 1ull); i > 0; --i)
+	for (int i = static_cast<int>(vr.attachments.MAX_BLOOM_SAMPLES - 1ull); i > 0; --i)
 	{
-		auto* outputBuffer = (&Attachments::Bloom_downsampleTargets[i-1ull]);
-		auto* inputBuffer = &Attachments::Bloom_downsampleTargets[i];
+		auto* outputBuffer = (&vr.attachments.Bloom_downsampleTargets[i-1ull]);
+		auto* inputBuffer = &vr.attachments.Bloom_downsampleTargets[i];
 
 		VkDescriptorImageInfo texSrc = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
@@ -288,8 +288,8 @@ void BloomPass::Draw()
 		
 	
 	{ // we reuse the bright output to place the boom
-		auto* outputBuffer = (&Attachments::Bloom_brightTarget);
-		auto* inputBuffer = &Attachments::Bloom_downsampleTargets[0];
+		auto* outputBuffer = (&vr.attachments.Bloom_brightTarget);
+		auto* inputBuffer = &vr.attachments.Bloom_downsampleTargets[0];
 
 		VkDescriptorImageInfo texSrc = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
@@ -331,7 +331,7 @@ void BloomPass::Draw()
 	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_COMPUTE, pso_additive_composite);
 	{// composite online main buffer
 		auto* outputBuffer = (&mainImage.texture);
-		auto* inputBuffer = &Attachments::Bloom_brightTarget;
+		auto* inputBuffer = &vr.attachments.Bloom_brightTarget;
 	
 		VkDescriptorImageInfo texSrc = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
@@ -374,7 +374,7 @@ void BloomPass::Draw()
 	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_COMPUTE, pso_tone_mapping);
 	{// composite online main buffer
 		auto* outputBuffer = (&mainImage.texture);
-		auto* inputBuffer = &Attachments::Bloom_brightTarget;
+		auto* inputBuffer = &vr.attachments.Bloom_brightTarget;
 
 		VkDescriptorImageInfo texSrc = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
@@ -428,7 +428,7 @@ void BloomPass::Draw()
 	}	
 	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_COMPUTE, pso_fxaa);
 	{// composite online main buffer
-		auto* outputBuffer = &Attachments::Bloom_brightTarget;
+		auto* outputBuffer = &vr.attachments.Bloom_brightTarget;
 		auto* inputBuffer = (&mainImage.texture);
 
 		VkDescriptorImageInfo texSrc = oGFX::vkutils::inits::descriptorImageInfo(
@@ -471,7 +471,7 @@ void BloomPass::Draw()
 	vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_COMPUTE, pso_vignette);
 	{// composite online main buffer
 		auto* outputBuffer = (&mainImage.texture);
-		auto* inputBuffer = &Attachments::Bloom_brightTarget;
+		auto* inputBuffer = &vr.attachments.Bloom_brightTarget;
 
 		VkDescriptorImageInfo texSrc = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
@@ -520,14 +520,14 @@ void BloomPass::Draw()
 
 void BloomPass::Shutdown()
 {
-	auto& device = VulkanRenderer::get()->m_device.logicalDevice;
-
+	auto& vr = *VulkanRenderer::get();
+	auto& device = vr.m_device.logicalDevice;
 	
-	Attachments::Bloom_brightTarget.destroy();
-	for (size_t i = 0; i < Attachments::MAX_BLOOM_SAMPLES; i++)
+	vr.attachments.Bloom_brightTarget.destroy();
+	for (size_t i = 0; i < vr.attachments.MAX_BLOOM_SAMPLES; i++)
 	{
 		// destroy
-		Attachments::Bloom_downsampleTargets[i].destroy();
+		vr.attachments.Bloom_downsampleTargets[i].destroy();
 	}
 	vkDestroyPipelineLayout(device, PSOLayoutDB::BloomLayout, nullptr);
 	vkDestroyPipelineLayout(device, PSOLayoutDB::doubleImageStoreLayout, nullptr);
@@ -551,15 +551,15 @@ void BloomPass::CreateDescriptors()
 	auto cmd = vr.beginSingleTimeCommands();
 	VkDescriptorImageInfo texSrc = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_BlackBorder(),
-		Attachments::Bloom_brightTarget.view,
+		vr.attachments.Bloom_brightTarget.view,
 		VK_IMAGE_LAYOUT_GENERAL);
-	vkutils::TransitionImage(cmd, Attachments::Bloom_brightTarget,VK_IMAGE_LAYOUT_GENERAL);
+	vkutils::TransitionImage(cmd, vr.attachments.Bloom_brightTarget,VK_IMAGE_LAYOUT_GENERAL);
 
 	VkDescriptorImageInfo texOut = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_Deferred(),
-		Attachments::Bloom_downsampleTargets[0]  .view,
+		vr.attachments.Bloom_downsampleTargets[0]  .view,
 		VK_IMAGE_LAYOUT_GENERAL);
-	vkutils::TransitionImage(cmd, Attachments::Bloom_downsampleTargets[0],VK_IMAGE_LAYOUT_GENERAL);
+	vkutils::TransitionImage(cmd, vr.attachments.Bloom_downsampleTargets[0],VK_IMAGE_LAYOUT_GENERAL);
 	vr.endSingleTimeCommands(cmd);
 	VkDescriptorSet dummy;
 	VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(

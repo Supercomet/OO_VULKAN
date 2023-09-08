@@ -94,14 +94,14 @@ void DebugDrawRenderpass::Draw()
 	clearValues[0].color = { 0.1f,0.1f,0.1f,0.0f };
 	clearValues[1].depthStencil.depth = {1.0f };
 
-	auto& depthAtt = Attachments::attachments[GBufferAttachmentIndex::DEPTH];
+	auto& depthAtt = vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH];
 
 	
 	const VkCommandBuffer cmdlist = vr.GetCommandBuffer();;
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("DebugDraw");
 
-	auto& attachments = Attachments::attachments;
+	auto& attachments = vr.attachments.gbuffer;
 	
 	const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height;
 	const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width;

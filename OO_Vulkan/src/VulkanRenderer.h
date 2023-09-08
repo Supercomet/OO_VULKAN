@@ -90,23 +90,6 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 
 };
 
-struct Attachments {
-	inline static std::array<vkutils::Texture2D, GBufferAttachmentIndex::MAX_ATTACHMENTS> attachments{};
-	inline static vkutils::Texture2D shadowMask{};
-
-	inline static vkutils::Texture2D SSAO_renderTarget{};
-	inline static vkutils::Texture2D SSAO_finalTarget{};
-	inline static vkutils::Texture2D randomNoise_texture{};
-
-	inline static vkutils::Texture2D shadow_depth{};
-
-
-	static constexpr size_t MAX_BLOOM_SAMPLES = 5;
-	static inline vkutils::Texture2D Bloom_brightTarget;
-	static inline std::array<vkutils::Texture2D, MAX_BLOOM_SAMPLES> Bloom_downsampleTargets;
-
-};
-
 struct Attachments_imguiBinding {
 	inline static std::array<ImTextureID, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> deferredImg{};
 
@@ -180,6 +163,22 @@ class VulkanRenderer
 public:
 
 	static VulkanRenderer* s_vulkanRenderer;
+
+	struct Attachments {
+		std::array<vkutils::Texture2D, GBufferAttachmentIndex::MAX_ATTACHMENTS> gbuffer{};
+		vkutils::Texture2D shadowMask{};
+
+		vkutils::Texture2D SSAO_renderTarget{};
+		vkutils::Texture2D SSAO_finalTarget{};
+		vkutils::Texture2D randomNoise_texture{};
+
+		vkutils::Texture2D shadow_depth{};
+
+		static constexpr size_t MAX_BLOOM_SAMPLES = 5;
+		vkutils::Texture2D Bloom_brightTarget;
+		std::array<vkutils::Texture2D, MAX_BLOOM_SAMPLES> Bloom_downsampleTargets;
+
+	}attachments;
 
 	inline static uint64_t totalTextureSizeLoaded = 0;
 	static constexpr int MAX_FRAME_DRAWS = 2;

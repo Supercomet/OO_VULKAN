@@ -167,7 +167,7 @@ void GBufferRenderPass::Draw()
 	clearValues[GBufferAttachmentIndex::ENTITY_ID].color = rMinusOne;
 	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 0.0f, 0 };
 	
-	auto& attachments = Attachments::attachments;
+	auto& attachments = vr.attachments.gbuffer;
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::EMISSIVE], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::MATERIAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -241,10 +241,10 @@ void GBufferRenderPass::Draw()
 
 		VkDescriptorImageInfo shadowinput = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
-			Attachments::shadow_depth.view,
+			vr.attachments.shadow_depth.view,
 			VK_IMAGE_LAYOUT_GENERAL);
-		auto oldShadow = Attachments::shadow_depth.currentLayout;
-		vkutils::TransitionImage(cmdlist, Attachments::shadow_depth,VK_IMAGE_LAYOUT_GENERAL);
+		auto oldShadow = vr.attachments.shadow_depth.currentLayout;
+		vkutils::TransitionImage(cmdlist, vr.attachments.shadow_depth,VK_IMAGE_LAYOUT_GENERAL);
 
 		VkDescriptorImageInfo normalInput = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
@@ -255,9 +255,9 @@ void GBufferRenderPass::Draw()
 
 		VkDescriptorImageInfo texOut = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_Deferred(),
-			Attachments::shadowMask.view,
+			vr.attachments.shadowMask.view,
 			VK_IMAGE_LAYOUT_GENERAL);
-		vkutils::TransitionImage(cmdlist,Attachments::shadowMask,VK_IMAGE_LAYOUT_GENERAL);
+		vkutils::TransitionImage(cmdlist,vr.attachments.shadowMask,VK_IMAGE_LAYOUT_GENERAL);
 
 		// settled at the end
 		VkDescriptorSet shadowprepassDS;	
@@ -267,7 +267,7 @@ void GBufferRenderPass::Draw()
 			VK_NULL_HANDLE,
 			VK_IMAGE_LAYOUT_GENERAL);
 
-		vkutils::TransitionImage(cmdlist, Attachments::shadowMask, VK_IMAGE_LAYOUT_GENERAL);
+		vkutils::TransitionImage(cmdlist, vr.attachments.shadowMask, VK_IMAGE_LAYOUT_GENERAL);
 		const auto& dbi = vr.globalLightBuffer[currFrame].GetBufferInfoPtr();
 		DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[currFrame])
 			.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER , VK_SHADER_STAGE_COMPUTE_BIT)
@@ -329,9 +329,9 @@ void GBufferRenderPass::Draw()
 		range.size = sizeof(LightPC);
 		//cmd.SetPushConstant(PSOLayoutDB::shadowPrepassLayout,range,&pc);
 		vkCmdPushConstants(cmdlist, PSOLayoutDB::shadowPrepassLayout, VK_SHADER_STAGE_ALL,range.offset,range.size,&pc);
-		vkCmdDispatch(cmdlist, (Attachments::shadowMask.width - 1) / 16 + 1, (Attachments::shadowMask.height - 1) / 16 + 1, 1);
+		vkCmdDispatch(cmdlist, (vr.attachments.shadowMask.width - 1) / 16 + 1, (vr.attachments.shadowMask.height - 1) / 16 + 1, 1);
 
-		vkutils::TransitionImage(cmdlist, Attachments::shadow_depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		vkutils::TransitionImage(cmdlist, vr.attachments.shadow_depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		if (regionEnd)
 		{
@@ -342,7 +342,7 @@ void GBufferRenderPass::Draw()
 
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);	
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, Attachments::shadowMask, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, vr.attachments.shadowMask, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 }
 
@@ -352,13 +352,13 @@ void GBufferRenderPass::Shutdown()
 	auto& m_device = vr.m_device;
 	auto& device = m_device.logicalDevice;
 	
-	auto& attachments = Attachments::attachments;
+	auto& attachments = vr.attachments.gbuffer;
 	for (auto& att : attachments)
 	{
 		att.destroy();
 	}
 
-	Attachments::shadowMask.destroy();
+	vr.attachments.shadowMask.destroy();
 
 	vkDestroyPipelineLayout(device, PSOLayoutDB::singleSSBOlayout, nullptr);
 	vkDestroyPipeline(device, pso_ComputeCull, nullptr);
@@ -404,7 +404,7 @@ void GBufferRenderPass::SetupRenderpass()
 		}
 	}
 
-	auto& attachments = Attachments::attachments;
+	auto& attachments = vr.attachments.gbuffer;
 	// Formats
 	//attachmentDescs[GBufferAttachmentIndex::POSITION].format = attachments[GBufferAttachmentIndex::POSITION].format;
 	attachmentDescs[GBufferAttachmentIndex::NORMAL]  .format = attachments[GBufferAttachmentIndex::NORMAL]  .format;
@@ -546,7 +546,7 @@ void GBufferRenderPass::CreatePipeline()
 	colourFormats.resize(GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS);
 	for (size_t i = 0; i < GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS; i++)
 	{
-		colourFormats[i] = Attachments::attachments[i].format;
+		colourFormats[i] = vr.attachments.gbuffer[i].format;
 	}
 
 	VkPipelineRenderingCreateInfo renderingInfo{};
@@ -628,7 +628,7 @@ void GBufferRenderPass::CreatePSOLayout()
 
 	{
 
-		auto& attachments = Attachments::attachments;
+		auto& attachments = vr.attachments.gbuffer;
 		auto cmd = vr.beginSingleTimeCommands();
 		VkDescriptorImageInfo depthInput = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
@@ -638,9 +638,9 @@ void GBufferRenderPass::CreatePSOLayout()
 
 		VkDescriptorImageInfo shadowinput = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
-			Attachments::shadow_depth.view,
+			vr.attachments.shadow_depth.view,
 			VK_IMAGE_LAYOUT_GENERAL);
-		vkutils::TransitionImage(cmd, Attachments::shadow_depth,VK_IMAGE_LAYOUT_GENERAL);
+		vkutils::TransitionImage(cmd, vr.attachments.shadow_depth,VK_IMAGE_LAYOUT_GENERAL);
 
 		VkDescriptorImageInfo normalInput = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
@@ -650,9 +650,9 @@ void GBufferRenderPass::CreatePSOLayout()
 
 		VkDescriptorImageInfo texOut = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_Deferred(),
-			Attachments::shadowMask.view,
+			vr.attachments.shadowMask.view,
 			VK_IMAGE_LAYOUT_GENERAL);
-		vkutils::TransitionImage(cmd,Attachments::shadowMask,VK_IMAGE_LAYOUT_GENERAL);
+		vkutils::TransitionImage(cmd,vr.attachments.shadowMask,VK_IMAGE_LAYOUT_GENERAL);
 		vr.endSingleTimeCommands(cmd);
 
 		VkDescriptorImageInfo sampler = oGFX::vkutils::inits::descriptorImageInfo(
@@ -705,7 +705,7 @@ void GBufferRenderPass::SetupResources() {
 	const uint32_t width = m_swapchain.swapChainExtent.width;
 	const uint32_t height = m_swapchain.swapChainExtent.height;
 
-	auto& attachments = Attachments::attachments;
+	auto& attachments = vr.attachments.gbuffer;
 	//attachments[GBufferAttachmentIndex::POSITION].name = "GB_Position";
 	//attachments[GBufferAttachmentIndex::POSITION].forFrameBuffer(&m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
 	attachments[GBufferAttachmentIndex::NORMAL	].name = "GB_Normal";
@@ -734,9 +734,9 @@ void GBufferRenderPass::SetupResources() {
 		vkutils::TransitionImage(cmd, attachments[i], attachments[i].imageLayout);
 	}	
 
-	Attachments::shadowMask.name = "GB_ShadowMask";
-	Attachments::shadowMask.forFrameBuffer(&m_device, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
-	vr.fbCache.RegisterFramebuffer(Attachments::shadowMask);
+	vr.attachments.shadowMask.name = "GB_ShadowMask";
+	vr.attachments.shadowMask.forFrameBuffer(&m_device, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	vr.fbCache.RegisterFramebuffer(vr.attachments.shadowMask);
 
 	vr.m_device.commandPoolManagers[vr.getFrame()].SubmitCommandBuffer(vr.m_device.graphicsQueue, cmd);
 
