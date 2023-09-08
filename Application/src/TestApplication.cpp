@@ -128,7 +128,8 @@ struct EntityInfo
 
     ObjectInstanceFlags flags{static_cast<ObjectInstanceFlags>(ObjectInstanceFlags::RENDER_ENABLED 
         | ObjectInstanceFlags::SHADOW_RECEIVER 
-        | ObjectInstanceFlags::SHADOW_CASTER)};
+        | ObjectInstanceFlags::SHADOW_CASTER
+        | ObjectInstanceFlags::SHADOW_ENABLED)};
 
     oGFX::CPUSkeletonInstance* localSkeleton;
 
@@ -256,33 +257,33 @@ void TestApplication::Run()
     // Setup Graphics Engine
     //----------------------------------------------------------------------------------------------------
 
-    try
-    {
-        gs_RenderEngine->Init(setupSpec, mainWindow);
+    
+   
+    auto result = gs_RenderEngine->Init(setupSpec, mainWindow);
 
-        // Setup Dear ImGui context
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO();
-        //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // Enable Docking
-        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // Enable Multi-Viewport / Platform Windows
-
-
-        ImGui::StyleColorsDark(); // Setup Dear ImGui style
-        gs_RenderEngine->InitImGUI();
-
-        std::cout << "Created Vulkan instance!" << std::endl;
-    }
-    catch (const std::exception& e)
+    if (result != oGFX::SUCCESS_VAL)
     {
         std::cout << "Failed to create Vulkan instance!" << std::endl;
-        std::cout << e.what() << std::endl;
         getchar();
         return;
     }
 
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // Enable Docking
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // Enable Multi-Viewport / Platform Windows
+
+
+    ImGui::StyleColorsDark(); // Setup Dear ImGui style
+    gs_RenderEngine->InitImGUI();
+
+    std::cout << "Created Vulkan instance!" << std::endl;
+   
+  
     std::unique_ptr<oGFX::Font>testFont (gs_RenderEngine->LoadFont("../Application/fonts/Roboto-Medium.ttf"));
     {
        // using namespace msdfgen;
@@ -480,7 +481,7 @@ void TestApplication::Run()
             ed.name = std::string("Sphere_") + std::to_string(i * metalic.size() + y);
             ed.entityID = FastRandomMagic();
             ed.modelID = model_sphere->meshResource;
-            ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
+            //ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
             
             ed.position = { gridSize*i - halfGrid,5.0f,gridSize*y - halfGrid };
             ed.scale = { 1.0f,1.0f,1.0f };
@@ -673,16 +674,16 @@ void TestApplication::Run()
         }
     }
 
-    for (auto& mdl: gs_RenderEngine->g_globalModels)
-    {
-        std::cout << "model:" << mdl.name << ", " 
-            << mdl.baseVertex <<", " << mdl.baseVertex+mdl.vertexCount 
-            <<  " diff-"<< mdl.baseVertex + mdl.vertexCount- mdl.baseVertex  << std::endl;
-        for (auto& sm : mdl.m_subMeshes)
-        {
-            std::cout << "\tsm:" << sm.name << ", " << sm.baseVertex <<", " << sm.baseVertex+sm.vertexCount << std::endl;
-        }
-    }
+    //for (auto& mdl: gs_RenderEngine->g_globalModels)
+    //{
+    //    std::cout << "model:" << mdl.name << ", " 
+    //        << mdl.baseVertex <<", " << mdl.baseVertex+mdl.vertexCount 
+    //        <<  " diff-"<< mdl.baseVertex + mdl.vertexCount- mdl.baseVertex  << std::endl;
+    //    for (auto& sm : mdl.m_subMeshes)
+    //    {
+    //        std::cout << "\tsm:" << sm.name << ", " << sm.baseVertex <<", " << sm.baseVertex+sm.vertexCount << std::endl;
+    //    }
+    //}
 
     // Transfer to Graphics World
     for (auto& e : entities)
@@ -773,6 +774,10 @@ void TestApplication::Run()
             {
                 PROFILE_SCOPED("ImGui::Update");
                 ImGui::Begin("Problems");
+                if(ImGui::Button("Reload Shaders") )
+                {
+                    gs_RenderEngine->m_reloadShaders = true;
+                }
                 ImGui::Checkbox("EditCam", &s_boolCamera);
                 ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
                 if(ImGui::TreeNode("Bloom") ){
@@ -1183,7 +1188,7 @@ void TestApplication::RunTest_DebugDraw()
 				const int screenWidth = (int)m_WindowSize.x;
 				const int screenHeight = (int)m_WindowSize.y;
 				const glm::mat4& viewMatrix =gs_GraphicsWorld.cameras.front().matrices.view;
-				const glm::mat4& projectionMatrix = gs_GraphicsWorld.cameras.front().matrices.perspective;
+				const glm::mat4& projectionMatrix = gs_GraphicsWorld.cameras.front().GetNonInvProjectionMatrix();
 				// World Space to NDC Space
 				glm::vec4 ndcPosition = projectionMatrix * viewMatrix * glm::vec4{ worldPosition, 1.0f };
 				// Perspective Division
@@ -1212,6 +1217,25 @@ void TestApplication::ToolUI_Camera()
 	ImGui::DragFloat3("Rotation", glm::value_ptr(camera.m_rotation), 0.01f);
 	ImGui::DragFloat3("Target", glm::value_ptr(camera.m_TargetPosition), 0.01f);
 	ImGui::DragFloat("Distance", &camera.m_TargetDistance, 0.01f);
+
+    float val = camera.GetNearClip();
+    if (ImGui::DragFloat("camnear", &val)) camera.SetNearClip(val);
+    val = camera.GetFarClip();
+    if (ImGui::DragFloat("cam far", &val)) camera.SetFarClip(val);
+
+    val = camera.GetAspectRatio();
+    if (ImGui::DragFloat("ar", &val)) camera.SetAspectRatio(val);
+
+    val = camera.GetFov();
+    if (ImGui::DragFloat("fov", &val)) camera.SetFov(val);
+
+    ImGui::BeginDisabled();
+    auto proj = camera.matrices.perspective;
+    ImGui::DragFloat4("r0", &proj[0][0]);
+    ImGui::DragFloat4("r1", &proj[1][0]);
+    ImGui::DragFloat4("r2", &proj[2][0]);
+    ImGui::DragFloat4("r3", &proj[3][0]);
+    ImGui::EndDisabled();
 
 	bool fps = camera.m_CameraMovementType == Camera::CameraMovementType::firstperson;
 	if (ImGui::Checkbox("FPS", &fps))
@@ -1335,7 +1359,7 @@ void TestApplication::Tool_HandleGizmoManipulation()
 		const auto mainViewportPosition = ImGui::GetMainViewport()->Pos;
 		ImGuizmo::SetRect(mainViewportPosition.x, mainViewportPosition.y, io.DisplaySize.x, io.DisplaySize.y);
 		glm::mat4x4 viewMatrix = gs_GraphicsWorld.cameras.front().matrices.view;
-		glm::mat4x4 projMatrix = gs_GraphicsWorld.cameras.front().matrices.perspective;
+		glm::mat4x4 projMatrix = gs_GraphicsWorld.cameras.front().GetNonInvProjectionMatrix();
 
 		static glm::mat4x4 localToWorld{ 1.0f };
 		float* matrixPtr = glm::value_ptr(localToWorld);
@@ -1644,6 +1668,7 @@ void InitLights(int32_t* someLights)
         for (size_t i = 0; i < hardCodedLights; i++)
         {
             lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
+            SetLightEnabled(lights[i], true);
         }
         // put here so we can edit the light values
         lights[0]->position = glm::vec4(0.0f, 3.0f, 1.0f, 0.0f);
@@ -1651,6 +1676,7 @@ void InitLights(int32_t* someLights)
         lights[0]->radius.x = 30.0f;
         lights[0]->color.a = 90.0f; //intensity
         SetCastsShadows(*lights[0], true);
+        SetLightEnabled(*lights[0], true);
 
         return;
         // Red   

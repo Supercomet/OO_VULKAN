@@ -122,7 +122,8 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 	VkResult result = vkCreateSwapchainKHR(device.logicalDevice, &swapChainCreateInfo, nullptr, &swapchain);
 	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("Failed to create a Swapchain!");
+		std::cerr << "Failed to create a Swapchain!" << std::endl;
+		__debugbreak();
 	}
 	VK_NAME(device.logicalDevice, "Swapchain", swapchain);
 
@@ -147,6 +148,7 @@ void VulkanSwapchain::Init(VulkanInstance& instance, VulkanDevice& device)
 		swapChainImages[i].width = swapChainExtent.width;
 		swapChainImages[i].height = swapChainExtent.height;
 		swapChainImages[i].format = swapChainImageFormat;
+		swapChainImages[i].mipLevels = 1;
 		
 		VK_NAME(device.logicalDevice, swapChainImages[i].name.c_str(), swapChainImages[i].image);
 	}

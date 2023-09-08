@@ -17,8 +17,10 @@ Technology is prohibited.
 #include <stdlib.h>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "vulkan/vulkan.h"
+#include "VmaUsage.h"
 
 //#include "VulkanBuffer.h"
 #include "VulkanDevice.h"
@@ -34,16 +36,16 @@ namespace vkutils
 		VkImage image{};
 		VkFormat format{};
 		VkImageLayout imageLayout{};
-		VkImageLayout currentLayout{};
+		VkImageLayout currentLayout{VK_IMAGE_LAYOUT_UNDEFINED};
 		VkDeviceMemory deviceMemory{};
 		VkImageView view{};
 		uint32_t width{}, height{};
 		uint32_t mipLevels{};
 		uint32_t layerCount{};
 		VkDescriptorImageInfo descriptor{};
-		VkSampler sampler{};
 		VkImageUsageFlags usage{};
 		VkImageAspectFlags aspectMask{};
+		VkFilter filter{};
 		VkMemoryPropertyFlags MemProps{};
 		bool targetSwapchain = true;
 		bool isValid = false;
@@ -77,8 +79,10 @@ namespace vkutils
 			VulkanDevice* device,
 			VkQueue copyQueue,
 			VkFilter filter = VK_FILTER_LINEAR,
-			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
+			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 			VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		void AllocateImageMemory(VulkanDevice* device, const VkImageUsageFlags& imageUsageFlags, uint32_t mips = 1);
 
 		void forFrameBuffer(VulkanDevice* device,
 			VkFormat format,
@@ -103,10 +107,12 @@ namespace vkutils
 			VkQueue copyQueue,
 			VkFilter filter = VK_FILTER_LINEAR,
 			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT);
+
+		void CreateImageView();
 	};
 
 
-	void TransitionImage(VkCommandBuffer cmd,Texture2D& texture, VkImageLayout targetLayout);
-	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout);
+	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
+	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
 
 }

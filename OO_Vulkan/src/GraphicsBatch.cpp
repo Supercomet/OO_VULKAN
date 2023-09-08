@@ -95,8 +95,28 @@ void GraphicsBatch::ProcessLights()
 		light.view[3] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + right, glm::vec3{ 0.0f,1.0f, 0.0f });
 		light.view[4] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + -forward, glm::vec3{ 0.0f,-1.0f, 0.0f });
 		light.view[5] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + forward, glm::vec3{ 0.0f,-1.0f, 0.0f });
+		
+		auto inversed_perspectiveRH_ZO = [](float fovRad, float aspect, float n, float f)->glm::mat4 {
+			glm::mat4 result(0.0f);
+			assert(abs(aspect - std::numeric_limits<float>::epsilon()) > 0.0f);
+			float const tanHalfFovy = tan(fovRad / 2.0f);
 
-		light.projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, light.radius.x);
+			float h = 1.0f / std::tan(fovRad * 0.5f);
+			float w = h / aspect;
+			float a = -n / (f - n);
+			float b = (n * f) / (f - n);
+			result[0][0] = w;
+			result[1][1] = h;
+			result[2][2] = a;
+			result[2][3] = -1.0f;
+			result[3][2] = b;
+
+			return result;
+		};
+		light.projection = inversed_perspectiveRH_ZO(glm::radians(90.0f), 1.0f, 0.1f, light.radius.x);
+
+		
+
 	}
 }
 

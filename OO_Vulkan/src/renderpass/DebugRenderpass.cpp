@@ -53,49 +53,59 @@ void DebugDrawRenderpass::Draw()
 
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
-	auto& commandBuffers = vr.commandBuffers;
 
 	std::array<VkClearValue, 2> clearValues{};
 	//clearValues[0].color = { 0.6f,0.65f,0.4f,1.0f };
 	clearValues[0].color = { 0.1f,0.1f,0.1f,0.0f };
 	clearValues[1].depthStencil.depth = {1.0f };
-	//Information about how to begin a render pass (only needed for graphical applications)
-	VkRenderPassBeginInfo renderPassBeginInfo = oGFX::vkutils::inits::renderPassBeginInfo();
-	renderPassBeginInfo.renderPass = debugRenderpass.pass;									//render pass to begin
-	renderPassBeginInfo.renderArea.offset = { 0,0 };								//start point of render pass in pixels
-	renderPassBeginInfo.renderArea.extent = vr.m_swapchain.swapChainExtent;			//size of region to run render pass on (Starting from offset)
-	renderPassBeginInfo.pClearValues = clearValues.data();							//list of clear values
-	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size()); // no clearing
 
 	auto& depthAtt = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments[GBufferAttachmentIndex::DEPTH];
 
-	VkFramebuffer fb;
-	FramebufferBuilder::Begin(&vr.fbCache)
-		.BindImage(&vr.renderTargets[vr.renderTargetInUseID].texture)
-		.BindImage(&depthAtt)
-		.Build(fb,debugRenderpass);
-
-	renderPassBeginInfo.framebuffer = fb;
 	
-	const VkCommandBuffer cmdlist = vr.commandBuffers[currFrame];
+	const VkCommandBuffer cmdlist = vr.GetCommandBuffer();;
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("DebugDraw");
 
 	auto gbuffer = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
-	//assert(gbuffer->attachments[GBufferAttachmentIndex::DEPTH].currentLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	//oGFX::vkutils::tools::insertImageMemoryBarrier(
-	//	cmdlist,
-	//	gbuffer->attachments[GBufferAttachmentIndex::DEPTH].image,
-	//	VK_ACCESS_MEMORY_READ_BIT,
-	//	VK_ACCESS_MEMORY_WRITE_BIT|VK_ACCESS_MEMORY_READ_BIT,
-	//	VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-	//	VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-	//	VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-	//	VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT ,
-	//	VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 });
-	//gbuffer->attachments[GBufferAttachmentIndex::DEPTH].currentLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	
+	const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height;
+	const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width;
 
-	vkCmdBeginRenderPass(cmdlist, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	VkRenderingAttachmentInfo albedoInfo{};
+	albedoInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+	albedoInfo.pNext = NULL;
+	albedoInfo.resolveMode = {};
+	albedoInfo.resolveImageView = {};
+	albedoInfo.resolveImageLayout = {};
+	albedoInfo.imageView = vr.renderTargets[vr.renderTargetInUseID].texture.view;
+	albedoInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	albedoInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	albedoInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	albedoInfo.clearValue = VkClearValue{ {} };
+	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+	VkRenderingAttachmentInfo depthInfo{};
+	depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+	depthInfo.pNext = NULL;
+	depthInfo.resolveMode = {};
+	depthInfo.resolveImageView = {};
+	depthInfo.resolveImageLayout = {};
+	depthInfo.imageView = gbuffer->attachments[GBufferAttachmentIndex::DEPTH].view;
+	depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	depthInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	depthInfo.clearValue = { 0.0f,0.0f };
+	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+	VkRenderingInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderingInfo.renderArea = { 0, 0, (uint32_t)vpWidth, (uint32_t)vpHeight };
+	renderingInfo.layerCount = 1;
+	renderingInfo.colorAttachmentCount = 1;
+	renderingInfo.pColorAttachments = &albedoInfo;
+	renderingInfo.pDepthAttachment = &depthInfo;
+	renderingInfo.pStencilAttachment = &depthInfo;
+	vkCmdBeginRendering(cmdlist, &renderingInfo);
 
 	rhi::CommandList cmd{ cmdlist, "Debug Pass"};
 	if (dodebugRendering)
@@ -117,15 +127,14 @@ void DebugDrawRenderpass::Draw()
 		);
 
 		cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_DebugDrawVertexBufferGPU[currFrame].getBufferPtr());
-		cmd.BindIndexBuffer(vr.g_DebugDrawIndexBufferGPU[currFrame].getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
-		
+		cmd.BindIndexBuffer(vr.g_DebugDrawIndexBufferGPU[currFrame].getBuffer(), 0, VK_INDEX_TYPE_UINT32);		
 		
 		cmd.DrawIndexed((uint32_t)(vr.g_DebugDrawIndexBufferGPU[currFrame].size()), 1);
 	}
+	vkCmdEndRendering(cmdlist);
 
-
-	vkCmdEndRenderPass(cmdlist);
+	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
 void DebugDrawRenderpass::Shutdown()
@@ -274,7 +283,7 @@ void DebugDrawRenderpass::CreatePipeline()
 	auto rasterizerCreateInfo    = Creator<VkPipelineRasterizationStateCreateInfo>(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 	const std::vector dynamicState{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 	auto dynamicStateCreateInfo  = Creator<VkPipelineDynamicStateCreateInfo>(dynamicState);
-	auto depthStencilCreateInfo  = Creator<VkPipelineDepthStencilStateCreateInfo>(VK_TRUE, VK_FALSE, VK_COMPARE_OP_LESS);
+	auto depthStencilCreateInfo  = Creator<VkPipelineDepthStencilStateCreateInfo>(VK_TRUE, VK_FALSE, vr.G_DEPTH_COMPARISON);
 
 	VkPipelineColorBlendAttachmentState colourState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0x0000000F,VK_TRUE);
 	colourState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -296,7 +305,26 @@ void DebugDrawRenderpass::CreatePipeline()
 	pipelineCreateInfo.pMultisampleState = &multisamplingCreateInfo;
 	pipelineCreateInfo.pColorBlendState = &colourBlendingCreateInfo;
 	pipelineCreateInfo.pDepthStencilState = &depthStencilCreateInfo;
-	pipelineCreateInfo.renderPass = debugRenderpass.pass;
+	
+	auto gbuffer = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
+	VkPipelineRenderingCreateInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+	renderingInfo.viewMask = {};
+	renderingInfo.colorAttachmentCount = 1;
+	renderingInfo.pColorAttachmentFormats = &vr.G_HDR_FORMAT;
+	renderingInfo.depthAttachmentFormat = vr.G_DEPTH_FORMAT;
+	renderingInfo.stencilAttachmentFormat = vr.G_DEPTH_FORMAT;
+
+	pipelineCreateInfo.pNext = &renderingInfo;
+	//pipelineCreateInfo.renderPass = debugRenderpass.pass;
+	pipelineCreateInfo.renderPass = VK_NULL_HANDLE;
+
+	depthStencilCreateInfo.stencilTestEnable = VK_FALSE;
+	depthStencilCreateInfo.depthBoundsTestEnable = VK_FALSE;
+	depthStencilCreateInfo.flags = {};
+	depthStencilCreateInfo.pNext = NULL;
+	depthStencilCreateInfo.front = { };
+	depthStencilCreateInfo.back = { };
 
 	// TESTING
 	if constexpr(false)
@@ -309,7 +337,7 @@ void DebugDrawRenderpass::CreatePipeline()
 		psoCreator.Set<VkPipelineRasterizationStateCreateInfo>(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 		const std::vector dynamicState{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 		psoCreator.Set<VkPipelineDynamicStateCreateInfo>(dynamicState);
-		psoCreator.Set<VkPipelineDepthStencilStateCreateInfo>(VK_TRUE, VK_FALSE, VK_COMPARE_OP_LESS);
+		psoCreator.Set<VkPipelineDepthStencilStateCreateInfo>(VK_TRUE, VK_FALSE, vr.G_DEPTH_COMPARISON);
 		auto cbas = psoCreator.Get<VkPipelineColorBlendAttachmentState>() = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0x0000000F, VK_TRUE);
 		cbas.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 		cbas.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
@@ -350,11 +378,15 @@ void DebugDrawRenderpass::CreatePipeline()
 			for (unsigned j = 0; j < depthTests.size(); ++j)
 			{
 				const auto depthtest = depthTests[j];
-				depthStencilCreateInfo.depthTestEnable = depthtest;
+				//depthStencilCreateInfo.depthTestEnable = depthtest;
 
 				// Create all permutations of PSO needed
 				{
 					VkPipeline& pso = m_DebugDrawPSOSelector.psos[i + 2ull * j];
+					if (pso != VK_NULL_HANDLE) 
+					{
+						vkDestroyPipeline(m_device.logicalDevice,pso, nullptr);
+					}
 					VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &pso));
 					VK_NAME(m_device.logicalDevice, "DebugDrawLinesPSO", pso);
 				}
