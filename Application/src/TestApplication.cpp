@@ -706,9 +706,9 @@ void TestApplication::Run()
         camera.m_CameraMovementType = Camera::CameraMovementType::firstperson;
         camera.movementSpeed = 5.0f;
         
-        camera.SetRotation(glm::vec3(0.0f, 180.0f, 0.0f));
+        camera.SetRotation(glm::vec3(0.0f, 91.0f, 0.0f));
         camera.SetRotationSpeed(0.5f);
-        camera.SetPosition(glm::vec3(0.0f, 2.0f, 4.0f));
+        camera.SetPosition(glm::vec3(0.0f, 2.0f, 10.0f));
         camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
 
         gs_GraphicsWorld.cameras[1] = gs_GraphicsWorld.cameras[0];
