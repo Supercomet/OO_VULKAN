@@ -121,7 +121,7 @@ void BloomPass::Draw()
 		}
 
 		VkDescriptorImageInfo texSrc = oGFX::vkutils::inits::descriptorImageInfo(
-			GfxSamplerManager::GetSampler_BlackBorderFloat(),
+			GfxSamplerManager::GetSampler_BlackBorder(),
 			mainImage.texture.view,
 			VK_IMAGE_LAYOUT_GENERAL);
 		vkutils::TransitionImage(cmdlist,mainImage.texture,VK_IMAGE_LAYOUT_GENERAL);
@@ -133,7 +133,7 @@ void BloomPass::Draw()
 		vkutils::TransitionImage(cmdlist,Bloom_brightTarget,VK_IMAGE_LAYOUT_GENERAL);
 
 		VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
-			GfxSamplerManager::GetDefaultSampler(),
+			GfxSamplerManager::GetSampler_BlackBorder(),
 			0,
 			VK_IMAGE_LAYOUT_UNDEFINED);
 		vkutils::TransitionImage(cmdlist, Bloom_brightTarget, VK_IMAGE_LAYOUT_GENERAL);
@@ -183,7 +183,7 @@ void BloomPass::Draw()
 			}
 
 			VkDescriptorImageInfo texSrc = oGFX::vkutils::inits::descriptorImageInfo(
-				GfxSamplerManager::GetSampler_BlackBorderFloat(),
+				GfxSamplerManager::GetSampler_BlackBorder(),
 				prevImage->view,
 				VK_IMAGE_LAYOUT_GENERAL);
 			vkutils::ComputeImageBarrier(cmdlist,*prevImage,VK_IMAGE_LAYOUT_GENERAL);
@@ -195,7 +195,7 @@ void BloomPass::Draw()
 			vkutils::ComputeImageBarrier(cmdlist,*currImage,VK_IMAGE_LAYOUT_GENERAL);
 
 			VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
-				GfxSamplerManager::GetDefaultSampler(),
+				GfxSamplerManager::GetSampler_BlackBorder(),
 				0,
 				VK_IMAGE_LAYOUT_UNDEFINED);
 
@@ -228,7 +228,7 @@ void BloomPass::Draw()
 		auto* inputBuffer = &Bloom_downsampleTargets[i];
 
 		VkDescriptorImageInfo texSrc = oGFX::vkutils::inits::descriptorImageInfo(
-			GfxSamplerManager::GetSampler_BlackBorderFloat(),
+			GfxSamplerManager::GetSampler_BlackBorder(),
 			inputBuffer->view,
 			VK_IMAGE_LAYOUT_GENERAL);
 		vkutils::ComputeImageBarrier(cmdlist,*inputBuffer,VK_IMAGE_LAYOUT_GENERAL);
@@ -240,7 +240,7 @@ void BloomPass::Draw()
 		vkutils::ComputeImageBarrier(cmdlist,*outputBuffer,VK_IMAGE_LAYOUT_GENERAL);
 
 		VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
-			GfxSamplerManager::GetDefaultSampler(),
+			GfxSamplerManager::GetSampler_BlackBorder(),
 			0,
 			VK_IMAGE_LAYOUT_UNDEFINED);
 
@@ -261,7 +261,7 @@ void BloomPass::Draw()
 		auto* inputBuffer = &Bloom_downsampleTargets[0];
 
 		VkDescriptorImageInfo texSrc = oGFX::vkutils::inits::descriptorImageInfo(
-			GfxSamplerManager::GetSampler_BlackBorderFloat(),
+			GfxSamplerManager::GetSampler_BlackBorder(),
 			inputBuffer->view,
 			VK_IMAGE_LAYOUT_GENERAL);
 		vkutils::ComputeImageBarrier(cmdlist,*inputBuffer,VK_IMAGE_LAYOUT_GENERAL);
@@ -273,7 +273,7 @@ void BloomPass::Draw()
 		vkutils::ComputeImageBarrier(cmdlist,*outputBuffer,VK_IMAGE_LAYOUT_GENERAL);
 
 		VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
-			GfxSamplerManager::GetDefaultSampler(),
+			GfxSamplerManager::GetSampler_BlackBorder(),
 			0,
 			VK_IMAGE_LAYOUT_UNDEFINED);
 
@@ -303,7 +303,7 @@ void BloomPass::Draw()
 		auto* inputBuffer = &Bloom_brightTarget;
 	
 		VkDescriptorImageInfo texSrc = oGFX::vkutils::inits::descriptorImageInfo(
-			GfxSamplerManager::GetSampler_BlackBorderFloat(),
+			GfxSamplerManager::GetSampler_BlackBorder(),
 			inputBuffer->view,
 			VK_IMAGE_LAYOUT_GENERAL);
 		vkutils::ComputeImageBarrier(cmdlist,*inputBuffer,VK_IMAGE_LAYOUT_GENERAL);
@@ -315,7 +315,7 @@ void BloomPass::Draw()
 		vkutils::ComputeImageBarrier(cmdlist,*outputBuffer,VK_IMAGE_LAYOUT_GENERAL);
 	
 		VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
-			GfxSamplerManager::GetDefaultSampler(),
+			GfxSamplerManager::GetSampler_BlackBorder(),
 			0,
 			VK_IMAGE_LAYOUT_UNDEFINED);
 
@@ -358,7 +358,7 @@ void BloomPass::Draw()
 		vkutils::ComputeImageBarrier(cmdlist,*outputBuffer,VK_IMAGE_LAYOUT_GENERAL);
 
 		VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
-			GfxSamplerManager::GetDefaultSampler(),
+			GfxSamplerManager::GetSampler_BlackBorder(),
 			0,
 			VK_IMAGE_LAYOUT_UNDEFINED);
 
@@ -413,7 +413,7 @@ void BloomPass::Draw()
 		vkutils::ComputeImageBarrier(cmdlist,*outputBuffer,VK_IMAGE_LAYOUT_GENERAL);
 
 		VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
-			GfxSamplerManager::GetDefaultSampler(),
+			GfxSamplerManager::GetSampler_BlackBorder(),
 			0,
 			VK_IMAGE_LAYOUT_UNDEFINED);
 
@@ -455,7 +455,7 @@ void BloomPass::Draw()
 		vkutils::ComputeImageBarrier(cmdlist, *outputBuffer, VK_IMAGE_LAYOUT_GENERAL);
 
 		VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
-			GfxSamplerManager::GetDefaultSampler(),
+			GfxSamplerManager::GetSampler_BlackBorder(),
 			0,
 			VK_IMAGE_LAYOUT_UNDEFINED);
 		DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[currFrame])
@@ -532,7 +532,7 @@ void BloomPass::CreateDescriptors()
 	vr.endSingleTimeCommands(cmd);
 	VkDescriptorSet dummy;
 	VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
-		GfxSamplerManager::GetDefaultSampler(),
+		GfxSamplerManager::GetSampler_BlackBorder(),
 		0,
 		VK_IMAGE_LAYOUT_UNDEFINED);
 	DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[currFrame])
