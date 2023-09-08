@@ -859,7 +859,7 @@ void TestApplication::Run()
                     //std::cout << "Mouse pos [" << mpos.x << "," << mpos.y << "]\n";
 
                     int32_t col = gs_RenderEngine->GetPixelValue(gs_GraphicsWorld.targetIDs[0], mpos);
-                    //std::cout << "colour val : " << std::hex << col <<std::dec << " | " << col << std::endl;
+                    std::cout << "Mouse picking:: colour val : " << std::hex << col <<std::dec << " | " << col << std::endl;
                 }
 
                 if (ImGui::Begin("Main"))

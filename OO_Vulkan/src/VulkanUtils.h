@@ -190,6 +190,12 @@ namespace oGFX
 		VmaAllocationInfo allocInfo;
 	};
 
+	struct AllocatedImage {
+		VkImage image;
+		VmaAllocation allocation;
+		VmaAllocationInfo allocationInfo;
+	};
+
 	const std::vector<VkVertexInputBindingDescription>& GetGFXVertexInputBindings();	
 	const std::vector<VkVertexInputAttributeDescription>& GetGFXVertexInputAttributes();
 

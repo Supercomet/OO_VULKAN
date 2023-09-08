@@ -33,11 +33,10 @@ namespace vkutils
 	public:
 		std::string name{}; // maybe remove when not debug?
 		VulkanDevice* device{ nullptr };
-		VkImage image{};
+		oGFX::AllocatedImage image;
 		VkFormat format{};
 		VkImageLayout imageLayout{};
 		VkImageLayout currentLayout{VK_IMAGE_LAYOUT_UNDEFINED};
-		VkDeviceMemory deviceMemory{};
 		VkImageView view{};
 		uint32_t width{}, height{};
 		uint32_t mipLevels{};
@@ -46,7 +45,6 @@ namespace vkutils
 		VkImageUsageFlags usage{};
 		VkImageAspectFlags aspectMask{};
 		VkFilter filter{};
-		VkMemoryPropertyFlags MemProps{};
 		bool targetSwapchain = true;
 		bool isValid = false;
 		float renderScale = 1.0f;

@@ -43,11 +43,12 @@ Technology is prohibited.
 #include "renderpass/DeferredCompositionRenderpass.h"
 #include "renderpass/GBufferRenderPass.h"
 #include "renderpass/DebugRenderpass.h"
-#include "renderpass/ShadowPass.h"
 #include "renderpass/SSAORenderPass.h"
 #include "renderpass/ForwardParticlePass.h"
 #include "renderpass/ForwardUIPass.h"
 #include "renderpass/BloomPass.h"
+
+extern GfxRenderpass* g_ShadowPass;
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	#include "renderpass/ForwardDecalRenderpass.h"
 #endif
@@ -159,11 +160,11 @@ VulkanRenderer::~VulkanRenderer()
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
-		if (renderTargets[i].texture.image)
+		if (renderTargets[i].texture.image.image)
 		{
 			renderTargets[i].texture.destroy();
 		}
-		if (renderTargets[i].depth.image)
+		if (renderTargets[i].depth.image.image)
 		{
 			renderTargets[i].depth.destroy();
 		}
@@ -326,8 +327,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	// Calls "Init()" on all registered render passes. Order is not guarunteed.
 	auto rpd = RenderPassDatabase::Get();
 	GfxRenderpass* ptr;
-	ptr = new ShadowPass;
-	rpd->RegisterRenderPass(ptr);
+	rpd->RegisterRenderPass(g_ShadowPass);
 	ptr = new GBufferRenderPass;
 	rpd->RegisterRenderPass(ptr);
 	ptr = new DebugDrawRenderpass;
@@ -747,7 +747,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& sr
 	// Transition destination image to transfer destination layout
 	oGFX::vkutils::tools::insertImageMemoryBarrier(
 		cmd,
-		dst.image,
+		dst.image.image,
 		0,
 		VK_ACCESS_TRANSFER_WRITE_BIT,
 		dst.currentLayout,
@@ -758,7 +758,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& sr
 
 	oGFX::vkutils::tools::insertImageMemoryBarrier(
 		cmd,
-		src.image,
+		src.image.image,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_ACCESS_TRANSFER_READ_BIT,
 		src.currentLayout, // DO PROPER RESOURCE TRACKING
@@ -791,8 +791,8 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& sr
 		// Issue the blit command
 		vkCmdBlitImage(
 			cmd,
-			src.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			src.image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dst.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1,
 			&imageBlitRegion,
 			VK_FILTER_NEAREST);
@@ -812,8 +812,8 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& sr
 		// Issue the copy command
 		vkCmdCopyImage(
 			cmd,
-			src.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			src.image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dst.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1,
 			&imageCopyRegion);
 	}
@@ -821,7 +821,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& sr
 	// Transition destination image to general layout, which is the required layout for mapping the image memory later on
 	oGFX::vkutils::tools::insertImageMemoryBarrier(
 		cmd,
-		dst.image,
+		dst.image.image,
 		VK_ACCESS_TRANSFER_WRITE_BIT,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -832,7 +832,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& sr
 	// Transition back the swap chain image after the blit is done
 	oGFX::vkutils::tools::insertImageMemoryBarrier(
 		cmd,
-		src.image,
+		src.image.image,
 		VK_ACCESS_TRANSFER_READ_BIT,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -1104,19 +1104,19 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 			assert(found && "Could not find enough rendertargets");
 			// initialization
 			auto& image = renderTargets[wrdID].texture;
-			if (image.image == VK_NULL_HANDLE)
+			if (image.image.image == VK_NULL_HANDLE)
 			{
 				image.name = "GW_"+std::to_string(wrdID)+":COL";
 				image.forFrameBuffer(&m_device, G_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 					m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height);
 				fbCache.RegisterFramebuffer(image);
 			}
-			if (image.image&&renderTargets[wrdID].imguiTex == 0)
+			if (image.image.image && renderTargets[wrdID].imguiTex == 0)
 			{
 				renderTargets[wrdID].imguiTex = CreateImguiBinding(samplerManager.GetDefaultSampler(), image.view, VK_IMAGE_LAYOUT_GENERAL);				
 			}
 			auto& depth =  renderTargets[wrdID].depth;
-			if (depth.image == VK_NULL_HANDLE)
+			if (depth.image.image == VK_NULL_HANDLE)
 			{
 				depth.name = "GW_"+std::to_string(wrdID)+":DEPTH";
 				depth.forFrameBuffer(&m_device, G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
@@ -1158,31 +1158,16 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	vkQueueWaitIdle(m_device.graphicsQueue);
 	vkDeviceWaitIdle(device);
 
-
-
-	bool supportsBlit = true;
-	// Check blit support for source and destination
-	VkFormatProperties formatProps;
-
 	
 	auto& target = Attachments::attachments[GBufferAttachmentIndex::ENTITY_ID];
 	if (target.currentLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 		return -1;
 
-	// Check if the device supports blitting from optimal images (the swapchain images are in optimal format)
-	vkGetPhysicalDeviceFormatProperties(physicalDevice, target.format, &formatProps);
-	if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
-		supportsBlit = false;
-	}
-
-	// Check if the device supports blitting to linear images
-	vkGetPhysicalDeviceFormatProperties(physicalDevice, VK_FORMAT_R32_SINT, &formatProps);
-	if (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
-		supportsBlit = false;
-	}
+	VkCommandBuffer copyCmd = beginSingleTimeCommands();
+	VK_NAME(device, "COPY_DST_EDITOR_ID_CMD_LIST", copyCmd);
 
 	// Source for the copy is the last rendered swapchain image
-	VkImage srcImage = target.image;
+	VkImage srcImage = target.image.image;
 
 	// Create the linear tiled destination image to copy to and to read the memory from
 	VkImageCreateInfo imageCreateCI(oGFX::vkutils::inits::imageCreateInfo());
@@ -1199,132 +1184,30 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	imageCreateCI.tiling = VK_IMAGE_TILING_LINEAR;
 	imageCreateCI.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	// Create the image
-	VkImage dstImage;
-	VK_CHK(vkCreateImage(device, &imageCreateCI, nullptr, &dstImage));
-	VK_NAME(device, "COPY_DST_EDITOR_ID", dstImage);
-	// Create memory to back up the image
-	VkMemoryRequirements memRequirements;
-	VkMemoryAllocateInfo memAllocInfo(oGFX::vkutils::inits::memoryAllocateInfo());
-	VkDeviceMemory dstImageMemory;
-	vkGetImageMemoryRequirements(device, dstImage, &memRequirements);
-	memAllocInfo.allocationSize = memRequirements.size;
-	// Memory must be host visible to copy from
-	memAllocInfo.memoryTypeIndex = oGFX::FindMemoryTypeIndex(physicalDevice, memRequirements.memoryTypeBits
-		, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	VK_CHK(vkAllocateMemory(device, &memAllocInfo, nullptr, &dstImageMemory));
-	VK_CHK(vkBindImageMemory(device, dstImage, dstImageMemory, 0));
+
+	oGFX::AllocatedImage dstImage{};
+	VmaAllocationCreateInfo allocCI{};
+	allocCI.usage = VMA_MEMORY_USAGE_AUTO;
+	allocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+	vmaCreateImage(m_device.m_allocator, &imageCreateCI, &allocCI, &dstImage.image, &dstImage.allocation, &dstImage.allocationInfo);
+	vkutils::Texture2D temptex;
+	temptex.width = target.width;
+	temptex.height = target.height;
+	temptex.format = target.format;
+	temptex.currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	temptex.image = dstImage;
 
 	// Do the actual blit from the swapchain image to our host visible destination image
-	
-	VkCommandBuffer copyCmd = beginSingleTimeCommands();
-	VK_NAME(device, "COPY_DST_EDITOR_ID_CMD_LIST", copyCmd);
-	// Transition destination image to transfer destination layout
-	oGFX::vkutils::tools::insertImageMemoryBarrier(
-		copyCmd,
-		dstImage,
-		0,
-		VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-
-	// Transition swapchain image from present to transfer source layout
-	oGFX::vkutils::tools::insertImageMemoryBarrier(
-		copyCmd,
-		srcImage,
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_ACCESS_TRANSFER_READ_BIT,
-		target.currentLayout,
-		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-
-	// If source and destination support blit we'll blit as this also does automatic format conversion (e.g. from BGR to RGB)
-	if (supportsBlit)
-	{
-		// Define the region to blit (we will blit the whole swapchain image)
-		VkOffset3D blitSize;
-		blitSize.x = target.width;
-		blitSize.y = target.height;
-		blitSize.z = 1;
-		VkImageBlit imageBlitRegion{};
-		imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageBlitRegion.srcSubresource.layerCount = 1;
-		imageBlitRegion.srcOffsets[1] = blitSize;
-		imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageBlitRegion.dstSubresource.layerCount = 1;
-		imageBlitRegion.dstOffsets[1] = blitSize;
-
-		// Issue the blit command
-		vkCmdBlitImage(
-			copyCmd,
-			srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			1,
-			&imageBlitRegion,
-			VK_FILTER_NEAREST);
-	}
-	else
-	{
-		// Otherwise use image copy (requires us to manually flip components)
-		VkImageCopy imageCopyRegion{};
-		imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageCopyRegion.srcSubresource.layerCount = 1;
-		imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageCopyRegion.dstSubresource.layerCount = 1;
-		imageCopyRegion.extent.width = target.width;
-		imageCopyRegion.extent.height = target.height;
-		imageCopyRegion.extent.depth = 1;
-
-		// Issue the copy command
-		vkCmdCopyImage(
-			copyCmd,
-			srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			1,
-			&imageCopyRegion);
-	}
-
-	// Transition destination image to general layout, which is the required layout for mapping the image memory later on
-	oGFX::vkutils::tools::insertImageMemoryBarrier(
-		copyCmd,
-		dstImage,
-		VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-
-	// Transition back the format after the blit is done
-	oGFX::vkutils::tools::insertImageMemoryBarrier(
-		copyCmd,
-		srcImage,
-		VK_ACCESS_TRANSFER_READ_BIT,
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		target.currentLayout,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+	BlitFramebuffer(copyCmd, target, target.currentLayout, temptex, VK_IMAGE_LAYOUT_GENERAL);
 
 	vkEndCommandBuffer(copyCmd);
 
+	
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &copyCmd; 
-	//submitInfo.waitSemaphoreCount = 1; //number of semaphores to wait on
-	//submitInfo.pWaitSemaphores = &readyForCopy[(currentFrame+MAX_FRAME_DRAWS+1) % MAX_FRAME_DRAWS]; //list of semaphores to wait on
-	//VkPipelineStageFlags waitStages[] = {
-	//	VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-	//};
-	//submitInfo.pWaitDstStageMask = waitStages; //stages to check semapheres at
-
 
 	vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
 	vkQueueWaitIdle(m_device.graphicsQueue);
@@ -1334,34 +1217,25 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	// Get layout of the image (including row pitch)
 	VkImageSubresource subResource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
 	VkSubresourceLayout subResourceLayout;
-	vkGetImageSubresourceLayout(device, dstImage, &subResource, &subResourceLayout);
+	vkGetImageSubresourceLayout(device, dstImage.image, &subResource, &subResourceLayout);
 
-	// Map image memory so we can start copying from it
-	const char* data;
-	VK_CHK(vkMapMemory(device, dstImageMemory, 0, VK_WHOLE_SIZE, 0, (void**)& data));
-	data += subResourceLayout.offset;
-
-	
-	// If source is BGR (destination is always RGB) and we can't use blit (which does automatic conversion), we'll have to manually swizzle color components
-	bool colorSwizzle = false;
-	// Check if source is BGR
-	// Note: Not complete, only contains most common and basic BGR surface formats for demonstration purposes
-	if (!supportsBlit)
+	const char* mappedData = nullptr;
+	auto result = vmaMapMemory(m_device.m_allocator, dstImage.allocation, (void**)&mappedData);
+	if (result != VK_SUCCESS)
 	{
-		std::vector<VkFormat> formatsBGR = { VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_B8G8R8A8_SNORM };
-		//colorSwizzle = (std::find(formatsBGR.begin(), formatsBGR.end(), swapChain.colorFormat) != formatsBGR.end());
+		assert(false);
 	}
-
+	
+	mappedData += subResourceLayout.offset;
 	glm::uvec2 pixels = glm::uvec2{ target.width * uv.x,target.height * (uv.y) };
 	pixels = glm::clamp(pixels, { 0,0 }, { target.width-1,target.height-1 });
 	uint32_t indx = (pixels.x + pixels.y * target.width);
-	int32_t value = ((int32_t*)data)[indx];
+	int32_t value = ((int32_t*)mappedData)[indx];
 	//uint32_t value = ((uint32_t*)data)[pixels.x * (pixels.y * subResourceLayout.rowPitch)];
 
 	// Clean up resources
-	vkUnmapMemory(device, dstImageMemory);
-	vkFreeMemory(device, dstImageMemory, nullptr);
-	vkDestroyImage(device, dstImage, nullptr);
+	vmaUnmapMemory(m_device.m_allocator, dstImage.allocation);
+	vmaDestroyImage(m_device.m_allocator, dstImage.image, dstImage.allocation);
 
 	return value;
 
@@ -2479,7 +2353,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		if (shadowsRendered == false) // only render shadowpass once... 
 		{
 			//generally works until we need to perform better frustrum culling....
-			RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
+			g_ShadowPass->Draw();
 			shadowsRendered = true;
 		}
 		//RenderPassDatabase::GetRenderPass<ZPrepassRenderpass>()->Draw();
@@ -2687,8 +2561,8 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 
 	vkutils::Texture2D generatedTexture; // writing into a new texture
 	generatedTexture = texture;
-	generatedTexture.image = VK_NULL_HANDLE;
-	generatedTexture.deviceMemory = VK_NULL_HANDLE;
+	generatedTexture.image.image = VK_NULL_HANDLE;
+	generatedTexture.image.allocation = VK_NULL_HANDLE;
 	generatedTexture.view = VK_NULL_HANDLE;
 	generatedTexture.name += " xd";
 	generatedTexture.currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -2706,7 +2580,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 	viewCreateInfo.subresourceRange.levelCount = 1;
 	viewCreateInfo.subresourceRange.baseMipLevel = 0;
 	
-	viewCreateInfo.image = generatedTexture.image;
+	viewCreateInfo.image = generatedTexture.image.image;
 	std::array < VkImageView, maxNumMips> mipViews;
 	for (size_t i = 0; i < texMips; i++)
 	{
@@ -2766,8 +2640,8 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 		region.dstSubresource = VkImageSubresourceLayers{ VK_IMAGE_ASPECT_COLOR_BIT,0,0,1 };
 		region.dstOffset={};
 		region.extent = { texture.width,texture.height,1 };
-		vkCmdCopyImage(cmd, texture.image, texture.currentLayout
-			, generatedTexture.image, generatedTexture.currentLayout,
+		vkCmdCopyImage(cmd, texture.image.image, texture.currentLayout
+			, generatedTexture.image.image, generatedTexture.currentLayout,
 			1, &region);
 
 		vkutils::ComputeImageBarrier(cmd, generatedTexture, VK_IMAGE_LAYOUT_GENERAL);

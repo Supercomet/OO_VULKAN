@@ -20,21 +20,3 @@ Technology is prohibited.
 
 #include <array>
 
-struct ShadowPass : public GfxRenderpass
-{
-	//DECLARE_RENDERPASS_SINGLETON(ShadowPass)
-
-	void Init() override;
-	void Draw() override;
-	void Shutdown() override;
-
-	bool SetupDependencies() override;
-	void CreatePSO() override;
-
-
-private:
-	void SetupRenderpass();
-	void SetupFramebuffer();
-	void CreatePipeline();
-};
-
