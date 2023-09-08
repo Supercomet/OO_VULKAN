@@ -52,11 +52,6 @@ Engineering Tasks:
 	• Have an initial state that each resource should be in
 	• If the renderer needs to use the resource it has the responsilibity to return it to the initial state
 
-• Get rid of RenderPassDatabase
-    • dynamic_cast is not allowed in most AAA game engines
-    • It's linearly iterating through all Renderers & dynamic casting, which is bad for perf
-    • It's also not necessary. Just declare a Renderer in Global scope in its own .cpp file, and extern the GfxRenderpass ptr in VulkanRenderer.
-
 • Proper Frame Fencing
     • Should only stall CPU before the FIRST command buffer submission
 
@@ -112,10 +107,17 @@ Engineering Tasks:
     • Anything that can be run asyncronously with Graphics Queue, should
     • GPU Fence where necessary
 
-• Vulkan Memory Allocator: https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
 
 ///////////////////////////////////////////////////////////////////////////////
 Done:
+• Get rid of RenderPassDatabase
+    • dynamic_cast is not allowed in most AAA game engines
+    • It's linearly iterating through all Renderers & dynamic casting, which is bad for perf
+    • It's also not necessary. Just declare a Renderer in Global scope in its own .cpp file, and extern the GfxRenderpass ptr in VulkanRenderer.
+
+• Vulkan Memory Allocator: https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+	• Fully integrated
+
 • Separate sampler from image
     • create & store globally accessible common samplers to use & bind, such as Linear-Clamp, Point-Wrap etc...
 
