@@ -75,7 +75,6 @@ void RenderPassDatabase::ShutdownAllRegisteredPasses()
     for (auto& renderPass : renderpasses->m_AllRawRenderPasses)
     {
         renderPass->Shutdown();
-		//delete renderPass; // this will leak for this commit
     }
 	renderpasses->m_AllRawRenderPasses.clear();
 }

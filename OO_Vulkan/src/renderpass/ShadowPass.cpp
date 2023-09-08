@@ -11,7 +11,7 @@ Reproduction or disclosure of this file or its contents
 without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
-#include "ShadowPass.h"
+#include "GfxRenderpass.h"
 
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
@@ -27,8 +27,6 @@ Technology is prohibited.
 
 #include "../shaders/shared_structs.h"
 #include "MathCommon.h"
-
-#include "renderpass/DeferredCompositionRenderpass.h"
 
 #include <array>
 
@@ -51,8 +49,6 @@ private:
 	void CreatePipeline();
 };
 
-ShadowPass g_gfxshadowPass;
-GfxRenderpass* g_ShadowPass{ &g_gfxshadowPass };
 
 DECLARE_RENDERPASS(ShadowPass);
 

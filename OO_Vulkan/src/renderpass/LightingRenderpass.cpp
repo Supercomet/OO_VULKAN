@@ -11,20 +11,35 @@ Reproduction or disclosure of this file or its contents
 without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
-#include "DeferredCompositionRenderpass.h"
+#include "GfxRenderpass.h"
 
 #include "VulkanRenderer.h"
 #include "Window.h"
 #include "VulkanUtils.h"
 
-#include "GBufferRenderPass.h"
-#include "SSAORenderPass.h"
-#include "ShadowPass.h"
 
 #include <array>
 #include <iostream>
 
-DECLARE_RENDERPASS(DeferredCompositionRenderpass);
+struct LightingPass : public GfxRenderpass
+{
+	//DECLARE_RENDERPASS_SINGLETON(DeferredCompositionRenderpass)
+
+	void Init() override;
+	void Draw() override;
+	void Shutdown() override;
+
+	bool SetupDependencies() override;
+	void CreatePSO() override;
+
+	void CreatePipeline();
+private:
+	void CreateDescriptors();
+	void CreatePipelineLayout();
+};
+
+
+DECLARE_RENDERPASS(LightingPass);
 
 VkRenderPass renderpass_DeferredLightingComposition{};
 
@@ -35,18 +50,18 @@ uint64_t uboDynamicAlignment{};
 
 bool m_log{ false };
 
-void DeferredCompositionRenderpass::Init()
+void LightingPass::Init()
 {
 	
 	CreatePipelineLayout();
 }
 
-void DeferredCompositionRenderpass::CreatePSO()
+void LightingPass::CreatePSO()
 {	
 	CreatePipeline(); // Dependency on GBuffer Init()
 }
 
-bool DeferredCompositionRenderpass::SetupDependencies()
+bool LightingPass::SetupDependencies()
 {
 	// TODO: If shadows are disabled, return false.
 
@@ -61,7 +76,7 @@ bool DeferredCompositionRenderpass::SetupDependencies()
 	return true;
 }
 
-void DeferredCompositionRenderpass::Draw()
+void LightingPass::Draw()
 {
 	auto& vr = *VulkanRenderer::get();
 	auto currFrame = vr.getFrame();
@@ -172,7 +187,7 @@ void DeferredCompositionRenderpass::Draw()
 
 }
 
-void DeferredCompositionRenderpass::Shutdown()
+void LightingPass::Shutdown()
 {
 	auto& device = VulkanRenderer::get()->m_device.logicalDevice;
 
@@ -183,7 +198,7 @@ void DeferredCompositionRenderpass::Shutdown()
 
 }
 
-void DeferredCompositionRenderpass::CreateDescriptors()
+void LightingPass::CreateDescriptors()
 {
 	if (m_log)
 	{
@@ -253,7 +268,7 @@ void DeferredCompositionRenderpass::CreateDescriptors()
         .Build(vr.descriptorSet_DeferredComposition,SetLayoutDB::DeferredLightingComposition);
 }
 
-void DeferredCompositionRenderpass::CreatePipelineLayout()
+void LightingPass::CreatePipelineLayout()
 {
 	auto& vr = *VulkanRenderer::get();
 	auto& m_device = vr.m_device;
@@ -293,7 +308,7 @@ void DeferredCompositionRenderpass::CreatePipelineLayout()
 	VK_NAME(m_device.logicalDevice, "deferredLightingCompositionPSOLayout", PSOLayoutDB::deferredLightingCompositionPSOLayout);
 }
 
-void DeferredCompositionRenderpass::CreatePipeline()
+void LightingPass::CreatePipeline()
 {
 	auto& vr = *VulkanRenderer::get();
 	auto& m_device = vr.m_device;

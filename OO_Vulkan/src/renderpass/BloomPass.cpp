@@ -11,20 +11,37 @@ Reproduction or disclosure of this file or its contents
 without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
-#include "BloomPass.h"
+#include "GfxRenderpass.h"
 
 #include "VulkanRenderer.h"
 #include "Window.h"
 #include "VulkanUtils.h"
 
-#include "DeferredCompositionRenderpass.h"
-#include "ShadowPass.h"
-
 #include <array>
 #include <random>
 
-DECLARE_RENDERPASS(BloomPass);
+struct BloomPass : public GfxRenderpass
+{
+	//DECLARE_RENDERPASS_SINGLETON(BloomPass)
 
+	void Init() override;
+	void Draw() override;
+	void Shutdown() override;
+
+	bool SetupDependencies() override;
+
+	void CreatePSO() override;
+	void CreatePipelineLayout();
+	void CreateDescriptors();
+
+private:
+
+	void SetupRenderpass();
+	void CreatePipeline();
+
+};
+
+DECLARE_RENDERPASS(BloomPass);
 
 VulkanRenderpass renderpass_bright{};
 VulkanRenderpass renderpass_bloomDownsample{};

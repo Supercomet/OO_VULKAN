@@ -103,6 +103,8 @@ inline static pass* m_pass{nullptr};
 
 // function declares and creates a renderpass automatically at runtime
 #define DECLARE_RENDERPASS(pass)\
+pass g_gfx##pass;\
+GfxRenderpass* g_##pass{ &g_gfx##pass };
 //namespace DeclareRenderPass_ns\
 //{\
 //struct DeclareRenderPass_##pass\
@@ -115,5 +117,9 @@ inline static pass* m_pass{nullptr};
 //            }\
 //    }g_DeclareRenderPass_##pass;\
 //}
+
+#define RENDERPASS_USAGE(pass)\
+extern GfxRenderpass* g_##pass
+
 
 #define BIGCANCER(pass) DeclareRenderPass_ns::g_DeclareRenderPass_##pass

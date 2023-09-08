@@ -11,17 +11,38 @@ Reproduction or disclosure of this file or its contents
 without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
-#include "SSAORenderPass.h"
+#include "GfxRenderpass.h"
 
 #include "VulkanRenderer.h"
 #include "Window.h"
 #include "VulkanUtils.h"
 
-#include "GBufferRenderPass.h"
-#include "ShadowPass.h"
 
 #include <array>
 #include <random>
+
+
+struct SSAORenderPass : public GfxRenderpass
+{
+	//DECLARE_RENDERPASS_SINGLETON(SSAORenderPass)
+
+	void Init() override;
+	void Draw() override;
+	void Shutdown() override;
+
+	void InitRandomFactors();
+
+	bool SetupDependencies() override;
+
+	void CreatePSO() override;
+	void CreatePipelineLayout();
+	void CreateDescriptors();
+
+private:
+	void SetupRenderpass();
+	void CreatePipeline();
+
+};
 
 DECLARE_RENDERPASS(SSAORenderPass);
 

@@ -11,7 +11,7 @@ Reproduction or disclosure of this file or its contents
 without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
-#include "DebugRenderpass.h"
+#include "GfxRenderpass.h"
 
 #include <array>
 #include <typeindex>
@@ -20,12 +20,27 @@ Technology is prohibited.
 #include "VulkanRenderer.h"
 #include "VulkanUtils.h"
 #include "FramebufferBuilder.h"
-#include "GBufferRenderPass.h"
 
 #include "../shaders/shared_structs.h"
 #include "MathCommon.h"
 
-DECLARE_RENDERPASS(DebugRenderpass);
+
+class DebugDrawRenderpass : public GfxRenderpass
+{
+public:
+
+	void Init() override;
+	void Draw() override;
+	void Shutdown() override;
+
+	bool SetupDependencies() override;
+
+private:
+
+	void CreateDebugRenderpass();
+	void CreatePipeline();
+	void InitDebugBuffers();
+};
 
 DECLARE_RENDERPASS(DebugDrawRenderpass);
 

@@ -11,7 +11,7 @@ Reproduction or disclosure of this file or its contents
 without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
-#include "ForwardParticlePass.h"
+#include "GfxRenderpass.h"
 
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
@@ -26,10 +26,27 @@ Technology is prohibited.
 #include "MathCommon.h"
 
 #include "GraphicsWorld.h"
-#include "DeferredCompositionRenderpass.h"
-#include "GBufferRenderPass.h"
 
 #include <array>
+
+struct ForwardParticlePass : public GfxRenderpass
+{
+	//DECLARE_RENDERPASS_SINGLETON(ForwardParticlePass)
+
+	void Init() override;
+	void Draw() override;
+	void Shutdown() override;
+
+	bool SetupDependencies() override;
+
+	void CreatePSO() override;
+
+private:
+	void SetupRenderpass();
+	void SetupFramebuffer();
+	void CreatePipeline();
+
+};
 
 DECLARE_RENDERPASS(ForwardParticlePass);
 

@@ -11,8 +11,7 @@ Reproduction or disclosure of this file or its contents
 without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
-#include "GBufferRenderPass.h"
-#include "ShadowPass.h"
+#include "GfxRenderpass.h"
 
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
@@ -26,11 +25,40 @@ Technology is prohibited.
 #include "../shaders/shared_structs.h"
 #include "MathCommon.h"
 
-#include "DeferredCompositionRenderpass.h"
-
 #include <array>
 
+struct GBufferRenderPass : public GfxRenderpass
+{
+	//DECLARE_RENDERPASS_SINGLETON(GBufferRenderPass)
+
+	void Init() override;
+	void Draw() override;
+	void Shutdown() override;
+
+	bool SetupDependencies() override;
+
+	void CreatePSO() override;
+
+
+private:
+	void SetupRenderpass();
+	void SetupFramebuffer();
+	void CreatePipeline();
+	void CreatePSOLayout();
+	void SetupResources();
+
+};
+
 DECLARE_RENDERPASS(GBufferRenderPass);
+
+VulkanRenderpass renderpass_GBuffer{};
+VkFramebuffer framebuffer_GBuffer{};
+
+//VkPushConstantRange pushConstantRange;
+VkPipeline pso_GBufferDefault{};
+
+VkPipeline pso_ComputeCull{};
+VkPipeline pso_ComputeShadowPrepass{};
 
 void GBufferRenderPass::Init()
 {

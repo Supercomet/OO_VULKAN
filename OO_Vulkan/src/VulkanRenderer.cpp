@@ -40,15 +40,16 @@ Technology is prohibited.
 
 #include "GfxRenderpass.h"
 
-#include "renderpass/DeferredCompositionRenderpass.h"
-#include "renderpass/GBufferRenderPass.h"
-#include "renderpass/DebugRenderpass.h"
-#include "renderpass/SSAORenderPass.h"
-#include "renderpass/ForwardParticlePass.h"
-#include "renderpass/ForwardUIPass.h"
-#include "renderpass/BloomPass.h"
 
+extern GfxRenderpass* g_BloomPass;
+extern GfxRenderpass* g_DebugDrawRenderpass;
+extern GfxRenderpass* g_ForwardParticlePass;
+extern GfxRenderpass* g_ForwardUIPass;
+extern GfxRenderpass* g_GBufferRenderPass;
+extern GfxRenderpass* g_LightingPass;
 extern GfxRenderpass* g_ShadowPass;
+extern GfxRenderpass* g_SSAORenderPass;
+
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	#include "renderpass/ForwardDecalRenderpass.h"
 #endif
@@ -328,20 +329,13 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	auto rpd = RenderPassDatabase::Get();
 	GfxRenderpass* ptr;
 	rpd->RegisterRenderPass(g_ShadowPass);
-	ptr = new GBufferRenderPass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new DebugDrawRenderpass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new DeferredCompositionRenderpass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new SSAORenderPass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new ForwardParticlePass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new ForwardUIPass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new BloomPass;
-	rpd->RegisterRenderPass(ptr);
+	rpd->RegisterRenderPass(g_GBufferRenderPass);
+	rpd->RegisterRenderPass(g_DebugDrawRenderpass);
+	rpd->RegisterRenderPass(g_LightingPass);
+	rpd->RegisterRenderPass(g_SSAORenderPass);
+	rpd->RegisterRenderPass(g_ForwardParticlePass);
+	rpd->RegisterRenderPass(g_ForwardUIPass);
+	rpd->RegisterRenderPass(g_BloomPass);
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	ptr = new ForwardDecalRenderpass;
 	rpd->RegisterRenderPass(ptr);
@@ -369,7 +363,6 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		
 	RenderPassDatabase::InitAllRegisteredPasses();
 
-		
 	auto& shadowTexture = Attachments::shadow_depth;
 	shadowTexture.updateDescriptor();
 
@@ -2356,22 +2349,20 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			g_ShadowPass->Draw();
 			shadowsRendered = true;
 		}
-		//RenderPassDatabase::GetRenderPass<ZPrepassRenderpass>()->Draw();
-		RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
-		//RenderPassDatabase::GetRenderPass<DeferredDecalRenderpass>()->Draw();
-		RenderPassDatabase::GetRenderPass<SSAORenderPass>()->Draw();
-		RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
-		RenderPassDatabase::GetRenderPass<ForwardParticlePass>()->Draw();
-		RenderPassDatabase::GetRenderPass<BloomPass>()->Draw();
-		RenderPassDatabase::GetRenderPass<ForwardUIPass>()->Draw();
-		//RenderPassDatabase::GetRenderPass<ForwardRenderpass>()->Draw();
+		g_GBufferRenderPass->Draw();
+		
+		g_SSAORenderPass->Draw();
+		g_LightingPass->Draw();
+		g_ForwardParticlePass->Draw();
+		g_BloomPass->Draw();
+		g_ForwardUIPass->Draw();
 #if defined		(ENABLE_DECAL_IMPLEMENTATION)
 		RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
 #endif				
 		//if (shouldRunDebugDraw) // for now need to run regardless because of transition.. TODO: FIX IT ONE DAY
 		{
 			// RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
-			RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
+			g_DebugDrawRenderpass->Draw();
 		}
 
 		++renderIteration;
