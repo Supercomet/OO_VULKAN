@@ -1278,80 +1278,8 @@ void VulkanRenderer::UploadLights()
 	//// Only lights that are inside/intersecting the camera frustum should be uploaded.
 	//memcpy(lightsBuffer.mapped, &lightUBO, sizeof(CB::LightUBO));
 
-	m_numShadowcastLights = 0;
-	int32_t gridIdx = 0;
-
-	std::vector<LocalLightInstance> spotLights;
-	auto& lights = currWorld->GetAllOmniLightInstances();
-	spotLights.reserve(lights.size());
-	//oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetUp(),oGFX::Colors::GREEN);
-	//oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetRight(),oGFX::Colors::RED);
-	//oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetFront(),oGFX::Colors::BLUE);
-	oGFX::Frustum frust = currWorld->cameras[0].GetFrustum();
-	//{
-	//	oGFX::DebugDraw::DrawCameraFrustrumDebugArrows(frust);
-	//}
-			
-	int viewIter{};
-	int sss{};
-	for (auto& e : lights)
-	{
-		oGFX::Sphere s;
-		s.center = e.position;
-		s.radius = e.radius.x;
-		//oGFX::DebugDraw::AddSphere(s,e.color);
-		
-		auto existing = GetLightEnabled(e);
-		auto renderLight = GetLightEnabled(e);
-		if (oGFX::coll::SphereInFrustum(frust, s))		
-		{ 			
-			//SetLightEnabled(e, existing && true);
-			renderLight = renderLight && true;
-		}
-		else
-		{
-			sss++;
-			//SetLightEnabled(e, false);
-			renderLight = false;
-		}
-
-		if (renderLight == false)
-		{
-			continue;
-		}
-		LocalLightInstance si;
-		if (GetCastsShadows(e))
-		{
-			
-			e.info.y = gridIdx;			
-			if (e.info.x == 1) // type one is omnilight
-			{
-				// loop through all faces
-				for (size_t i = 0; i < 6; i++)
-				{
-					++m_numShadowcastLights;
-					si.view[i] = e.view[i];
-					++gridIdx;
-				}
-			}
-			else // else spotlight?
-			{
-				++m_numShadowcastLights;
-				si.view[0] = e.view[++viewIter%6];		
-				++gridIdx;
-			}
-		}
-
-		SetLightEnabled(si, true);
-		si.info = e.info;
-		si.position = e.position;
-		si.color = e.color;
-		si.radius = e.radius;
-		si.projection = e.projection;
-
-		spotLights.emplace_back(si);
-	}
-	//std::cout << "Lights culled: " << sss << "\n";
+	const auto& spotLights = batches.GetLocalLights();
+	m_numShadowcastLights = batches.m_numShadowcastLights;
 	auto cmd = GetCommandBuffer();
 	globalLightBuffer[getFrame()].writeToCmd(spotLights.size(), spotLights.data(), cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
 

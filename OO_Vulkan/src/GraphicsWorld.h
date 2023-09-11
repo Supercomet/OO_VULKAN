@@ -162,19 +162,19 @@ struct EmitterInstance
 };
 
 void SetCastsShadows(LocalLightInstance& l, bool s);
-bool GetCastsShadows(LocalLightInstance& l);
+bool GetCastsShadows(const LocalLightInstance& l);
 void SetCastsShadows(OmniLightInstance& l, bool s);
-bool GetCastsShadows(OmniLightInstance& l);
+bool GetCastsShadows(const OmniLightInstance& l);
 void SetCastsShadows(SpotLightInstance& l, bool s);
-bool GetCastsShadows(SpotLightInstance& l);
+bool GetCastsShadows(const SpotLightInstance& l);
 
 template <typename T>
 inline void SetLightEnabled(T& l, bool s) {
     reinterpret_cast<LocalLightInstance*>(&l)->info.z = s ? 1 : -1;
 }
 template <typename T>
-inline bool GetLightEnabled(T& l) {
-   return reinterpret_cast<LocalLightInstance*>(&l)->info.z == 1 ? true : false;
+inline bool GetLightEnabled(const T& l) {
+   return reinterpret_cast<const LocalLightInstance*>(&l)->info.z == 1 ? true : false;
 }
 
 
