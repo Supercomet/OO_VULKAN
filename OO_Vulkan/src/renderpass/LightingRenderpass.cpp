@@ -26,7 +26,7 @@ struct LightingPass : public GfxRenderpass
 	//DECLARE_RENDERPASS_SINGLETON(DeferredCompositionRenderpass)
 
 	void Init() override;
-	void Draw() override;
+	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
 	bool SetupDependencies() override;
@@ -76,13 +76,12 @@ bool LightingPass::SetupDependencies()
 	return true;
 }
 
-void LightingPass::Draw()
+void LightingPass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-    const VkCommandBuffer cmdlist = vr.GetCommandBuffer();
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("DeferredComposition");
 

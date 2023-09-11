@@ -71,7 +71,7 @@ namespace vkutils
 	* @param (Optional) forceLinear Force linear tiling (not advised, defaults to false)
 	*
 	*/
-	void Texture2D::loadFromFile(std::string filename, VkFormat _format, VulkanDevice *device, VkQueue copyQueue, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout, bool forceLinear)
+	void Texture2D::loadFromFile(std::string filename, VkFormat _format, VulkanDevice *device, VkQueue copyQueue, VkImageLayout imageLayout, VkImageUsageFlags imageUsageFlags,  bool forceLinear)
 	{
 		stbi_uc* ktxTextureData;
 		int _width, _height, _channels;
@@ -299,7 +299,7 @@ namespace vkutils
 	* @param (Optional) imageLayout Usage layout for the texture (defaults VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 	*/
 	void Texture2D::fromBuffer(void* buffer, VkDeviceSize bufferSize, VkFormat _format,
-		uint32_t texWidth, uint32_t texHeight, std::vector<VkBufferImageCopy> mipInfo,VulkanDevice* device, VkQueue copyQueue, VkFilter _filter, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout)
+		uint32_t texWidth, uint32_t texHeight, std::vector<VkBufferImageCopy> mipInfo,VulkanDevice* device, VkQueue copyQueue, VkImageLayout _imageLayout, VkFilter _filter, VkImageUsageFlags imageUsageFlags)
 	{
 		assert(buffer);
 
@@ -310,6 +310,7 @@ namespace vkutils
 		usage = imageUsageFlags;
 		mipLevels =static_cast<uint32_t>(mipInfo.size());
 		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		this->imageLayout = _imageLayout;
 
 		VkCommandBuffer copyCmd = device->CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, device->commandPoolManagers[0].m_commandpool, true);
 
@@ -355,24 +356,14 @@ namespace vkutils
 			bufferCopyRegion.data()
 		);
 
-		// Change texture image.image layout to shader read after all mip levels have been copied
-		this->imageLayout = imageLayout;
-		this->currentLayout = imageLayout;
+		// Change texture image.image layout to shader read after all mip levels have been copied		
 		oGFX::vkutils::tools::setImageLayout(
 			copyCmd,
 			image.image,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			imageLayout,
 			subresourceRange);
-
-		//uboDynamicAlignment = oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), m_device.properties.limits.minUniformBufferOffsetAlignment);
-		//
-		//VkDeviceSize vpBufferSize = numCameras * uboDynamicAlignment;
-		//
-		//oGFX::CreateBuffer(device->m_allocator, vpBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		//	VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
-		//	, vpUniformBuffer[i]);
-
+		this->currentLayout = imageLayout;
 
 		device->FlushCommandBuffer(copyCmd, copyQueue, device->commandPoolManagers[0].m_commandpool);
 
@@ -457,7 +448,8 @@ namespace vkutils
 		uint32_t texWidth, uint32_t texHeight,
 		bool forFullscr,
 		float _renderscale,
-		uint32_t _mipLevels,
+		uint32_t _mipLevels, 
+		VkImageLayout _imageLayout, // = VK_IMAGE_LAYOUT_UNDEFINED
 		VkMemoryPropertyFlags properties,
 		VkFilter _filter
 	)
@@ -469,19 +461,22 @@ namespace vkutils
 		height = static_cast<uint32_t>(texHeight* renderScale);
 		format = _format;
 		filter = _filter;
+		imageLayout = _imageLayout;
 
 		aspectMask = 0;
-
-		if (imageUsageFlags & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+		if (imageLayout == VK_IMAGE_LAYOUT_UNDEFINED) // no user defined layout, set automatically
 		{
-			aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		}
-		if (imageUsageFlags & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-		{
-			aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;// | VK_IMAGE_ASPECT_STENCIL_BIT;
-			imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		}
+			if (imageUsageFlags & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+			{
+				aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			}
+			else if (imageUsageFlags & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+			{
+				aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;// | VK_IMAGE_ASPECT_STENCIL_BIT;
+				imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			}
+		}		
 
 		usage = imageUsageFlags;
 

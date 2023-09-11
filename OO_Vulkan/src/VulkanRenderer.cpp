@@ -2343,26 +2343,47 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			nullptr,                       // pMemoryBarriers
 			0, NULL, 0, NULL
 		);
+		
 		if (shadowsRendered == false) // only render shadowpass once... 
 		{
 			//generally works until we need to perform better frustrum culling....
-			g_ShadowPass->Draw();
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_ShadowPass->Draw(cmd);
 			shadowsRendered = true;
 		}
-		g_GBufferRenderPass->Draw();
-		
-		g_SSAORenderPass->Draw();
-		g_LightingPass->Draw();
-		g_ForwardParticlePass->Draw();
-		g_BloomPass->Draw();
-		g_ForwardUIPass->Draw();
+
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_GBufferRenderPass->Draw(cmd);
+		}		
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_SSAORenderPass->Draw(cmd);
+		}
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_LightingPass->Draw(cmd);
+		}
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_ForwardParticlePass->Draw(cmd);
+		}
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_BloomPass->Draw(cmd);
+		}
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_ForwardUIPass->Draw(cmd);
+		}
 #if defined		(ENABLE_DECAL_IMPLEMENTATION)
 		RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
 #endif				
 		//if (shouldRunDebugDraw) // for now need to run regardless because of transition.. TODO: FIX IT ONE DAY
 		{
 			// RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
-			g_DebugDrawRenderpass->Draw();
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_DebugDrawRenderpass->Draw(cmd);
 		}
 
 		++renderIteration;
@@ -4042,7 +4063,7 @@ uint32_t VulkanRenderer::CreateTextureImageImmediate(const oGFX::FileImageData& 
 	
 	auto& texture = g_Textures[indx];
 
-	texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
+	texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	texture.name = imageInfo.name;
 
 	//setup imgui binding

@@ -196,6 +196,11 @@ namespace oGFX
 		VmaAllocationInfo allocationInfo;
 	};
 
+	enum ResourceUsage {
+		SRV,
+		UAV,
+	};
+
 	const std::vector<VkVertexInputBindingDescription>& GetGFXVertexInputBindings();	
 	const std::vector<VkVertexInputAttributeDescription>& GetGFXVertexInputAttributes();
 

@@ -34,7 +34,7 @@ struct ForwardParticlePass : public GfxRenderpass
 	//DECLARE_RENDERPASS_SINGLETON(ForwardParticlePass)
 
 	void Init() override;
-	void Draw() override;
+	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
 	bool SetupDependencies() override;
@@ -82,7 +82,7 @@ bool ForwardParticlePass::SetupDependencies()
 	return true;
 }
 
-void ForwardParticlePass::Draw()
+void ForwardParticlePass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
 	if (!vr.deferredRendering)
@@ -94,7 +94,6 @@ void ForwardParticlePass::Draw()
 	auto* windowPtr = vr.windowPtr;
 	auto& renderTarget = vr.renderTargets[vr.renderTargetInUseID];
 
-    const VkCommandBuffer cmdlist = vr.GetCommandBuffer();
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("ForwardParticles");
 

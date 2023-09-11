@@ -36,7 +36,7 @@ struct ShadowPass : public GfxRenderpass
 	//DECLARE_RENDERPASS_SINGLETON(ShadowPass)
 
 	void Init() override;
-	void Draw() override;
+	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
 	bool SetupDependencies() override;
@@ -81,7 +81,7 @@ bool ShadowPass::SetupDependencies()
 	return true;
 }
 
-void ShadowPass::Draw()
+void ShadowPass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
 
@@ -94,7 +94,6 @@ void ShadowPass::Draw()
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-    const VkCommandBuffer cmdlist = vr.GetCommandBuffer();
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("Shadow");
 

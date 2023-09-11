@@ -32,7 +32,7 @@ struct GBufferRenderPass : public GfxRenderpass
 	//DECLARE_RENDERPASS_SINGLETON(GBufferRenderPass)
 
 	void Init() override;
-	void Draw() override;
+	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
 	bool SetupDependencies() override;
@@ -89,7 +89,7 @@ bool GBufferRenderPass::SetupDependencies()
 	return true;
 }
 
-void GBufferRenderPass::Draw()
+void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
 	if (!vr.deferredRendering)
@@ -100,23 +100,10 @@ void GBufferRenderPass::Draw()
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-    const VkCommandBuffer cmdlist = vr.GetCommandBuffer();
     PROFILE_GPU_CONTEXT(cmdlist);
 
-	glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f };
-	auto regionBegin = VulkanRenderer::get()->pfnDebugMarkerRegionBegin;
-	auto regionEnd = VulkanRenderer::get()->pfnDebugMarkerRegionEnd;
-	
+	rhi::CommandList cmd{ cmdlist, "CullCOMP" };
 	{
-		
-		VkDebugMarkerMarkerInfoEXT marker = {};
-		marker.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
-		memcpy(marker.color, &col[0], sizeof(float) * 4);
-		marker.pMarkerName = "CullCOMP";
-		if (regionBegin)
-		{
-			regionBegin(cmdlist, &marker);
-		}
 		
 		vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_COMPUTE, pso_ComputeCull);
 		
@@ -141,15 +128,10 @@ void GBufferRenderPass::Draw()
 		vkCmdBindDescriptorSets(cmdlist , VK_PIPELINE_BIND_POINT_COMPUTE, PSOLayoutDB::singleSSBOlayout, 0, 1, &cullDset, 0, 0);
 		
 		vkCmdDispatch(cmdlist, (vr.indirectCommandsBuffer[currFrame].size()-1) / 128 + 128, 1, 1);
-
-		if (regionEnd)
-		{
-			regionEnd(cmdlist);
-		}
 	}
 
-	PROFILE_GPU_EVENT("GBuffer");
-	rhi::CommandList cmd{ cmdlist, "Gbuffer Pass"};
+	PROFILE_GPU_EVENT("GBuffer");	
+	cmd.BeginNameRegion("Gbuffer Pass");
 	VK_NAME(vr.m_device.logicalDevice, "GBufferCmd", cmdlist);
 
 	constexpr VkClearColorValue zeroFloat4 = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
@@ -166,7 +148,7 @@ void GBufferRenderPass::Draw()
 	clearValues[GBufferAttachmentIndex::EMISSIVE].color = zeroFloat4;
 	clearValues[GBufferAttachmentIndex::ENTITY_ID].color = rMinusOne;
 	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 0.0f, 0 };
-	
+
 	auto& attachments = vr.attachments.gbuffer;
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::EMISSIVE], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -221,15 +203,7 @@ void GBufferRenderPass::Draw()
 	vkCmdEndRendering(cmdlist);
 
 	if(0){
-
-		VkDebugMarkerMarkerInfoEXT marker = {};
-		marker.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
-		memcpy(marker.color, &col[0], sizeof(float) * 4);
-		marker.pMarkerName = "ShadowMaskCOMP";
-		if (regionBegin)
-		{
-			regionBegin(cmdlist, &marker);
-		}
+		cmd.BeginNameRegion("ShadowMaskCOMP");
 
 		VkDescriptorImageInfo depthInput = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_Deferred(),
@@ -332,11 +306,6 @@ void GBufferRenderPass::Draw()
 		vkCmdDispatch(cmdlist, (vr.attachments.shadowMask.width - 1) / 16 + 1, (vr.attachments.shadowMask.height - 1) / 16 + 1, 1);
 
 		vkutils::TransitionImage(cmdlist, vr.attachments.shadow_depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-		if (regionEnd)
-		{
-			regionEnd(cmdlist);
-		}
 
 	}
 

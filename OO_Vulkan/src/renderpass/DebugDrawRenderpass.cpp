@@ -30,7 +30,7 @@ class DebugDrawRenderpass : public GfxRenderpass
 public:
 
 	void Init() override;
-	void Draw() override;
+	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
 	bool SetupDependencies() override;
@@ -82,7 +82,7 @@ bool DebugDrawRenderpass::SetupDependencies()
 	return true;
 }
 
-void DebugDrawRenderpass::Draw()
+void DebugDrawRenderpass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
 
@@ -96,8 +96,6 @@ void DebugDrawRenderpass::Draw()
 
 	auto& depthAtt = vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH];
 
-	
-	const VkCommandBuffer cmdlist = vr.GetCommandBuffer();;
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("DebugDraw");
 

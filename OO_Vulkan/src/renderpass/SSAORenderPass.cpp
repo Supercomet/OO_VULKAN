@@ -27,7 +27,7 @@ struct SSAORenderPass : public GfxRenderpass
 	//DECLARE_RENDERPASS_SINGLETON(SSAORenderPass)
 
 	void Init() override;
-	void Draw() override;
+	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
 	void InitRandomFactors();
@@ -101,13 +101,12 @@ bool SSAORenderPass::SetupDependencies()
 	return true;
 }
 
-void SSAORenderPass::Draw()
+void SSAORenderPass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-	const VkCommandBuffer cmdlist = vr.GetCommandBuffer();
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("SSAO");
 
@@ -281,7 +280,7 @@ void SSAORenderPass::InitRandomFactors()
 	std::vector<VkBufferImageCopy> copies{copyRegion};
 
 	vr.attachments.randomNoise_texture.fromBuffer(ssaoNoise.data(), ssaoNoise.size() * sizeof(glm::vec4), VK_FORMAT_R32G32B32A32_SFLOAT,
-		width,height,copies,&vr.m_device,vr.m_device.graphicsQueue,VK_FILTER_NEAREST);
+		width,height,copies,&vr.m_device,vr.m_device.graphicsQueue,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,VK_FILTER_NEAREST);
 }
 
 

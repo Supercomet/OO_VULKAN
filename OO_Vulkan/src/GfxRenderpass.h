@@ -43,7 +43,7 @@ class GfxRenderpass
 public:
     virtual ~GfxRenderpass() = default;
     virtual void Init() = 0;
-    virtual void Draw() = 0;
+    virtual void Draw(const VkCommandBuffer cmdlist) = 0;
     virtual void Shutdown() = 0;
     // Called once upon init    
     virtual void CreatePSO() {};

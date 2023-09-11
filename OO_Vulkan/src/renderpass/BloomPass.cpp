@@ -25,7 +25,7 @@ struct BloomPass : public GfxRenderpass
 	//DECLARE_RENDERPASS_SINGLETON(BloomPass)
 
 	void Init() override;
-	void Draw() override;
+	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
 	bool SetupDependencies() override;
@@ -119,13 +119,12 @@ bool BloomPass::SetupDependencies()
 	return true;
 }
 
-void BloomPass::Draw()
+void BloomPass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-	const VkCommandBuffer cmdlist = vr.GetCommandBuffer();
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("Bloom");
 	rhi::CommandList cmd{ cmdlist, "Bloom"};

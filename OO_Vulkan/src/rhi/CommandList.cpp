@@ -35,15 +35,7 @@ void CommandList::SetPushConstant(VkPipelineLayout layout, const VkPushConstantR
 CommandList::CommandList(const VkCommandBuffer& cmd, const char* name, const glm::vec4 col)
 	: m_VkCommandBuffer{ cmd } 
 {
-	auto region = VulkanRenderer::get()->pfnDebugMarkerRegionBegin;
-	if (name && region)
-	{
-		VkDebugMarkerMarkerInfoEXT marker = {};
-		marker.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
-		memcpy(marker.color, &col[0], sizeof(float) * 4);
-		marker.pMarkerName = name;
-		region(m_VkCommandBuffer, &marker);
-	}
+	BeginNameRegion(name, col);
 
 	for (auto& a : m_attachments)
 	{
@@ -52,14 +44,39 @@ CommandList::CommandList(const VkCommandBuffer& cmd, const char* name, const glm
 }
 CommandList::~CommandList()
 {
+	EndNamedRegion();
+}
+
+void CommandList::EndNamedRegion()
+{
 	auto region = VulkanRenderer::get()->pfnDebugMarkerRegionEnd;
-	if (region)
+	
+	if (region && m_regionNamed)
 	{
 		region(m_VkCommandBuffer);
 	}
+	m_regionNamed = false;	
 }
+
+void CommandList::BeginNameRegion(const char* name, const glm::vec4 col)
+{
+	auto region = VulkanRenderer::get()->pfnDebugMarkerRegionBegin;
+	if (name && region)
+	{
+		EndNamedRegion();
+
+		VkDebugMarkerMarkerInfoEXT marker = {};
+		marker.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
+		memcpy(marker.color, &col[0], sizeof(float) * 4);
+		marker.pMarkerName = name;
+		region(m_VkCommandBuffer, &marker);
+		m_regionNamed = true;
+	}
+}
+
 void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture2D* tex, bool clearOnDraw)
 {
+	//start tracking
 	if (tex) {
 		VkRenderingAttachmentInfo albedoInfo{};
 		albedoInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
@@ -139,6 +156,7 @@ void CommandList::EndRendering()
 
 void CommandList::DrawIndexedIndirect(VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride)
 {
+	//transition resource
 	::DrawIndexedIndirect(m_VkCommandBuffer, buffer, offset, drawCount, stride);
 }
 

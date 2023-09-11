@@ -29,6 +29,9 @@ public:
 	CommandList(const VkCommandBuffer& cmd, const char* name = nullptr, const glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f });
 	~CommandList();
 
+	void BeginNameRegion(const char* name, const glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f });
+	void EndNamedRegion();
+
 	//----------------------------------------------------------------------------------------------------
 	// Binding Commands
 	//----------------------------------------------------------------------------------------------------
@@ -152,6 +155,7 @@ private:
 	bool m_depthBound = false;
 	VkRenderingAttachmentInfo m_depth;
 	float m_push_constant[128 / sizeof(float)]{0.0f};
+	bool m_regionNamed = false;
 	// TODO: Handle VK_PIPELINE_BIND_POINT_GRAPHICS etc nicely next time.
 	// TODO: Maybe we can cache the stuff that is bound, for easier debugging, else taking GPU captures is really unproductive.
 };

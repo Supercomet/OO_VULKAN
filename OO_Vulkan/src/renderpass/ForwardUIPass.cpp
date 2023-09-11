@@ -35,7 +35,7 @@ struct ForwardUIPass : public GfxRenderpass
 	//DECLARE_RENDERPASS_SINGLETON(ForwardUIPass)
 
 	void Init() override;
-	void Draw() override;
+	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
 	bool SetupDependencies() override;
@@ -85,7 +85,7 @@ bool ForwardUIPass::SetupDependencies()
 	return true;
 }
 
-void ForwardUIPass::Draw()
+void ForwardUIPass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
 	if (!vr.deferredRendering)
@@ -96,7 +96,6 @@ void ForwardUIPass::Draw()
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-    const VkCommandBuffer cmdlist = vr.GetCommandBuffer(); 
 	PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("ForwardUI");
 
