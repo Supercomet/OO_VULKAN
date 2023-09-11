@@ -122,6 +122,8 @@ public:
 	// Helper function to draw a Full Screen Quad, without binding vertex and index buffers.
 	void DrawFullScreenQuad();
 
+	void Dispatch(uint32_t x, uint32_t y = 1 , uint32_t z = 1);
+
 	//----------------------------------------------------------------------------------------------------
 	// Pipeline State Commands
 	//----------------------------------------------------------------------------------------------------

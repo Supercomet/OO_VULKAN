@@ -96,6 +96,7 @@ extern GfxRenderpass* g_SSAORenderPass;
 
 #pragma warning( pop )
 
+#pragma optimize("",off)
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
 // vulkan debug callback
@@ -119,6 +120,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
 	return VK_FALSE;
 }
+#pragma optimize("",on)
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
@@ -2344,7 +2346,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			0, NULL, 0, NULL
 		);
 		
-		if (shadowsRendered == false) // only render shadowpass once... 
+		if (shadowsRendered == false) // only render shadowpass once per frame...  // this is for multi-viewport
 		{
 			//generally works until we need to perform better frustrum culling....
 			const VkCommandBuffer cmd = GetCommandBuffer();
@@ -2386,8 +2388,9 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			g_DebugDrawRenderpass->Draw(cmd);
 		}
 
-		++renderIteration;
+		++renderIteration; // next viewport
 	}
+
 	auto& dst = m_swapchain.swapChainImages[swapchainIdx];
 	//std::cout << currentFrame << " Func " << std::to_string(swapchainIdx) <<" " << oGFX::vkutils::tools::VkImageLayoutString(dst.currentLayout) << std::endl;
 	if (currWorld->numCameras > 1)
@@ -2995,8 +2998,6 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		g_globalModels.emplace_back(gfxModel{});
 		indx = (uint32_t)mdlResourceIdx;
 	}
-	std::string s("Iniitalizing " + std::to_string(indx) + "\n");
-	std::cout << s;
 	auto& mdl = g_globalModels[indx];
 
 

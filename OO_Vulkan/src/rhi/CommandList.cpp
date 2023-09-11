@@ -185,6 +185,11 @@ void CommandList::DrawFullScreenQuad()
 	vkCmdDraw(m_VkCommandBuffer, 3, 1, 0, 0);
 }
 
+void CommandList::Dispatch(uint32_t x, uint32_t y, uint32_t z)
+{
+	vkCmdDispatch(m_VkCommandBuffer, x, y, z);
+}
+
 void CommandList::SetDefaultViewportAndScissor()
 {
 	::SetDefaultViewportAndScissor(m_VkCommandBuffer);

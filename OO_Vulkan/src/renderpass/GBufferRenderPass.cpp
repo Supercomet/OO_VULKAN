@@ -150,12 +150,6 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 0.0f, 0 };
 
 	auto& attachments = vr.attachments.gbuffer;
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::EMISSIVE], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::MATERIAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ALBEDO], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 	
 	const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height;
 	const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width;
@@ -163,8 +157,10 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 	constexpr bool clearOnDraw = true;
 	for (size_t i = 0; i < GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS; i++)
 	{
+		vkutils::TransitionImage(cmdlist, attachments[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		cmd.BindAttachment(i, &attachments[i], clearOnDraw);
 	}
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH], clearOnDraw);
 	cmd.BeginRendering({ 0, 0, (uint32_t)vpWidth, (uint32_t)vpHeight });
 	
@@ -263,16 +259,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 			VK_PIPELINE_BIND_POINT_COMPUTE,
 			1, & dynamicOffset
 				);
-		//vkCmdBindDescriptorSets(
-		//	m_VkCommandBuffer,
-		//	VK_PIPELINE_BIND_POINT_GRAPHICS,
-		//	layout,
-		//	firstSet,
-		//	descriptorSetCount,
-		//	pDescriptorSets,
-		//	dynamicOffsetCount,
-		//	pDynamicOffsets ? pDynamicOffsets : &dynamicOffset);
-		//
+
 		LightPC pc{};
 		pc.useSSAO = vr.useSSAO ? 1 : 0;
 		pc.specularModifier = vr.currWorld->lightSettings.specularModifier;
@@ -308,10 +295,16 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		vkutils::TransitionImage(cmdlist, vr.attachments.shadow_depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	}
+	//vkutils::TransitionImage(cmdlist, vr.attachments.shadowMask, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);	
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, vr.attachments.shadowMask, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	
+	//vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);	
+	//vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	for (size_t i = 0; i < GBufferAttachmentIndex::MAX_ATTACHMENTS; i++) // return all attachments to initial state
+	{
+		vkutils::TransitionImage(cmdlist, attachments[i], attachments[i].imageLayout);
+	}
 
 }
 

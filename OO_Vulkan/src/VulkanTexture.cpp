@@ -623,6 +623,8 @@ namespace vkutils
 	{
 		//printf("\t Transition::%s -> %s\n", texture.name, oGFX::vkutils::tools::VkImageLayoutString(targetLayout).c_str());
 
+		if (texture.currentLayout == targetLayout) return; // might bug with write
+
 		auto subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 		if (texture.format == VK_FORMAT_D32_SFLOAT_S8_UINT)
 		{

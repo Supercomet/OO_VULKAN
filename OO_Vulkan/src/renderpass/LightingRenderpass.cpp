@@ -100,16 +100,11 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	auto tex = &vr.renderTargets[vr.renderTargetInUseID].texture; // layout undefined
 	auto depth = &vr.renderTargets[vr.renderTargetInUseID].depth; // layout undefined
 
-
-	
-
 	rhi::CommandList cmd{ cmdlist, "Lighting Pass"};
 	cmd.BindAttachment(0, tex);
 	cmd.BindDepthAttachment(depth);
-
 	cmd.BeginRendering({ 0, 0, (uint32_t)tex->width, (uint32_t)tex->height });
 	
-
 	cmd.BindPSO(pso_DeferredLightingComposition);
 	cmd.SetDefaultViewportAndScissor();
 
@@ -166,7 +161,6 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 		1,&dynamicOffset
 	);
 	
-
 	cmd.DrawFullScreenQuad();
 
 	const auto& cube = vr.g_globalModels[vr.GetDefaultCubeID()];
@@ -176,13 +170,14 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	cmd.BindVertexBuffer(BIND_POINT_WEIGHTS_BUFFER_ID, 1, vr.skinningVertexBuffer.getBufferPtr());
 	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer[currFrame].getBufferPtr());
 
-	//for (size_t i = 0; i < lightCnt; i++)
-	{
-		vkCmdDrawIndexed(cmdlist, cube.indicesCount, (uint32_t)lightCnt, cube.baseIndices, cube.baseVertex, 0);
-	}
-	
+	cmd.DrawIndexed(cube.indicesCount, (uint32_t)lightCnt, cube.baseIndices, cube.baseVertex, 0);
 
-	vkCmdEndRendering(cmdlist);
+	cmd.EndRendering();
+
+	for (size_t i = 0; i < GBufferAttachmentIndex::MAX_ATTACHMENTS; i++)
+	{
+		vkutils::TransitionImage(cmdlist, attachments[i], attachments[i].imageLayout);
+	}
 
 }
 

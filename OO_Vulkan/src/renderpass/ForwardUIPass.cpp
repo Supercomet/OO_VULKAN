@@ -99,32 +99,15 @@ void ForwardUIPass::Draw(const VkCommandBuffer cmdlist)
 	PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("ForwardUI");
 
-	constexpr VkClearColorValue zeroFloat4 = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
-	VkClearColorValue rMinusOne = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
-	rMinusOne.int32[0] = -1;
-
-	auto& attachments = vr.attachments.gbuffer;
-
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-
-	// Clear values for all attachments written in the fragment shader
-	std::array<VkClearValue, GBufferAttachmentIndex::MAX_ATTACHMENTS> clearValues;
-	//clearValues[GBufferAttachmentIndex::POSITION].color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::NORMAL]  .color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::ALBEDO]  .color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::MATERIAL].color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::ENTITY_ID].color = rMinusOne;
-	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 1.0f, 0 };
-
-	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	
 	rhi::CommandList cmd{ cmdlist, "Forward UI Pass"};
+	
+	auto& attachments = vr.attachments.gbuffer;
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	cmd.BindAttachment(0, &vr.renderTargets[vr.renderTargetInUseID].texture);
 	cmd.BindAttachment(1, &attachments[GBufferAttachmentIndex::ENTITY_ID]);
-
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 
 	cmd.BeginRendering({ 0,0,{swapchain.swapChainExtent.width,swapchain.swapChainExtent.height} });
@@ -171,20 +154,19 @@ void ForwardUIPass::Draw(const VkCommandBuffer cmdlist)
 	const auto ScreenSpaceIdxOffset = WorldSpaceIndices;
 	const auto instanceOffset = instanceCnt - WorldSpaceCnt;
 	// do draw command here
-	cmd.DrawIndexed(static_cast<uint32_t>(WorldSpaceIndices), static_cast<uint32_t>(WorldSpaceCnt));
-	//cmd.DrawIndexedIndirect(vr.g_particleCommandsBuffer.getBuffer(), 0, static_cast<uint32_t>(vr.g_particleCommandsBuffer.size()));
+	cmd.DrawIndexed(static_cast<uint32_t>(WorldSpaceIndices), static_cast<uint32_t>(WorldSpaceCnt));// draw worldspace
 	
 	// bind depth ignore pass
 	cmd.BindPSO(pso_Forward_UI_NO_DEPTH);
 	cmd.DrawIndexed(static_cast<uint32_t>(ScreenSpaceIndices), static_cast<uint32_t>(ScreenSpaceCnt)
-		, ScreenSpaceIdxOffset, 0, 0);
+					,ScreenSpaceIdxOffset, 0, 0);  // draw screenspace
 
 	// vkCmdEndRenderPass(cmdlist);
 	cmd.EndRendering();
 
-	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, vr.renderTargets[vr.renderTargetInUseID].texture.imageLayout);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], attachments[GBufferAttachmentIndex::DEPTH].imageLayout);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], attachments[GBufferAttachmentIndex::ENTITY_ID].imageLayout);
 }
 
 void ForwardUIPass::Shutdown()

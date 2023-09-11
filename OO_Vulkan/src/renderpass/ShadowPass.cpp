@@ -102,34 +102,15 @@ void ShadowPass::Draw(const VkCommandBuffer cmdlist)
 	// Clear values for all attachments written in the fragment shader
 	VkClearValue clearValues;
 	clearValues.depthStencil = { 0.0f, 0 };
-
-	VkRenderingAttachmentInfo depthInfo{};
-	depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-	depthInfo.pNext = NULL;
-	depthInfo.resolveMode = {};
-	depthInfo.resolveImageView = {};
-	depthInfo.resolveImageLayout = {};
-	depthInfo.imageView = vr.attachments.shadow_depth.view;
-	depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	depthInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	depthInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	depthInfo.clearValue = { 0.0f,0.0f };
-	vkutils::TransitionImage(cmdlist, vr.attachments.shadow_depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-	VkRenderingInfo renderingInfo{};
-	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-	renderingInfo.renderArea = { 0, 0, (uint32_t)vr.attachments.shadow_depth.width, (uint32_t)vr.attachments.shadow_depth.height };
-	renderingInfo.layerCount = 1;
-	renderingInfo.colorAttachmentCount = 0;
-	renderingInfo.pColorAttachments = NULL;
-	renderingInfo.pDepthAttachment = &depthInfo;
-	renderingInfo.pStencilAttachment = &depthInfo;
-
-	vkCmdBeginRendering(cmdlist, &renderingInfo);
 	
 	const float vpHeight = (float)shadowmapSize.height;
 	const float vpWidth = (float)shadowmapSize.width;
 	rhi::CommandList cmd{ cmdlist, "Shadow Pass"};
+
+	bool clearOnDraw = true;
+	cmd.BindDepthAttachment(&vr.attachments.shadow_depth, clearOnDraw);
+	cmd.BeginRendering({ 0, 0, (uint32_t)vr.attachments.shadow_depth.width, (uint32_t)vr.attachments.shadow_depth.height });
+
 	cmd.BindPSO(pso_ShadowDefault);
 	cmd.SetDefaultViewportAndScissor();
 
@@ -225,7 +206,7 @@ void ShadowPass::Draw(const VkCommandBuffer cmdlist)
 		}		
 	}
 
-	vkCmdEndRendering(cmdlist);
+	cmd.EndRendering();
 
 	vkutils::TransitionImage(cmdlist, vr.attachments.shadow_depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }

@@ -98,49 +98,18 @@ void DebugDrawRenderpass::Draw(const VkCommandBuffer cmdlist)
 
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("DebugDraw");
+	rhi::CommandList cmd{ cmdlist, "Debug Pass"};
 
 	auto& attachments = vr.attachments.gbuffer;
-	
-	const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height;
-	const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width;
-
-	VkRenderingAttachmentInfo albedoInfo{};
-	albedoInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-	albedoInfo.pNext = NULL;
-	albedoInfo.resolveMode = {};
-	albedoInfo.resolveImageView = {};
-	albedoInfo.resolveImageLayout = {};
-	albedoInfo.imageView = vr.renderTargets[vr.renderTargetInUseID].texture.view;
-	albedoInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	albedoInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	albedoInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	albedoInfo.clearValue = VkClearValue{ {} };
 	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-	VkRenderingAttachmentInfo depthInfo{};
-	depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-	depthInfo.pNext = NULL;
-	depthInfo.resolveMode = {};
-	depthInfo.resolveImageView = {};
-	depthInfo.resolveImageLayout = {};
-	depthInfo.imageView = attachments[GBufferAttachmentIndex::DEPTH].view;
-	depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	depthInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	depthInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	depthInfo.clearValue = { 0.0f,0.0f };
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-	VkRenderingInfo renderingInfo{};
-	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-	renderingInfo.renderArea = { 0, 0, (uint32_t)vpWidth, (uint32_t)vpHeight };
-	renderingInfo.layerCount = 1;
-	renderingInfo.colorAttachmentCount = 1;
-	renderingInfo.pColorAttachments = &albedoInfo;
-	renderingInfo.pDepthAttachment = &depthInfo;
-	renderingInfo.pStencilAttachment = &depthInfo;
-	vkCmdBeginRendering(cmdlist, &renderingInfo);
+	cmd.BindAttachment(0, &vr.renderTargets[vr.renderTargetInUseID].texture);
+	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 
-	rhi::CommandList cmd{ cmdlist, "Debug Pass"};
+	const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height;
+	const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width;
+	cmd.BeginRendering({ 0, 0, (uint32_t)vpWidth, (uint32_t)vpHeight });
 	if (dodebugRendering)
 	{
 		cmd.SetDefaultViewportAndScissor();
@@ -164,10 +133,10 @@ void DebugDrawRenderpass::Draw(const VkCommandBuffer cmdlist)
 		
 		cmd.DrawIndexed((uint32_t)(vr.g_DebugDrawIndexBufferGPU[currFrame].size()), 1);
 	}
-	vkCmdEndRendering(cmdlist);
+	cmd.EndRendering();
 
-	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, vr.renderTargets[vr.renderTargetInUseID].texture.imageLayout);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], attachments[GBufferAttachmentIndex::DEPTH].imageLayout);
 }
 
 void DebugDrawRenderpass::Shutdown()

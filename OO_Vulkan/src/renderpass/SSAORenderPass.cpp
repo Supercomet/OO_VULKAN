@@ -113,36 +113,17 @@ void SSAORenderPass::Draw(const VkCommandBuffer cmdlist)
 	std::array<VkClearValue, 1> clearValues{};
 	clearValues[0].color = { 0.0f,0.0f,0.0f,0.0f };
 
-	VkRenderingAttachmentInfo albedoInfo{};
-	albedoInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-	albedoInfo.pNext = NULL;
-	albedoInfo.resolveMode = {};
-	albedoInfo.resolveImageView = {};
-	albedoInfo.resolveImageLayout = {};
-	albedoInfo.imageView = vr.attachments.SSAO_renderTarget.view;
-	albedoInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	albedoInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	albedoInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	albedoInfo.clearValue = VkClearValue{ {} };
 	vkutils::TransitionImage(cmdlist, vr.attachments.SSAO_renderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-	VkRenderingInfo renderingInfo{};
-	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-	renderingInfo.renderArea = { 0, 0, (uint32_t)vr.attachments.SSAO_renderTarget.width, (uint32_t)vr.attachments.SSAO_renderTarget.height };
-	renderingInfo.layerCount = 1;
-	renderingInfo.colorAttachmentCount = 1;
-	renderingInfo.pColorAttachments = &albedoInfo;
-	renderingInfo.pDepthAttachment = NULL;
-	renderingInfo.pStencilAttachment = NULL;
 
 	// transition depth buffer
 	auto& attachments = vr.attachments.gbuffer;
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	vkCmdBeginRendering(cmdlist, &renderingInfo);
 	
 	rhi::CommandList cmd{ cmdlist, "SSAO Pass"};
+	cmd.BindAttachment(0, &vr.attachments.SSAO_renderTarget);
+	cmd.BeginRendering({ 0, 0, (uint32_t)vr.attachments.SSAO_renderTarget.width, (uint32_t)vr.attachments.SSAO_renderTarget.height });
 	std::array<VkViewport, 1>viewports{ VkViewport{0,vr.attachments.SSAO_renderTarget.height * 1.0f,vr.attachments.SSAO_renderTarget.width * 1.0f,vr.attachments.SSAO_renderTarget.height * -1.0f} };
 
 	CreateDescriptors();
@@ -185,8 +166,8 @@ void SSAORenderPass::Draw(const VkCommandBuffer cmdlist)
 	vkutils::TransitionImage(cmdlist, vr.attachments.SSAO_renderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, vr.attachments.SSAO_finalTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-	albedoInfo.imageView = vr.attachments.SSAO_finalTarget.view;
-	vkCmdBeginRendering(cmdlist, &renderingInfo);
+	cmd.BindAttachment(0, &vr.attachments.SSAO_finalTarget);
+	cmd.BeginRendering({ 0,0,vr.attachments.SSAO_finalTarget.width,vr.attachments.SSAO_finalTarget.height });
 
 	cmd.BindPSO(pso_SSAO_blur);
 	cmd.SetDefaultViewportAndScissor();
@@ -200,7 +181,7 @@ void SSAORenderPass::Draw(const VkCommandBuffer cmdlist)
 	1, & dynamicOffset);
 
 	cmd.DrawFullScreenQuad();
-	vkCmdEndRendering(cmdlist);
+	cmd.EndRendering();
 
 	// wait for blurred image before next
 	vkutils::TransitionImage(cmdlist, vr.attachments.SSAO_finalTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -295,11 +276,6 @@ void SSAORenderPass::CreateDescriptors()
 	// At this point, all dependent resources (gbuffer etc) must be ready.
 	auto& attachments = vr.attachments.gbuffer;
 	assert(gbuffer != nullptr);
-	// Image descriptors for the offscreen color attachments
-	// VkDescriptorImageInfo texDescriptorPosition = oGFX::vkutils::inits::descriptorImageInfo(
-	//     GfxSamplerManager::GetSampler_Deferred(),
-	// 	gbuffer->attachments[GBufferAttachmentIndex::POSITION].view,
-	//     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	VkDescriptorImageInfo texDescriptorDepth = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_SSAOEdgeClamp(),
@@ -310,11 +286,6 @@ void SSAORenderPass::CreateDescriptors()
 		GfxSamplerManager::GetSampler_Deferred(),
 		attachments[GBufferAttachmentIndex::NORMAL]  .view,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	//VkDescriptorImageInfo texDescriptorSSAO = oGFX::vkutils::inits::descriptorImageInfo(
-	//	GfxSamplerManager::GetSampler_Deferred(),
-	//	SSAO_texture .view,
-	//	VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	VkDescriptorImageInfo texDescriptorNoise = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetDefaultSampler(),

@@ -1282,6 +1282,7 @@ void TestApplication::ToolUI_Settings()
         ImGui::PushID(std::atoi("SSAO"));
         ImGui::DragFloat("Radius", &ssaoSettings.radius,0.01f);
         ImGui::DragFloat("Bias", &ssaoSettings.bias,0.01f);
+        ImGui::DragFloat("Intensity", &ssaoSettings.intensity,0.01f);
         uint32_t mmin =1;
         uint32_t mmax = 64;
         ImGui::DragScalar("Samples", ImGuiDataType_U32, &ssaoSettings.samples, 0.1f , &mmin, &mmax);

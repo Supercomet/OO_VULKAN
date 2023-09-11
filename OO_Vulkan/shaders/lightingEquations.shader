@@ -179,7 +179,7 @@ float ShadowCalculation(int lightIndex, int gridID, in vec4 fragPosLightSpace, f
     {
         if (currDepth > 0 && currDepth < 1.0)
         {
-            shadow = 0.0;
+            shadow = 0.20;
         }
     }
 
