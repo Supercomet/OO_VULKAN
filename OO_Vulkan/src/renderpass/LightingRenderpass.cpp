@@ -122,7 +122,7 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	pc.resolution.y = (float)vr.renderTargets[vr.renderTargetInUseID].texture.height;
 
 	size_t lightCnt = 0;
-	auto& lights = vr.currWorld->GetAllOmniLightInstances();
+	auto& lights = vr.batches.GetLocalLights();
 	for(auto& l :lights) 
 	{
 		if (GetLightEnabled(l)== true)
