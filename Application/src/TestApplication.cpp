@@ -397,11 +397,16 @@ void TestApplication::Run()
             vertices[idx1].tangent = vertices[idx2].pos - vertices[idx1].pos;
             vertices[idx2].tangent = vertices[idx2].pos - vertices[idx1].pos;
             
+            
         }
+
         for (auto& v : vertices)
         {
             v.norm = glm::normalize(v.norm);
             v.tangent = glm::normalize(v.tangent);
+
+            v.tex.x = 0.5f + glm::atan2(v.pos.z, v.pos.x) / 2.0f * glm::pi<float>();
+            v.tex.y = 0.5f + glm::asin(v.pos.y) / glm::pi<float>();
         }        
         model_sphere.reset(gs_RenderEngine->LoadMeshFromBuffers(vertices, indices, nullptr));
     }
