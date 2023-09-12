@@ -15,48 +15,91 @@ Technology is prohibited.
 
 #include "VulkanRenderer.h"
 #include <cassert>
-
 namespace rhi
 {
 
-void CommandList::BindPSO(const VkPipeline& pso,const VkPipelineBindPoint bindPoint)
-{
-	m_pipelineBindPoint = bindPoint;
-	vkCmdBindPipeline(m_VkCommandBuffer, bindPoint, pso);
-}
-
-void CommandList::SetPushConstant(VkPipelineLayout layout, const VkPushConstantRange& pcr, const void* data)
-{
-	memset(m_push_constant, 0, 128);
-	memcpy(m_push_constant, data, pcr.size);
-	vkCmdPushConstants(m_VkCommandBuffer, layout, VK_SHADER_STAGE_ALL,pcr.offset,pcr.size,data);
-}
-
-CommandList::CommandList(const VkCommandBuffer& cmd, const char* name, const glm::vec4 col)
-	: m_VkCommandBuffer{ cmd } 
-{
-	BeginNameRegion(name, col);
-
-	for (auto& a : m_attachments)
+	void CommandList::BindPSO(const VkPipeline& pso, const VkPipelineBindPoint bindPoint)
 	{
-		a = VkRenderingAttachmentInfo{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
+		m_pipelineBindPoint = bindPoint;
+		vkCmdBindPipeline(m_VkCommandBuffer, bindPoint, pso);
 	}
-}
-CommandList::~CommandList()
-{
-	EndNamedRegion();
-}
 
-void CommandList::EndNamedRegion()
-{
-	auto region = VulkanRenderer::get()->pfnDebugMarkerRegionEnd;
-	
-	if (region && m_regionNamed)
+	void CommandList::SetPushConstant(VkPipelineLayout layout, const VkPushConstantRange& pcr, const void* data)
 	{
-		region(m_VkCommandBuffer);
+		memset(m_push_constant, 0, 128);
+		memcpy(m_push_constant, data, pcr.size);
+		vkCmdPushConstants(m_VkCommandBuffer, layout, VK_SHADER_STAGE_ALL, pcr.offset, pcr.size, data);
 	}
-	m_regionNamed = false;	
-}
+
+	CommandList::CommandList(const VkCommandBuffer& cmd, const char* name, const glm::vec4 col)
+		: m_VkCommandBuffer{ cmd }
+	{
+		BeginNameRegion(name, col);
+
+		for (auto& a : m_attachments)
+		{
+			a = VkRenderingAttachmentInfo{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
+		}
+	}
+	CommandList::~CommandList()
+	{
+		EndNamedRegion();
+	}
+
+	void CommandList::EndNamedRegion()
+	{
+		auto region = VulkanRenderer::get()->pfnDebugMarkerRegionEnd;
+
+		if (region && m_regionNamed)
+		{
+			region(m_VkCommandBuffer);
+		}
+		m_regionNamed = false;
+	}
+
+	void CommandList::BeginTrackingImage(vkutils::Texture2D* tex)
+	{
+		auto iter = m_trackedTextures.find(tex);
+		if (iter == m_trackedTextures.end())
+		{
+			ResourceStateTracking state;
+			state.initialLayout = tex->imageLayout;
+			state.currentLayout = tex->imageLayout;
+			m_trackedTextures[tex] = state;
+		}
+	}
+
+	ResourceStateTracking* CommandList::getTrackedImage(vkutils::Texture2D* tex)
+	{
+		auto iter = m_trackedTextures.find(tex);
+		if (iter != m_trackedTextures.end()) {
+			return &iter->second;
+		}
+		return nullptr;
+	}
+
+	void CommandList::VerifyImageResourceStates()
+	{
+		for (auto& [tex, state] : m_trackedTextures) 
+		{
+			if (state.expectedLayout != state.currentLayout) 
+			{
+				vkutils::TransitionImage(m_VkCommandBuffer, *tex, state.currentLayout, state.expectedLayout);
+				state.currentLayout = state.expectedLayout;
+			}
+		}
+	}
+
+	void CommandList::RestoreImageResourceStates()
+	{
+		for (auto& [tex, state] : m_trackedTextures)
+		{
+			if (state.initialLayout != state.currentLayout)
+			{
+				vkutils::TransitionImage(m_VkCommandBuffer, *tex, state.currentLayout, state.initialLayout);
+			}
+		}
+	}
 
 void CommandList::BeginNameRegion(const char* name, const glm::vec4 col)
 {
@@ -77,6 +120,18 @@ void CommandList::BeginNameRegion(const char* name, const glm::vec4 col)
 void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture2D* tex, bool clearOnDraw)
 {
 	//start tracking
+	auto* tracked = getTrackedImage(tex);
+	if (tracked == nullptr) 
+	{
+		BeginTrackingImage(tex);
+		tracked = getTrackedImage(tex); 
+		tracked->expectedLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	}
+	else 
+	{
+		tracked->expectedLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	}
+
 	if (tex) {
 		VkRenderingAttachmentInfo albedoInfo{};
 		albedoInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
@@ -95,12 +150,24 @@ void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture2D* tex, bo
 	}
 	else 
 	{
+		//bind null
 		m_attachments[bindPoint] = VkRenderingAttachmentInfo{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR };
 	}
 }
 
 void CommandList::BindDepthAttachment(vkutils::Texture2D* tex, bool clearOnDraw)
 {
+	//start tracking
+	auto* tracked = getTrackedImage(tex);
+	if (tracked == nullptr)
+	{
+		// BeginTrackingImage(tex);
+	}
+	else 
+	{
+		tracked->expectedLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	}
+
 	if (tex) 
 	{	
 		VkRenderingAttachmentInfo depthInfo{};
@@ -135,6 +202,9 @@ void CommandList::BindIndexBuffer(VkBuffer buffer, VkDeviceSize offset, VkIndexT
 
 void CommandList::BeginRendering(VkRect2D renderArea)
 {
+
+	VerifyImageResourceStates();
+
 	VkRenderingInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
 	renderingInfo.renderArea = renderArea;
@@ -156,7 +226,6 @@ void CommandList::EndRendering()
 
 void CommandList::DrawIndexedIndirect(VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride)
 {
-	//transition resource
 	::DrawIndexedIndirect(m_VkCommandBuffer, buffer, offset, drawCount, stride);
 }
 

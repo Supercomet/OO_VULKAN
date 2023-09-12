@@ -157,10 +157,12 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 	constexpr bool clearOnDraw = true;
 	for (size_t i = 0; i < GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS; i++)
 	{
-		vkutils::TransitionImage(cmdlist, attachments[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		//vkutils::TransitionImage(cmdlist, attachments[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		cmd.BeginTrackingImage(&attachments[i]);
 		cmd.BindAttachment(i, &attachments[i], clearOnDraw);
 	}
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	//vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	cmd.BeginTrackingImage(&attachments[GBufferAttachmentIndex::DEPTH]);
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH], clearOnDraw);
 	cmd.BeginRendering({ 0, 0, (uint32_t)vpWidth, (uint32_t)vpHeight });
 	
@@ -196,7 +198,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 
 	cmd.DrawIndexedIndirect(vr.indirectCommandsBuffer[currFrame].getBuffer(), 0, vr.objectCount);
 
-	vkCmdEndRendering(cmdlist);
+	cmd.EndRendering();
 
 	if(0){
 		cmd.BeginNameRegion("ShadowMaskCOMP");
@@ -303,7 +305,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 
 	for (size_t i = 0; i < GBufferAttachmentIndex::MAX_ATTACHMENTS; i++) // return all attachments to initial state
 	{
-		vkutils::TransitionImage(cmdlist, attachments[i], attachments[i].imageLayout);
+		//vkutils::TransitionImage(cmdlist, attachments[i], attachments[i].imageLayout);
 	}
 
 }

@@ -20,17 +20,29 @@ Technology is prohibited.
 
 namespace rhi
 {
+	struct ResourceStateTracking {
+		VkImageLayout initialLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
+		VkImageLayout currentLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
+		VkImageLayout expectedLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
+	};
 
 // Another better alternative is to use Vulkan HPP.
 class CommandList
 {
 public:
+	
 
 	CommandList(const VkCommandBuffer& cmd, const char* name = nullptr, const glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f });
 	~CommandList();
 
 	void BeginNameRegion(const char* name, const glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f });
 	void EndNamedRegion();
+
+	void BeginTrackingImage(vkutils::Texture2D* tex);
+	ResourceStateTracking* getTrackedImage(vkutils::Texture2D* tex);
+
+	void VerifyImageResourceStates();
+	void RestoreImageResourceStates();
 
 	//----------------------------------------------------------------------------------------------------
 	// Binding Commands
@@ -158,6 +170,8 @@ private:
 	VkRenderingAttachmentInfo m_depth;
 	float m_push_constant[128 / sizeof(float)]{0.0f};
 	bool m_regionNamed = false;
+
+	std::unordered_map<vkutils::Texture2D*, ResourceStateTracking> m_trackedTextures;
 	// TODO: Handle VK_PIPELINE_BIND_POINT_GRAPHICS etc nicely next time.
 	// TODO: Maybe we can cache the stuff that is bound, for easier debugging, else taking GPU captures is really unproductive.
 };

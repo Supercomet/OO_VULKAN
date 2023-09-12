@@ -621,21 +621,27 @@ namespace vkutils
 
 	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
 	{
+		TransitionImage(cmd, texture, texture.currentLayout, targetLayout, mipBegin, mipEnd);
+		texture.currentLayout = targetLayout;
+	}
+
+	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout currentLayout, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
+	{
 		//printf("\t Transition::%s -> %s\n", texture.name, oGFX::vkutils::tools::VkImageLayoutString(targetLayout).c_str());
 
-		if (texture.currentLayout == targetLayout) return; // might bug with write
+		if (currentLayout == targetLayout) return; // might bug with write
 
 		auto subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 		if (texture.format == VK_FORMAT_D32_SFLOAT_S8_UINT)
 		{
-			subresrange =  VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT|VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 };
+			subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 };
 		}
-		
+
 		// default behavior transitiona all mips
 		subresrange.baseMipLevel = mipBegin;
 		subresrange.levelCount = mipEnd - mipBegin;
-		
-		if (mipEnd == 0) 
+
+		if (mipEnd == 0)
 		{// transition some mips
 			subresrange.levelCount = texture.mipLevels - mipBegin;
 		}
@@ -645,12 +651,11 @@ namespace vkutils
 			texture.image.image,
 			VK_ACCESS_TRANSFER_WRITE_BIT,
 			VK_ACCESS_MEMORY_READ_BIT,
-			texture.currentLayout,
+			currentLayout,
 			targetLayout,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			subresrange);
-		texture.currentLayout = targetLayout;
 	}
 
 	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)

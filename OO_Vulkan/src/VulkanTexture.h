@@ -114,6 +114,7 @@ namespace vkutils
 
 
 	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
+	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture,VkImageLayout currentLayout, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
 	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
 
 }
