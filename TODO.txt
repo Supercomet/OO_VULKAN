@@ -21,10 +21,6 @@ Graphic Features:
     • Attenuate scene color based on scene luminance (eye adaptation)
     • Tonemapping result & everything after should be in LDR space (RGBA8)
 
-• Shadow mask
-    • deferred lighting pass should not compute shadows, only sample shadow mask texture
-	• superior soft shadows
-
 • Tile-based Deferred Rendering
     • Support point lights only for now
     • Classify tiles on screen based on complexity
