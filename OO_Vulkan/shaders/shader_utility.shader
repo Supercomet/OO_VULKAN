@@ -4,6 +4,12 @@
 #define pi 3.1415
 #define EPSILON 0.00001
 
+#define FLT_MAX 3.402823466e+38
+#define FLT_MIN 1.175494351e-38
+#define DBL_MAX 1.7976931348623158e+308
+#define DBL_MIN 2.2250738585072014e-308
+
+
 uint wang_hash(uint seed)
 {
     seed = (seed ^ 61) ^ (seed >> 16);
@@ -45,6 +51,7 @@ vec3 WorldPosFromDepth(float depth, in vec2 uvCoord, in mat4 projInv, in mat4 vi
 
     return worldSpacePosition.xyz;
 }
+
 
 
 #endif//INCLUDE_GUARD

@@ -158,10 +158,11 @@ float ShadowCalculation(int lightIndex, int gridID, in vec4 fragPosLightSpace, f
 	
 	// Bounds check for the actual shadow map
     float sampledDepth = 0.0;
-    float boundsLimit = 0.99995;
-    if (projCoords.x > boundsLimit || projCoords.x < 0.0
-		|| projCoords.y > boundsLimit || projCoords.y < 0.0
-		)//|| projCoords.z < 0.0)
+    float lowerBoundsLimit = 0.000001;
+    float boundsLimit = 0.999999;
+    if (projCoords.x > boundsLimit || projCoords.x < lowerBoundsLimit
+		|| projCoords.y > boundsLimit || projCoords.y < lowerBoundsLimit
+		)
     {
         return 1.0;
     }
