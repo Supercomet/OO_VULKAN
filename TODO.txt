@@ -48,6 +48,8 @@ Graphic Features:
 Engineering Tasks:
 • Move IMGUI rendering to its own GfxRenderer
 
+• Convert all Shaders to HLSL syntax & use ShaderMake :)
+
 • Standardize resource SRV and UAV access in each GfxRenderer
 	• Have an initial state that each resource should be in
 	• If the renderer needs to use the resource it has the responsilibity to return it to the initial state
