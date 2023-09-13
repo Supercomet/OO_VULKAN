@@ -35,7 +35,7 @@ namespace vkutils
 		VulkanDevice* device{ nullptr };
 		oGFX::AllocatedImage image;
 		VkFormat format{};
-		VkImageLayout imageLayout{};
+		VkImageLayout referenceLayout{};
 		VkImageLayout currentLayout{VK_IMAGE_LAYOUT_UNDEFINED};
 		VkImageView view{};
 		uint32_t width{}, height{};
@@ -115,6 +115,7 @@ namespace vkutils
 
 	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
 	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture,VkImageLayout currentLayout, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
+	void SetImageInitialState(VkCommandBuffer cmd, Texture2D& texture);
 	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
 
 }

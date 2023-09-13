@@ -224,6 +224,8 @@ public:
 	void CreateCommandBuffers();
 
 	VkCommandBuffer GetCommandBuffer();
+	void SubmitSingleCommandAndWait(VkCommandBuffer cmd);
+	void SubmitSingleCommand(VkCommandBuffer cmd);
 
 	ImTextureID myImg;
 
