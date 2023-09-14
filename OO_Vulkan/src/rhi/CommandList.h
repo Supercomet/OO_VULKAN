@@ -64,9 +64,12 @@ public:
 
 	void BeginTrackingImage(vkutils::Texture* tex);
 	ResourceStateTracking* getTrackedImage(vkutils::Texture* tex);
+	ResourceStateTracking* ensureTrackedImage(vkutils::Texture* tex);
 
 	void VerifyImageResourceStates();
 	void RestoreImageResourceStates();
+
+	void CopyImage(vkutils::Texture* src, vkutils::Texture* dst);
 
 	//----------------------------------------------------------------------------------------------------
 	// Binding Commands

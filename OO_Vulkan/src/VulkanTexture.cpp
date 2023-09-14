@@ -698,12 +698,17 @@ namespace vkutils
 
 	void ComputeImageBarrier(VkCommandBuffer cmd, Texture& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
 	{
+		ComputeImageBarrier(cmd, texture, texture.currentLayout, targetLayout, mipBegin, mipEnd);
+	}
+
+	void ComputeImageBarrier(VkCommandBuffer cmd, Texture& texture, VkImageLayout currentLayout, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
+	{
 		auto subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 		if (texture.format == VK_FORMAT_D32_SFLOAT_S8_UINT)
 		{
 			subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 };
 		}
-		
+
 		// default behavior transitiona all mips
 		subresrange.baseMipLevel = mipBegin;
 		subresrange.levelCount = mipEnd - mipBegin;

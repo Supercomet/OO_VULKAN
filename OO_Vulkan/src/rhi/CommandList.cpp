@@ -116,6 +116,17 @@ namespace rhi
 		return nullptr;
 	}
 
+	ResourceStateTracking* CommandList::ensureTrackedImage(vkutils::Texture* tex)
+	{
+		ResourceStateTracking* result = getTrackedImage(tex);
+		if (result == nullptr)
+		{
+			BeginTrackingImage(tex);
+			result = getTrackedImage(tex);
+		}
+		return result;
+	}
+
 	void CommandList::VerifyImageResourceStates()
 	{
 		for (auto& [tex, state] : m_trackedTextures) 
@@ -146,6 +157,43 @@ namespace rhi
 		}
 	}
 
+	void CommandList::CopyImage(vkutils::Texture* src, vkutils::Texture* dst)
+	{
+		OO_ASSERT(src != nullptr && dst != nullptr);
+
+		const ResourceStateTracking* dstTrack = ensureTrackedImage(dst);
+		const ResourceStateTracking* srcTrack = ensureTrackedImage(src);
+		// we will use and restore the tracked states
+
+		VkImageSubresourceLayers srcCopy{ VK_IMAGE_ASPECT_COLOR_BIT ,0,0,1 };
+		srcCopy.layerCount = src->layerCount;
+		if (src->format == VulkanRenderer::G_DEPTH_FORMAT) {
+			srcCopy.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+
+		VkImageSubresourceLayers dstCopy{ VK_IMAGE_ASPECT_COLOR_BIT ,0,0,1 };
+		dstCopy.layerCount = src->layerCount;
+		if (dst->format == VulkanRenderer::G_DEPTH_FORMAT) {
+			dstCopy.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+
+		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *src,srcTrack->currentLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *dst,dstTrack->currentLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		VkImageCopy region{};
+		region.srcSubresource = srcCopy;
+		region.srcOffset = {};
+		region.dstSubresource = dstCopy;
+		region.dstOffset = {};
+		region.extent = { src->width,src->height,1 };
+		vkCmdCopyImage(m_VkCommandBuffer,src->image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+			, dst->image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &region);
+		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, srcTrack->currentLayout);
+		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstTrack->currentLayout);
+
+		//dont need to modify tracked state because we have returned it
+	}
+
 void CommandList::BeginNameRegion(const char* name, const glm::vec4 col)
 {
 	auto region = VulkanRenderer::get()->pfnDebugMarkerRegionBegin;
@@ -169,13 +217,7 @@ void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture* tex, bool
 
 	if (tex) {
 		//start tracking
-		ResourceStateTracking* tracked = getTrackedImage(tex);
-		if (tracked == nullptr)
-		{
-			
-			BeginTrackingImage(tex);
-			tracked = getTrackedImage(tex);
-		}
+		ResourceStateTracking* tracked = ensureTrackedImage(tex);		
 		tracked->expectedLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 
@@ -206,17 +248,12 @@ void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture* tex, bool
 
 void CommandList::BindDepthAttachment(vkutils::Texture* tex, bool clearOnDraw)
 {
-	//start tracking
-	ResourceStateTracking* tracked = getTrackedImage(tex);
-	if (tracked == nullptr)
-	{
-		BeginTrackingImage(tex);
-		tracked = getTrackedImage(tex);
-	}
-	tracked->expectedLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
 	if (tex) 
-	{	
+	{
+		//start tracking
+		ResourceStateTracking* tracked = ensureTrackedImage(tex);
+		tracked->expectedLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
 		VkRenderingAttachmentInfo depthInfo{};
 		depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
 		depthInfo.pNext = NULL;
