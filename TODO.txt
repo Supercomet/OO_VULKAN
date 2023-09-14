@@ -1,9 +1,7 @@
 Graphic Features:
 • IBL rendering
     • Directional light
-    • Scene cube map
     • Sky dome
-    • Once implemented, remove gbuffer albedo clear
 
 • GBuffer Render Targets:
     • Normal should be R10G10B10A2
@@ -104,6 +102,10 @@ Engineering Tasks:
 
 ///////////////////////////////////////////////////////////////////////////////
 Done:
+• IBL rendering
+    • Scene cube map
+    • Once implemented, remove gbuffer albedo clear
+	
 • Standardize resource SRV and UAV access in each GfxRenderer
 	• Have an initial state that each resource should be in
 	• If the renderer needs to use the resource it has the responsilibity to return it to the initial state
