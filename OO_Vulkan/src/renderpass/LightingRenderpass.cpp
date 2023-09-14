@@ -95,6 +95,20 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	auto tex = &vr.renderTargets[vr.renderTargetInUseID].texture; // layout undefined
 	auto depth = &vr.renderTargets[vr.renderTargetInUseID].depth; // layout undefined
 
+	vkutils::ComputeImageBarrier(cmdlist, *depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	vkutils::ComputeImageBarrier(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+	VkImageCopy region{};
+	region.srcSubresource = VkImageSubresourceLayers{ VK_IMAGE_ASPECT_DEPTH_BIT|VK_IMAGE_ASPECT_STENCIL_BIT ,0,0,1 };
+	region.srcOffset = {};
+	region.dstSubresource = VkImageSubresourceLayers{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT ,0,0,1 };
+	region.dstOffset = {};
+	region.extent = { depth->width,depth->height,1 };
+	vkCmdCopyImage(cmdlist,attachments[GBufferAttachmentIndex::DEPTH].image.image, attachments[GBufferAttachmentIndex::DEPTH].currentLayout
+		, depth->image.image, depth->currentLayout,
+		1, &region);
+	vkutils::ComputeImageBarrier(cmdlist, *depth, depth->referenceLayout);
+	vkutils::ComputeImageBarrier(cmdlist, attachments[GBufferAttachmentIndex::DEPTH],  attachments[GBufferAttachmentIndex::DEPTH].referenceLayout);
+
 	rhi::CommandList cmd{ cmdlist, "Lighting Pass"};
 	cmd.BindPSO(pso_DeferredLightingComposition, PSOLayoutDB::lightingPSOLayout);
 	
@@ -332,6 +346,8 @@ void LightingPass::CreatePipeline()
 	pipelineCI.pDynamicState = &dynamicState;
 	pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
 	pipelineCI.pStages = shaderStages.data();
+    
+    depthStencilState.depthTestEnable = VK_FALSE;
 
 	rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
 
@@ -384,6 +400,17 @@ void LightingPass::CreatePipeline()
 	colourState.alphaBlendOp = VK_BLEND_OP_ADD;
 	VkPipelineColorBlendStateCreateInfo colourBlendingCreateInfo = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1,&colourState);
 	pipelineCI.pColorBlendState = &colourBlendingCreateInfo;
+
+	depthStencilState.depthTestEnable = VK_FALSE;
+	depthStencilState.stencilTestEnable = VK_TRUE;
+	depthStencilState.front.compareOp = VK_COMPARE_OP_EQUAL;
+	depthStencilState.front.passOp = VK_STENCIL_OP_REPLACE;
+	depthStencilState.front.failOp = VK_STENCIL_OP_KEEP;
+	depthStencilState.front.reference = 1;
+	depthStencilState.front.compareMask = 0xff;
+	depthStencilState.front.writeMask = 0x00;
+	depthStencilState.back = depthStencilState.front;
+
 
 	if (pso_deferredBox != VK_NULL_HANDLE)
 	{

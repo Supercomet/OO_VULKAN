@@ -49,7 +49,6 @@ void main()
 	if(dot(normal,normal) == 0.0)
 	{
 		outFragcolor = vec4(0);
-	//	outFragcolor = vec4(0.0,0.0,1.0,1.0);
 		return;
 	}
 	vec4 albedo = texture(sampler2D(samplerAlbedo,basicSampler), inUV);
