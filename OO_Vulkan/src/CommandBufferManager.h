@@ -32,6 +32,7 @@ public:
 	void ResetPool();
 	void DestroyPool();
 	void SubmitCommandBuffer(VkQueue queue, VkCommandBuffer cmd);
+	void SubmitCommandBufferAndWait(VkQueue queue, VkCommandBuffer cmd);
 	void SubmitAll(VkQueue queue, VkSubmitInfo submitInfo = {}, VkFence signalFence = VK_NULL_HANDLE);
 
 	VkCommandPool m_commandpool{};
@@ -41,8 +42,8 @@ private:
 
 	VkDevice m_device{};
 	uint32_t nextIdx{};
-	std::vector<VkCommandBuffer>commandBuffers;
-	std::vector<int8_t>submitted{};
+	std::vector<VkCommandBuffer> commandBuffers;
+	std::vector<eRECSTATUS>submitted{};
 };
 
 

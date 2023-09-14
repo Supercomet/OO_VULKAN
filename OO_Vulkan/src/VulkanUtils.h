@@ -25,6 +25,7 @@ Technology is prohibited.
 
 #include "../shaders/shared_structs.h"
 
+#define OO_ASSERT(BoolCondition) do { if (!(BoolCondition)) { __debugbreak(); } } while (0)
 
 namespace oGFX::vkutils::tools
 {
@@ -188,6 +189,17 @@ namespace oGFX
 		VkBuffer buffer;
 		VmaAllocation alloc;
 		VmaAllocationInfo allocInfo;
+	};
+
+	struct AllocatedImage {
+		VkImage image;
+		VmaAllocation allocation;
+		VmaAllocationInfo allocationInfo;
+	};
+
+	enum ResourceUsage {
+		SRV,
+		UAV,
 	};
 
 	const std::vector<VkVertexInputBindingDescription>& GetGFXVertexInputBindings();	

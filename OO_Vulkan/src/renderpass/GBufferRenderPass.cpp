@@ -11,8 +11,7 @@ Reproduction or disclosure of this file or its contents
 without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
-#include "GBufferRenderPass.h"
-#include "ShadowPass.h"
+#include "GfxRenderpass.h"
 
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
@@ -26,11 +25,40 @@ Technology is prohibited.
 #include "../shaders/shared_structs.h"
 #include "MathCommon.h"
 
-#include "DeferredCompositionRenderpass.h"
-
 #include <array>
 
+struct GBufferRenderPass : public GfxRenderpass
+{
+	//DECLARE_RENDERPASS_SINGLETON(GBufferRenderPass)
+
+	void Init() override;
+	void Draw(const VkCommandBuffer cmdlist) override;
+	void Shutdown() override;
+
+	bool SetupDependencies() override;
+
+	void CreatePSO() override;
+
+
+private:
+	void SetupRenderpass();
+	void SetupFramebuffer();
+	void CreatePipeline();
+	void CreatePSOLayout();
+	void SetupResources();
+
+};
+
 DECLARE_RENDERPASS(GBufferRenderPass);
+
+VulkanRenderpass renderpass_GBuffer{};
+VkFramebuffer framebuffer_GBuffer{};
+
+//VkPushConstantRange pushConstantRange;
+VkPipeline pso_GBufferDefault{};
+
+VkPipeline pso_ComputeCull{};
+VkPipeline pso_ComputeShadowPrepass{};
 
 void GBufferRenderPass::Init()
 {
@@ -61,7 +89,7 @@ bool GBufferRenderPass::SetupDependencies()
 	return true;
 }
 
-void GBufferRenderPass::Draw()
+void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
 	if (!vr.deferredRendering)
@@ -72,32 +100,16 @@ void GBufferRenderPass::Draw()
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-    const VkCommandBuffer cmdlist = vr.GetCommandBuffer();
     PROFILE_GPU_CONTEXT(cmdlist);
 
-	glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f };
-	auto regionBegin = VulkanRenderer::get()->pfnDebugMarkerRegionBegin;
-	auto regionEnd = VulkanRenderer::get()->pfnDebugMarkerRegionEnd;
-	
-	{
-		
-		VkDebugMarkerMarkerInfoEXT marker = {};
-		marker.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
-		memcpy(marker.color, &col[0], sizeof(float) * 4);
-		marker.pMarkerName = "CullCOMP";
-		if (regionBegin)
-		{
-			regionBegin(cmdlist, &marker);
-		}
-		
-		vkCmdBindPipeline(cmdlist, VK_PIPELINE_BIND_POINT_COMPUTE, pso_ComputeCull);
-		
-		VkDescriptorSet cullDset;
-		DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[currFrame])
-			.BindBuffer(1, vr.indirectCommandsBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) 
-			.BindBuffer(2, vr.instanceBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) 
-			.BindBuffer(3, vr.gpuTransformBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) 
-			.Build(cullDset, SetLayoutDB::compute_singleSSBO);
+	rhi::CommandList cmd{ cmdlist, "CullCOMP" };
+	{ // culling stage
+		cmd.BindPSO(pso_ComputeCull, PSOLayoutDB::singleSSBOlayout, VK_PIPELINE_BIND_POINT_COMPUTE);
+
+		cmd.DescriptorSetBegin(0)
+			.BindBuffer(1, vr.indirectCommandsBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+			.BindBuffer(2, vr.instanceBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+			.BindBuffer(3, vr.gpuTransformBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		
 		oGFX::Frustum frust = vr.currWorld->cameras[vr.renderIteration].GetFrustum();
 		struct CullingPC pc;
@@ -109,19 +121,18 @@ void GBufferRenderPass::Draw()
 		pc. pNear = frust.planeNear.normal;
 		pc.numItems = vr.indirectCommandsBuffer[currFrame].size();
 
-		vkCmdPushConstants(cmdlist, PSOLayoutDB::singleSSBOlayout, VK_SHADER_STAGE_ALL, 0, sizeof(CullingPC), &pc);
-		vkCmdBindDescriptorSets(cmdlist , VK_PIPELINE_BIND_POINT_COMPUTE, PSOLayoutDB::singleSSBOlayout, 0, 1, &cullDset, 0, 0);
+		VkPushConstantRange pcr{};
+		pcr.size = sizeof(CullingPC);
+		pcr.stageFlags = VK_SHADER_STAGE_ALL;
+
+		cmd.SetPushConstant(PSOLayoutDB::singleSSBOlayout, pcr, &pc);
 		
-		vkCmdDispatch(cmdlist, (vr.indirectCommandsBuffer[currFrame].size()-1) / 128 + 128, 1, 1);
+		cmd.Dispatch((vr.indirectCommandsBuffer[currFrame].size() - 1) / 128 + 128);
 
-		if (regionEnd)
-		{
-			regionEnd(cmdlist);
-		}
-	}
+	} // end culling stage
 
-	PROFILE_GPU_EVENT("GBuffer");
-	rhi::CommandList cmd{ cmdlist, "Gbuffer Pass"};
+	PROFILE_GPU_EVENT("GBuffer");	
+	cmd.BeginNameRegion("Gbuffer Pass");
 	VK_NAME(vr.m_device.logicalDevice, "GBufferCmd", cmdlist);
 
 	constexpr VkClearColorValue zeroFloat4 = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
@@ -138,14 +149,8 @@ void GBufferRenderPass::Draw()
 	clearValues[GBufferAttachmentIndex::EMISSIVE].color = zeroFloat4;
 	clearValues[GBufferAttachmentIndex::ENTITY_ID].color = rMinusOne;
 	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 0.0f, 0 };
-	
-	
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::EMISSIVE], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::MATERIAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ALBEDO], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+	auto& attachments = vr.attachments.gbuffer;
 	
 	const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height;
 	const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width;
@@ -156,9 +161,8 @@ void GBufferRenderPass::Draw()
 		cmd.BindAttachment(i, &attachments[i], clearOnDraw);
 	}
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH], clearOnDraw);
-	cmd.BeginRendering({ 0, 0, (uint32_t)vpWidth, (uint32_t)vpHeight });
 	
-	cmd.BindPSO(pso_GBufferDefault);
+	cmd.BindPSO(pso_GBufferDefault, PSOLayoutDB::defaultPSOLayout);
 	cmd.SetDefaultViewportAndScissor();
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 																												vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
@@ -190,18 +194,10 @@ void GBufferRenderPass::Draw()
 
 	cmd.DrawIndexedIndirect(vr.indirectCommandsBuffer[currFrame].getBuffer(), 0, vr.objectCount);
 
-	vkCmdEndRendering(cmdlist);
+	
 
 	if(0){
-
-		VkDebugMarkerMarkerInfoEXT marker = {};
-		marker.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
-		memcpy(marker.color, &col[0], sizeof(float) * 4);
-		marker.pMarkerName = "ShadowMaskCOMP";
-		if (regionBegin)
-		{
-			regionBegin(cmdlist, &marker);
-		}
+		cmd.BeginNameRegion("ShadowMaskCOMP");
 
 		VkDescriptorImageInfo depthInput = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_Deferred(),
@@ -211,13 +207,12 @@ void GBufferRenderPass::Draw()
 		auto oldDepth = attachments[GBufferAttachmentIndex::DEPTH].currentLayout;
 		vkutils::TransitionImage(cmdlist,attachments[GBufferAttachmentIndex::DEPTH	],VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-		auto& shadowPass = *RenderPassDatabase::GetRenderPass<ShadowPass>();
 		VkDescriptorImageInfo shadowinput = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
-			shadowPass.shadow_depth.view,
+			vr.attachments.shadow_depth.view,
 			VK_IMAGE_LAYOUT_GENERAL);
-		auto oldShadow = shadowPass.shadow_depth.currentLayout;
-		vkutils::TransitionImage(cmdlist,shadowPass.shadow_depth,VK_IMAGE_LAYOUT_GENERAL);
+		auto oldShadow = vr.attachments.shadow_depth.currentLayout;
+		vkutils::TransitionImage(cmdlist, vr.attachments.shadow_depth,VK_IMAGE_LAYOUT_GENERAL);
 
 		VkDescriptorImageInfo normalInput = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_BlackBorder(),
@@ -228,56 +223,47 @@ void GBufferRenderPass::Draw()
 
 		VkDescriptorImageInfo texOut = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_Deferred(),
-			shadowMask.view,
+			vr.attachments.shadowMask.view,
 			VK_IMAGE_LAYOUT_GENERAL);
-		vkutils::TransitionImage(cmdlist,shadowMask,VK_IMAGE_LAYOUT_GENERAL);
-
-		// settled at the end
-		VkDescriptorSet shadowprepassDS;	
+		vkutils::TransitionImage(cmdlist,vr.attachments.shadowMask,VK_IMAGE_LAYOUT_GENERAL);
 
 		VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
 			GfxSamplerManager::GetSampler_Deferred(),
 			VK_NULL_HANDLE,
 			VK_IMAGE_LAYOUT_GENERAL);
 
-		vkutils::TransitionImage(cmdlist, shadowMask, VK_IMAGE_LAYOUT_GENERAL);
+		vkutils::TransitionImage(cmdlist, vr.attachments.shadowMask, VK_IMAGE_LAYOUT_GENERAL);
 		const auto& dbi = vr.globalLightBuffer[currFrame].GetBufferInfoPtr();
-		DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[currFrame])
-			.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER , VK_SHADER_STAGE_COMPUTE_BIT)
-			.BindImage(1, &depthInput, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-			.BindImage(2, &shadowinput, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-			.BindImage(3, &normalInput, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 
-			.BindImage(6, &texOut, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-			.BindBuffer(8, vr.globalLightBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
-			.Build(shadowprepassDS, SetLayoutDB::compute_shadowPrepass);
+		cmd.BindPSO(pso_ComputeShadowPrepass, PSOLayoutDB::shadowPrepassLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
+		
+		cmd.DescriptorSetBegin(0)
+			.BindSampler(0, GfxSamplerManager::GetSampler_Deferred())
+			.BindImage(1, &attachments[GBufferAttachmentIndex::DEPTH], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+			.BindImage(2, &vr.attachments.shadow_depth, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+			.BindImage(3, &attachments[GBufferAttachmentIndex::NORMAL], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 
-		cmd.BindPSO(pso_ComputeShadowPrepass, VK_PIPELINE_BIND_POINT_COMPUTE);
-		cmd.BindDescriptorSet(PSOLayoutDB::shadowPrepassLayout, 0, 
-			std::array<VkDescriptorSet, 3>{
-				shadowprepassDS,
+			.BindImage(6, &vr.attachments.shadowMask, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+			.BindBuffer(8, vr.globalLightBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+			//.Build(shadowprepassDS, SetLayoutDB::compute_shadowPrepass);
+
+		uint32_t offset = 1;
+		cmd.BindDescriptorSet(PSOLayoutDB::shadowPrepassLayout, offset,
+			std::array<VkDescriptorSet, 2>{
+				//shadowprepassDS,
 				vr.descriptorSets_uniform[currFrame],
 				vr.descriptorSet_bindless,
 		},
 			VK_PIPELINE_BIND_POINT_COMPUTE,
 			1, & dynamicOffset
 				);
-		//vkCmdBindDescriptorSets(
-		//	m_VkCommandBuffer,
-		//	VK_PIPELINE_BIND_POINT_GRAPHICS,
-		//	layout,
-		//	firstSet,
-		//	descriptorSetCount,
-		//	pDescriptorSets,
-		//	dynamicOffsetCount,
-		//	pDynamicOffsets ? pDynamicOffsets : &dynamicOffset);
-		//
+
 		LightPC pc{};
 		pc.useSSAO = vr.useSSAO ? 1 : 0;
 		pc.specularModifier = vr.currWorld->lightSettings.specularModifier;
 
 		size_t lightCnt = 0;
-		auto& lights = vr.currWorld->GetAllOmniLightInstances();
+		auto& lights = vr.batches.GetLocalLights();
 		for(auto& l :lights) 
 		{
 			if (GetLightEnabled(l)== true)
@@ -302,20 +288,11 @@ void GBufferRenderPass::Draw()
 		range.size = sizeof(LightPC);
 		//cmd.SetPushConstant(PSOLayoutDB::shadowPrepassLayout,range,&pc);
 		vkCmdPushConstants(cmdlist, PSOLayoutDB::shadowPrepassLayout, VK_SHADER_STAGE_ALL,range.offset,range.size,&pc);
-		vkCmdDispatch(cmdlist, (shadowMask.width - 1) / 16 + 1, (shadowMask.height - 1) / 16 + 1, 1);
+		vkCmdDispatch(cmdlist, (vr.attachments.shadowMask.width - 1) / 16 + 1, (vr.attachments.shadowMask.height - 1) / 16 + 1, 1);
 
-		vkutils::TransitionImage(cmdlist, shadowPass.shadow_depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-		if (regionEnd)
-		{
-			regionEnd(cmdlist);
-		}
+		
 
 	}
-
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);	
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::NORMAL], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, shadowMask, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 }
 
@@ -324,13 +301,14 @@ void GBufferRenderPass::Shutdown()
 	auto& vr = *VulkanRenderer::get();
 	auto& m_device = vr.m_device;
 	auto& device = m_device.logicalDevice;
-
+	
+	auto& attachments = vr.attachments.gbuffer;
 	for (auto& att : attachments)
 	{
 		att.destroy();
 	}
 
-	shadowMask.destroy();
+	vr.attachments.shadowMask.destroy();
 
 	vkDestroyPipelineLayout(device, PSOLayoutDB::singleSSBOlayout, nullptr);
 	vkDestroyPipeline(device, pso_ComputeCull, nullptr);
@@ -376,6 +354,7 @@ void GBufferRenderPass::SetupRenderpass()
 		}
 	}
 
+	auto& attachments = vr.attachments.gbuffer;
 	// Formats
 	//attachmentDescs[GBufferAttachmentIndex::POSITION].format = attachments[GBufferAttachmentIndex::POSITION].format;
 	attachmentDescs[GBufferAttachmentIndex::NORMAL]  .format = attachments[GBufferAttachmentIndex::NORMAL]  .format;
@@ -445,9 +424,9 @@ void GBufferRenderPass::SetupFramebuffer()
 	const uint32_t width = m_swapchain.swapChainExtent.width;
 	const uint32_t height = m_swapchain.swapChainExtent.height;
 	
-	deferredImg[GBufferAttachmentIndex::NORMAL]   = vr.CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), attachments[GBufferAttachmentIndex::NORMAL  ].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	deferredImg[GBufferAttachmentIndex::ALBEDO]   = vr.CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), attachments[GBufferAttachmentIndex::ALBEDO  ].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	deferredImg[GBufferAttachmentIndex::MATERIAL] = vr.CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), attachments[GBufferAttachmentIndex::MATERIAL].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	// deferredImg[GBufferAttachmentIndex::NORMAL]   = vr.CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), attachments[GBufferAttachmentIndex::NORMAL  ].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	// deferredImg[GBufferAttachmentIndex::ALBEDO]   = vr.CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), attachments[GBufferAttachmentIndex::ALBEDO  ].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	// deferredImg[GBufferAttachmentIndex::MATERIAL] = vr.CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), attachments[GBufferAttachmentIndex::MATERIAL].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	//deferredImg[GBufferAttachmentIndex::DEPTH]    = ImGui_ImplVulkan_AddTexture(GfxSamplerManager::GetSampler_Deferred(), att_depth.view, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
@@ -517,7 +496,7 @@ void GBufferRenderPass::CreatePipeline()
 	colourFormats.resize(GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS);
 	for (size_t i = 0; i < GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS; i++)
 	{
-		colourFormats[i] = attachments[i].format;
+		colourFormats[i] = vr.attachments.gbuffer[i].format;
 	}
 
 	VkPipelineRenderingCreateInfo renderingInfo{};
@@ -572,12 +551,11 @@ void GBufferRenderPass::CreatePSOLayout()
 	auto& vr = *VulkanRenderer::get();
 	auto& m_device = vr.m_device;
 
-	VkDescriptorSet dummy;
-	DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[vr.getFrame()])
+	DescriptorBuilder::Begin()
 		.BindBuffer(1, vr.indirectCommandsBuffer[0].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) 
 		.BindBuffer(2, vr.instanceBuffer[0].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) 
 		.BindBuffer(3, vr.gpuTransformBuffer[0].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) 
-		.Build(dummy, SetLayoutDB::compute_singleSSBO);
+		.BuildLayout(SetLayoutDB::compute_singleSSBO);
 
 	{
 		std::vector<VkDescriptorSetLayout> setLayouts
@@ -598,41 +576,36 @@ void GBufferRenderPass::CreatePSOLayout()
 
 
 	{
-			auto cmd = vr.beginSingleTimeCommands();
-			VkDescriptorImageInfo depthInput = oGFX::vkutils::inits::descriptorImageInfo(
-				GfxSamplerManager::GetSampler_BlackBorder(),
-				attachments[GBufferAttachmentIndex::DEPTH	].view,
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			vkutils::TransitionImage(cmd,attachments[GBufferAttachmentIndex::DEPTH	],VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-			auto& shadowPass = *RenderPassDatabase::GetRenderPass<ShadowPass>();
-			VkDescriptorImageInfo shadowinput = oGFX::vkutils::inits::descriptorImageInfo(
-				GfxSamplerManager::GetSampler_BlackBorder(),
-				shadowPass.shadow_depth.view,
-				VK_IMAGE_LAYOUT_GENERAL);
-			vkutils::TransitionImage(cmd,shadowPass.shadow_depth,VK_IMAGE_LAYOUT_GENERAL);
+		auto& attachments = vr.attachments.gbuffer;
+		VkDescriptorImageInfo depthInput = oGFX::vkutils::inits::descriptorImageInfo(
+			GfxSamplerManager::GetSampler_BlackBorder(),
+			attachments[GBufferAttachmentIndex::DEPTH	].view,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-			VkDescriptorImageInfo normalInput = oGFX::vkutils::inits::descriptorImageInfo(
-				GfxSamplerManager::GetSampler_BlackBorder(),
-				attachments[GBufferAttachmentIndex::NORMAL	].view,
-				VK_IMAGE_LAYOUT_GENERAL);
-			vkutils::TransitionImage(cmd,attachments[GBufferAttachmentIndex::NORMAL	],VK_IMAGE_LAYOUT_GENERAL);
+		VkDescriptorImageInfo shadowinput = oGFX::vkutils::inits::descriptorImageInfo(
+			GfxSamplerManager::GetSampler_BlackBorder(),
+			vr.attachments.shadow_depth.view,
+			VK_IMAGE_LAYOUT_GENERAL);
 
-			VkDescriptorImageInfo texOut = oGFX::vkutils::inits::descriptorImageInfo(
-				GfxSamplerManager::GetSampler_Deferred(),
-				shadowMask.view,
-				VK_IMAGE_LAYOUT_GENERAL);
-			vkutils::TransitionImage(cmd,shadowMask,VK_IMAGE_LAYOUT_GENERAL);
-			vr.endSingleTimeCommands(cmd);
+		VkDescriptorImageInfo normalInput = oGFX::vkutils::inits::descriptorImageInfo(
+			GfxSamplerManager::GetSampler_BlackBorder(),
+			attachments[GBufferAttachmentIndex::NORMAL	].view,
+			VK_IMAGE_LAYOUT_GENERAL);
 
-			VkDescriptorImageInfo sampler = oGFX::vkutils::inits::descriptorImageInfo(
-				GfxSamplerManager::GetDefaultSampler(),
-				VK_NULL_HANDLE,
-				VK_IMAGE_LAYOUT_GENERAL);
-			
-			VkDescriptorSet dummy;	
-			const auto& dbi = vr.globalLightBuffer[0].GetDescriptorBufferInfo();
-		DescriptorBuilder::Begin(&vr.DescLayoutCache, &vr.descAllocs[vr.getFrame()])
+		VkDescriptorImageInfo texOut = oGFX::vkutils::inits::descriptorImageInfo(
+			GfxSamplerManager::GetSampler_Deferred(),
+			vr.attachments.shadowMask.view,
+			VK_IMAGE_LAYOUT_GENERAL);
+
+		VkDescriptorImageInfo sampler = oGFX::vkutils::inits::descriptorImageInfo(
+			GfxSamplerManager::GetDefaultSampler(),
+			VK_NULL_HANDLE,
+			VK_IMAGE_LAYOUT_GENERAL);
+		
+		VkDescriptorSet dummy;	
+		const auto& dbi = vr.globalLightBuffer[0].GetDescriptorBufferInfo();
+		DescriptorBuilder::Begin()
 			.BindImage(0, &sampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
 			.BindImage(1, &depthInput, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 			.BindImage(2, &shadowinput, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
@@ -641,7 +614,7 @@ void GBufferRenderPass::CreatePSOLayout()
 			.BindImage(6, &texOut, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 
 			.BindBuffer(8, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
-			.Build(dummy, SetLayoutDB::compute_shadowPrepass);
+			.BuildLayout(SetLayoutDB::compute_shadowPrepass);
 
 		std::array<VkDescriptorSetLayout,4> descriptorSetLayouts = 
 		{
@@ -674,6 +647,8 @@ void GBufferRenderPass::SetupResources() {
 	printf("%s\n", __FUNCTION__);
 	const uint32_t width = m_swapchain.swapChainExtent.width;
 	const uint32_t height = m_swapchain.swapChainExtent.height;
+
+	auto& attachments = vr.attachments.gbuffer;
 	//attachments[GBufferAttachmentIndex::POSITION].name = "GB_Position";
 	//attachments[GBufferAttachmentIndex::POSITION].forFrameBuffer(&m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
 	attachments[GBufferAttachmentIndex::NORMAL	].name = "GB_Normal";
@@ -695,18 +670,19 @@ void GBufferRenderPass::SetupResources() {
 	attachments[GBufferAttachmentIndex::EMISSIVE	].name = "GB_Emissive";
 	attachments[GBufferAttachmentIndex::EMISSIVE	].forFrameBuffer(&m_device, vr.G_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
 	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::EMISSIVE]);
+	
+	vr.attachments.shadowMask.name = "GB_ShadowMask";
+	vr.attachments.shadowMask.forFrameBuffer(&m_device, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	vr.fbCache.RegisterFramebuffer(vr.attachments.shadowMask);
 
 	auto cmd = vr.GetCommandBuffer();
-	for (size_t i = 0; i < GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS; i++)
+	for (size_t i = 0; i < GBufferAttachmentIndex::MAX_ATTACHMENTS; i++)
 	{
-		vkutils::TransitionImage(cmd, attachments[i], attachments[i].imageLayout);
-	}	
+		vkutils::SetImageInitialState(cmd, attachments[i]);
+	}		
+	vkutils::SetImageInitialState(cmd, vr.attachments.shadowMask);
 
-	shadowMask.name = "GB_ShadowMask";
-	shadowMask.forFrameBuffer(&m_device, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
-	vr.fbCache.RegisterFramebuffer(shadowMask);
-
-	vr.m_device.commandPoolManagers[vr.getFrame()].SubmitCommandBuffer(vr.m_device.graphicsQueue, cmd);
+	vr.SubmitSingleCommandAndWait(cmd);
 
 }
 

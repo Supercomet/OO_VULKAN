@@ -40,14 +40,16 @@ Technology is prohibited.
 
 #include "GfxRenderpass.h"
 
-#include "renderpass/DeferredCompositionRenderpass.h"
-#include "renderpass/GBufferRenderPass.h"
-#include "renderpass/DebugRenderpass.h"
-#include "renderpass/ShadowPass.h"
-#include "renderpass/SSAORenderPass.h"
-#include "renderpass/ForwardParticlePass.h"
-#include "renderpass/ForwardUIPass.h"
-#include "renderpass/BloomPass.h"
+
+extern GfxRenderpass* g_BloomPass;
+extern GfxRenderpass* g_DebugDrawRenderpass;
+extern GfxRenderpass* g_ForwardParticlePass;
+extern GfxRenderpass* g_ForwardUIPass;
+extern GfxRenderpass* g_GBufferRenderPass;
+extern GfxRenderpass* g_LightingPass;
+extern GfxRenderpass* g_ShadowPass;
+extern GfxRenderpass* g_SSAORenderPass;
+
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	#include "renderpass/ForwardDecalRenderpass.h"
 #endif
@@ -80,6 +82,10 @@ Technology is prohibited.
 #include FT_OUTLINE_H
 #include FT_MULTIPLE_MASTERS_H
 
+
+#pragma warning( push )
+#pragma warning( disable : 26451 )
+
 #define MSDFGEN_CORE_ONLY
 #include "msdfgen.h"
 #include "msdfgen-ext.h"
@@ -88,6 +94,7 @@ Technology is prohibited.
 #define MSDF_ATLAS_NO_ARTERY_FONT 
 #include "msdf-atlas-gen.h"
 
+#pragma warning( pop )
 
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
@@ -154,11 +161,11 @@ VulkanRenderer::~VulkanRenderer()
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
-		if (renderTargets[i].texture.image)
+		if (renderTargets[i].texture.image.image)
 		{
 			renderTargets[i].texture.destroy();
 		}
-		if (renderTargets[i].depth.image)
+		if (renderTargets[i].depth.image.image)
 		{
 			renderTargets[i].depth.destroy();
 		}
@@ -228,7 +235,7 @@ VulkanRenderer::~VulkanRenderer()
 		vkDestroySemaphore(m_device.logicalDevice, renderSemaphore[i], nullptr);
 		vkDestroySemaphore(m_device.logicalDevice, presentSemaphore[i], nullptr);
 	}
-	vkDestroySemaphore(m_device.logicalDevice, frameSemaphore, nullptr);
+	vkDestroySemaphore(m_device.logicalDevice, frameCountSemaphore, nullptr);
 
 	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::defaultPSOLayout, nullptr);
 	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::PSO_fullscreenBlitLayout, nullptr);
@@ -321,22 +328,14 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	// Calls "Init()" on all registered render passes. Order is not guarunteed.
 	auto rpd = RenderPassDatabase::Get();
 	GfxRenderpass* ptr;
-	ptr = new ShadowPass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new GBufferRenderPass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new DebugDrawRenderpass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new DeferredCompositionRenderpass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new SSAORenderPass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new ForwardParticlePass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new ForwardUIPass;
-	rpd->RegisterRenderPass(ptr);
-	ptr = new BloomPass;
-	rpd->RegisterRenderPass(ptr);
+	rpd->RegisterRenderPass(g_ShadowPass);
+	rpd->RegisterRenderPass(g_GBufferRenderPass);
+	rpd->RegisterRenderPass(g_DebugDrawRenderpass);
+	rpd->RegisterRenderPass(g_LightingPass);
+	rpd->RegisterRenderPass(g_SSAORenderPass);
+	rpd->RegisterRenderPass(g_ForwardParticlePass);
+	rpd->RegisterRenderPass(g_ForwardUIPass);
+	rpd->RegisterRenderPass(g_BloomPass);
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	ptr = new ForwardDecalRenderpass;
 	rpd->RegisterRenderPass(ptr);
@@ -364,8 +363,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		
 	RenderPassDatabase::InitAllRegisteredPasses();
 
-		
-	auto& shadowTexture =RenderPassDatabase::GetRenderPass<ShadowPass>()->shadow_depth;
+	auto& shadowTexture = attachments.shadow_depth;
 	shadowTexture.updateDescriptor();
 
 	CreateSynchronisation();
@@ -375,7 +373,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	InitDefaultPrimatives();
 
 	std::array<VkQueue, 1> cmdQueues{m_device.graphicsQueue};
-	std::array<uint32_t, 1> cmdFamily{m_device.queueIndices.graphicsFamily};
+	std::array<uint32_t, 1> cmdFamily{(uint32_t)m_device.queueIndices.graphicsFamily};
 	std::array<VkPhysicalDevice, 1> physDevs{ m_device.physicalDevice};
 	std::array<VkDevice, 1> logicDevs{ m_device.logicalDevice};
 
@@ -595,7 +593,7 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 		vpBufferInfo.offset = 0;					// position of start of data
 		vpBufferInfo.range = sizeof(CB::FrameContextUBO);// size of data
 
-		DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
+		DescriptorBuilder::Begin()
 			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT| VK_SHADER_STAGE_COMPUTE_BIT)
 			.Build(descriptorSets_uniform[i], SetLayoutDB::FrameUniform);
 	}
@@ -658,8 +656,8 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& s
 
 	glm::uvec2 renderSize = glm::vec2{ dst.width,dst.height };
 
-	vkutils::TransitionImage(cmdlist, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, src, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	//vkutils::TransitionImage(cmdlist, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	//vkutils::TransitionImage(cmdlist, src, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	VkDescriptorImageInfo texdesc = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_SSAOEdgeClamp(),
 		src.view,
@@ -668,7 +666,6 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& s
 	rhi::CommandList cmd{ cmdlist ,"Fullscreen Blit"};
 
 	cmd.BindAttachment(0, &dst);
-	cmd.BeginRendering({ 0,0,{ dst.width,dst.height} });
 
 
 	cmd.SetDefaultViewportAndScissor();
@@ -682,13 +679,13 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& s
 		VK_NULL_HANDLE,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	// create descriptor for this pass
-	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
-		.BindImage(0, &sampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.BindImage(1, &texdesc, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.Build(descriptorSet_fullscreenBlit, SetLayoutDB::util_fullscreenBlit);
+	cmd.BindPSO(pso_utilFullscreenBlit, PSOLayoutDB::PSO_fullscreenBlitLayout);
 
-	cmd.BindPSO(pso_utilFullscreenBlit);
+	// create descriptor for this pass
+	cmd.DescriptorSetBegin(0)
+		.BindSampler(0, GfxSamplerManager::GetDefaultSampler())
+		.BindImage(1, &src, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
+
 
 	SSAOPC pc{};
 	VkPushConstantRange range;
@@ -699,21 +696,21 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& s
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO),
 		m_device.properties.limits.minUniformBufferOffsetAlignment));
-	cmd.BindDescriptorSet(PSOLayoutDB::PSO_fullscreenBlitLayout, 0,
-		std::array<VkDescriptorSet, 1>
-		{
-			descriptorSet_fullscreenBlit,
-		},
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		0
-	);
+	//cmd.BindDescriptorSet(PSOLayoutDB::PSO_fullscreenBlitLayout, 0,
+	//	std::array<VkDescriptorSet, 1>
+	//	{
+	//		descriptorSet_fullscreenBlit,
+	//	},
+	//	VK_PIPELINE_BIND_POINT_GRAPHICS,
+	//	0
+	//);
 
 	cmd.DrawFullScreenQuad();
 	//vkCmdEndRenderPass(cmdlist);
-	cmd.EndRendering();
+	
 
-	vkutils::TransitionImage(cmdlist, src, srcFinal);
-	vkutils::TransitionImage(cmdlist, dst, dstFinal);
+	//vkutils::TransitionImage(cmdlist, src, srcFinal);
+	//vkutils::TransitionImage(cmdlist, dst, dstFinal);
 	
 }
 
@@ -742,7 +739,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& sr
 	// Transition destination image to transfer destination layout
 	oGFX::vkutils::tools::insertImageMemoryBarrier(
 		cmd,
-		dst.image,
+		dst.image.image,
 		0,
 		VK_ACCESS_TRANSFER_WRITE_BIT,
 		dst.currentLayout,
@@ -753,7 +750,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& sr
 
 	oGFX::vkutils::tools::insertImageMemoryBarrier(
 		cmd,
-		src.image,
+		src.image.image,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_ACCESS_TRANSFER_READ_BIT,
 		src.currentLayout, // DO PROPER RESOURCE TRACKING
@@ -786,8 +783,8 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& sr
 		// Issue the blit command
 		vkCmdBlitImage(
 			cmd,
-			src.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			src.image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dst.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1,
 			&imageBlitRegion,
 			VK_FILTER_NEAREST);
@@ -807,8 +804,8 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& sr
 		// Issue the copy command
 		vkCmdCopyImage(
 			cmd,
-			src.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			src.image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dst.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1,
 			&imageCopyRegion);
 	}
@@ -816,7 +813,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& sr
 	// Transition destination image to general layout, which is the required layout for mapping the image memory later on
 	oGFX::vkutils::tools::insertImageMemoryBarrier(
 		cmd,
-		dst.image,
+		dst.image.image,
 		VK_ACCESS_TRANSFER_WRITE_BIT,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -827,7 +824,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& sr
 	// Transition back the swap chain image after the blit is done
 	oGFX::vkutils::tools::insertImageMemoryBarrier(
 		cmd,
-		src.image,
+		src.image.image,
 		VK_ACCESS_TRANSFER_READ_BIT,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -864,9 +861,9 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 		GfxSamplerManager::GetDefaultSampler(),
 		0,
 		VK_IMAGE_LAYOUT_UNDEFINED);
-	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
-		.BindImage(0, nullptr, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.BindImage(1, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT)
+	DescriptorBuilder::Begin()
+		.BindImage(0, nullptr, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.BindImage(1, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS)
 		.BuildLayout(SetLayoutDB::util_fullscreenBlit);
 
 	pipelineLayoutCreateInfo.setLayoutCount = 1;
@@ -875,7 +872,7 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	VK_NAME(m_device.logicalDevice, "fullscreenPSOLayout", PSOLayoutDB::PSO_fullscreenBlitLayout);
 	
 	
-	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
+	DescriptorBuilder::Begin()
 		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindBuffer(3000, gpuTransformBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2002, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT,13)
@@ -1060,6 +1057,16 @@ VkCommandBuffer VulkanRenderer::GetCommandBuffer()
 	return m_device.commandPoolManagers[getFrame()].GetNextCommandBuffer(beginBuffer);
 }
 
+void VulkanRenderer::SubmitSingleCommandAndWait(VkCommandBuffer cmd)
+{
+	m_device.commandPoolManagers[getFrame()].SubmitCommandBufferAndWait(m_device.graphicsQueue, cmd);	
+}
+
+void VulkanRenderer::SubmitSingleCommand(VkCommandBuffer cmd)
+{
+	m_device.commandPoolManagers[getFrame()].SubmitCommandBuffer(m_device.graphicsQueue, cmd);
+}
+
 void VulkanRenderer::SetWorld(GraphicsWorld* world)
 {
 	// force a sync here
@@ -1099,24 +1106,32 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 			assert(found && "Could not find enough rendertargets");
 			// initialization
 			auto& image = renderTargets[wrdID].texture;
-			if (image.image == VK_NULL_HANDLE)
+			if (image.image.image == VK_NULL_HANDLE)
 			{
 				image.name = "GW_"+std::to_string(wrdID)+":COL";
 				image.forFrameBuffer(&m_device, G_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 					m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height);
 				fbCache.RegisterFramebuffer(image);
+				auto cmd = GetCommandBuffer();
+				vkutils::SetImageInitialState(cmd, image);
+				SubmitSingleCommandAndWait(cmd);
 			}
-			if (image.image&&renderTargets[wrdID].imguiTex == 0)
+			if (image.image.image && renderTargets[wrdID].imguiTex == 0)
 			{
 				renderTargets[wrdID].imguiTex = CreateImguiBinding(samplerManager.GetDefaultSampler(), image.view, VK_IMAGE_LAYOUT_GENERAL);				
 			}
 			auto& depth =  renderTargets[wrdID].depth;
-			if (depth.image == VK_NULL_HANDLE)
+			if (depth.image.image == VK_NULL_HANDLE)
 			{
 				depth.name = "GW_"+std::to_string(wrdID)+":DEPTH";
 				depth.forFrameBuffer(&m_device, G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 					m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height);
-				fbCache.RegisterFramebuffer(depth);
+				fbCache.RegisterFramebuffer(depth);		
+
+				auto cmd = GetCommandBuffer();
+				vkutils::SetImageInitialState(cmd, depth);
+				SubmitSingleCommandAndWait(cmd);
+
 				//world->imguiID[0] = CreateImguiBinding(samplerManager.GetDefaultSampler(), depth.view, depth.imageLayout);
 			}
 
@@ -1153,31 +1168,16 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	vkQueueWaitIdle(m_device.graphicsQueue);
 	vkDeviceWaitIdle(device);
 
-
-
-	bool supportsBlit = true;
-	// Check blit support for source and destination
-	VkFormatProperties formatProps;
-
 	
-	auto& target = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments[GBufferAttachmentIndex::ENTITY_ID];
+	auto& target = attachments.gbuffer[GBufferAttachmentIndex::ENTITY_ID];
 	if (target.currentLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 		return -1;
 
-	// Check if the device supports blitting from optimal images (the swapchain images are in optimal format)
-	vkGetPhysicalDeviceFormatProperties(physicalDevice, target.format, &formatProps);
-	if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
-		supportsBlit = false;
-	}
-
-	// Check if the device supports blitting to linear images
-	vkGetPhysicalDeviceFormatProperties(physicalDevice, VK_FORMAT_R32_SINT, &formatProps);
-	if (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
-		supportsBlit = false;
-	}
+	VkCommandBuffer copyCmd = beginSingleTimeCommands();
+	VK_NAME(device, "COPY_DST_EDITOR_ID_CMD_LIST", copyCmd);
 
 	// Source for the copy is the last rendered swapchain image
-	VkImage srcImage = target.image;
+	VkImage srcImage = target.image.image;
 
 	// Create the linear tiled destination image to copy to and to read the memory from
 	VkImageCreateInfo imageCreateCI(oGFX::vkutils::inits::imageCreateInfo());
@@ -1194,132 +1194,30 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	imageCreateCI.tiling = VK_IMAGE_TILING_LINEAR;
 	imageCreateCI.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	// Create the image
-	VkImage dstImage;
-	VK_CHK(vkCreateImage(device, &imageCreateCI, nullptr, &dstImage));
-	VK_NAME(device, "COPY_DST_EDITOR_ID", dstImage);
-	// Create memory to back up the image
-	VkMemoryRequirements memRequirements;
-	VkMemoryAllocateInfo memAllocInfo(oGFX::vkutils::inits::memoryAllocateInfo());
-	VkDeviceMemory dstImageMemory;
-	vkGetImageMemoryRequirements(device, dstImage, &memRequirements);
-	memAllocInfo.allocationSize = memRequirements.size;
-	// Memory must be host visible to copy from
-	memAllocInfo.memoryTypeIndex = oGFX::FindMemoryTypeIndex(physicalDevice, memRequirements.memoryTypeBits
-		, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	VK_CHK(vkAllocateMemory(device, &memAllocInfo, nullptr, &dstImageMemory));
-	VK_CHK(vkBindImageMemory(device, dstImage, dstImageMemory, 0));
+
+	oGFX::AllocatedImage dstImage{};
+	VmaAllocationCreateInfo allocCI{};
+	allocCI.usage = VMA_MEMORY_USAGE_AUTO;
+	allocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+	vmaCreateImage(m_device.m_allocator, &imageCreateCI, &allocCI, &dstImage.image, &dstImage.allocation, &dstImage.allocationInfo);
+	vkutils::Texture2D temptex;
+	temptex.width = target.width;
+	temptex.height = target.height;
+	temptex.format = target.format;
+	temptex.currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	temptex.image = dstImage;
 
 	// Do the actual blit from the swapchain image to our host visible destination image
-	
-	VkCommandBuffer copyCmd = beginSingleTimeCommands();
-	VK_NAME(device, "COPY_DST_EDITOR_ID_CMD_LIST", copyCmd);
-	// Transition destination image to transfer destination layout
-	oGFX::vkutils::tools::insertImageMemoryBarrier(
-		copyCmd,
-		dstImage,
-		0,
-		VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-
-	// Transition swapchain image from present to transfer source layout
-	oGFX::vkutils::tools::insertImageMemoryBarrier(
-		copyCmd,
-		srcImage,
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_ACCESS_TRANSFER_READ_BIT,
-		target.currentLayout,
-		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-
-	// If source and destination support blit we'll blit as this also does automatic format conversion (e.g. from BGR to RGB)
-	if (supportsBlit)
-	{
-		// Define the region to blit (we will blit the whole swapchain image)
-		VkOffset3D blitSize;
-		blitSize.x = target.width;
-		blitSize.y = target.height;
-		blitSize.z = 1;
-		VkImageBlit imageBlitRegion{};
-		imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageBlitRegion.srcSubresource.layerCount = 1;
-		imageBlitRegion.srcOffsets[1] = blitSize;
-		imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageBlitRegion.dstSubresource.layerCount = 1;
-		imageBlitRegion.dstOffsets[1] = blitSize;
-
-		// Issue the blit command
-		vkCmdBlitImage(
-			copyCmd,
-			srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			1,
-			&imageBlitRegion,
-			VK_FILTER_NEAREST);
-	}
-	else
-	{
-		// Otherwise use image copy (requires us to manually flip components)
-		VkImageCopy imageCopyRegion{};
-		imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageCopyRegion.srcSubresource.layerCount = 1;
-		imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageCopyRegion.dstSubresource.layerCount = 1;
-		imageCopyRegion.extent.width = target.width;
-		imageCopyRegion.extent.height = target.height;
-		imageCopyRegion.extent.depth = 1;
-
-		// Issue the copy command
-		vkCmdCopyImage(
-			copyCmd,
-			srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			1,
-			&imageCopyRegion);
-	}
-
-	// Transition destination image to general layout, which is the required layout for mapping the image memory later on
-	oGFX::vkutils::tools::insertImageMemoryBarrier(
-		copyCmd,
-		dstImage,
-		VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-
-	// Transition back the format after the blit is done
-	oGFX::vkutils::tools::insertImageMemoryBarrier(
-		copyCmd,
-		srcImage,
-		VK_ACCESS_TRANSFER_READ_BIT,
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		target.currentLayout,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+	BlitFramebuffer(copyCmd, target, target.currentLayout, temptex, VK_IMAGE_LAYOUT_GENERAL);
 
 	vkEndCommandBuffer(copyCmd);
 
+	
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &copyCmd; 
-	//submitInfo.waitSemaphoreCount = 1; //number of semaphores to wait on
-	//submitInfo.pWaitSemaphores = &readyForCopy[(currentFrame+MAX_FRAME_DRAWS+1) % MAX_FRAME_DRAWS]; //list of semaphores to wait on
-	//VkPipelineStageFlags waitStages[] = {
-	//	VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-	//};
-	//submitInfo.pWaitDstStageMask = waitStages; //stages to check semapheres at
-
 
 	vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
 	vkQueueWaitIdle(m_device.graphicsQueue);
@@ -1329,34 +1227,25 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	// Get layout of the image (including row pitch)
 	VkImageSubresource subResource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
 	VkSubresourceLayout subResourceLayout;
-	vkGetImageSubresourceLayout(device, dstImage, &subResource, &subResourceLayout);
+	vkGetImageSubresourceLayout(device, dstImage.image, &subResource, &subResourceLayout);
 
-	// Map image memory so we can start copying from it
-	const char* data;
-	VK_CHK(vkMapMemory(device, dstImageMemory, 0, VK_WHOLE_SIZE, 0, (void**)& data));
-	data += subResourceLayout.offset;
-
-	
-	// If source is BGR (destination is always RGB) and we can't use blit (which does automatic conversion), we'll have to manually swizzle color components
-	bool colorSwizzle = false;
-	// Check if source is BGR
-	// Note: Not complete, only contains most common and basic BGR surface formats for demonstration purposes
-	if (!supportsBlit)
+	const char* mappedData = nullptr;
+	auto result = vmaMapMemory(m_device.m_allocator, dstImage.allocation, (void**)&mappedData);
+	if (result != VK_SUCCESS)
 	{
-		std::vector<VkFormat> formatsBGR = { VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_B8G8R8A8_SNORM };
-		//colorSwizzle = (std::find(formatsBGR.begin(), formatsBGR.end(), swapChain.colorFormat) != formatsBGR.end());
+		assert(false);
 	}
-
+	
+	mappedData += subResourceLayout.offset;
 	glm::uvec2 pixels = glm::uvec2{ target.width * uv.x,target.height * (uv.y) };
 	pixels = glm::clamp(pixels, { 0,0 }, { target.width-1,target.height-1 });
 	uint32_t indx = (pixels.x + pixels.y * target.width);
-	int32_t value = ((int32_t*)data)[indx];
+	int32_t value = ((int32_t*)mappedData)[indx];
 	//uint32_t value = ((uint32_t*)data)[pixels.x * (pixels.y * subResourceLayout.rowPitch)];
 
 	// Clean up resources
-	vkUnmapMemory(device, dstImageMemory);
-	vkFreeMemory(device, dstImageMemory, nullptr);
-	vkDestroyImage(device, dstImage, nullptr);
+	vmaUnmapMemory(m_device.m_allocator, dstImage.allocation);
+	vmaDestroyImage(m_device.m_allocator, dstImage.image, dstImage.allocation);
 
 	return value;
 
@@ -1404,80 +1293,8 @@ void VulkanRenderer::UploadLights()
 	//// Only lights that are inside/intersecting the camera frustum should be uploaded.
 	//memcpy(lightsBuffer.mapped, &lightUBO, sizeof(CB::LightUBO));
 
-	m_numShadowcastLights = 0;
-	int32_t gridIdx = 0;
-
-	std::vector<LocalLightInstance> spotLights;
-	auto& lights = currWorld->GetAllOmniLightInstances();
-	spotLights.reserve(lights.size());
-	//oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetUp(),oGFX::Colors::GREEN);
-	//oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetRight(),oGFX::Colors::RED);
-	//oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetFront(),oGFX::Colors::BLUE);
-	oGFX::Frustum frust = currWorld->cameras[0].GetFrustum();
-	//{
-	//	oGFX::DebugDraw::DrawCameraFrustrumDebugArrows(frust);
-	//}
-			
-	int viewIter{};
-	int sss{};
-	for (auto& e : lights)
-	{
-		oGFX::Sphere s;
-		s.center = e.position;
-		s.radius = e.radius.x;
-		//oGFX::DebugDraw::AddSphere(s,e.color);
-		
-		auto existing = GetLightEnabled(e);
-		auto renderLight = GetLightEnabled(e);
-		if (oGFX::coll::SphereInFrustum(frust, s))		
-		{ 			
-			//SetLightEnabled(e, existing && true);
-			renderLight = renderLight && true;
-		}
-		else
-		{
-			sss++;
-			//SetLightEnabled(e, false);
-			renderLight = false;
-		}
-
-		if (renderLight == false)
-		{
-			continue;
-		}
-		LocalLightInstance si;
-		if (GetCastsShadows(e))
-		{
-			
-			e.info.y = gridIdx;			
-			if (e.info.x == 1) // type one is omnilight
-			{
-				// loop through all faces
-				for (size_t i = 0; i < 6; i++)
-				{
-					++m_numShadowcastLights;
-					si.view[i] = e.view[i];
-					++gridIdx;
-				}
-			}
-			else // else spotlight?
-			{
-				++m_numShadowcastLights;
-				si.view[0] = e.view[++viewIter%6];		
-				++gridIdx;
-			}
-		}
-
-		SetLightEnabled(si, true);
-		si.info = e.info;
-		si.position = e.position;
-		si.color = e.color;
-		si.radius = e.radius;
-		si.projection = e.projection;
-
-		spotLights.emplace_back(si);
-	}
-	//std::cout << "Lights culled: " << sss << "\n";
+	const auto& spotLights = batches.GetLocalLights();
+	m_numShadowcastLights = batches.m_numShadowcastLights;
 	auto cmd = GetCommandBuffer();
 	globalLightBuffer[getFrame()].writeToCmd(spotLights.size(), spotLights.data(), cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
 
@@ -1513,7 +1330,7 @@ void VulkanRenderer::CreateSynchronisation()
 	sci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	sci.pNext = &timelineCreateInfo;
 	sci.flags = 0;
-	VK_CHK(vkCreateSemaphore(m_device.logicalDevice, &sci, nullptr, &frameSemaphore));
+	VK_CHK(vkCreateSemaphore(m_device.logicalDevice, &sci, nullptr, &frameCountSemaphore));
 
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
 	{
@@ -1628,7 +1445,7 @@ void VulkanRenderer::CreateDescriptorSets_GPUScene()
 		0,
 		VK_IMAGE_LAYOUT_UNDEFINED);
 
-	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
+	DescriptorBuilder::Begin()
 		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.BindBuffer(3, gpuTransformBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.BindBuffer(4, gpuBoneMatrixBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
@@ -1645,8 +1462,8 @@ void VulkanRenderer::CreateDescriptorSets_Lights()
 
 	for (size_t i = 0; i < m_swapchain.swapChainImages.size(); i++)
 	{
-		DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[i])
-			.BindBuffer(4, &info, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		DescriptorBuilder::Begin()
+			.BindBuffer(4, &info, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
 			.Build(descriptorSet_lights,SetLayoutDB::lights);
 	}
 	
@@ -1803,9 +1620,8 @@ void VulkanRenderer::DebugGUIcalls()
 		if (deferredRendering)
 		{
 			const auto sz = ImGui::GetContentRegionAvail();
-			auto gbuff = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
+			auto deferredImg = Attachments_imguiBinding::deferredImg;
 	
-			auto shadows = RenderPassDatabase::GetRenderPass<ShadowPass>();
 	
 			const float renderWidth = float(windowPtr->m_width);
 			const float renderHeight = float(windowPtr->m_height);
@@ -1816,14 +1632,14 @@ void VulkanRenderer::DebugGUIcalls()
 			//ImGui::BulletText("World Position");
 			//ImGui::Image(gbuff->deferredImg[POSITION], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("World Normal");
-			ImGui::Image(gbuff->deferredImg[NORMAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::Image(deferredImg[NORMAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("Albedo");
-			ImGui::Image(gbuff->deferredImg[ALBEDO], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::Image(deferredImg[ALBEDO], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("Material");
-			ImGui::Image(gbuff->deferredImg[MATERIAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::Image(deferredImg[MATERIAL], imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 			ImGui::BulletText("Depth (TODO)");
 			//ImGui::Image(gbuff->deferredImg[3], { sz.x,sz.y/4 });
-			ImGui::Image(shadows->shadowImg ,imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+			ImGui::Image(Attachments_imguiBinding::shadowImg ,imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
 		}
 	}
 	ImGui::End();
@@ -1841,10 +1657,20 @@ void VulkanRenderer::DrawGUI()
 	GUIpassInfo.renderArea = { {0, 0}, {m_swapchain.swapChainExtent}};
 
     const VkCommandBuffer cmdlist = GetCommandBuffer();
+	VK_NAME(m_device.logicalDevice, "IM_GUI_CMD", cmdlist);
+	
 
+	// temp hardcode until its in its own renderer
+	vkutils::TransitionImage(cmdlist, m_swapchain.swapChainImages[swapchainIdx], m_swapchain.swapChainImages[swapchainIdx].referenceLayout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	if (renderTargets[0].inUse == true)
+	{
+		vkutils::TransitionImage(cmdlist, renderTargets[0].texture, renderTargets[0].texture.referenceLayout, VK_IMAGE_LAYOUT_GENERAL);
+	}
 	vkCmdBeginRenderPass(cmdlist, &GUIpassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdlist);
 	vkCmdEndRenderPass(cmdlist);
+
+	vkutils::TransitionImage(cmdlist, renderTargets[0].texture, VK_IMAGE_LAYOUT_GENERAL, renderTargets[0].texture.referenceLayout);
 
 	m_swapchain.swapChainImages[swapchainIdx].currentLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	//std::cout << currentFrame << " DrawGui " << std::to_string(swapchainIdx) <<" " 
@@ -2306,7 +2132,8 @@ void VulkanRenderer::BeginDraw()
 
 	//vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, UINT64_MAX);
 	uint64_t res{};
-	VK_CHK(vkGetSemaphoreCounterValue(m_device.logicalDevice, frameSemaphore, &res));
+	VK_CHK(vkGetSemaphoreCounterValue(m_device.logicalDevice, frameCountSemaphore, &res));
+	//printf("[FRAME COUNTER %5llu]\n", res);
 
 	//wait for given fence to signal from last draw before continuing
 	VK_CHK(vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, std::numeric_limits<uint64_t>::max()));
@@ -2320,7 +2147,6 @@ void VulkanRenderer::BeginDraw()
 		//Information about how to begin each command buffer
 		VkCommandBufferBeginInfo bufferBeginInfo = oGFX::vkutils::inits::commandBufferBeginInfo();
 		//start recording commanders to command buffer!
-		auto cmd = GetCommandBuffer();
 		//VkResult result = vkBeginCommandBuffer(cmd, &bufferBeginInfo);
 		//if (result != VK_SUCCESS)
 		//{
@@ -2346,7 +2172,6 @@ void VulkanRenderer::BeginDraw()
 		}
 
 
-		m_swapchain.swapChainImages[swapchainIdx].currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		//std::cout << currentFrame << " Setting " << std::to_string(swapchainIdx) <<" " << oGFX::vkutils::tools::VkImageLayoutString(m_swapchain.swapChainImages[swapchainIdx].currentLayout) << std::endl;
 
 		DelayedDeleter::get()->Update();
@@ -2389,7 +2214,7 @@ void VulkanRenderer::BeginDraw()
 				0,
 				VK_IMAGE_LAYOUT_UNDEFINED);
 
-			DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
+			DescriptorBuilder::Begin()
 				.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
 				.BindBuffer(3, gpuTransformBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 				.BindBuffer(4, gpuBoneMatrixBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
@@ -2403,7 +2228,7 @@ void VulkanRenderer::BeginDraw()
 			vpBufferInfo.buffer = vpUniformBuffer[getFrame()].buffer;	// buffer to get data from
 			vpBufferInfo.offset = 0;				// position of start of data
 			vpBufferInfo.range = sizeof(CB::FrameContextUBO);		// size of data
-			DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
+			DescriptorBuilder::Begin()
 				.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT)
 				.Build(descriptorSets_uniform[getFrame()], SetLayoutDB::FrameUniform);
 	
@@ -2472,32 +2297,53 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			nullptr,                       // pMemoryBarriers
 			0, NULL, 0, NULL
 		);
-		if (shadowsRendered == false) // only render shadowpass once... 
+		
+		if (shadowsRendered == false) // only render shadowpass once per frame...  // this is for multi-viewport
 		{
 			//generally works until we need to perform better frustrum culling....
-			RenderPassDatabase::GetRenderPass<ShadowPass>()->Draw();
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_ShadowPass->Draw(cmd);
 			shadowsRendered = true;
 		}
-		//RenderPassDatabase::GetRenderPass<ZPrepassRenderpass>()->Draw();
-		RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->Draw();
-		//RenderPassDatabase::GetRenderPass<DeferredDecalRenderpass>()->Draw();
-		RenderPassDatabase::GetRenderPass<SSAORenderPass>()->Draw();
-		RenderPassDatabase::GetRenderPass<DeferredCompositionRenderpass>()->Draw();
-		RenderPassDatabase::GetRenderPass<ForwardParticlePass>()->Draw();
-		RenderPassDatabase::GetRenderPass<BloomPass>()->Draw();
-		RenderPassDatabase::GetRenderPass<ForwardUIPass>()->Draw();
-		//RenderPassDatabase::GetRenderPass<ForwardRenderpass>()->Draw();
+
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_GBufferRenderPass->Draw(cmd);
+		}		
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			VK_NAME(m_device.logicalDevice, "SSAO_CMD", cmd);
+			g_SSAORenderPass->Draw(cmd);
+		}
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_LightingPass->Draw(cmd);
+		}
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_ForwardParticlePass->Draw(cmd);
+		}
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_BloomPass->Draw(cmd);
+		}
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_ForwardUIPass->Draw(cmd);
+		}
 #if defined		(ENABLE_DECAL_IMPLEMENTATION)
 		RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
 #endif				
 		//if (shouldRunDebugDraw) // for now need to run regardless because of transition.. TODO: FIX IT ONE DAY
 		{
-			RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
-			RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->Draw();
+			// RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_DebugDrawRenderpass->Draw(cmd);
 		}
 
-		++renderIteration;
+		++renderIteration; // next viewport
 	}
+
 	auto& dst = m_swapchain.swapChainImages[swapchainIdx];
 	//std::cout << currentFrame << " Func " << std::to_string(swapchainIdx) <<" " << oGFX::vkutils::tools::VkImageLayoutString(dst.currentLayout) << std::endl;
 	if (currWorld->numCameras > 1)
@@ -2631,7 +2477,7 @@ void VulkanRenderer::Present()
 	qsi.commandBufferCount = 0;
 	qsi.pCommandBuffers = nullptr;	// command buffer to submit
 	qsi.signalSemaphoreCount = 1;						// number of semaphores to signal
-	qsi.pSignalSemaphores = &frameSemaphore;
+	qsi.pSignalSemaphores = &frameCountSemaphore;
 	vkQueueSubmit(m_device.graphicsQueue, 1, &qsi, nullptr);
 	//get next frame (use % MAX_FRAME_DRAWS to keep value below max frames)
 	//currentFrame = (currentFrame + 1) % MAX_FRAME_DRAWS;
@@ -2683,13 +2529,13 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 
 	vkutils::Texture2D generatedTexture; // writing into a new texture
 	generatedTexture = texture;
-	generatedTexture.image = VK_NULL_HANDLE;
-	generatedTexture.deviceMemory = VK_NULL_HANDLE;
+	generatedTexture.image.image = VK_NULL_HANDLE;
+	generatedTexture.image.allocation = VK_NULL_HANDLE;
 	generatedTexture.view = VK_NULL_HANDLE;
 	generatedTexture.name += " xd";
 	generatedTexture.currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-	generatedTexture.AllocateImageMemory(&m_device, generatedTexture.usage, texMips);
+	generatedTexture.AllocateImageMemory(&m_device, generatedTexture.usage, (uint32_t)texMips);
 	generatedTexture.CreateImageView();
 
 	VkImageViewCreateInfo viewCreateInfo = {};
@@ -2702,11 +2548,11 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 	viewCreateInfo.subresourceRange.levelCount = 1;
 	viewCreateInfo.subresourceRange.baseMipLevel = 0;
 	
-	viewCreateInfo.image = generatedTexture.image;
+	viewCreateInfo.image = generatedTexture.image.image;
 	std::array < VkImageView, maxNumMips> mipViews;
 	for (size_t i = 0; i < texMips; i++)
 	{
-		viewCreateInfo.subresourceRange.baseMipLevel = i;
+		viewCreateInfo.subresourceRange.baseMipLevel = (uint32_t)i;
 		vkCreateImageView(m_device.logicalDevice,&viewCreateInfo,nullptr, &mipViews[i]);
 	}
 
@@ -2741,7 +2587,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 	
 
 	std::array<VkDescriptorSet, 1> dstsets;
-	DescriptorBuilder::Begin(&DescLayoutCache, &descAllocs[getFrame()])
+	DescriptorBuilder::Begin()
 		.BindImage(0, &dii, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindBuffer(3000, &cb, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2002, samplers.data(), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 13)
@@ -2762,8 +2608,8 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 		region.dstSubresource = VkImageSubresourceLayers{ VK_IMAGE_ASPECT_COLOR_BIT,0,0,1 };
 		region.dstOffset={};
 		region.extent = { texture.width,texture.height,1 };
-		vkCmdCopyImage(cmd, texture.image, texture.currentLayout
-			, generatedTexture.image, generatedTexture.currentLayout,
+		vkCmdCopyImage(cmd, texture.image.image, texture.currentLayout
+			, generatedTexture.image.image, generatedTexture.currentLayout,
 			1, &region);
 
 		vkutils::ComputeImageBarrier(cmd, generatedTexture, VK_IMAGE_LAYOUT_GENERAL);
@@ -2786,7 +2632,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 			0, nullptr,
 			1, &bmb,
 			0, nullptr);
-		cmdlist.BindPSO(pso_utilAMDSPD, VK_PIPELINE_BIND_POINT_COMPUTE);
+		cmdlist.BindPSO(pso_utilAMDSPD, PSOLayoutDB::AMDSPDLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
 		cmdlist.BindDescriptorSet(PSOLayoutDB::AMDSPDLayout, 0, dstsets, VK_PIPELINE_BIND_POINT_COMPUTE, 0);
 
 
@@ -2813,8 +2659,8 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 		memcpy(data, &spdConstants, sizeof(CB::AMDSPD_UBO));
 		vmaUnmapMemory(m_device.m_allocator, SPDconstantBuffer.alloc);
 
-
-		vkCmdDispatch(cmd, dispatchX, dispatchY, dispatchZ);
+		cmdlist.Dispatch(dispatchX, dispatchY, dispatchZ);
+		//vkCmdDispatch(cmd, dispatchX, dispatchY, dispatchZ);
 
 		//vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, texture.mipLevels);
 		// shader read(2-A) -> general(2-A)
@@ -2878,7 +2724,7 @@ bool VulkanRenderer::ResizeSwapchain()
 			write_desc[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			write_desc[0].dstSet = (VkDescriptorSet)currWorld->imguiID[x];
 			write_desc[0].descriptorCount = 1;
-			if (image.imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+			if (image.referenceLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 			{
 				write_desc[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 			}
@@ -3103,10 +2949,8 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		auto mdlResourceIdx = g_globalModels.size();
 		modelFile->meshResource = static_cast<uint32_t>(mdlResourceIdx);
 		g_globalModels.emplace_back(gfxModel{});
-		indx = mdlResourceIdx;
+		indx = (uint32_t)mdlResourceIdx;
 	}
-	std::string s("Iniitalizing " + std::to_string(indx) + "\n");
-	std::cout << s;
 	auto& mdl = g_globalModels[indx];
 
 
@@ -3487,8 +3331,8 @@ void VulkanRenderer::LoadSubmesh(gfxModel& mdl,
 				once = true;
 				std::string namestring;
 				if (aimesh->mName.C_Str()) namestring = aimesh->mName.C_Str();
-				printf("Model %s has vertex normal issues v[%d]\n", namestring.c_str(), i);
-				printf("Fixing vertex normals...\n", namestring.c_str(), i);
+				printf("Model %s has vertex normal issues v[%llu]\n", namestring.c_str(), i);
+				printf("Fixing vertex normals...\n");
 				//__debugbreak();
 			}
 		}
@@ -4121,8 +3965,8 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 		g_Textures.push_back(vkutils::Texture2D());
 		g_imguiIDs.push_back({});
 
-		uint32_t texSiz = g_Textures.size();
-		uint32_t imguiSiz = g_imguiIDs.size();
+		uint32_t texSiz = (uint32_t)g_Textures.size();
+		uint32_t imguiSiz = (uint32_t)g_imguiIDs.size();
 
 		assert(g_Textures.size() == g_imguiIDs.size());
 
@@ -4162,8 +4006,8 @@ uint32_t VulkanRenderer::CreateTextureImageImmediate(const oGFX::FileImageData& 
 		g_Textures.push_back(vkutils::Texture2D());
 		g_imguiIDs.push_back({});
 
-		uint32_t texSiz = g_Textures.size();
-		uint32_t imguiSiz = g_imguiIDs.size();
+		uint32_t texSiz = (uint32_t)g_Textures.size();
+		uint32_t imguiSiz = (uint32_t)g_imguiIDs.size();
 
 		assert(g_Textures.size() == g_imguiIDs.size());
 
@@ -4173,7 +4017,7 @@ uint32_t VulkanRenderer::CreateTextureImageImmediate(const oGFX::FileImageData& 
 	
 	auto& texture = g_Textures[indx];
 
-	texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
+	texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	texture.name = imageInfo.name;
 
 	//setup imgui binding

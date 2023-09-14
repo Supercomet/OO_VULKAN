@@ -123,7 +123,7 @@ struct EntityInfo
     uint32_t bindlessGlobalTextureIndex_Emissive{ 0xFFFFFFFF };
     uint8_t instanceData{ 0 };
 
-    int32_t gfxID; // gfxworld id
+    int32_t gfxID{}; // gfxworld id
     std::bitset<MAX_SUBMESH>submeshes;
 
     ObjectInstanceFlags flags{static_cast<ObjectInstanceFlags>(ObjectInstanceFlags::RENDER_ENABLED 
@@ -131,7 +131,7 @@ struct EntityInfo
         | ObjectInstanceFlags::SHADOW_CASTER
         | ObjectInstanceFlags::SHADOW_ENABLED)};
 
-    oGFX::CPUSkeletonInstance* localSkeleton;
+    oGFX::CPUSkeletonInstance* localSkeleton{nullptr};
 
     mat4 getLocalToWorld()
     {
@@ -264,7 +264,7 @@ void TestApplication::Run()
     if (result != oGFX::SUCCESS_VAL)
     {
         std::cout << "Failed to create Vulkan instance!" << std::endl;
-        getchar();
+        auto c = getchar();
         return;
     }
 
@@ -347,7 +347,7 @@ void TestApplication::Run()
     {
         unsigned char col;
         col = 0xFF/5;
-        col = col * i;
+        col = (unsigned char)(col * i);
         col = col << 24 | col << 16 | col << 8 | col;
 
         roughness[i] = gs_RenderEngine->CreateTexture(1, 1, &col);
@@ -397,11 +397,16 @@ void TestApplication::Run()
             vertices[idx1].tangent = vertices[idx2].pos - vertices[idx1].pos;
             vertices[idx2].tangent = vertices[idx2].pos - vertices[idx1].pos;
             
+            
         }
+
         for (auto& v : vertices)
         {
             v.norm = glm::normalize(v.norm);
             v.tangent = glm::normalize(v.tangent);
+
+            v.tex.x = 0.5f + glm::atan2(v.pos.z, v.pos.x) / 2.0f * glm::pi<float>();
+            v.tex.y = 0.5f + glm::asin(v.pos.y) / glm::pi<float>();
         }        
         model_sphere.reset(gs_RenderEngine->LoadMeshFromBuffers(vertices, indices, nullptr));
     }
@@ -520,33 +525,33 @@ void TestApplication::Run()
         ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
     }
 
-    // Create 8 more surrounding planes
-    {
-        for (int i = 0; i < 0; ++i)
-        {
-            constexpr float offset = 16.0f;
-            static std::array<glm::vec3, 8> positions =
-            {
-                glm::vec3{  offset, 0.0f,   0.0f },
-                glm::vec3{ -offset, 0.0f,   0.0f },
-                glm::vec3{    0.0f, 0.0f,  offset },
-                glm::vec3{    0.0f, 0.0f, -offset },
-                glm::vec3{  offset, 0.0f,  offset },
-                glm::vec3{ -offset, 0.0f,  offset },
-                glm::vec3{  offset, 0.0f, -offset },
-                glm::vec3{ -offset, 0.0f, -offset },
-            };
-
-            auto& ed = entities.emplace_back(EntityInfo{});
-            ed.name = "Ground_Plane_" + std::to_string(i);
-            ed.entityID = FastRandomMagic();
-            ed.modelID = model_plane->meshResource;
-            ed.position = positions[i];
-            ed.scale = { 15.0f,1.0f,15.0f };
-            ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[i / 2];
-            ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[i / 2];
-        }
-    }
+    // // Create 8 more surrounding planes
+    // {
+    //     for (int i = 0; i < 8; ++i)
+    //     {
+    //         constexpr float offset = 16.0f;
+    //         static std::array<glm::vec3, 8> positions =
+    //         {
+    //             glm::vec3{  offset, 0.0f,   0.0f },
+    //             glm::vec3{ -offset, 0.0f,   0.0f },
+    //             glm::vec3{    0.0f, 0.0f,  offset },
+    //             glm::vec3{    0.0f, 0.0f, -offset },
+    //             glm::vec3{  offset, 0.0f,  offset },
+    //             glm::vec3{ -offset, 0.0f,  offset },
+    //             glm::vec3{  offset, 0.0f, -offset },
+    //             glm::vec3{ -offset, 0.0f, -offset },
+    //         };
+    // 
+    //         auto& ed = entities.emplace_back(EntityInfo{});
+    //         ed.name = "Ground_Plane_" + std::to_string(i);
+    //         ed.entityID = FastRandomMagic();
+    //         ed.modelID = model_plane->meshResource;
+    //         ed.position = positions[i];
+    //         ed.scale = { 15.0f,1.0f,15.0f };
+    //         ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[i / 2];
+    //         ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[i / 2];
+    //     }
+    // }
 
     //std::function<void(ModelFileResource*,Node*,bool)> EntityHelper = [&](ModelFileResource* model,Node* node, bool rotateYup) {
     //    if (node->meshRef != static_cast<uint32_t>(-1))
@@ -574,7 +579,7 @@ void TestApplication::Run()
     //};
     if (character_diona)
     {        
-        globalDionaID = entities.size();
+        globalDionaID = (uint32_t)entities.size();
         auto& ed = entities.emplace_back(EntityInfo{});
         ed.modelID = character_diona->meshResource;
         ed.name = "diona";
@@ -706,9 +711,9 @@ void TestApplication::Run()
         camera.m_CameraMovementType = Camera::CameraMovementType::firstperson;
         camera.movementSpeed = 5.0f;
         
-        camera.SetRotation(glm::vec3(0.0f, 180.0f, 0.0f));
+        camera.SetRotation(glm::vec3(0.0f, 91.0f, 0.0f));
         camera.SetRotationSpeed(0.5f);
-        camera.SetPosition(glm::vec3(0.0f, 2.0f, 4.0f));
+        camera.SetPosition(glm::vec3(0.0f, 2.0f, 10.0f));
         camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
 
         gs_GraphicsWorld.cameras[1] = gs_GraphicsWorld.cameras[0];
@@ -859,7 +864,7 @@ void TestApplication::Run()
                     //std::cout << "Mouse pos [" << mpos.x << "," << mpos.y << "]\n";
 
                     int32_t col = gs_RenderEngine->GetPixelValue(gs_GraphicsWorld.targetIDs[0], mpos);
-                    //std::cout << "colour val : " << std::hex << col <<std::dec << " | " << col << std::endl;
+                    std::cout << "Mouse picking:: colour val : " << std::hex << col <<std::dec << " | " << col << std::endl;
                 }
 
                 if (ImGui::Begin("Main"))
@@ -1051,7 +1056,7 @@ void TestApplication::RunTest_DebugDraw()
     {
         oGFX::AABB aabb;
         aabb.halfExt = glm::vec3{ 0.02f };
-        oGFX::Point3D prevpos;
+        // oGFX::Point3D prevpos;
 
         auto& diona = entities[globalDionaID];
         auto& gfxO = gs_GraphicsWorld.GetObjectInstance(diona.gfxID);
@@ -1282,6 +1287,7 @@ void TestApplication::ToolUI_Settings()
         ImGui::PushID(std::atoi("SSAO"));
         ImGui::DragFloat("Radius", &ssaoSettings.radius,0.01f);
         ImGui::DragFloat("Bias", &ssaoSettings.bias,0.01f);
+        ImGui::DragFloat("Intensity", &ssaoSettings.intensity,0.01f);
         uint32_t mmin =1;
         uint32_t mmax = 64;
         ImGui::DragScalar("Samples", ImGuiDataType_U32, &ssaoSettings.samples, 0.1f , &mmin, &mmax);
@@ -1594,7 +1600,7 @@ void TestApplication::Tool_HandleUI()
                 {
                     for (size_t i = 0; i < hardCodedLights; i++)
                     {
-                        auto& l = gs_GraphicsWorld.GetLightInstance(i);
+                        auto& l = gs_GraphicsWorld.GetLightInstance((int32_t)i);
                         l.radius.x = 0.0f;
                     }
                 }

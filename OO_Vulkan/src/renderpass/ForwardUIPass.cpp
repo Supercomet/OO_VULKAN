@@ -11,7 +11,7 @@ Reproduction or disclosure of this file or its contents
 without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
-#include "ForwardUIPass.h"
+#include "GfxRenderpass.h"
 
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
@@ -26,12 +26,37 @@ Technology is prohibited.
 #include "MathCommon.h"
 
 #include "GraphicsWorld.h"
-#include "DeferredCompositionRenderpass.h"
-#include "GBufferRenderPass.h"
 
 #include <array>
 
+
+struct ForwardUIPass : public GfxRenderpass
+{
+	//DECLARE_RENDERPASS_SINGLETON(ForwardUIPass)
+
+	void Init() override;
+	void Draw(const VkCommandBuffer cmdlist) override;
+	void Shutdown() override;
+
+	bool SetupDependencies() override;
+
+	void CreatePSO() override;
+
+private:
+	void SetupRenderpass();
+	void SetupFramebuffer();
+	void CreatePipeline();
+
+};
+
 DECLARE_RENDERPASS(ForwardUIPass);
+
+VulkanRenderpass renderpass_ForwardUI{};
+
+//VkPushConstantRange pushConstantRange;
+VkPipeline pso_Forward_UI{};
+VkPipeline pso_Forward_UI_NO_DEPTH{};
+
 
 void ForwardUIPass::Init()
 {
@@ -60,7 +85,7 @@ bool ForwardUIPass::SetupDependencies()
 	return true;
 }
 
-void ForwardUIPass::Draw()
+void ForwardUIPass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
 	if (!vr.deferredRendering)
@@ -71,41 +96,19 @@ void ForwardUIPass::Draw()
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-    const VkCommandBuffer cmdlist = vr.GetCommandBuffer(); 
 	PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("ForwardUI");
 
-	constexpr VkClearColorValue zeroFloat4 = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
-	VkClearColorValue rMinusOne = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
-	rMinusOne.int32[0] = -1;
-
-	auto& attachments = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments;
-
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-
-	// Clear values for all attachments written in the fragment shader
-	std::array<VkClearValue, GBufferAttachmentIndex::MAX_ATTACHMENTS> clearValues;
-	//clearValues[GBufferAttachmentIndex::POSITION].color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::NORMAL]  .color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::ALBEDO]  .color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::MATERIAL].color = zeroFloat4;
-	clearValues[GBufferAttachmentIndex::ENTITY_ID].color = rMinusOne;
-	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 1.0f, 0 };
-
-	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	
 	rhi::CommandList cmd{ cmdlist, "Forward UI Pass"};
+	
+	auto& attachments = vr.attachments.gbuffer;
 
 	cmd.BindAttachment(0, &vr.renderTargets[vr.renderTargetInUseID].texture);
 	cmd.BindAttachment(1, &attachments[GBufferAttachmentIndex::ENTITY_ID]);
-
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 
-	cmd.BeginRendering({ 0,0,{swapchain.swapChainExtent.width,swapchain.swapChainExtent.height} });
 
-	cmd.BindPSO(pso_Forward_UI);
+	cmd.BindPSO(pso_Forward_UI, PSOLayoutDB::defaultPSOLayout);
 	cmd.SetDefaultViewportAndScissor();
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 																												vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
@@ -147,20 +150,19 @@ void ForwardUIPass::Draw()
 	const auto ScreenSpaceIdxOffset = WorldSpaceIndices;
 	const auto instanceOffset = instanceCnt - WorldSpaceCnt;
 	// do draw command here
-	cmd.DrawIndexed(static_cast<uint32_t>(WorldSpaceIndices), static_cast<uint32_t>(WorldSpaceCnt));
-	//cmd.DrawIndexedIndirect(vr.g_particleCommandsBuffer.getBuffer(), 0, static_cast<uint32_t>(vr.g_particleCommandsBuffer.size()));
+	cmd.DrawIndexed(static_cast<uint32_t>(WorldSpaceIndices), static_cast<uint32_t>(WorldSpaceCnt));// draw worldspace
 	
 	// bind depth ignore pass
-	cmd.BindPSO(pso_Forward_UI_NO_DEPTH);
+	cmd.BindPSO(pso_Forward_UI_NO_DEPTH, PSOLayoutDB::defaultPSOLayout);
 	cmd.DrawIndexed(static_cast<uint32_t>(ScreenSpaceIndices), static_cast<uint32_t>(ScreenSpaceCnt)
-		, ScreenSpaceIdxOffset, 0, 0);
+					,ScreenSpaceIdxOffset, 0, 0);  // draw screenspace
 
 	// vkCmdEndRenderPass(cmdlist);
-	cmd.EndRendering();
+	
 
-	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, vr.renderTargets[vr.renderTargetInUseID].texture.referenceLayout);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], attachments[GBufferAttachmentIndex::DEPTH].referenceLayout);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], attachments[GBufferAttachmentIndex::ENTITY_ID].referenceLayout);
 }
 
 void ForwardUIPass::Shutdown()
@@ -209,7 +211,7 @@ void ForwardUIPass::SetupRenderpass()
 		attachmentDescs[2].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachmentDescs[2].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		auto& attachments = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments;
+		auto& attachments = vr.attachments.gbuffer;
 	// Formats
 	//attachmentDescs[GBufferAttachmentIndex::POSITION].format = attachments[GBufferAttachmentIndex::POSITION].format;
 	attachmentDescs[0]  .format = vr.G_HDR_FORMAT;
@@ -274,7 +276,7 @@ void ForwardUIPass::SetupFramebuffer()
 	const uint32_t height = m_swapchain.swapChainExtent.height;
 
 	// maybe dont use this??
-	auto& attachments = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments;
+	auto& attachments = vr.attachments.gbuffer;
 
 }
 

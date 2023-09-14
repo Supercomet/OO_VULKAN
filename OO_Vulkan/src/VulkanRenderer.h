@@ -41,6 +41,7 @@ Technology is prohibited.
 #include "imgui/imgui.h"
 
 #include "GfxSampler.h"
+#include "GfxRenderpass.h"
 
 #include "GraphicsWorld.h"
 #include "GraphicsBatch.h"
@@ -88,6 +89,13 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout compute_AMDSPD;
 
 };
+
+struct Attachments_imguiBinding {
+	inline static std::array<ImTextureID, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> deferredImg{};
+
+	inline static ImTextureID shadowImg{};
+};
+
 
 // Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...
 struct PSOLayoutDB
@@ -156,6 +164,22 @@ public:
 
 	static VulkanRenderer* s_vulkanRenderer;
 
+	struct Attachments {
+		std::array<vkutils::Texture2D, GBufferAttachmentIndex::MAX_ATTACHMENTS> gbuffer{};
+		vkutils::Texture2D shadowMask{};
+
+		vkutils::Texture2D SSAO_renderTarget{};
+		vkutils::Texture2D SSAO_finalTarget{};
+		vkutils::Texture2D randomNoise_texture{};
+
+		vkutils::Texture2D shadow_depth{};
+
+		static constexpr size_t MAX_BLOOM_SAMPLES = 5;
+		vkutils::Texture2D Bloom_brightTarget;
+		std::array<vkutils::Texture2D, MAX_BLOOM_SAMPLES> Bloom_downsampleTargets;
+
+	}attachments;
+
 	inline static uint64_t totalTextureSizeLoaded = 0;
 	static constexpr int MAX_FRAME_DRAWS = 2;
 	static constexpr int MAX_OBJECTS = 2048;
@@ -200,6 +224,8 @@ public:
 	void CreateCommandBuffers();
 
 	VkCommandBuffer GetCommandBuffer();
+	void SubmitSingleCommandAndWait(VkCommandBuffer cmd);
+	void SubmitSingleCommand(VkCommandBuffer cmd);
 
 	ImTextureID myImg;
 
@@ -380,7 +406,7 @@ public:
 	std::vector<VkSemaphore> presentSemaphore;
 	std::vector<VkSemaphore> renderSemaphore;
 	std::vector<VkFence> drawFences;
-	VkSemaphore frameSemaphore;
+	VkSemaphore frameCountSemaphore;
 
 	// - Pipeline
 	VkPipeline pso_utilFullscreenBlit;

@@ -52,6 +52,31 @@ vec2 GenerateRandom_RoughnessMetallic(in uint seed)
     return vec2(roughness, metallic);
 }
 
+
+mat3 cotangent_frame( vec3 N, vec3 p, vec2 uv )
+    {
+    // get edge vectors of the pixel triangle
+    vec3 dp1 = dFdx( p );
+    vec3 dp2 = dFdy( p );
+    vec2 duv1 = dFdx( uv );
+    vec2 duv2 = dFdy( uv );
+ 
+    // solve the linear system
+    vec3 dp2perp = cross( dp2, N );
+    vec3 dp1perp = cross( N, dp1 );
+    vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
+    vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
+ 
+    // construct a scale-invariant frame 
+    float val = max( dot(T,T), dot(B,B) );
+    val = max(FLT_MIN, val); // to ensure no degenerate stuff
+    float invmax = inversesqrt( val );
+    return mat3( T * invmax, B * invmax, N );
+    }
+
+
+
+
 void main()
 {
     outEntityID = inEntityID;
@@ -83,18 +108,23 @@ void main()
     {
         outNormal = vec4(inLightData.btn[2], 0.0);
     }
+
 	if(textureIndex_Normal != 1)
 	{        
-        vec3 texNormal = texture(sampler2D(textureDescriptorArray[textureIndex_Normal],basicSampler), inUV.xy).xyz;
-        //float gamma = 2.2;
-        //texNormal = pow(texNormal,vec3(gamma));
-        texNormal = texNormal  * 2.0 - 1.0;
-        //texNormal = normalize(max(vec3(0),texNormal));
-
-        //texNormal = texNormal * 2.0 - 1.0;
-		outNormal.rgb = normalize(inLightData.btn * texNormal);
-		//outNormal.rgb = texNormal;
-       // outNormal.rgb = vec3(0.0,1.0,0.0);
+        vec3 N = normalize(inLightData.btn[2]);   
+         
+        vec3 V = normalize(inPosition.xyz - uboFrameContext.cameraPosition.xyz);    
+  
+        vec3 map = texture(sampler2D(textureDescriptorArray[textureIndex_Normal],basicSampler), inUV.xy).xyz*2.0-1.0;
+        
+        // new method
+        mat3 TBN = cotangent_frame( N, V,  inUV.xy );
+        vec3 genNorms = normalize( TBN * map );
+ 
+        // old method
+		outNormal.rgb = normalize(inLightData.btn * map);
+       
+        outNormal.rgb = genNorms;        
 	}
 
     {

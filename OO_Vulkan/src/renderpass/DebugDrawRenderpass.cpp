@@ -11,7 +11,7 @@ Reproduction or disclosure of this file or its contents
 without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
-#include "DebugRenderpass.h"
+#include "GfxRenderpass.h"
 
 #include <array>
 #include <typeindex>
@@ -20,14 +20,49 @@ Technology is prohibited.
 #include "VulkanRenderer.h"
 #include "VulkanUtils.h"
 #include "FramebufferBuilder.h"
-#include "GBufferRenderPass.h"
 
 #include "../shaders/shared_structs.h"
 #include "MathCommon.h"
 
-DECLARE_RENDERPASS(DebugRenderpass);
+
+class DebugDrawRenderpass : public GfxRenderpass
+{
+public:
+
+	void Init() override;
+	void Draw(const VkCommandBuffer cmdlist) override;
+	void Shutdown() override;
+
+	bool SetupDependencies() override;
+
+private:
+
+	void CreateDebugRenderpass();
+	void CreatePipeline();
+	void InitDebugBuffers();
+};
 
 DECLARE_RENDERPASS(DebugDrawRenderpass);
+
+VulkanRenderpass debugRenderpass{};
+
+bool dodebugRendering = true;
+
+struct DebugDrawPSOSelector
+{
+	std::array<VkPipeline, 6> psos = {};
+
+	// Ghetto... Need a more robust solution
+	VkPipeline GetPSO(bool isDepthTest, bool isWireframe, bool isPoint)
+	{
+		int i = isWireframe ? 1 : 0;
+		i = isPoint ? 2 : i;
+		int j = isDepthTest ? 1 : 0;
+		const int idx = i + 2 * j;
+		return psos[idx];
+	}
+
+}m_DebugDrawPSOSelector;
 
 void DebugDrawRenderpass::Init()
 {
@@ -47,7 +82,7 @@ bool DebugDrawRenderpass::SetupDependencies()
 	return true;
 }
 
-void DebugDrawRenderpass::Draw()
+void DebugDrawRenderpass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
 
@@ -59,62 +94,28 @@ void DebugDrawRenderpass::Draw()
 	clearValues[0].color = { 0.1f,0.1f,0.1f,0.0f };
 	clearValues[1].depthStencil.depth = {1.0f };
 
-	auto& depthAtt = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments[GBufferAttachmentIndex::DEPTH];
+	auto& depthAtt = vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH];
 
-	
-	const VkCommandBuffer cmdlist = vr.GetCommandBuffer();;
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("DebugDraw");
+	rhi::CommandList cmd{ cmdlist, "Debug Pass"};
 
-	auto gbuffer = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
-	
+	auto& attachments = vr.attachments.gbuffer;
+	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+	cmd.BindAttachment(0, &vr.renderTargets[vr.renderTargetInUseID].texture);
+	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
+
 	const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height;
 	const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width;
-
-	VkRenderingAttachmentInfo albedoInfo{};
-	albedoInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-	albedoInfo.pNext = NULL;
-	albedoInfo.resolveMode = {};
-	albedoInfo.resolveImageView = {};
-	albedoInfo.resolveImageLayout = {};
-	albedoInfo.imageView = vr.renderTargets[vr.renderTargetInUseID].texture.view;
-	albedoInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	albedoInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	albedoInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	albedoInfo.clearValue = VkClearValue{ {} };
-	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-	VkRenderingAttachmentInfo depthInfo{};
-	depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-	depthInfo.pNext = NULL;
-	depthInfo.resolveMode = {};
-	depthInfo.resolveImageView = {};
-	depthInfo.resolveImageLayout = {};
-	depthInfo.imageView = gbuffer->attachments[GBufferAttachmentIndex::DEPTH].view;
-	depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	depthInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	depthInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	depthInfo.clearValue = { 0.0f,0.0f };
-	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-	VkRenderingInfo renderingInfo{};
-	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-	renderingInfo.renderArea = { 0, 0, (uint32_t)vpWidth, (uint32_t)vpHeight };
-	renderingInfo.layerCount = 1;
-	renderingInfo.colorAttachmentCount = 1;
-	renderingInfo.pColorAttachments = &albedoInfo;
-	renderingInfo.pDepthAttachment = &depthInfo;
-	renderingInfo.pStencilAttachment = &depthInfo;
-	vkCmdBeginRendering(cmdlist, &renderingInfo);
-
-	rhi::CommandList cmd{ cmdlist, "Debug Pass"};
 	if (dodebugRendering)
 	{
 		cmd.SetDefaultViewportAndScissor();
 		VkPipeline pso = m_DebugDrawPSOSelector.GetPSO(vr.m_DebugDrawDepthTest, false, false);
 		uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 			vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
-		cmd.BindPSO(pso);
+		cmd.BindPSO(pso, PSOLayoutDB::defaultPSOLayout);
 		cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
 			std::array<VkDescriptorSet, 3>
 			{
@@ -131,10 +132,9 @@ void DebugDrawRenderpass::Draw()
 		
 		cmd.DrawIndexed((uint32_t)(vr.g_DebugDrawIndexBufferGPU[currFrame].size()), 1);
 	}
-	vkCmdEndRendering(cmdlist);
 
-	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, gbuffer->attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, vr.renderTargets[vr.renderTargetInUseID].texture.referenceLayout);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], attachments[GBufferAttachmentIndex::DEPTH].referenceLayout);
 }
 
 void DebugDrawRenderpass::Shutdown()
@@ -306,7 +306,6 @@ void DebugDrawRenderpass::CreatePipeline()
 	pipelineCreateInfo.pColorBlendState = &colourBlendingCreateInfo;
 	pipelineCreateInfo.pDepthStencilState = &depthStencilCreateInfo;
 	
-	auto gbuffer = RenderPassDatabase::GetRenderPass<GBufferRenderPass>();
 	VkPipelineRenderingCreateInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 	renderingInfo.viewMask = {};

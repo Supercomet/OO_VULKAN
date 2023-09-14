@@ -299,7 +299,7 @@ inline void GpuVector<T>::flushToGPU(VkCommandBuffer command, VkQueue queue, VkC
 	auto commandBuffer = command;
 
 	// command to copy src buffer to dst buffer
-	vkCmdCopyBuffer(commandBuffer, stagingBuffer.buffer, m_buffer.buffer, m_copyRegions.size(), m_copyRegions.data());
+	vkCmdCopyBuffer(commandBuffer, stagingBuffer.buffer, m_buffer.buffer, (uint32_t)m_copyRegions.size(), m_copyRegions.data());
 	m_copyRegions.clear();
 
 	auto fun = [oldBuffer = stagingBuffer, alloc = m_device->m_allocator]() {

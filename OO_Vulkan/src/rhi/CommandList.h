@@ -16,18 +16,57 @@ Technology is prohibited.
 #include "MathCommon.h"
 #include <array>
 #include <vulkan/vulkan.h>
-#include <VulkanTexture.h>
+#include "VulkanTexture.h"
+#include "DescriptorBuilder.h"
 
 namespace rhi
 {
+	class CommandList;
+
+	struct ResourceStateTracking {
+		VkImageLayout referenceLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
+		VkImageLayout currentLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
+		VkImageLayout expectedLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
+	};
+
+	class DescriptorSetInfo {
+	public:
+		DescriptorBuilder builder;
+		VkShaderStageFlags shaderStage;
+		VkDescriptorSetLayout layout;
+		VkDescriptorSet descriptor;
+
+		bool built = false;
+		bool expected = false;
+		bool bound = false;
+
+		bool hasDynamicOffset = false;
+		uint32_t dynamicOffset;
+		
+		CommandList* m_cmdList;
+
+		DescriptorSetInfo& BindImage(uint32_t binding, vkutils::Texture2D* texture, VkDescriptorType type, VkShaderStageFlags stageFlagsInclude = 0);
+		DescriptorSetInfo& BindSampler(uint32_t binding, VkSampler sampler, VkShaderStageFlags stageFlagsInclude = 0);
+		DescriptorSetInfo& BindBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlagsInclude = 0);
+	};
 
 // Another better alternative is to use Vulkan HPP.
 class CommandList
 {
 public:
+	
 
 	CommandList(const VkCommandBuffer& cmd, const char* name = nullptr, const glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f });
 	~CommandList();
+
+	void BeginNameRegion(const char* name, const glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f });
+	void EndNamedRegion();
+
+	void BeginTrackingImage(vkutils::Texture2D* tex);
+	ResourceStateTracking* getTrackedImage(vkutils::Texture2D* tex);
+
+	void VerifyImageResourceStates();
+	void RestoreImageResourceStates();
 
 	//----------------------------------------------------------------------------------------------------
 	// Binding Commands
@@ -50,12 +89,16 @@ public:
 	void BeginRendering(VkRect2D renderArea);
 	void EndRendering();
 
-	void BindPSO(const VkPipeline& pso, const VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
+	void BindPSO(const VkPipeline& pso, VkPipelineLayout pipelay, const VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
 
 	void SetPushConstant(VkPipelineLayout layout,
 		const VkPushConstantRange& pcr,
 		const void* data
 	);
+
+	DescriptorSetInfo& DescriptorSetBegin(uint32_t set);
+
+	void BindDescriptorSet(uint32_t set, VkDescriptorSet descriptor);
 
 	void BindDescriptorSet(
 		VkPipelineLayout layout,
@@ -95,20 +138,15 @@ public:
 		uint32_t vertexCount,
 		uint32_t instanceCount,
 		uint32_t firstVertex = 0,
-		uint32_t firstInstance = 0)
-	{
-		vkCmdDraw(m_VkCommandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
-	}
+		uint32_t firstInstance = 0);
 
 	void DrawIndexed(
 		uint32_t indexCount,
 		uint32_t instanceCount,
 		uint32_t firstIndex = 0,
-		int32_t vertexOffset = 0 ,
-		uint32_t firstInstance = 0)
-	{
-		vkCmdDrawIndexed(m_VkCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
-	}
+		int32_t vertexOffset = 0,
+		uint32_t firstInstance = 0);
+	
 
 	void DrawIndexedIndirect(
 			VkBuffer buffer,
@@ -118,6 +156,8 @@ public:
 	
 	// Helper function to draw a Full Screen Quad, without binding vertex and index buffers.
 	void DrawFullScreenQuad();
+
+	void Dispatch(uint32_t x, uint32_t y = 1 , uint32_t z = 1);
 
 	//----------------------------------------------------------------------------------------------------
 	// Pipeline State Commands
@@ -140,10 +180,13 @@ public:
 	// TODO: Function not here? Add it on demand...
 
 private:
+	void CommitDescriptors();
+
 	VkCommandBuffer m_VkCommandBuffer{};
 
 	VkPipelineLayout m_pipeLayout{};
-	VkPipelineBindPoint m_pipelineBindPoint;
+	VkPipelineBindPoint m_pipelineBindPoint{ VK_PIPELINE_BIND_POINT_MAX_ENUM };
+	VkShaderStageFlags m_targetStage{ VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM };
 
 	std::array<VkRect2D, 8> m_scissor;
 	std::array<VkViewport, 8> m_viewport;
@@ -152,6 +195,14 @@ private:
 	bool m_depthBound = false;
 	VkRenderingAttachmentInfo m_depth;
 	float m_push_constant[128 / sizeof(float)]{0.0f};
+	bool m_regionNamed = false;
+
+	VkRect2D m_renderArea{};
+
+	std::unordered_map<vkutils::Texture2D*, ResourceStateTracking> m_trackedTextures;
+
+	std::array<DescriptorSetInfo, 4> descriptorSets; // only support 4 sets
+	 
 	// TODO: Handle VK_PIPELINE_BIND_POINT_GRAPHICS etc nicely next time.
 	// TODO: Maybe we can cache the stuff that is bound, for easier debugging, else taking GPU captures is really unproductive.
 };

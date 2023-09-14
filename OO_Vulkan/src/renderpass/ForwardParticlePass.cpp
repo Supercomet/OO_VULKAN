@@ -11,7 +11,7 @@ Reproduction or disclosure of this file or its contents
 without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
-#include "ForwardParticlePass.h"
+#include "GfxRenderpass.h"
 
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
@@ -26,12 +26,34 @@ Technology is prohibited.
 #include "MathCommon.h"
 
 #include "GraphicsWorld.h"
-#include "DeferredCompositionRenderpass.h"
-#include "GBufferRenderPass.h"
 
 #include <array>
 
+struct ForwardParticlePass : public GfxRenderpass
+{
+	//DECLARE_RENDERPASS_SINGLETON(ForwardParticlePass)
+
+	void Init() override;
+	void Draw(const VkCommandBuffer cmdlist) override;
+	void Shutdown() override;
+
+	bool SetupDependencies() override;
+
+	void CreatePSO() override;
+
+private:
+	void SetupRenderpass();
+	void SetupFramebuffer();
+	void CreatePipeline();
+
+};
+
 DECLARE_RENDERPASS(ForwardParticlePass);
+
+VulkanRenderpass renderpass_ForwardParticles{};
+
+//VkPushConstantRange pushConstantRange;
+VkPipeline pso_GBufferParticles{};
 
 void ForwardParticlePass::Init()
 {
@@ -60,7 +82,7 @@ bool ForwardParticlePass::SetupDependencies()
 	return true;
 }
 
-void ForwardParticlePass::Draw()
+void ForwardParticlePass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
 	if (!vr.deferredRendering)
@@ -72,7 +94,6 @@ void ForwardParticlePass::Draw()
 	auto* windowPtr = vr.windowPtr;
 	auto& renderTarget = vr.renderTargets[vr.renderTargetInUseID];
 
-    const VkCommandBuffer cmdlist = vr.GetCommandBuffer();
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("ForwardParticles");
 
@@ -80,7 +101,7 @@ void ForwardParticlePass::Draw()
 	VkClearColorValue rMinusOne = VkClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f };
 	rMinusOne.int32[0] = -1;
 
-	auto& attachments = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments;
+	auto& attachments = vr.attachments.gbuffer;
 
 	assert(attachments[GBufferAttachmentIndex::DEPTH].currentLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
@@ -94,7 +115,6 @@ void ForwardParticlePass::Draw()
 	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 1.0f, 0 };
 
 	assert(.texture.currentLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, renderTarget.texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, renderTarget.texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
@@ -103,10 +123,9 @@ void ForwardParticlePass::Draw()
 	cmd.BindAttachment(1, &attachments[GBufferAttachmentIndex::ENTITY_ID]);
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 
-	cmd.BeginRendering({ 0,0,{renderTarget.texture.width, renderTarget.texture.height } });
 	
 
-	cmd.BindPSO(pso_GBufferParticles);
+	cmd.BindPSO(pso_GBufferParticles, PSOLayoutDB::defaultPSOLayout);
 	cmd.SetDefaultViewportAndScissor();
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 																												vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
@@ -136,9 +155,11 @@ void ForwardParticlePass::Draw()
 	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.g_particleDatas[currFrame].getBufferPtr());
 	cmd.DrawIndexedIndirect(vr.g_particleCommandsBuffer[currFrame].getBuffer(), 0, static_cast<uint32_t>(vr.g_particleCommandsBuffer[currFrame].size()));
 
-	cmd.EndRendering();
+	
 
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], attachments[GBufferAttachmentIndex::ENTITY_ID].referenceLayout);
+	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], attachments[GBufferAttachmentIndex::DEPTH].referenceLayout);
+	vkutils::TransitionImage(cmdlist, renderTarget.texture, renderTarget.texture.referenceLayout);
 }
 
 void ForwardParticlePass::Shutdown()
@@ -186,7 +207,7 @@ void ForwardParticlePass::SetupRenderpass()
 		attachmentDescs[2].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachmentDescs[2].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		auto& attachments = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments;
+		auto& attachments = vr.attachments.gbuffer;
 	// Formats
 	//attachmentDescs[GBufferAttachmentIndex::POSITION].format = attachments[GBufferAttachmentIndex::POSITION].format;
 	attachmentDescs[0]  .format = vr.G_HDR_FORMAT;
@@ -250,7 +271,7 @@ void ForwardParticlePass::SetupFramebuffer()
 	const uint32_t width = m_swapchain.swapChainExtent.width;
 	const uint32_t height = m_swapchain.swapChainExtent.height;
 
-	auto& attachments = RenderPassDatabase::GetRenderPass<GBufferRenderPass>()->attachments;
+	auto& attachments = vr.attachments.gbuffer;
 }
 
 
@@ -340,7 +361,7 @@ void ForwardParticlePass::CreatePipeline()
 	VkPipelineRenderingCreateInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 	renderingInfo.viewMask = {};
-	renderingInfo.colorAttachmentCount = formats.size();
+	renderingInfo.colorAttachmentCount = (uint32_t)formats.size();
 	renderingInfo.pColorAttachmentFormats = formats.data();
 	renderingInfo.depthAttachmentFormat = vr.G_DEPTH_FORMAT;
 	renderingInfo.stencilAttachmentFormat = vr.G_DEPTH_FORMAT;
