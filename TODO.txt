@@ -46,10 +46,6 @@ Engineering Tasks:
 
 • Convert all Shaders to HLSL syntax & use ShaderMake :)
 
-• Standardize resource SRV and UAV access in each GfxRenderer
-	• Have an initial state that each resource should be in
-	• If the renderer needs to use the resource it has the responsilibity to return it to the initial state
-
 • Proper Frame Fencing
     • Should only stall CPU before the FIRST command buffer submission
 
@@ -108,6 +104,10 @@ Engineering Tasks:
 
 ///////////////////////////////////////////////////////////////////////////////
 Done:
+• Standardize resource SRV and UAV access in each GfxRenderer
+	• Have an initial state that each resource should be in
+	• If the renderer needs to use the resource it has the responsilibity to return it to the initial state
+
 • Get rid of RenderPassDatabase
     • dynamic_cast is not allowed in most AAA game engines
     • It's linearly iterating through all Renderers & dynamic casting, which is bad for perf
