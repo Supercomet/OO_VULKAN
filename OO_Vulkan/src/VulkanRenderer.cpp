@@ -235,7 +235,7 @@ VulkanRenderer::~VulkanRenderer()
 		vkDestroySemaphore(m_device.logicalDevice, renderSemaphore[i], nullptr);
 		vkDestroySemaphore(m_device.logicalDevice, presentSemaphore[i], nullptr);
 	}
-	vkDestroySemaphore(m_device.logicalDevice, frameSemaphore, nullptr);
+	vkDestroySemaphore(m_device.logicalDevice, frameCountSemaphore, nullptr);
 
 	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::defaultPSOLayout, nullptr);
 	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::PSO_fullscreenBlitLayout, nullptr);
@@ -1330,7 +1330,7 @@ void VulkanRenderer::CreateSynchronisation()
 	sci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	sci.pNext = &timelineCreateInfo;
 	sci.flags = 0;
-	VK_CHK(vkCreateSemaphore(m_device.logicalDevice, &sci, nullptr, &frameSemaphore));
+	VK_CHK(vkCreateSemaphore(m_device.logicalDevice, &sci, nullptr, &frameCountSemaphore));
 
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
 	{
@@ -2132,7 +2132,8 @@ void VulkanRenderer::BeginDraw()
 
 	//vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, UINT64_MAX);
 	uint64_t res{};
-	VK_CHK(vkGetSemaphoreCounterValue(m_device.logicalDevice, frameSemaphore, &res));
+	VK_CHK(vkGetSemaphoreCounterValue(m_device.logicalDevice, frameCountSemaphore, &res));
+	//printf("[FRAME COUNTER %5llu]\n", res);
 
 	//wait for given fence to signal from last draw before continuing
 	VK_CHK(vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, std::numeric_limits<uint64_t>::max()));
@@ -2476,7 +2477,7 @@ void VulkanRenderer::Present()
 	qsi.commandBufferCount = 0;
 	qsi.pCommandBuffers = nullptr;	// command buffer to submit
 	qsi.signalSemaphoreCount = 1;						// number of semaphores to signal
-	qsi.pSignalSemaphores = &frameSemaphore;
+	qsi.pSignalSemaphores = &frameCountSemaphore;
 	vkQueueSubmit(m_device.graphicsQueue, 1, &qsi, nullptr);
 	//get next frame (use % MAX_FRAME_DRAWS to keep value below max frames)
 	//currentFrame = (currentFrame + 1) % MAX_FRAME_DRAWS;

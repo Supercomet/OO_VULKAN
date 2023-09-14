@@ -256,7 +256,7 @@ void LightingPass::CreateDescriptors()
         .BindImage(6, &texDescriptorShadow, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS)
         .BindImage(7, &texDescriptorSSAO, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS)
         .BindBuffer(8, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
-        .Build(vr.descriptorSet_DeferredComposition,SetLayoutDB::DeferredLightingComposition);
+        .BuildLayout(SetLayoutDB::DeferredLightingComposition);
 }
 
 void LightingPass::CreatePipelineLayout()

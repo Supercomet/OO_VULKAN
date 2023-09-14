@@ -348,6 +348,7 @@ void CommandList::DrawFullScreenQuad()
 
 void CommandList::Dispatch(uint32_t x, uint32_t y, uint32_t z)
 {
+	VerifyImageResourceStates();
 	CommitDescriptors();
 	vkCmdDispatch(m_VkCommandBuffer, x, y, z);
 }
