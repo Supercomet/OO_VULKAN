@@ -669,6 +669,7 @@ namespace vkutils
 		// default behavior transitiona all mips
 		subresrange.baseMipLevel = mipBegin;
 		subresrange.levelCount = mipEnd - mipBegin;
+		subresrange.layerCount = texture.layerCount;
 
 		if (mipEnd == 0)
 		{// transition some mips
@@ -711,6 +712,7 @@ namespace vkutils
 		{// transition some mips
 			subresrange.levelCount = texture.mipLevels - mipBegin;
 		}
+		subresrange.layerCount = texture.layerCount;
 
 		oGFX::vkutils::tools::insertImageMemoryBarrier(
 			cmd,

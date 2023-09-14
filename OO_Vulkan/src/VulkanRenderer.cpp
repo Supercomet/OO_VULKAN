@@ -100,6 +100,8 @@ extern GfxRenderpass* g_SkyRenderPass;
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
 // vulkan debug callback
+
+#pragma optimize("", off)
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -121,6 +123,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 
 }
+#pragma optimize("", on)
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
@@ -159,7 +162,9 @@ VulkanRenderer::~VulkanRenderer()
 	}
 	s.close();
 
-	
+	if (g_cubeMap.image.image != VK_NULL_HANDLE) {
+		g_cubeMap.destroy();
+	}
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
@@ -2556,6 +2561,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 	viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 	viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 	viewCreateInfo.subresourceRange.levelCount = 1;
+	viewCreateInfo.subresourceRange.layerCount = texture.layerCount;
 	viewCreateInfo.subresourceRange.baseMipLevel = 0;
 	
 	viewCreateInfo.image = generatedTexture.image.image;
@@ -2614,8 +2620,10 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 		vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 		VkImageCopy region{};
 		region.srcSubresource = VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT,0,0,1};
+		region.srcSubresource.layerCount = texture.layerCount;
 		region.srcOffset = {};
 		region.dstSubresource = VkImageSubresourceLayers{ VK_IMAGE_ASPECT_COLOR_BIT,0,0,1 };
+		region.dstSubresource.layerCount = generatedTexture.layerCount;
 		region.dstOffset={};
 		region.extent = { texture.width,texture.height,1 };
 		vkCmdCopyImage(cmd, texture.image.image, texture.currentLayout
@@ -2662,7 +2670,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 		// This value is the image region dimension that each thread group of the FSR shader operates on
 		uint32_t dispatchX = dispatchThreadGroupCountXY[0];
 		uint32_t dispatchY = dispatchThreadGroupCountXY[1];
-		uint32_t dispatchZ = 1; // tex.depth
+		uint32_t dispatchZ = generatedTexture.layerCount; // tex.depth
 		//vmaAllocateMemory
 		void* data{};
 		vmaMapMemory(m_device.m_allocator, SPDconstantBuffer.alloc, &data);
@@ -3982,7 +3990,7 @@ uint32_t VulkanRenderer::CreateCubeMapTexture(const std::string& folderName)
 		g_cubeMap.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h, imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 
 		// dont generate for now
-		//GenerateMipmaps(g_cubeMap);
+		GenerateMipmaps(g_cubeMap);
 
 		};
 	{
