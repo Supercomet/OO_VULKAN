@@ -190,8 +190,8 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 		{		
 			regionBegin(cmdlist, &marker);
 		}
-		vkutils::Texture2D* prevImage = &vr.attachments.Bloom_brightTarget;
-		vkutils::Texture2D* currImage;
+		vkutils::Texture* prevImage = &vr.attachments.Bloom_brightTarget;
+		vkutils::Texture* currImage;
 		//downsample
 		cmd.BindPSO(pso_bloom_down, PSOLayoutDB::BloomLayout ,VK_PIPELINE_BIND_POINT_COMPUTE);
 		for (size_t i = 0; i < vr.attachments.MAX_BLOOM_SAMPLES; i++)

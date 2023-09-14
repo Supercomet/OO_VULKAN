@@ -619,13 +619,13 @@ namespace vkutils
 		VK_NAME(device->logicalDevice, name.empty() ? "CreateImage::view" : name.c_str(), view);
 	}
 
-	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
+	void TransitionImage(VkCommandBuffer cmd, Texture& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
 	{
 		TransitionImage(cmd, texture, texture.currentLayout, targetLayout, mipBegin, mipEnd);
 		texture.currentLayout = targetLayout;
 	}
 
-	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout currentLayout, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
+	void TransitionImage(VkCommandBuffer cmd, Texture& texture, VkImageLayout currentLayout, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
 	{
 		// printf("\t Transition::%s | %s -> %s\n", texture.name.c_str(), oGFX::vkutils::tools::VkImageLayoutString(currentLayout).c_str()
 		// , oGFX::vkutils::tools::VkImageLayoutString(targetLayout).c_str());
@@ -660,14 +660,14 @@ namespace vkutils
 		texture.currentLayout = targetLayout;
 	}
 
-	void SetImageInitialState(VkCommandBuffer cmd, Texture2D& texture)
+	void SetImageInitialState(VkCommandBuffer cmd, Texture& texture)
 	{
 		// printf("INI(%s)", texture.name.c_str());
 		TransitionImage(cmd, texture, texture.referenceLayout);
 		texture.currentLayout = texture.referenceLayout;
 	}
 
-	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
+	void ComputeImageBarrier(VkCommandBuffer cmd, Texture& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
 	{
 		auto subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 		if (texture.format == VK_FORMAT_D32_SFLOAT_S8_UINT)

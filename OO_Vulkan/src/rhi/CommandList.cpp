@@ -92,7 +92,7 @@ namespace rhi
 		m_regionNamed = false;
 	}
 
-	void CommandList::BeginTrackingImage(vkutils::Texture2D* tex)
+	void CommandList::BeginTrackingImage(vkutils::Texture* tex)
 	{
 		auto iter = m_trackedTextures.find(tex);
 		if (iter == m_trackedTextures.end())
@@ -107,7 +107,7 @@ namespace rhi
 		}
 	}
 
-	ResourceStateTracking* CommandList::getTrackedImage(vkutils::Texture2D* tex)
+	ResourceStateTracking* CommandList::getTrackedImage(vkutils::Texture* tex)
 	{
 		auto iter = m_trackedTextures.find(tex);
 		if (iter != m_trackedTextures.end()) {
@@ -164,7 +164,7 @@ void CommandList::BeginNameRegion(const char* name, const glm::vec4 col)
 	}
 }
 
-void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture2D* tex, bool clearOnDraw)
+void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture* tex, bool clearOnDraw)
 {
 
 	if (tex) {
@@ -204,7 +204,7 @@ void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture2D* tex, bo
 
 }
 
-void CommandList::BindDepthAttachment(vkutils::Texture2D* tex, bool clearOnDraw)
+void CommandList::BindDepthAttachment(vkutils::Texture* tex, bool clearOnDraw)
 {
 	//start tracking
 	ResourceStateTracking* tracked = getTrackedImage(tex);
@@ -439,7 +439,7 @@ void CommandList::CommitDescriptors()
 		dynamicOffsetCnt ? dynOffsets.data() : nullptr);
 }
 
-DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Texture2D* texture, VkDescriptorType type, VkShaderStageFlags stageFlagsInclude)
+DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type, VkShaderStageFlags stageFlagsInclude)
 {	
 	VkImageLayout layout = (type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 

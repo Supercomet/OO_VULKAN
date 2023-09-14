@@ -214,8 +214,8 @@ public:
 	void CreateDefaultRenderpass();
 	void CreateDefaultDescriptorSetLayout();
 
-	void FullscreenBlit(VkCommandBuffer cmd, vkutils::Texture2D& src,VkImageLayout srcFinal, vkutils::Texture2D& dst,VkImageLayout dstFinal);
-	void BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& src,VkImageLayout srcFinal, vkutils::Texture2D& dst,VkImageLayout dstFinal);
+	void FullscreenBlit(VkCommandBuffer cmd, vkutils::Texture& src,VkImageLayout srcFinal, vkutils::Texture& dst,VkImageLayout dstFinal);
+	void BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture& src,VkImageLayout srcFinal, vkutils::Texture& dst,VkImageLayout dstFinal);
 
 	void CreateDefaultPSOLayouts();
 	void CreateDefaultPSO();

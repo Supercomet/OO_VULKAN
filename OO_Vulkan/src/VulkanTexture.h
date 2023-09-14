@@ -113,9 +113,9 @@ namespace vkutils
 	};
 
 
-	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
-	void TransitionImage(VkCommandBuffer cmd, Texture2D& texture,VkImageLayout currentLayout, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
-	void SetImageInitialState(VkCommandBuffer cmd, Texture2D& texture);
-	void ComputeImageBarrier(VkCommandBuffer cmd, Texture2D& texture, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
+	void TransitionImage(VkCommandBuffer cmd, Texture& texture, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
+	void TransitionImage(VkCommandBuffer cmd, Texture& texture,VkImageLayout currentLayout, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
+	void SetImageInitialState(VkCommandBuffer cmd, Texture& texture);
+	void ComputeImageBarrier(VkCommandBuffer cmd, Texture& texture, VkImageLayout targetLayout, uint32_t mipBegin = 0, uint32_t mipEnd = 0);
 
 }

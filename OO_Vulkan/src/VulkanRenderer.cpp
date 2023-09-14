@@ -644,7 +644,7 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 	}
 }
 
-void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& src, VkImageLayout srcFinal, vkutils::Texture2D& dst, VkImageLayout dstFinal) 
+void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture& src, VkImageLayout srcFinal, vkutils::Texture& dst, VkImageLayout dstFinal) 
 {
 	
 	const VkCommandBuffer cmdlist = inCmd;
@@ -714,7 +714,7 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& s
 	
 }
 
-void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& src,VkImageLayout srcFinal, vkutils::Texture2D& dst,VkImageLayout dstFinal)
+void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture& src,VkImageLayout srcFinal, vkutils::Texture& dst,VkImageLayout dstFinal)
 {
 	bool supportsBlit = true;
 
@@ -1201,7 +1201,7 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	allocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
 
 	vmaCreateImage(m_device.m_allocator, &imageCreateCI, &allocCI, &dstImage.image, &dstImage.allocation, &dstImage.allocationInfo);
-	vkutils::Texture2D temptex;
+	vkutils::Texture temptex;
 	temptex.width = target.width;
 	temptex.height = target.height;
 	temptex.format = target.format;

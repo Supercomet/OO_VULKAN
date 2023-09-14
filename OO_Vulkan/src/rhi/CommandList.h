@@ -45,7 +45,7 @@ namespace rhi
 		
 		CommandList* m_cmdList;
 
-		DescriptorSetInfo& BindImage(uint32_t binding, vkutils::Texture2D* texture, VkDescriptorType type, VkShaderStageFlags stageFlagsInclude = 0);
+		DescriptorSetInfo& BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type, VkShaderStageFlags stageFlagsInclude = 0);
 		DescriptorSetInfo& BindSampler(uint32_t binding, VkSampler sampler, VkShaderStageFlags stageFlagsInclude = 0);
 		DescriptorSetInfo& BindBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlagsInclude = 0);
 	};
@@ -62,8 +62,8 @@ public:
 	void BeginNameRegion(const char* name, const glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f });
 	void EndNamedRegion();
 
-	void BeginTrackingImage(vkutils::Texture2D* tex);
-	ResourceStateTracking* getTrackedImage(vkutils::Texture2D* tex);
+	void BeginTrackingImage(vkutils::Texture* tex);
+	ResourceStateTracking* getTrackedImage(vkutils::Texture* tex);
 
 	void VerifyImageResourceStates();
 	void RestoreImageResourceStates();
@@ -71,8 +71,8 @@ public:
 	//----------------------------------------------------------------------------------------------------
 	// Binding Commands
 	//----------------------------------------------------------------------------------------------------
-	void BindAttachment(uint32_t bindPoint, vkutils::Texture2D* tex, bool clearOnDraw = false);
-	void BindDepthAttachment(vkutils::Texture2D* tex, bool clearOnDraw = false);
+	void BindAttachment(uint32_t bindPoint, vkutils::Texture* tex, bool clearOnDraw = false);
+	void BindDepthAttachment(vkutils::Texture* tex, bool clearOnDraw = false);
 
 	void BindVertexBuffer(
 		uint32_t firstBinding,
@@ -199,7 +199,7 @@ private:
 
 	VkRect2D m_renderArea{};
 
-	std::unordered_map<vkutils::Texture2D*, ResourceStateTracking> m_trackedTextures;
+	std::unordered_map<vkutils::Texture*, ResourceStateTracking> m_trackedTextures;
 
 	std::array<DescriptorSetInfo, 4> descriptorSets; // only support 4 sets
 	 
