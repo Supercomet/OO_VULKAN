@@ -648,6 +648,57 @@ namespace oGFX
 		return false;
 	}
 
+	bool FileImageData::CreateCube(const std::string& folder)
+	{
+		const uint32_t CUBE_FACES = 6;
+		std::array<std::string, CUBE_FACES> fileNames
+		{
+			folder + "/px.png",
+			folder + "/nx.png",
+			folder + "/py.png",
+			folder + "/ny.png",
+			folder + "/pz.png",
+			folder + "/nz.png",
+		};
+
+		dataSize = 0;
+		if (oGFX::IsFileDDS(fileNames[0]) == true)
+		{
+			// not implemented
+		}
+		else
+		{
+			for (size_t i = 0; i < CUBE_FACES; i++)
+			{
+				decodeType = ExtensionType::STB;
+				auto ptr = stbi_load(fileNames[i].c_str(), &this->w, &this->h, &this->channels, STBI_rgb_alpha);
+				size_t chunkSize = size_t(this->w) * size_t(this->h) * size_t(STBI_rgb_alpha);
+				imgData.resize(dataSize + chunkSize);
+				memcpy(imgData.data()+dataSize, ptr, chunkSize);
+
+				VkBufferImageCopy bufferCopyRegion = {};
+				bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				bufferCopyRegion.imageSubresource.mipLevel = 0;
+				bufferCopyRegion.imageSubresource.baseArrayLayer = i;
+				bufferCopyRegion.imageSubresource.layerCount = 1;
+				bufferCopyRegion.imageExtent.width = this->w;
+				bufferCopyRegion.imageExtent.height = this->h;
+				bufferCopyRegion.imageExtent.depth = 1;
+				bufferCopyRegion.bufferOffset = dataSize;
+				mipInformation.push_back(bufferCopyRegion);
+
+				dataSize += chunkSize;
+				
+				stbi_image_free(ptr);
+			}
+
+			this->format = VK_FORMAT_R8G8B8A8_UNORM;
+			return imgData.size() ? true : false;
+		}
+
+		return false;
+	}
+
 	void FileImageData::Free()
 	{
 		//if (decodeType == ExtensionType::DDS)

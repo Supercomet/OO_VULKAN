@@ -49,6 +49,7 @@ extern GfxRenderpass* g_GBufferRenderPass;
 extern GfxRenderpass* g_LightingPass;
 extern GfxRenderpass* g_ShadowPass;
 extern GfxRenderpass* g_SSAORenderPass;
+extern GfxRenderpass* g_SkyRenderPass;
 
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	#include "renderpass/ForwardDecalRenderpass.h"
@@ -118,6 +119,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	}
 
 	return VK_FALSE;
+
 }
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
@@ -238,10 +240,10 @@ VulkanRenderer::~VulkanRenderer()
 	vkDestroySemaphore(m_device.logicalDevice, frameCountSemaphore, nullptr);
 
 	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::defaultPSOLayout, nullptr);
-	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::PSO_fullscreenBlitLayout, nullptr);
+	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::fullscreenBlitPSOLayout, nullptr);
 	vkDestroyPipeline(m_device.logicalDevice, pso_utilFullscreenBlit, nullptr);
 	vkDestroyPipeline(m_device.logicalDevice, pso_utilAMDSPD, nullptr);
-	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::AMDSPDLayout, nullptr);
+	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::AMDSPDPSOLayout, nullptr);
 
 	renderPass_default.destroy();
 	renderPass_default_noDepth.destroy();
@@ -330,6 +332,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	GfxRenderpass* ptr;
 	rpd->RegisterRenderPass(g_ShadowPass);
 	rpd->RegisterRenderPass(g_GBufferRenderPass);
+	rpd->RegisterRenderPass(g_SkyRenderPass);
 	rpd->RegisterRenderPass(g_DebugDrawRenderpass);
 	rpd->RegisterRenderPass(g_LightingPass);
 	rpd->RegisterRenderPass(g_SSAORenderPass);
@@ -679,7 +682,7 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture& src
 		VK_NULL_HANDLE,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	cmd.BindPSO(pso_utilFullscreenBlit, PSOLayoutDB::PSO_fullscreenBlitLayout);
+	cmd.BindPSO(pso_utilFullscreenBlit, PSOLayoutDB::fullscreenBlitPSOLayout);
 
 	// create descriptor for this pass
 	cmd.DescriptorSetBegin(0)
@@ -692,7 +695,7 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture& src
 	range.offset = 0;
 	range.size = sizeof(SSAOPC);
 
-	cmd.SetPushConstant(PSOLayoutDB::PSO_fullscreenBlitLayout, range, &pc);
+	cmd.SetPushConstant(PSOLayoutDB::fullscreenBlitPSOLayout, range, &pc);
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO),
 		m_device.properties.limits.minUniformBufferOffsetAlignment));
@@ -868,8 +871,8 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 
 	pipelineLayoutCreateInfo.setLayoutCount = 1;
 	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::util_fullscreenBlit;
-	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::PSO_fullscreenBlitLayout));
-	VK_NAME(m_device.logicalDevice, "fullscreenPSOLayout", PSOLayoutDB::PSO_fullscreenBlitLayout);
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::fullscreenBlitPSOLayout));
+	VK_NAME(m_device.logicalDevice, "fullscreenPSOLayout", PSOLayoutDB::fullscreenBlitPSOLayout);
 	
 	
 	DescriptorBuilder::Begin()
@@ -883,8 +886,8 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	// create compute here
 	pipelineLayoutCreateInfo.setLayoutCount = 1;
 	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::compute_AMDSPD;
-	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::AMDSPDLayout));
-	VK_NAME(m_device.logicalDevice, "AMDSPD_PSOLayout", PSOLayoutDB::AMDSPDLayout);
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::AMDSPDPSOLayout));
+	VK_NAME(m_device.logicalDevice, "AMDSPD_PSOLayout", PSOLayoutDB::AMDSPDPSOLayout);
 
 
 }
@@ -910,7 +913,7 @@ void VulkanRenderer::CreateDefaultPSO()
 	std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 	VkPipelineDynamicStateCreateInfo dynamicState = oGFX::vkutils::inits::pipelineDynamicStateCreateInfo(dynamicStateEnables);
 
-	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::PSO_fullscreenBlitLayout, renderPass_default_noDepth.pass);
+	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::fullscreenBlitPSOLayout, renderPass_default_noDepth.pass);
 	pipelineCI.pInputAssemblyState = &inputAssemblyState;
 	pipelineCI.pRasterizationState = &rasterizationState;
 	pipelineCI.pColorBlendState = &colorBlendState;
@@ -938,7 +941,7 @@ void VulkanRenderer::CreateDefaultPSO()
 
 	pipelineCI.pNext = &renderingInfo;
 	
-	pipelineCI.layout = PSOLayoutDB::PSO_fullscreenBlitLayout;
+	pipelineCI.layout = PSOLayoutDB::fullscreenBlitPSOLayout;
 	colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
 	blendAttachmentState= oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
 	
@@ -957,7 +960,7 @@ void VulkanRenderer::CreateDefaultPSO()
 		vkDestroyPipeline(m_device.logicalDevice, pso_utilAMDSPD, nullptr); 
 	}
 	const char* computeShader = "Shaders/bin/ffx_spd_downsample_pass.glsl.spv";
-	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::AMDSPDLayout);
+	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::AMDSPDPSOLayout);
 	computeCI.stage = LoadShader(m_device, computeShader, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_utilAMDSPD));
 	VK_NAME(m_device.logicalDevice, "pso_AMDSPD", pso_utilAMDSPD);
@@ -2309,7 +2312,14 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_GBufferRenderPass->Draw(cmd);
-		}		
+		}	
+
+		if(g_cubeMap.image.image != VK_NULL_HANDLE)
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_SkyRenderPass->Draw(cmd);
+		}
+		
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			VK_NAME(m_device.logicalDevice, "SSAO_CMD", cmd);
@@ -2518,7 +2528,7 @@ void ffxSpdSetup(uint32_t*    dispatchThreadGroupCountXY,
     }
 }
 
-void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
+void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 {
 	auto oldLayout = texture.currentLayout;
 	
@@ -2527,7 +2537,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 
 	if (texMips < 2) return;
 
-	vkutils::Texture2D generatedTexture; // writing into a new texture
+	vkutils::Texture generatedTexture; // writing into a new texture
 	generatedTexture = texture;
 	generatedTexture.image.image = VK_NULL_HANDLE;
 	generatedTexture.image.allocation = VK_NULL_HANDLE;
@@ -2632,8 +2642,8 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 			0, nullptr,
 			1, &bmb,
 			0, nullptr);
-		cmdlist.BindPSO(pso_utilAMDSPD, PSOLayoutDB::AMDSPDLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
-		cmdlist.BindDescriptorSet(PSOLayoutDB::AMDSPDLayout, 0, dstsets, VK_PIPELINE_BIND_POINT_COMPUTE, 0);
+		cmdlist.BindPSO(pso_utilAMDSPD, PSOLayoutDB::AMDSPDPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+		cmdlist.BindDescriptorSet(PSOLayoutDB::AMDSPDPSOLayout, 0, dstsets, VK_PIPELINE_BIND_POINT_COMPUTE, 0);
 
 
 		CB::AMDSPD_UBO spdConstants{};
@@ -3952,6 +3962,38 @@ uint32_t VulkanRenderer::CreateTextureImage(const std::string& fileName)
 	return value;
 }
 
+uint32_t VulkanRenderer::CreateCubeMapTexture(const std::string& folderName)
+{
+	//Load image file
+	oGFX::FileImageData imageData;
+	imageData.CreateCube(folderName);
+
+	//#define OVERIDE_TEXTURE_SIZE_ONE
+#ifdef OVERIDE_TEXTURE_SIZE_ONE
+	imageData.w = 1;
+	imageData.h = 1;
+	imageData.dataSize = 1 * 1 * 4;
+	imageData.mipInformation.front().imageExtent = VkExtent3D{ 1,1,1 };
+#endif // OVERIDE_TEXTURE_SIZE_ONE
+
+	auto lam = [this, imageInfo = imageData]() {
+
+		g_cubeMap.name = imageInfo.name;
+		g_cubeMap.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h, imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
+
+		// dont generate for now
+		//GenerateMipmaps(g_cubeMap);
+
+		};
+	{
+		std::scoped_lock s{ g_mut_workQueue };
+		g_workQueue.emplace_back(lam);
+	}
+	
+	imageData.Free();
+	return 0;
+}
+
 uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo)
 {
 	VkDeviceSize imageSize = imageInfo.dataSize;
@@ -3976,8 +4018,8 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 	auto lam = [this, indx, imageInfo]() {
 		auto& texture = g_Textures[indx];
 
-		texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 		texture.name = imageInfo.name;
+		texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 
 		GenerateMipmaps(texture);
 

@@ -340,6 +340,8 @@ void TestApplication::Run()
     const BindlessTextureIndex r0 = gs_RenderEngine->CreateTexture("Textures/13/r.png");
 
     const BindlessTextureIndex normalTexture0 = gs_RenderEngine->CreateTexture("Textures/7/n.png");
+
+    const BindlessTextureIndex cubeTexture = gs_RenderEngine->CreateCubeMapTexture("Textures/viking");
     
     std::array<BindlessTextureIndex,6> roughness{};
     std::array<BindlessTextureIndex,6> metalic{};

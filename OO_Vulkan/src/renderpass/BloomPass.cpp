@@ -193,7 +193,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 		vkutils::Texture* prevImage = &vr.attachments.Bloom_brightTarget;
 		vkutils::Texture* currImage;
 		//downsample
-		cmd.BindPSO(pso_bloom_down, PSOLayoutDB::BloomLayout ,VK_PIPELINE_BIND_POINT_COMPUTE);
+		cmd.BindPSO(pso_bloom_down, PSOLayoutDB::BloomPSOLayout ,VK_PIPELINE_BIND_POINT_COMPUTE);
 		for (size_t i = 0; i < vr.attachments.MAX_BLOOM_SAMPLES; i++)
 		{
 			currImage = &vr.attachments.Bloom_downsampleTargets[i];
@@ -267,7 +267,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 		regionBegin(cmdlist, &marker);
 	}	
 	{// composite online main buffer
-		cmd.BindPSO(pso_additive_composite, PSOLayoutDB::BloomLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
+		cmd.BindPSO(pso_additive_composite, PSOLayoutDB::BloomPSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 		auto* outputBuffer = (&mainImage.texture);
 		auto* inputBuffer = &vr.attachments.Bloom_brightTarget;
 
@@ -291,7 +291,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 	}	
 	// tone mapping 
 	{// composite online main buffer
-		cmd.BindPSO(pso_tone_mapping, PSOLayoutDB::BloomLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+		cmd.BindPSO(pso_tone_mapping, PSOLayoutDB::BloomPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
 		auto* outputBuffer = (&mainImage.texture);
 		auto* inputBuffer = &vr.attachments.Bloom_brightTarget;
 
@@ -314,7 +314,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 		VkPushConstantRange pcr{};
 		pcr.offset = 0;
 		pcr.size = sizeof(ColourCorrectPC);
-		cmd.SetPushConstant(PSOLayoutDB::BloomLayout, pcr, &pc);
+		cmd.SetPushConstant(PSOLayoutDB::BloomPSOLayout, pcr, &pc);
 
 		cmd.Dispatch((outputBuffer->width - 1) / 16 + 1, (outputBuffer->height - 1) / 16 + 1);
 	}
@@ -329,7 +329,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 	{		
 		regionBegin(cmdlist, &marker);
 	}	
-	cmd.BindPSO(pso_fxaa, PSOLayoutDB::BloomLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.BindPSO(pso_fxaa, PSOLayoutDB::BloomPSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 	{// composite online main buffer
 		auto* outputBuffer = &vr.attachments.Bloom_brightTarget;
 		auto* inputBuffer = (&mainImage.texture);
@@ -353,7 +353,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 	{		
 		regionBegin(cmdlist, &marker);
 	}	
-	cmd.BindPSO(pso_vignette, PSOLayoutDB::BloomLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.BindPSO(pso_vignette, PSOLayoutDB::BloomPSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 	{// composite online main buffer
 		auto* outputBuffer = (&mainImage.texture);
 		auto* inputBuffer = &vr.attachments.Bloom_brightTarget;
@@ -371,7 +371,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 		VkPushConstantRange pcr{};
 		pcr.offset = 0;
 		pcr.size = sizeof(VignettePC);
-		cmd.SetPushConstant(PSOLayoutDB::BloomLayout, pcr, &pc);
+		cmd.SetPushConstant(PSOLayoutDB::BloomPSOLayout, pcr, &pc);
 
 		cmd.Dispatch((outputBuffer->width - 1) / 16 + 1, (outputBuffer->height - 1) / 16 + 1);
 	}
@@ -394,7 +394,7 @@ void BloomPass::Shutdown()
 		// destroy
 		vr.attachments.Bloom_downsampleTargets[i].destroy();
 	}
-	vkDestroyPipelineLayout(device, PSOLayoutDB::BloomLayout, nullptr);
+	vkDestroyPipelineLayout(device, PSOLayoutDB::BloomPSOLayout, nullptr);
 	vkDestroyPipelineLayout(device, PSOLayoutDB::doubleImageStoreLayout, nullptr);
 	vkDestroyPipeline(device, pso_bloom_bright, nullptr);
 	vkDestroyPipeline(device, pso_bloom_up, nullptr);
@@ -468,8 +468,8 @@ void BloomPass::CreatePipelineLayout()
 		plci.pushConstantRangeCount = 1;
 		plci.pPushConstantRanges = &pushConstantRange;
 
-		VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::BloomLayout));
-		VK_NAME(m_device.logicalDevice, "Bloom_PSOLayout", PSOLayoutDB::BloomLayout);
+		VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::BloomPSOLayout));
+		VK_NAME(m_device.logicalDevice, "Bloom_PSOLayout", PSOLayoutDB::BloomPSOLayout);
 
 		setLayouts[0] = SetLayoutDB::compute_doubleImageStore;
 
@@ -514,7 +514,7 @@ void BloomPass::CreatePipeline()
 	{
 		vkDestroyPipeline(m_device.logicalDevice, pso_bloom_down, nullptr);
 	}
-	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::BloomLayout);
+	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::BloomPSOLayout);
 	computeCI.stage = vr.LoadShader(m_device, shaderDownsample, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_bloom_down));
 	VK_NAME(m_device.logicalDevice, "pso_bloom_down", pso_bloom_down);
@@ -534,7 +534,7 @@ void BloomPass::CreatePipeline()
 	{
 		vkDestroyPipeline(m_device.logicalDevice, pso_additive_composite, nullptr);
 	}
-	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::BloomLayout);
+	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::BloomPSOLayout);
 	computeCI.stage = vr.LoadShader(m_device, compositeAdditive, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_additive_composite));
 	VK_NAME(m_device.logicalDevice, "pso_additive_composite", pso_additive_composite);

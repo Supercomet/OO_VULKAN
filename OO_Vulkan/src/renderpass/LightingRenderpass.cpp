@@ -96,7 +96,7 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	auto depth = &vr.renderTargets[vr.renderTargetInUseID].depth; // layout undefined
 
 	rhi::CommandList cmd{ cmdlist, "Lighting Pass"};
-	cmd.BindPSO(pso_DeferredLightingComposition, PSOLayoutDB::deferredLightingCompositionPSOLayout);
+	cmd.BindPSO(pso_DeferredLightingComposition, PSOLayoutDB::lightingPSOLayout);
 	
 	cmd.BindAttachment(0, tex);
 	cmd.BindDepthAttachment(depth);
@@ -151,12 +151,12 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	VkPushConstantRange range;
 	range.offset = 0;
 	range.size = sizeof(LightPC);
-	cmd.SetPushConstant(PSOLayoutDB::deferredLightingCompositionPSOLayout,range,&pc);
+	cmd.SetPushConstant(PSOLayoutDB::lightingPSOLayout,range,&pc);
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 		vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
 	
-	cmd.BindDescriptorSet(PSOLayoutDB::deferredLightingCompositionPSOLayout, 1,
+	cmd.BindDescriptorSet(PSOLayoutDB::lightingPSOLayout, 1,
 		std::array<VkDescriptorSet, 1>
 		{
 			vr.descriptorSets_uniform[currFrame],
@@ -168,7 +168,7 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	cmd.DrawFullScreenQuad();
 
 	const auto& cube = vr.g_globalModels[vr.GetDefaultCubeID()];
-	cmd.BindPSO(pso_deferredBox, PSOLayoutDB::deferredLightingCompositionPSOLayout);
+	cmd.BindPSO(pso_deferredBox, PSOLayoutDB::lightingPSOLayout);
 	cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
 	cmd.BindVertexBuffer(BIND_POINT_WEIGHTS_BUFFER_ID, 1, vr.skinningVertexBuffer.getBufferPtr());
@@ -182,7 +182,7 @@ void LightingPass::Shutdown()
 {
 	auto& device = VulkanRenderer::get()->m_device.logicalDevice;
 
-	vkDestroyPipelineLayout(device, PSOLayoutDB::deferredLightingCompositionPSOLayout, nullptr);
+	vkDestroyPipelineLayout(device, PSOLayoutDB::lightingPSOLayout, nullptr);
 	vkDestroyPipeline(device, pso_DeferredLightingComposition, nullptr);
 	
 	vkDestroyPipeline(device, pso_deferredBox, nullptr);
@@ -256,7 +256,7 @@ void LightingPass::CreateDescriptors()
         .BindImage(6, &texDescriptorShadow, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS)
         .BindImage(7, &texDescriptorSSAO, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS)
         .BindBuffer(8, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
-        .BuildLayout(SetLayoutDB::DeferredLightingComposition);
+        .BuildLayout(SetLayoutDB::Lighting);
 }
 
 void LightingPass::CreatePipelineLayout()
@@ -280,12 +280,12 @@ void LightingPass::CreatePipelineLayout()
 		.BindImage(6, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS)
 		.BindImage(7, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS)
 		.BindBuffer(8, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
-		.BuildLayout(SetLayoutDB::DeferredLightingComposition);
+		.BuildLayout(SetLayoutDB::Lighting);
 
 
 	std::vector<VkDescriptorSetLayout> setLayouts
 	{
-		SetLayoutDB::DeferredLightingComposition, // (set = 0)
+		SetLayoutDB::Lighting, // (set = 0)
 		SetLayoutDB::FrameUniform, // (set = 1)
 		SetLayoutDB::lights // (set = 4)
 	};
@@ -295,8 +295,8 @@ void LightingPass::CreatePipelineLayout()
 	plci.pushConstantRangeCount = 1;
 	plci.pPushConstantRanges = &pushConstantRange;
 
-	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::deferredLightingCompositionPSOLayout));
-	VK_NAME(m_device.logicalDevice, "deferredLightingCompositionPSOLayout", PSOLayoutDB::deferredLightingCompositionPSOLayout);
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::lightingPSOLayout));
+	VK_NAME(m_device.logicalDevice, "deferredLightingCompositionPSOLayout", PSOLayoutDB::lightingPSOLayout);
 }
 
 void LightingPass::CreatePipeline()
@@ -342,7 +342,7 @@ void LightingPass::CreatePipeline()
 	pipelineCI.pVertexInputState = &emptyInputState;
 	// pipelineCI.renderPass = vr.renderPass_HDR.pass;
 	pipelineCI.renderPass = VK_NULL_HANDLE;
-	pipelineCI.layout = PSOLayoutDB::deferredLightingCompositionPSOLayout;
+	pipelineCI.layout = PSOLayoutDB::lightingPSOLayout;
 	colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
 	blendAttachmentState= oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
 

@@ -25,6 +25,8 @@ $files = @(
 	"forwardParticles.vert",
 	"forwardUI.vert",
 	"gbuffer.vert",
+	"sky.frag",
+	"farplaneFullscreen.vert",
 	"genericFullscreen.vert",
 	"shadow.vert",
 	"blit.frag",

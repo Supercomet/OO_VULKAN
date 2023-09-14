@@ -264,6 +264,7 @@ namespace oGFX
 		VkFormat format{ VK_FORMAT_R8G8B8A8_UNORM };
 
 		bool Create(const std::string& fileName);
+		bool CreateCube(const std::string& folder);
 		void Free();
 	};
 

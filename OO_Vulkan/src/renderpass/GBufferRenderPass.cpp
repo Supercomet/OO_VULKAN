@@ -235,7 +235,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		vkutils::TransitionImage(cmdlist, vr.attachments.shadowMask, VK_IMAGE_LAYOUT_GENERAL);
 		const auto& dbi = vr.globalLightBuffer[currFrame].GetBufferInfoPtr();
 
-		cmd.BindPSO(pso_ComputeShadowPrepass, PSOLayoutDB::shadowPrepassLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
+		cmd.BindPSO(pso_ComputeShadowPrepass, PSOLayoutDB::shadowPrepassPSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 		
 		cmd.DescriptorSetBegin(0)
 			.BindSampler(0, GfxSamplerManager::GetSampler_Deferred())
@@ -248,7 +248,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 			//.Build(shadowprepassDS, SetLayoutDB::compute_shadowPrepass);
 
 		uint32_t offset = 1;
-		cmd.BindDescriptorSet(PSOLayoutDB::shadowPrepassLayout, offset,
+		cmd.BindDescriptorSet(PSOLayoutDB::shadowPrepassPSOLayout, offset,
 			std::array<VkDescriptorSet, 2>{
 				//shadowprepassDS,
 				vr.descriptorSets_uniform[currFrame],
@@ -287,7 +287,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		range.offset = 0;
 		range.size = sizeof(LightPC);
 		//cmd.SetPushConstant(PSOLayoutDB::shadowPrepassLayout,range,&pc);
-		vkCmdPushConstants(cmdlist, PSOLayoutDB::shadowPrepassLayout, VK_SHADER_STAGE_ALL,range.offset,range.size,&pc);
+		vkCmdPushConstants(cmdlist, PSOLayoutDB::shadowPrepassPSOLayout, VK_SHADER_STAGE_ALL,range.offset,range.size,&pc);
 		vkCmdDispatch(cmdlist, (vr.attachments.shadowMask.width - 1) / 16 + 1, (vr.attachments.shadowMask.height - 1) / 16 + 1, 1);
 
 		
@@ -317,7 +317,7 @@ void GBufferRenderPass::Shutdown()
 	vkDestroyPipeline(device, pso_GBufferDefault, nullptr);
 
 	vkDestroyPipeline(device, pso_ComputeShadowPrepass, nullptr);
-	vkDestroyPipelineLayout(device, PSOLayoutDB::shadowPrepassLayout, nullptr);
+	vkDestroyPipelineLayout(device, PSOLayoutDB::shadowPrepassPSOLayout, nullptr);
 }
 
 void GBufferRenderPass::SetupRenderpass()
@@ -466,6 +466,17 @@ void GBufferRenderPass::CreatePipeline()
 	pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
 	pipelineCI.pStages = shaderStages.data();
 
+	// write to stencil buffer
+	depthStencilState.stencilTestEnable = VK_TRUE;
+	depthStencilState.back.compareOp = VK_COMPARE_OP_ALWAYS;
+	depthStencilState.back.failOp = VK_STENCIL_OP_REPLACE;
+	depthStencilState.back.depthFailOp = VK_STENCIL_OP_REPLACE;
+	depthStencilState.back.passOp = VK_STENCIL_OP_REPLACE;
+	depthStencilState.back.compareMask = 0xff;
+	depthStencilState.back.writeMask = 0xff;
+	depthStencilState.back.reference = 1;
+	depthStencilState.front = depthStencilState.back;
+
 	const auto& bindingDescription = oGFX::GetGFXVertexInputBindings();
 	const auto& attributeDescriptions = oGFX::GetGFXVertexInputAttributes();
 	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = oGFX::vkutils::inits::pipelineVertexInputStateCreateInfo(bindingDescription, attributeDescriptions);
@@ -506,7 +517,7 @@ void GBufferRenderPass::CreatePipeline()
 	renderingInfo.pColorAttachmentFormats = colourFormats.data();
 	renderingInfo.depthAttachmentFormat = vr.G_DEPTH_FORMAT;
 	renderingInfo.stencilAttachmentFormat =  vr.G_DEPTH_FORMAT;
-
+	
 	pipelineCI.pNext = &renderingInfo;
 
 	if (pso_GBufferDefault != VK_NULL_HANDLE)
@@ -537,7 +548,7 @@ void GBufferRenderPass::CreatePipeline()
 		{
 			vkDestroyPipeline(m_device.logicalDevice, pso_ComputeShadowPrepass, nullptr);
 		}
-		VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::shadowPrepassLayout);
+		VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::shadowPrepassPSOLayout);
 		computeCI.stage = vr.LoadShader(m_device, shaderCS, VK_SHADER_STAGE_COMPUTE_BIT);
 		VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_ComputeShadowPrepass));
 		VK_NAME(m_device.logicalDevice, "pso_ComputeShadowPrepass", pso_ComputeShadowPrepass);
@@ -631,8 +642,8 @@ void GBufferRenderPass::CreatePSOLayout()
 		plci.pushConstantRangeCount = 1;
 		plci.pPushConstantRanges = &pushConstantRange;
 
-		VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::shadowPrepassLayout));
-		VK_NAME(m_device.logicalDevice, "ShadowPrepass_PSOLayout", PSOLayoutDB::shadowPrepassLayout);
+		VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::shadowPrepassPSOLayout));
+		VK_NAME(m_device.logicalDevice, "ShadowPrepass_PSOLayout", PSOLayoutDB::shadowPrepassPSOLayout);
 
 	}
 
@@ -685,6 +696,3 @@ void GBufferRenderPass::SetupResources() {
 	vr.SubmitSingleCommandAndWait(cmd);
 
 }
-
-static GBufferRenderPass gs_GBufferRenderPass;
-GfxRenderpass* gfxPtr = &gs_GBufferRenderPass;

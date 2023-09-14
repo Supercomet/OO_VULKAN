@@ -71,7 +71,8 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
     // For unbounded array of texture descriptors, used in bindless approach
     inline static VkDescriptorSetLayout bindless;
 	// For lighting
-	inline static VkDescriptorSetLayout DeferredLightingComposition;
+	inline static VkDescriptorSetLayout Lighting;
+	inline static VkDescriptorSetLayout skypass;
 
 	inline static VkDescriptorSetLayout lights;
 	// 
@@ -101,16 +102,17 @@ struct Attachments_imguiBinding {
 struct PSOLayoutDB
 {
 	inline static VkPipelineLayout defaultPSOLayout;
-	inline static VkPipelineLayout PSO_fullscreenBlitLayout;
-	inline static VkPipelineLayout deferredLightingCompositionPSOLayout;
+	inline static VkPipelineLayout fullscreenBlitPSOLayout;
+	inline static VkPipelineLayout lightingPSOLayout;
 	inline static VkPipelineLayout forwardDecalPSOLayout;
 	inline static VkPipelineLayout SSAOPSOLayout;
-	inline static VkPipelineLayout SSAOBlurLayout;
-	inline static VkPipelineLayout BloomLayout; 
+	inline static VkPipelineLayout SSAOBlurPSOLayout;
+	inline static VkPipelineLayout BloomPSOLayout; 
 	inline static VkPipelineLayout doubleImageStoreLayout; 
 	inline static VkPipelineLayout singleSSBOlayout; 
-	inline static VkPipelineLayout shadowPrepassLayout; 
-	inline static VkPipelineLayout AMDSPDLayout; 
+	inline static VkPipelineLayout shadowPrepassPSOLayout; 
+	inline static VkPipelineLayout AMDSPDPSOLayout; 
+	inline static VkPipelineLayout skypassPSOLayout; 
 };
 
 // Moving all constant buffer structures into this CB namespace.
@@ -328,9 +330,11 @@ public:
 
 	uint32_t CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData, bool generateMips = true);
 	uint32_t CreateTexture(const std::string& fileName);
+	uint32_t CreateCubeMapTexture(const std::string& folder);
+
 	bool ReloadTexture(uint32_t textureID, const std::string& file);
 	void UnloadTexture(uint32_t textureID);
-	void GenerateMipmaps(vkutils::Texture2D& texture);
+	void GenerateMipmaps(vkutils::Texture& texture);
 
 	oGFX::Font* LoadFont(const std::string& filename);
 	oGFX::TexturePacker CreateFontAtlas(const std::string& filename, oGFX::Font& font);
@@ -391,6 +395,9 @@ public:
 	//textures
 	std::mutex g_mut_Textures;
 	std::vector<vkutils::Texture2D> g_Textures;
+
+	vkutils::CubeTexture g_cubeMap;
+
 	std::vector<ImTextureID> g_imguiIDs;
 
 	uint32_t whiteTextureID = static_cast<uint32_t>(-1);
@@ -558,6 +565,7 @@ public:
 		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);		
 		uint32_t CreateTextureImageImmediate(const oGFX::FileImageData& imageInfo);		
 		uint32_t CreateTextureImage(const std::string& fileName);
+		
 		uint32_t UpdateBindlessGlobalTexture(uint32_t textureID);		
 
 		bool shadowsRendered{ false };
