@@ -229,11 +229,14 @@ void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture* tex, bool
 		albedoInfo.resolveImageLayout = {};
 		albedoInfo.imageView = tex->view;
 		albedoInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		albedoInfo.loadOp = clearOnDraw ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		//albedoInfo.loadOp = clearOnDraw ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		// handled by should clear draw
 		albedoInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		albedoInfo.clearValue = VkClearValue{ {} };
 
 		m_attachments[bindPoint] = albedoInfo;
+		m_shouldClearAttachment[bindPoint] = clearOnDraw;
+
 		m_highestAttachmentBound = std::max<int32_t>(bindPoint, m_highestAttachmentBound);
 
 		m_renderArea.extent = { tex->width, tex->height };
@@ -262,11 +265,16 @@ void CommandList::BindDepthAttachment(vkutils::Texture* tex, bool clearOnDraw)
 		depthInfo.resolveImageLayout = {};
 		depthInfo.imageView = tex->view;
 		depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		depthInfo.loadOp = clearOnDraw ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		// depthInfo.loadOp = clearOnDraw ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		// handled by should clear
 		depthInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		depthInfo.clearValue = VkClearValue{ {} };
 		m_depth = depthInfo;
 		m_depthBound = true;
+		m_shouldClearDepth = clearOnDraw;
+
+		m_renderArea.extent.width = std::max(tex->width, m_renderArea.extent.width);
+		m_renderArea.extent.height = std::max(tex->height, m_renderArea.extent.height);
 	}
 	else 
 	{
@@ -288,6 +296,15 @@ void CommandList::BeginRendering(VkRect2D renderArea)
 {
 
 	VerifyImageResourceStates();
+
+	
+	m_depth.loadOp = m_shouldClearDepth ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+	m_shouldClearDepth = false;
+	for (size_t i = 0; i < m_highestAttachmentBound + 1; i++)
+	{
+		m_attachments[i].loadOp = m_shouldClearAttachment[i] ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		m_shouldClearAttachment[i] = false;
+	}
 
 	VkRenderingInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;

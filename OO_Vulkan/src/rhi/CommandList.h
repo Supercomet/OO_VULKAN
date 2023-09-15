@@ -194,8 +194,10 @@ private:
 	std::array<VkRect2D, 8> m_scissor;
 	std::array<VkViewport, 8> m_viewport;
 	std::array<VkRenderingAttachmentInfo, 8> m_attachments{};
+	std::array<bool, 8> m_shouldClearAttachment{};
 	int32_t m_highestAttachmentBound{-1};
 	bool m_depthBound = false;
+	bool m_shouldClearDepth = false;
 	VkRenderingAttachmentInfo m_depth;
 	float m_push_constant[128 / sizeof(float)]{0.0f};
 	bool m_regionNamed = false;
