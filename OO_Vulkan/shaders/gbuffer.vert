@@ -24,7 +24,9 @@ layout(location = 3) out flat int outEntityID;
 layout(location = 4) out flat vec4 outEmissive;
 layout(location = 7) out struct
 {
-	mat3 btn;
+	vec3 b;
+	vec3 t;
+	vec3 n;
 }outLightData;
 layout(location = 15) flat out uvec4 outInstanceData;
 
@@ -67,11 +69,16 @@ void main()
 	vec3 NT = normalize(inTangent);
 	vec3 NB = cross(NN, NT);
 	
-	vec3 T = normalize(L2W * vec3(NT)).xyz;
-	vec3 B = normalize(L2W * vec3(NB)).xyz;
-	vec3 N = normalize(L2W * vec3(NN)).xyz;
+	mat3 invTranspose = mat3(GPUTransformToInverseTransposeMatrix4x4(GPUScene_SSBO[instanceIndex]));
 
-	outLightData.btn = (mat3(T,B,N));
+	vec3 T = normalize(invTranspose * vec3(NT)).xyz;
+	vec3 B = normalize(invTranspose * vec3(NB)).xyz;
+	vec3 N = normalize(invTranspose * vec3(NN)).xyz;
+
+	outLightData.b = B;
+	outLightData.t = T;
+	outLightData.n = N;
+
 
 	bool skinned = UnpackSkinned(inInstanceData.y);
     if(skinned)

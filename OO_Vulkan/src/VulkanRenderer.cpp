@@ -2029,6 +2029,10 @@ void VulkanRenderer::UploadInstanceData()
 				gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
 				gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
 				gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
+				mat4 inverseXform = glm::inverse(xform);
+				gpt.invRow0 = vec4(inverseXform[0][0], inverseXform[1][0], inverseXform[2][0], inverseXform[3][0]);
+				gpt.invRow1 = vec4(inverseXform[0][1], inverseXform[1][1], inverseXform[2][1], inverseXform[3][1]);
+				gpt.invRow2 = vec4(inverseXform[0][2], inverseXform[1][2], inverseXform[2][2], inverseXform[3][2]);
 				gpuTransform.emplace_back(gpt);
 			}
 			// skined mesh
