@@ -254,10 +254,12 @@ public:
         float maxBias = 0.0001f;
         float biasMultiplier = 0.002f;
         float specularModifier = 16.0f;
+        glm::vec3 direction{0, -1, 0};
     }lightSettings{};
 
     struct BloomSettings
     {
+        bool enabled = true;
         float threshold = 10.0f;
         float softThreshold = 0.01f;
     }bloomSettings{};

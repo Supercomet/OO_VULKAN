@@ -182,6 +182,7 @@ public:
 
 	// TODO: Function not here? Add it on demand...
 
+	VkCommandBuffer getCommandBuffer();
 private:
 	void CommitDescriptors();
 

@@ -789,6 +789,7 @@ void TestApplication::Run()
                 ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
                 if(ImGui::TreeNode("Bloom") ){
                     auto& cs = gs_GraphicsWorld.bloomSettings;
+                    ImGui::Checkbox("Bloom Enabled", &gs_GraphicsWorld.bloomSettings.enabled);
                     ImGui::DragFloat("bloom thresh", &cs.threshold,0.001f,0.0f,1.0f);
                     ImGui::DragFloat("soft thresh", &cs.softThreshold,0.001f,0.0f,1.0f);
 

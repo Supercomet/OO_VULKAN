@@ -75,6 +75,7 @@ struct LightPC
     float maxBias;
     float mulBias;
     float specularModifier;
+    vec4 directionalLight;
     vec2 resolution;
 };
 

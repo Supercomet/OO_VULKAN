@@ -444,6 +444,11 @@ void CommandList::SetScissor(const VkRect2D& scissor)
 	this->SetScissor(0, 1, &s);
 }
 
+VkCommandBuffer CommandList::getCommandBuffer()
+{
+	return m_VkCommandBuffer;
+}
+
 void CommandList::CommitDescriptors()
 {
 	uint32_t count{};
