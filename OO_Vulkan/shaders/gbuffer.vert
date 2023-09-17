@@ -85,6 +85,8 @@ void main()
 	{
 		mat4x4 boneToModel; // what do i do with this
 		outPosition = ComputeSkinnedVertexPosition(dInsMatrix,inPosition,inBoneIdx,inBoneWeights,objectInfo.boneStartIdx,boneToModel);
+		mat3 inverseTransformBone = transpose(mat3(inverse(boneToModel)));
+		outLightData.n = normalize(inverseTransformBone*NN);
 	}
 	else
 	{
