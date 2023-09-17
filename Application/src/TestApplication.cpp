@@ -42,6 +42,7 @@
 #include <numeric>
 #include <algorithm>
 #include <bitset>
+#include <sstream>
 
 #include "ImGuizmo.h"
 #include "AppUtils.h"
@@ -452,7 +453,7 @@ void TestApplication::Run()
         ed.entityID = FastRandomMagic();
         ed.modelID = model_plane->meshResource;
         ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
-        ed.position = { 0.0f,0.0f,0.0f };
+        ed.position = { 0.0f,-0.5f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
 
         ed.bindlessGlobalTextureIndex_Albedo    = testFont->m_atlasID;
@@ -485,12 +486,15 @@ void TestApplication::Run()
         for (size_t y = 0; y < metalic.size(); y++)
         {
             auto& ed = entities.emplace_back(EntityInfo{});
-            ed.name = std::string("Sphere_") + std::to_string(i * metalic.size() + y);
+            std::stringstream ss;
+            ss << "Sphere_M[" << y << "]R[" << i << "]";
+            ed.name = std::string("Sphere_M") + std::to_string(i * metalic.size() + y);
+            ed.name = ss.str();
             ed.entityID = FastRandomMagic();
             ed.modelID = model_sphere->meshResource;
             //ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
             
-            ed.position = { gridSize*i - halfGrid,5.0f,gridSize*y - halfGrid };
+            ed.position = { gridSize*i - halfGrid,gridSize*y - halfGrid+3.5f,-5.0f };
             ed.scale = { 1.0f,1.0f,1.0f };
 
             ed.bindlessGlobalTextureIndex_Albedo    = gs_WhiteTexture;
@@ -1299,6 +1303,7 @@ void TestApplication::ToolUI_Settings()
         ImGui::Text("Lighting");
         ImGui::PushID(std::atoi("Lighting"));
         ImGui::DragFloat("Ambient", &lightSettings.ambient,0.01f);
+        ImGui::DragFloat4("Directional", &lightSettings.direction.x, 0.01f);
         ImGui::DragFloat("Max bias", &lightSettings.maxBias,0.01f);
         ImGui::DragFloat("Bias multiplier", &lightSettings.biasMultiplier,0.01f);
         ImGui::PopID();
