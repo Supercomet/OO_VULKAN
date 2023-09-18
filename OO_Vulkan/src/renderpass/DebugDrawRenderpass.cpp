@@ -163,7 +163,7 @@ void DebugDrawRenderpass::CreateDebugRenderpass()
 {
 	auto& vr = *VulkanRenderer::get();
 	VkAttachmentDescription colourAttachment = {};
-	colourAttachment.format = vr.G_HDR_FORMAT;  //format to use for attachment
+	colourAttachment.format = vr.G_NON_HDR_FORMAT;  //format to use for attachment
 	colourAttachment.samples = VK_SAMPLE_COUNT_1_BIT;//number of samples to use for multisampling
 	colourAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;//descripts what to do with attachment before rendering
 	colourAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;//describes what to do with attachment after rendering
@@ -310,7 +310,7 @@ void DebugDrawRenderpass::CreatePipeline()
 	renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 	renderingInfo.viewMask = {};
 	renderingInfo.colorAttachmentCount = 1;
-	renderingInfo.pColorAttachmentFormats = &vr.G_HDR_FORMAT;
+	renderingInfo.pColorAttachmentFormats = &vr.G_NON_HDR_FORMAT;
 	renderingInfo.depthAttachmentFormat = vr.G_DEPTH_FORMAT;
 	renderingInfo.stencilAttachmentFormat = vr.G_DEPTH_FORMAT;
 

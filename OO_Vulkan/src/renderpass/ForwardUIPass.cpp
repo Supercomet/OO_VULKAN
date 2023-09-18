@@ -214,7 +214,7 @@ void ForwardUIPass::SetupRenderpass()
 		auto& attachments = vr.attachments.gbuffer;
 	// Formats
 	//attachmentDescs[GBufferAttachmentIndex::POSITION].format = attachments[GBufferAttachmentIndex::POSITION].format;
-	attachmentDescs[0]  .format = vr.G_HDR_FORMAT;
+	attachmentDescs[0]  .format = vr.G_NON_HDR_FORMAT;
 	attachmentDescs[1]  .format = attachments[GBufferAttachmentIndex::ENTITY_ID].format;
 	attachmentDescs[2]  .format = vr.G_DEPTH_FORMAT;
 	
@@ -363,7 +363,7 @@ void ForwardUIPass::CreatePipeline()
 	colorBlendState.pAttachments = blendAttachmentStates.data();
 
 	std::array<VkFormat, 2> formats{
-		vr.G_HDR_FORMAT,
+		vr.G_NON_HDR_FORMAT,
 		VK_FORMAT_R32_SINT
 	};
 	VkPipelineRenderingCreateInfo renderingInfo{};

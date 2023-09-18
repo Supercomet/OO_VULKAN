@@ -176,8 +176,11 @@ public:
 
 		vkutils::Texture2D shadow_depth{};
 
+		vkutils::Texture2D lighting_target{};
+
 		static constexpr size_t MAX_BLOOM_SAMPLES = 5;
 		vkutils::Texture2D Bloom_brightTarget;
+		vkutils::Texture2D SD_target[2];
 		std::array<vkutils::Texture2D, MAX_BLOOM_SAMPLES> Bloom_downsampleTargets;
 
 	}attachments;
@@ -186,9 +189,10 @@ public:
 	static constexpr int MAX_FRAME_DRAWS = 2;
 	static constexpr int MAX_OBJECTS = 2048;
 	static constexpr VkFormat G_DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT_S8_UINT;
-	static constexpr VkFormat G_NORMALS_FORMAT = VK_FORMAT_R8G8B8A8_SNORM;
+	static constexpr VkFormat G_NORMALS_FORMAT = VK_FORMAT_R16G16B16A16_SFLOAT;
 	static constexpr VkCompareOp G_DEPTH_COMPARISON = VK_COMPARE_OP_GREATER_OR_EQUAL;
 	static constexpr VkFormat G_HDR_FORMAT = VK_FORMAT_R16G16B16A16_SFLOAT;
+	static constexpr VkFormat G_NON_HDR_FORMAT = VK_FORMAT_R8G8B8A8_UNORM;
 
 	static int ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface);
 

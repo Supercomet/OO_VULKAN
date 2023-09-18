@@ -1117,7 +1117,7 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 			if (image.image.image == VK_NULL_HANDLE)
 			{
 				image.name = "GW_"+std::to_string(wrdID)+":COL";
-				image.forFrameBuffer(&m_device, G_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+				image.forFrameBuffer(&m_device, G_NON_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 					m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height);
 				fbCache.RegisterFramebuffer(image);
 				auto cmd = GetCommandBuffer();
@@ -2339,15 +2339,16 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_SkyRenderPass->Draw(cmd);
 		}
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_BloomPass->Draw(cmd);
+		}
 
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_ForwardParticlePass->Draw(cmd);
 		}
-		{
-			const VkCommandBuffer cmd = GetCommandBuffer();
-			g_BloomPass->Draw(cmd);
-		}
+
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_ForwardUIPass->Draw(cmd);

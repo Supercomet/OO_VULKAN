@@ -231,10 +231,12 @@ float G_SchlicksmithGGX(float dotNL, float dotNV, float roughness)
 
 vec3 F_Schlick(float cosTheta, float metallic, vec3 albedo)
 {
-    vec3 F0 = mix(vec3(0.04), albedo, metallic); // * material.specular
+    vec3 F0 = mix(albedo, vec3(0.04), metallic); // * material.specular
     vec3 F = F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
     return F;
 }
+
+
 
 vec3 SaschaBRDF(vec3 L, vec3 V, vec3 N, float metallic, float roughness, vec3 lightColor, vec3 albedo)
 {
@@ -249,13 +251,12 @@ vec3 SaschaBRDF(vec3 L, vec3 V, vec3 N, float metallic, float roughness, vec3 li
 
     vec3 color = vec3(0.0);
 
-    if (dotNL > 0.0)
+    //if (dotNL > 0.0)
     {
-        float rroughness = max(0.05, roughness);
 		// D = Normal distribution (Distribution of the microfacets)
-        float D = Sascha_D_GGX(dotNH, rroughness);
+        float D = Sascha_D_GGX(dotNH, roughness);
 		// G = Geometric shadowing term (Microfacets shadowing)
-        float G = G_SchlicksmithGGX(dotNL, dotNV, rroughness);
+        float G = G_SchlicksmithGGX(dotNL, dotNV, roughness);
 		// F = Fresnel factor (Reflectance depending on angle of incidence)
         vec3 F = F_Schlick(dotNV, metallic, albedo);
 
@@ -265,6 +266,64 @@ vec3 SaschaBRDF(vec3 L, vec3 V, vec3 N, float metallic, float roughness, vec3 li
     }
 
     return color;
+}
+
+// Shlick's approximation of Fresnel
+// https://en.wikipedia.org/wiki/Schlick%27s_approximation
+vec3 Fresnel_Shlick(in vec3 f0, in vec3 f90, in float x)
+{
+    return f0 + (f90 - f0) * pow(1.f - x, 5);
+}
+
+// Burley B. "Physically Based Shading at Disney"
+// SIGGRAPH 2012 Course: Practical Physically Based Shading in Film and Game Production, 2012.
+float DiffuseBurley(in float NdotL, in float NdotV, in float LdotH, in float roughness)
+{
+    float fd90 = 0.5f + 2.f * roughness * LdotH * LdotH;
+    return Fresnel_Shlick(vec3(1, 1, 1), vec3(fd90, fd90, fd90), NdotL).x * Fresnel_Shlick(vec3(1, 1, 1), vec3(fd90, fd90, fd90), NdotV).x;
+}
+
+// GGX specular D (normal distribution)
+// https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf
+float Specular_D_GGX(in float alpha, in float NdotH)
+{
+    const float alpha2 = alpha * alpha;
+    const float lower = (NdotH * NdotH * (alpha2 - 1)) + 1;
+    return alpha2 / max(1e-5, pi * lower * lower);
+}
+
+// Schlick-Smith specular G (visibility) with Hable's LdotH optimization
+// http://www.cs.virginia.edu/~jdl/bib/appearance/analytic%20models/schlick94b.pdf
+// http://graphicrants.blogspot.se/2013/08/specular-brdf-reference.html
+float G_Shlick_Smith_Hable(float alpha, float LdotH)
+{
+    return 1.0 / (mix(LdotH * LdotH, 1.0, alpha * alpha * 0.25f) + 0.001);
+}
+
+// A microfacet based BRDF.
+//
+// alpha:           This is roughness * roughness as in the "Disney" PBR model by Burley et al.
+//
+// specularColor:   The F0 reflectance value - 0.04 for non-metals, or RGB for metals. This follows model 
+//                  used by Unreal Engine 4.
+//
+// NdotV, NdotL, LdotH, NdotH: vector relationships between,
+//      N - surface normal
+//      V - eye normal
+//      L - light normal
+//      H - half vector between L & V.
+vec3 SpecularBRDF(in float alpha, in vec3 specularColor, in float NdotV, in float NdotL, in float LdotH, in float NdotH)
+{
+    // Specular D (microfacet normal distribution) component
+    float specular_D = Specular_D_GGX(alpha, NdotH);
+
+    // Specular Fresnel
+    vec3 specular_F = Fresnel_Shlick(specularColor, vec3(1,1,1), LdotH);
+
+    // Specular G (visibility) component
+    float specular_G = G_Shlick_Smith_Hable(alpha, LdotH);
+
+    return specular_D * specular_F * specular_G;
 }
 
 float EvalShadowMap(in LocalLightInstance lightInfo, int lightIndex, in vec3 normal, in vec3 fragPos)
@@ -355,31 +414,49 @@ vec3 EvalDirectionalLight(in vec4 lightCol
                         , in vec3 albedo
                         , float metalness)
 {
-    vec3 N = normal;
-    
+    vec3 N = normal;    
     // Viewer to fragment
-    vec3 V = normalize(uboFrameContext.cameraPosition.xyz - fragPos);
-    
+    vec3 V = normalize(uboFrameContext.cameraPosition.xyz - fragPos);    
     // Vector to light
     vec3 L = normalize(lightDir);
-    
-	// Light to fragment
-    L = normalize(L);
-                    
+    // Half vector
     vec3 H = normalize(L + V);
-    float NdotL = max(0.0, dot(N, L));
     
     vec4 lightColInten = lightCol;
     vec3 lCol = lightColInten.rgb * lightColInten.w;
     
-    vec3 specular = vec3(0.0);
-    metalness = clamp(metalness, 0.04, 0.95f);
-    roughness = clamp(roughness, 0.04, 0.95f);
-    specular += SaschaBRDF(L, V, N, metalness, roughness, lCol, albedo.rgb);
-    
-    vec3 result = vec3(0.0f, 0.0f, 0.0f);
-    result += specular;
+    // vec3 specular = vec3(0.0);
+    metalness = metalness;
+    roughness = roughness;
+    //specular += SaschaBRDF(L, V, N, metalness, roughness, lCol, albedo.rgb);
+    //
+    // vec3 result = vec3(0.0f, 0.0f, 0.0f);
+    //result += specular;
   
+    
+    vec3 baseDiffusePBR = mix(albedo.rgb, vec3(0, 0, 0), metalness);
+
+    // Specular coefficiant - fixed reflectance value for non-metals
+    const float kSpecularCoefficient = 0.04f;
+    vec3 baseSpecular = mix(vec3(kSpecularCoefficient, kSpecularCoefficient, kSpecularCoefficient), baseDiffusePBR, metalness); //* occlusion;
+    
+    float NdotV = clamp(dot(N, V), 0.0, 1.0);
+
+    // Burley roughness bias
+    float alpha = roughness * roughness;
+
+    // products
+    float NdotL = clamp(dot(N, L), 0.0, 1.0);
+    float LdotH = clamp(dot(L, H), 0.0, 1.0);
+    float NdotH = clamp(dot(N, H), 0.0, 1.0);
+
+    // Diffuse & specular factors
+    float diffuseTerm = DiffuseBurley(NdotL, NdotV, LdotH, roughness);
+    vec3 specularTerm = SpecularBRDF(alpha, baseSpecular, NdotV, NdotL, LdotH, NdotH);
+    
+    
+    vec3 finalColor = NdotL * lCol * ((baseDiffusePBR * diffuseTerm) + specularTerm);
+    
     //return vec3(NdotL);
-    return result;
+    return finalColor;
 }

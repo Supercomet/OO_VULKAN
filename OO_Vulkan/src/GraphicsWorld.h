@@ -250,7 +250,7 @@ public:
 
     struct LightingSettings
     {
-        float ambient = 0.002f;
+        float ambient = 0.5f;
         float maxBias = 0.0001f;
         float biasMultiplier = 0.002f;
         float specularModifier = 16.0f;
@@ -259,13 +259,14 @@ public:
 
     struct BloomSettings
     {
-        bool enabled = true;
+        bool enabled = false;
         float threshold = 10.0f;
         float softThreshold = 0.01f;
     }bloomSettings{};
 
     struct ColourCorrectionSettings
     {
+        bool enabled = false;
         float highlightThreshold = 1.0f;
         float shadowThreshold = 0.0f;
         glm::vec4 shadowColour{};
@@ -275,6 +276,7 @@ public:
 
     struct VignetteSettings
     {
+        bool enabled = false;
         vec4 colour;
         float innerRadius;
         float outerRadius;

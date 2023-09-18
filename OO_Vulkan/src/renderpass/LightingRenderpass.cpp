@@ -34,6 +34,7 @@ struct LightingPass : public GfxRenderpass
 
 	void CreatePipeline();
 private:
+	void CreateResources();
 	void CreateDescriptors();
 	void CreatePipelineLayout();
 };
@@ -54,6 +55,8 @@ void LightingPass::Init()
 {
 	
 	CreatePipelineLayout();
+
+	CreateResources();
 }
 
 void LightingPass::CreatePSO()
@@ -92,7 +95,7 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	clearValues[0].color = { 0.1f,0.1f,0.1f,0.0f };
 	clearValues[1].depthStencil.depth = { 1.0f };;
 
-	auto tex = &vr.renderTargets[vr.renderTargetInUseID].texture; // layout undefined
+	auto tex = &vr.attachments.lighting_target; // layout undefined
 	auto depth = &vr.renderTargets[vr.renderTargetInUseID].depth; // layout undefined
 
 	vkutils::ComputeImageBarrier(cmdlist, *depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -117,14 +120,16 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 
 	cmd.DescriptorSetBegin(0)
 		.BindSampler(0, GfxSamplerManager::GetDefaultSampler())
-		.BindImage(1, &attachments[GBufferAttachmentIndex::DEPTH], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) 
+		.BindImage(1, &attachments[GBufferAttachmentIndex::DEPTH], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(2, &attachments[GBufferAttachmentIndex::NORMAL], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(3, &attachments[GBufferAttachmentIndex::ALBEDO], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(4, &attachments[GBufferAttachmentIndex::MATERIAL], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(5, &attachments[GBufferAttachmentIndex::EMISSIVE], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(6, &vr.attachments.shadow_depth, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(7, &vr.attachments.SSAO_finalTarget, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
-		.BindBuffer(8, &vr.globalLightBuffer[vr.getFrame()].GetDescriptorBufferInfo(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		.BindBuffer(8, &vr.globalLightBuffer[vr.getFrame()].GetDescriptorBufferInfo(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+		.BindSampler(9, GfxSamplerManager::GetSampler_Cube()) // cube sampler
+		.BindImage(10, &vr.g_cubeMap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS); // cube map
 	
 	cmd.SetDefaultViewportAndScissor();
 
@@ -133,15 +138,15 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	cmd.DescriptorSetBegin(2)
 		.BindBuffer(4, &vr.globalLightBuffer[currFrame].GetDescriptorBufferInfo(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
-	CreateDescriptors();
+	//CreateDescriptors();
 
 	LightPC pc{};
 	pc.useSSAO = vr.useSSAO ? 1 : 0;
 	pc.specularModifier = vr.currWorld->lightSettings.specularModifier;
 	glm::vec3 normalizedDir = glm::normalize(vr.currWorld->lightSettings.direction);
 	pc.directionalLight = vec4{ normalizedDir, 0.0f };
-	pc.resolution.x = (float)vr.renderTargets[vr.renderTargetInUseID].texture.width;
-	pc.resolution.y = (float)vr.renderTargets[vr.renderTargetInUseID].texture.height;
+	pc.resolution.x = (float)tex->width;
+	pc.resolution.y = (float)tex->height;
 
 	size_t lightCnt = 0;
 	auto& lights = vr.batches.GetLocalLights();
@@ -197,11 +202,30 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 void LightingPass::Shutdown()
 {
 	auto& device = VulkanRenderer::get()->m_device.logicalDevice;
+	auto& vr = *VulkanRenderer::get();
+
+	vr.attachments.lighting_target.destroy();
 
 	vkDestroyPipelineLayout(device, PSOLayoutDB::lightingPSOLayout, nullptr);
 	vkDestroyPipeline(device, pso_DeferredLightingComposition, nullptr);
 	
 	vkDestroyPipeline(device, pso_deferredBox, nullptr);
+
+}
+
+void LightingPass::CreateResources()
+{
+
+	auto& vr = *VulkanRenderer::get();
+	auto swapchainext = vr.m_swapchain.swapChainExtent;
+	vr.attachments.lighting_target.name = "lighting_buffer";
+	vr.attachments.lighting_target.forFrameBuffer(&vr.m_device, vr.G_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, true, 1.0f);
+	vr.fbCache.RegisterFramebuffer(vr.attachments.lighting_target);
+
+	auto cmd = vr.GetCommandBuffer();
+	vkutils::SetImageInitialState(cmd, vr.attachments.lighting_target);
+	vr.SubmitSingleCommandAndWait(cmd);
 
 }
 
@@ -296,6 +320,8 @@ void LightingPass::CreatePipelineLayout()
 		.BindImage(6, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS)
 		.BindImage(7, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS)
 		.BindBuffer(8, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.BindImage(9, &dummy, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS) // cube sampler
+		.BindImage(10, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS) // cube map
 		.BuildLayout(SetLayoutDB::Lighting);
 
 

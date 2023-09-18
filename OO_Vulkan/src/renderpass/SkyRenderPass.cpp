@@ -98,7 +98,7 @@ void SkyRenderPass::Draw(const VkCommandBuffer cmdlist)
 	auto& attachments = vr.attachments.gbuffer;
 
 	constexpr bool clearOnDraw = true;
-	cmd.BindAttachment(0, &vr.renderTargets[vr.renderTargetInUseID].texture);
+	cmd.BindAttachment(0, &vr.attachments.lighting_target);
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 	
 	cmd.BindPSO(pso_skyPass, PSOLayoutDB::skypassPSOLayout);

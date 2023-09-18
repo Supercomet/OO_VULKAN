@@ -5,7 +5,8 @@
 #include "shared_structs.h"
 
 layout (local_size_x = 16, local_size_y = 16) in;
-layout (binding = 1/*,rgba16f*/)  uniform sampler2D inputImage;
+layout (binding = 0/*,rgba16f*/)  uniform sampler basicSampler;
+layout (binding = 1/*,rgba16f*/)  uniform texture2D inputImage;
 layout (binding = 2,r11f_g11f_b10f) uniform  image2D resultImage;
 
 layout(push_constant)uniform PushColourCorrect
@@ -37,7 +38,10 @@ void main()
 
     // Note: Load operations from any texel that is outside of the boundaries of the bound image will return all zeros.
 	// vec4 inImg = imageLoad(inputImage, ivec2(gl_GlobalInvocationID.xy) );
-	vec4 res = imageLoad(resultImage, ivec2(gl_GlobalInvocationID.xy) );
+	
+    vec2 uvs = (vec2(gl_GlobalInvocationID.xy) + 0.5) / textureSize(sampler2D( inputImage, basicSampler),
+    0);
+    vec4 res = texture( sampler2D( inputImage, basicSampler), uvs);
 
 	
 
@@ -52,15 +56,16 @@ void main()
     vec3 correctedColor = res.rgb;
     correctedColor = mix(correctedColor, pc.shadowCol.rgb, (1.0-shadow) * pc.shadowCol.a);
     correctedColor = mix(correctedColor, pc.midCol.rgb, midtones * pc.midCol.a);
+	
     correctedColor = mix(correctedColor, pc.highCol.rgb, highlight * pc.highCol.a);
 
 	vec3 result = aces_tonemap(correctedColor.rgb);
-
+	
 	// also gamma correct before returning    
 	const float gamma = 2.2;
-    result = pow(result, vec3(gamma));	
+    result = pow(res.rgb, vec3(gamma));
 
     //Note: Store operations to any texel that is outside the boundaries of the bound image will do nothing.
-	imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(result,1.0));
+    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(res.rgb, 1.0));
 }
 

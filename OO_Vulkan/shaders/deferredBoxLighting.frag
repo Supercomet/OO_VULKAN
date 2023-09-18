@@ -55,7 +55,7 @@ void main()
 
 	vec4 material = texture(sampler2D(samplerMaterial,basicSampler), inUV);
 	float SSAO = texture(sampler2D(samplerSSAO,basicSampler), inUV).r;
-	float roughness = 1.0 - clamp(material.r,0.005,1.0);
+	float roughness = clamp(material.r,0.005,1.0);
 	float metalness = clamp(material.g,0.005,1.0);
 
 

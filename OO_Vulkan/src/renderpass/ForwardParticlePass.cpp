@@ -92,7 +92,7 @@ void ForwardParticlePass::Draw(const VkCommandBuffer cmdlist)
 	auto& swapchain = vr.m_swapchain;
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
-	auto& renderTarget = vr.renderTargets[vr.renderTargetInUseID];
+	auto& renderTarget = vr.renderTargets[vr.renderTargetInUseID].texture;
 
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("ForwardParticles");
@@ -116,10 +116,10 @@ void ForwardParticlePass::Draw(const VkCommandBuffer cmdlist)
 
 	assert(.texture.currentLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, renderTarget.texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	vkutils::TransitionImage(cmdlist, renderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 	rhi::CommandList cmd{ cmdlist, "Forward Particles Pass"};
-	cmd.BindAttachment(0, &renderTarget.texture);
+	cmd.BindAttachment(0, &renderTarget);
 	cmd.BindAttachment(1, &attachments[GBufferAttachmentIndex::ENTITY_ID]);
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 
@@ -159,7 +159,7 @@ void ForwardParticlePass::Draw(const VkCommandBuffer cmdlist)
 
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], attachments[GBufferAttachmentIndex::ENTITY_ID].referenceLayout);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], attachments[GBufferAttachmentIndex::DEPTH].referenceLayout);
-	vkutils::TransitionImage(cmdlist, renderTarget.texture, renderTarget.texture.referenceLayout);
+	vkutils::TransitionImage(cmdlist, renderTarget, renderTarget.referenceLayout);
 }
 
 void ForwardParticlePass::Shutdown()
@@ -355,7 +355,7 @@ void ForwardParticlePass::CreatePipeline()
 	colorBlendState.pAttachments = blendAttachmentStates.data();
 
 	std::array<VkFormat, 2> formats{
-		vr.G_HDR_FORMAT,
+		vr.G_NON_HDR_FORMAT,
 		VK_FORMAT_R32_SINT
 	};
 	VkPipelineRenderingCreateInfo renderingInfo{};
