@@ -1,4 +1,5 @@
 #include "shader_utility.shader"
+#include "shared_structs.h"
 
 float approx_tan(vec3 V, vec3 N)
 {
@@ -76,12 +77,12 @@ float D_GGX(vec3 N, vec3 H , float alpha)
 {
     //float alphaG = sqrt(2.0/ (alpha+2));
     float alphaG = alpha;
-    float aGaG = pow(alphaG,2);
+    float a2 = pow(alphaG,2);
     //float invAG = pow(alphaG-1.0,2);
     float NdotH = dot(N,H);
     float NdotH_sqr = NdotH * NdotH;
 
-    float internalCacl = NdotH_sqr * (aGaG - 1.0) + 1.0;
+    float internalCacl = NdotH_sqr * (a2 - 1.0) + 1.0;
 
     //if (internalCacl == -1.0)
     //{
@@ -89,7 +90,7 @@ float D_GGX(vec3 N, vec3 H , float alpha)
     //}
 
     float denom = (pi * pow( internalCacl + 1.0 , 2));
-    float result = aGaG / (denom+0.0001);
+    float result = a2 / (denom+0.0001);
     
     return result;
 }
@@ -211,87 +212,174 @@ float UnrealFalloff(float dist, float radius)
     return num / denom;
 }
 
-vec3 EvalLight(int lightIndex, in vec3 fragPos, in vec3 normal, float roughness, in vec3 albedo, float specular)
+float Sascha_D_GGX(float dotNH, float roughness)
 {
-    vec3 result = vec3(0.0f, 0.0f, 0.0f);
-    vec3 N = normalize(normal);
-    float alpha = roughness;
-    vec3 Kd = albedo;
-    vec3 Ks = vec3(specular);
-	//Ks = vec3(0);
+    float alpha = roughness * roughness;
+    float alpha2 = alpha * alpha;
+    float denom = dotNH * dotNH * (alpha2 - 1.0) + 1.0;
+    return (alpha2) / (pi * denom * denom);
+}
+
+float G_SchlicksmithGGX(float dotNL, float dotNV, float roughness)
+{
+    float r = (roughness + 1.0);
+    float k = (r * r) / 8.0;
+    float GL = dotNL / (dotNL * (1.0 - k) + k);
+    float GV = dotNV / (dotNV * (1.0 - k) + k);
+    return GL * GV;
+}
+
+vec3 F_Schlick(float cosTheta, float metallic, vec3 albedo)
+{
+    vec3 F0 = mix(vec3(0.04), albedo, metallic); // * material.specular
+    vec3 F = F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+    return F;
+}
+
+vec3 SaschaBRDF(vec3 L, vec3 V, vec3 N, float metallic, float roughness, vec3 lightColor, vec3 albedo)
+{
+    // Precalculate vectors and dot products	
+    vec3 H = normalize(V + L);
+    float dotNV = clamp(dot(N, V), 0.0, 1.0);
+    float dotNL = clamp(dot(N, L), 0.0, 1.0);
+    float dotLH = clamp(dot(L, H), 0.0, 1.0);
+    float dotNH = clamp(dot(N, H), 0.0, 1.0);
+
+	// Light color fixed
+
+    vec3 color = vec3(0.0);
+
+    if (dotNL > 0.0)
+    {
+        float rroughness = max(0.05, roughness);
+		// D = Normal distribution (Distribution of the microfacets)
+        float D = Sascha_D_GGX(dotNH, rroughness);
+		// G = Geometric shadowing term (Microfacets shadowing)
+        float G = G_SchlicksmithGGX(dotNL, dotNV, rroughness);
+		// F = Fresnel factor (Reflectance depending on angle of incidence)
+        vec3 F = F_Schlick(dotNV, metallic, albedo);
+
+        vec3 spec = D * F * G / (4.0 * dotNL * dotNV + 0.001);
+
+        color += spec * dotNL * lightColor;
+    }
+
+    return color;
+}
+
+float EvalShadowMap(in LocalLightInstance lightInfo, int lightIndex, in vec3 normal, in vec3 fragPos)
+{
+    vec3 N = normal;
+    vec3 L = normalize(lightInfo.position.xyz - fragPos);
+    float NdotL = max(0.0, dot(N, L));
+    float shadow = 1.0;
+    if (lightInfo.info.x > 0)
+    {
+        if (lightInfo.info.x == 1)
+        {
+            int gridID = lightInfo.info.y;
+            for (int i = 0; i < 6; ++i)
+            {
+                vec4 outFragmentLightPos = lightInfo.projection * lightInfo.view[i] * vec4(fragPos, 1.0);
+                shadow *= ShadowCalculation(lightIndex, gridID + i, outFragmentLightPos, NdotL);
+            }
+        }
+    }
+    return shadow;
+}
+
+vec3 EvalLight(in LocalLightInstance lightInfo, in vec3 fragPos, in vec3 normal, float roughness, in vec3 albedo, float metalness)
+{
+    vec3 N = normal;    
     
-	// Vector to light
-    vec3 L = Lights_SSBO[lightIndex].position.xyz - fragPos;
+    // Viewer to fragment
+    vec3 V = normalize(uboFrameContext.cameraPosition.xyz - fragPos);
+    
+    // Vector to light
+    vec3 L = lightInfo.position.xyz - fragPos;
 
 	// Distance from light to fragment position
     float dist = length(L);
 	
-	// Viewer to fragment
-    vec3 V = uboFrameContext.cameraPosition.xyz - fragPos;
-	
 	// Light to fragment
     L = normalize(L);
-    V = normalize(V);
+                    
     vec3 H = normalize(L + V);
     float NdotL = max(0.0, dot(N, L));
-
-	//if(dist < Lights_SSBO[lightIndex].radius.x)
-	{
-		//SpotLightInstance light = SpotLightInstance(Omni_LightSSBO[lightIndex]); 
-	    
-        float r1 = Lights_SSBO[lightIndex].radius.x;
-        float r2 = Lights_SSBO[lightIndex].radius.x * 0.9;
-        vec4 lightColInten = Lights_SSBO[lightIndex].color;
-
+    
+    vec4 lightColInten = lightInfo.color;
+    vec3 lCol = lightColInten.rgb * lightColInten.w;
+    
+    vec3 specular = vec3(0.0);
+    metalness = clamp(metalness, 0.04, 0.95f);
+    roughness = clamp(roughness, 0.04, 0.95f);
+    specular += SaschaBRDF(L, V, N, metalness, roughness, lCol, albedo.rgb);
+    
+    float r1 = lightInfo.radius.x;
+    float atten = UnrealFalloff(dist, lightInfo.radius.x);
+    atten = 1.0;
+    vec3 result = vec3(0.0f, 0.0f, 0.0f);
+    result += specular * atten;
+   
+    if(false)
+	{        
 		//distribute the light across the area
-        float LItensity = lightColInten.w / (4 * pi);
-        vec3 lCol = lightColInten.rgb * lightColInten.w;
-
-        float radii = pow(1.0 - pow(dist / r1, 4), 2);
-        float Evalue = (LItensity / max(dist * dist, 0.01 * 0.01)) * radii;
-
        
-    		// Attenuation
-        float atten = AttenuationFactor(r1, dist);
-			//if(atten<0.001) discard;
-       
-        atten = getSquareFalloffAttenuation(L, 1.0 / Lights_SSBO[lightIndex].radius.x);
-        atten = UnrealFalloff(dist, Lights_SSBO[lightIndex].radius.x);
+    	// Attenuation
+        atten = getSquareFalloffAttenuation(L, 1.0 / lightInfo.radius.x);
         
-		// Diffuse part
+		// Specular part
+        float alpha = roughness;
+        vec3 Kd = albedo;
+        vec3 Ks = vec3(metalness);
         vec3 diff = GGXBRDF(L, V, H, N, alpha, Kd, Ks) * NdotL * atten * lCol;
 
-		// Specular part
-		// Specular map values are stored in alpha of albedo mrt
         vec3 R = -reflect(L, N);
         float RdotV = max(0.0, dot(R, V));
-        vec3 spec = lCol * specular
+        vec3 spec = lCol * metalness
 		* pow(RdotV, max(PC.specularModifier, 1.0))
 		* atten;
-		//vec3 spec = lCol  * pow(RdotV, 16.0) * atten;
-	
-		//result = diff;// + spec;	
+        
         result = diff + spec;
     }
-
-	// calculate shadow if this is a shadow light
-    float shadow = 1.0;
-    if (Lights_SSBO[lightIndex].info.x > 0)
-    {
-        if (Lights_SSBO[lightIndex].info.x == 1)
-        {
-            int gridID = Lights_SSBO[lightIndex].info.y;
-            for (int i = 0; i < 6; ++i)
-            {
-                vec4 outFragmentLightPos = Lights_SSBO[lightIndex].projection * Lights_SSBO[lightIndex].view[i] * vec4(fragPos, 1.0);
-                shadow *= ShadowCalculation(lightIndex, gridID + i, outFragmentLightPos, NdotL);
-            }
-        }
-        result *= shadow;
-    }
     
-   
-
+    return vec3(NdotL);
     return result;
-//	return fragPos;
+}
+
+vec3 EvalDirectionalLight(in vec4 lightCol
+                        , in vec3 lightDir
+                        , in vec3 fragPos
+                        , in vec3 normal
+                        , float roughness
+                        , in vec3 albedo
+                        , float metalness)
+{
+    vec3 N = normal;
+    
+    // Viewer to fragment
+    vec3 V = normalize(uboFrameContext.cameraPosition.xyz - fragPos);
+    
+    // Vector to light
+    vec3 L = normalize(lightDir);
+    
+	// Light to fragment
+    L = normalize(L);
+                    
+    vec3 H = normalize(L + V);
+    float NdotL = max(0.0, dot(N, L));
+    
+    vec4 lightColInten = lightCol;
+    vec3 lCol = lightColInten.rgb * lightColInten.w;
+    
+    vec3 specular = vec3(0.0);
+    metalness = clamp(metalness, 0.04, 0.95f);
+    roughness = clamp(roughness, 0.04, 0.95f);
+    specular += SaschaBRDF(L, V, N, metalness, roughness, lCol, albedo.rgb);
+    
+    vec3 result = vec3(0.0f, 0.0f, 0.0f);
+    result += specular;
+  
+    //return vec3(NdotL);
+    return result;
 }
