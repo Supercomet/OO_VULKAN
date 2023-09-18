@@ -98,7 +98,7 @@ void SkyRenderPass::Draw(const VkCommandBuffer cmdlist)
 	auto& attachments = vr.attachments.gbuffer;
 
 	constexpr bool clearOnDraw = true;
-	cmd.BindAttachment(0, &attachments[GBufferAttachmentIndex::ALBEDO]);
+	cmd.BindAttachment(0, &vr.renderTargets[vr.renderTargetInUseID].texture);
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 	
 	cmd.BindPSO(pso_skyPass, PSOLayoutDB::skypassPSOLayout);
@@ -216,7 +216,7 @@ void SkyRenderPass::CreatePipeline()
 	renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 	renderingInfo.viewMask = {};
 	renderingInfo.colorAttachmentCount = 1;
-	renderingInfo.pColorAttachmentFormats = &vr.attachments.gbuffer[GBufferAttachmentIndex::ALBEDO].format;
+	renderingInfo.pColorAttachmentFormats = &vr.G_HDR_FORMAT;
 	renderingInfo.depthAttachmentFormat = vr.G_DEPTH_FORMAT;
 	renderingInfo.stencilAttachmentFormat =  vr.G_DEPTH_FORMAT;
 	

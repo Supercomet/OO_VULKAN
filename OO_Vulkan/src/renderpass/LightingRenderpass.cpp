@@ -138,6 +138,8 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	LightPC pc{};
 	pc.useSSAO = vr.useSSAO ? 1 : 0;
 	pc.specularModifier = vr.currWorld->lightSettings.specularModifier;
+	glm::vec3 normalizedDir = glm::normalize(vr.currWorld->lightSettings.direction);
+	pc.directionalLight = vec4{ normalizedDir, 0.0f };
 	pc.resolution.x = (float)vr.renderTargets[vr.renderTargetInUseID].texture.width;
 	pc.resolution.y = (float)vr.renderTargets[vr.renderTargetInUseID].texture.height;
 
@@ -188,7 +190,7 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	cmd.BindVertexBuffer(BIND_POINT_WEIGHTS_BUFFER_ID, 1, vr.skinningVertexBuffer.getBufferPtr());
 	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer[currFrame].getBufferPtr());
 
-	cmd.DrawIndexed(cube.indicesCount, (uint32_t)lightCnt, cube.baseIndices, cube.baseVertex, 0);
+	// cmd.DrawIndexed(cube.indicesCount, (uint32_t)lightCnt, cube.baseIndices, cube.baseVertex, 0);
 
 }
 
@@ -370,6 +372,16 @@ void LightingPass::CreatePipeline()
 	renderingInfo.pColorAttachmentFormats = &colorFormat;
 	renderingInfo.depthAttachmentFormat = vr.G_DEPTH_FORMAT;
 	renderingInfo.stencilAttachmentFormat = vr.G_DEPTH_FORMAT;
+
+	depthStencilState.depthTestEnable = VK_FALSE;
+	depthStencilState.stencilTestEnable = VK_TRUE;
+	depthStencilState.front.compareOp = VK_COMPARE_OP_EQUAL;
+	depthStencilState.front.passOp = VK_STENCIL_OP_REPLACE;
+	depthStencilState.front.failOp = VK_STENCIL_OP_KEEP;
+	depthStencilState.front.reference = 1;
+	depthStencilState.front.compareMask = 0xff;
+	depthStencilState.front.writeMask = 0x00;
+	depthStencilState.back = depthStencilState.front;
 
 	pipelineCI.pNext = &renderingInfo;
 	if (pso_DeferredLightingComposition != VK_NULL_HANDLE)

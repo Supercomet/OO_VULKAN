@@ -497,7 +497,7 @@ void TestApplication::Run()
             ed.position = { gridSize*i - halfGrid,gridSize*y - halfGrid+3.5f,-5.0f };
             ed.scale = { 1.0f,1.0f,1.0f };
 
-            ed.bindlessGlobalTextureIndex_Albedo    = gs_WhiteTexture;
+            ed.bindlessGlobalTextureIndex_Albedo    = gs_PinkTexture;
             ed.bindlessGlobalTextureIndex_Metallic  = metalic[y];
             ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
         }

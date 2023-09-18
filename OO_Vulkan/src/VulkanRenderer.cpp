@@ -2322,22 +2322,24 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_GBufferRenderPass->Draw(cmd);
 		}	
-
-		if(g_cubeMap.image.image != VK_NULL_HANDLE)
-		{
-			const VkCommandBuffer cmd = GetCommandBuffer();
-			g_SkyRenderPass->Draw(cmd);
-		}
 		
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			VK_NAME(m_device.logicalDevice, "SSAO_CMD", cmd);
 			g_SSAORenderPass->Draw(cmd);
 		}
+
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_LightingPass->Draw(cmd);
 		}
+
+		if(g_cubeMap.image.image != VK_NULL_HANDLE)
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_SkyRenderPass->Draw(cmd);
+		}
+
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_ForwardParticlePass->Draw(cmd);
