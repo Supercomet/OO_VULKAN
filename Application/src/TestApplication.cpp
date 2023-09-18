@@ -66,6 +66,7 @@ static BindlessTextureIndex gs_WhiteTexture  = INVALID_BINDLESS_TEXTURE_INDEX;
 static BindlessTextureIndex gs_BlackTexture  = INVALID_BINDLESS_TEXTURE_INDEX;
 static BindlessTextureIndex gs_NormalTexture = INVALID_BINDLESS_TEXTURE_INDEX;
 static BindlessTextureIndex gs_PinkTexture   = INVALID_BINDLESS_TEXTURE_INDEX;
+static BindlessTextureIndex gs_RedTexture= INVALID_BINDLESS_TEXTURE_INDEX;
 
 static uint32_t globalDionaID{ 0 };
 
@@ -325,6 +326,9 @@ void TestApplication::Run()
     gs_NormalTexture = gs_RenderEngine->normalTextureID;
     gs_PinkTexture = gs_RenderEngine->pinkTextureID;
 
+    uint32_t colRed = 0xFF0000FF;
+    gs_RedTexture = gs_RenderEngine->CreateTexture(1, 1, (unsigned char*) & colRed);
+
     const BindlessTextureIndex diffuseTexture0 = gs_RenderEngine->CreateTexture("Textures/7/d.png");
     const BindlessTextureIndex diffuseTexture1 = gs_RenderEngine->CreateTexture("Textures/8/d.png");
     const BindlessTextureIndex diffuseTexture2 = gs_RenderEngine->CreateTexture("Textures/13/d.png");
@@ -344,17 +348,18 @@ void TestApplication::Run()
 
     const BindlessTextureIndex cubeTexture = gs_RenderEngine->CreateCubeMapTexture("Textures/viking");
     
-    std::array<BindlessTextureIndex,6> roughness{};
-    std::array<BindlessTextureIndex,6> metalic{};
+    std::array<BindlessTextureIndex,10> roughness{};
+    std::array<BindlessTextureIndex,10> metalic{};
     for (size_t i = 0; i < roughness.size(); i++)
     {
-        unsigned char col;
-        col = 0xFF/5;
-        col = (unsigned char)(col * i);
-        col = col << 24 | col << 16 | col << 8 | col;
+        float val = 1.0f / (roughness.size()-1);
+        uint32_t byteVal = val*i * 0xFF;
+        uint32_t colVal = byteVal << 24 | byteVal << 16 | byteVal << 8 | byteVal;
 
-        roughness[i] = gs_RenderEngine->CreateTexture(1, 1, &col);
-        metalic[i] = gs_RenderEngine->CreateTexture(1, 1, &col);
+        printf("Generating %llu/%llu [%x]\n", i, roughness.size(), colVal);
+
+        roughness[i] = gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&colVal);
+        metalic[i] = gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&colVal);
     }
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Models
@@ -463,48 +468,42 @@ void TestApplication::Run()
         ed.bindlessGlobalTextureIndex_Emissive= r0;
     }
 
-    bool lolthisistext = true;
-    uint32_t uiID = gs_GraphicsWorld.CreateUIInstance();
-    {        
-        auto& ent = gs_GraphicsWorld.GetUIInstance(uiID);
-        ent.entityID = 9999999;
-        ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;
-        ent.localToWorld = glm::mat4(1.0f);
-        ent.textData = "123 Come\nmake game";
-        ent.colour = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f);
-        //ent.fontAsset = testFont.get();
-        ent.format.box.max = { 20.0f,20.0f };
-        ent.format.box.min = { -20.0f,-20.0f };
-        ent.SetText(lolthisistext);
-        ent.flags = UIInstanceFlags(static_cast<uint32_t>(ent.flags)& ~static_cast<uint32_t>(UIInstanceFlags::RENDER_ENABLED));
-    }
+    uint32_t uiID = CreateTextHelper(glm::mat4(1.0f), std::string("123 Test\nNew Line"), testFont.get());
 
-    const float gridSize = 1.3f;
-    const float halfGrid = roughness.size() * gridSize /2.0f;
-    for (size_t i = 0; i < roughness.size(); i++)
-    {
-        for (size_t y = 0; y < metalic.size(); y++)
-        {
-            auto& ed = entities.emplace_back(EntityInfo{});
-            std::stringstream ss;
-            ss << "Sphere_M[" << y << "]R[" << i << "]";
-            ed.name = std::string("Sphere_M") + std::to_string(i * metalic.size() + y);
-            ed.name = ss.str();
-            ed.entityID = FastRandomMagic();
-            ed.modelID = model_sphere->meshResource;
-            //ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
-            
-            ed.position = { gridSize*i - halfGrid,gridSize*y - halfGrid+3.5f,-5.0f };
-            ed.scale = { 1.0f,1.0f,1.0f };
+	const float gridSize = 1.3f;
+	const float halfGrid = roughness.size() * gridSize / 2.0f;
+	for (size_t i = 0; i < roughness.size(); i++)
+	{
+        
+		for (size_t y = 0; y < metalic.size(); y++)
+		{
+			auto& ed = entities.emplace_back(EntityInfo{});
+			std::stringstream ss;
+			ss << "Sphere_M[" << y << "]R[" << i << "]";
+			ed.name = std::string("Sphere_M") + std::to_string(i * metalic.size() + y);
+			ed.name = ss.str();
+			ed.entityID = FastRandomMagic();
+			ed.modelID = model_sphere->meshResource;
+			//ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
 
-            ed.bindlessGlobalTextureIndex_Albedo    = gs_PinkTexture;
-            ed.bindlessGlobalTextureIndex_Metallic  = metalic[y];
-            ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
-        }
-    }
-    
+			ed.position = { gridSize * i - halfGrid,gridSize * y - halfGrid + 3.5f,-5.0f };
+			ed.scale = { 1.0f,1.0f,1.0f };
 
-    if (gs_test_scene)
+			ed.bindlessGlobalTextureIndex_Albedo = gs_RedTexture;
+			ed.bindlessGlobalTextureIndex_Metallic = metalic[y];
+			ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
+
+            std::stringstream name;
+            name << "Roughness " << std::setprecision(2) << ((float)i / (roughness.size()-1))
+                << "\nMetallic " << std::setprecision(2) << ((float)y / (roughness.size()-1));
+            auto strpos = glm::vec3{ gridSize * i - halfGrid, gridSize * y - halfGrid + 3.5f - 0.6f, -5.0f };
+            CreateTextHelper(glm::translate(strpos), name.str(), testFont.get());
+
+		}
+	}
+
+
+	if (gs_test_scene)
     {
         //auto& ed = entities.emplace_back(EntityInfo{});
         //ed.name = "TestSceneObject";
@@ -827,17 +826,12 @@ void TestApplication::Run()
                 {
                     ImGui::PushID("uiID");
                     auto& ent = gs_GraphicsWorld.GetUIInstance(uiID);
-                    ent.localToWorld = glm::mat4(1.0f);
+                    bool lolthisistext = ent.isText();
                     if (ImGui::Checkbox("isText", &lolthisistext))
                     {
                         ent.SetText(lolthisistext);
-                    }
-
-                    //ImGui::DragFloat3("Position", glm::value_ptr(ent.position));
-                    //ImGui::DragFloat3("Scale", glm::value_ptr(ent.scale));
-                    ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;              
+                    }        
                     ImGui::InputText("Text", &ent.textData);
-                    ent.textData = "123 Come\nmake game";
                     float fontsize = ent.format.fontSize;
                     if (ImGui::DragFloat("FontSize", &fontsize))
                     {
@@ -988,6 +982,28 @@ void TestApplication::Run()
 
     if (gs_RenderEngine)
         delete gs_RenderEngine;
+}
+
+int32_t TestApplication::CreateTextHelper(glm::mat4 xform, std::string str, oGFX::Font* testFont)
+{
+    int32_t uiID = gs_GraphicsWorld.CreateUIInstance();
+    {
+        auto& ent = gs_GraphicsWorld.GetUIInstance(uiID);
+        ent.entityID = 9999999;
+        ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;
+        ent.localToWorld = xform* glm::rotate(glm::radians<float>(180.0f), glm::vec3(0, 1, 0)) ;
+        ent.textData = std::move(str);
+        ent.colour = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f);
+        //ent.fontAsset = testFont.get();
+        ent.format.box.max = { 1.0f,1.0f };
+        ent.format.box.min = { -1.0f,-1.0f };
+        ent.format.fontSize = 0.1f;
+        ent.format.alignment = oGFX::FontAlignment::Centre;
+        ent.SetText(true);
+        ent.flags = UIInstanceFlags(static_cast<uint32_t>(ent.flags) & ~static_cast<uint32_t>(UIInstanceFlags::RENDER_ENABLED));
+        ent.flags = UIInstanceFlags(static_cast<uint32_t>(ent.flags) | static_cast<uint32_t>(UIInstanceFlags::RENDER_ENABLED));
+    }
+    return uiID;
 }
 
 void TestApplication::InitDefaultTextures()
