@@ -171,6 +171,9 @@ VulkanRenderer::~VulkanRenderer()
 	if (g_prefilterMap.image.image != VK_NULL_HANDLE) {
 		g_prefilterMap.destroy();
 	}
+	if (g_brdfLUT.image.image != VK_NULL_HANDLE) {
+		g_brdfLUT.destroy();
+	}
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
@@ -256,9 +259,11 @@ VulkanRenderer::~VulkanRenderer()
 	vkDestroyPipeline(m_device.logicalDevice, pso_utilAMDSPD, nullptr);
 	vkDestroyPipeline(m_device.logicalDevice, pso_radiance, nullptr);
 	vkDestroyPipeline(m_device.logicalDevice, pso_prefilter, nullptr);
+	vkDestroyPipeline(m_device.logicalDevice, pso_brdfLUT, nullptr);
 	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::AMDSPDPSOLayout, nullptr);
 	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::RadiancePSOLayout, nullptr);
 	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::prefilterPSOLayout, nullptr);
+	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::BRDFLUTPSOLayout, nullptr);
 
 	renderPass_default.destroy();
 	renderPass_default_noDepth.destroy();
@@ -927,6 +932,17 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::compute_prefilter;
 	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::prefilterPSOLayout));
 	VK_NAME(m_device.logicalDevice, "prefilterPSOLayout", PSOLayoutDB::prefilterPSOLayout);
+
+
+	DescriptorBuilder::Begin()
+		.BindImage(2, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BuildLayout(SetLayoutDB::compute_brdfLUT);
+
+	// create compute here
+	pipelineLayoutCreateInfo.setLayoutCount = 1;
+	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::compute_brdfLUT;
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::BRDFLUTPSOLayout));
+	VK_NAME(m_device.logicalDevice, "BRDFLUTPSOLayout", PSOLayoutDB::BRDFLUTPSOLayout);
 }
 
 void VulkanRenderer::CreateDefaultPSO()
@@ -1024,6 +1040,18 @@ void VulkanRenderer::CreateDefaultPSO()
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_prefilter));
 	VK_NAME(m_device.logicalDevice, "pso_prefilter", pso_prefilter);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
+
+	if (pso_brdfLUT != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_brdfLUT, nullptr);
+	}
+	const char* lutShader = "Shaders/bin/brdfLUT.comp.spv";
+	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::BRDFLUTPSOLayout);
+	computeCI.stage = LoadShader(m_device, lutShader, VK_SHADER_STAGE_COMPUTE_BIT);
+	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_brdfLUT));
+	VK_NAME(m_device.logicalDevice, "pso_brdfLUT", pso_brdfLUT);
+	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
+	
 	
 }
 
@@ -2811,7 +2839,7 @@ void VulkanRenderer::GeneratePrefilterMap(VkCommandBuffer cmdlist, vkutils::Cube
 	g_prefilterMap.CreateImageView();
 	vkutils::ComputeImageBarrier(cmdlist, g_prefilterMap, VK_IMAGE_LAYOUT_UNDEFINED, g_prefilterMap.referenceLayout);
 
-	rhi::CommandList cmd{ cmdlist, "PrefilterGeneration",glm::vec4{1.0,0.0,0.0,1.0} };
+	rhi::CommandList cmd{ cmdlist, "PrefilterGeneration"};
 	// use source to create radiance map for 6 faces using compute
 	cmd.BindPSO(pso_prefilter, PSOLayoutDB::prefilterPSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 	//cmd.DescriptorSetBegin(0)
@@ -2847,6 +2875,24 @@ void VulkanRenderer::GeneratePrefilterMap(VkCommandBuffer cmdlist, vkutils::Cube
 	}
 	
 
+
+
+}
+
+void VulkanRenderer::GenerateBRDFLUT(VkCommandBuffer cmdlist, vkutils::Texture2D& texture)
+{
+	if (g_brdfLUT.image.image != VK_NULL_HANDLE) return; // already generated
+	g_brdfLUT.PrepareEmpty(VK_FORMAT_R16G16_SFLOAT, 512, 512, &m_device);
+	g_brdfLUT.name = "BRDF_LUT";
+	g_brdfLUT.AllocateImageMemory(&m_device,g_brdfLUT.usage);
+	g_brdfLUT.CreateImageView();
+	vkutils::SetImageInitialState(cmdlist, g_brdfLUT);
+
+	rhi::CommandList cmd{ cmdlist, "BRDF LUT gen",glm::vec4{1.0,0.0,0.0,1.0} };	
+	cmd.BindPSO(pso_brdfLUT, PSOLayoutDB::BRDFLUTPSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.DescriptorSetBegin(0)
+		.BindImage(2, &g_brdfLUT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+	cmd.Dispatch(g_brdfLUT.width / 16 + 1, g_brdfLUT.height / 16 + 1);
 
 
 }
@@ -4142,6 +4188,7 @@ uint32_t VulkanRenderer::CreateCubeMapTexture(const std::string& folderName)
 		VkCommandBuffer cmdlist = GetCommandBuffer();
 		GenerateRadianceMap(cmdlist, g_cubeMap);
 		GeneratePrefilterMap(cmdlist, g_cubeMap);
+		GenerateBRDFLUT(cmdlist, g_brdfLUT);
 		SubmitSingleCommandAndWait(cmdlist);
 
 		GenerateMipmaps(g_radianceMap);

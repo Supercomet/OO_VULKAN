@@ -514,6 +514,19 @@ namespace vkutils
 		updateDescriptor();
 	}
 
+	void Texture2D::PrepareEmpty(VkFormat _format, uint32_t texWidth, uint32_t texHeight, VulkanDevice* device, VkImageLayout _imageLayout, VkFilter filter, VkImageUsageFlags imageUsageFlags)
+	{
+
+		this->device = device;
+		width = texWidth;
+		height = texHeight;
+		format = _format;
+		usage = imageUsageFlags;
+		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		this->referenceLayout = _imageLayout;
+
+	}
+
 	void Texture2D::forFrameBuffer(VulkanDevice* device,
 		VkFormat _format,
 		VkImageUsageFlags imageUsageFlags,

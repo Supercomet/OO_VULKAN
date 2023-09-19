@@ -92,6 +92,12 @@ namespace vkutils
 			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT
 		);
 
+		void PrepareEmpty(VkFormat format,
+			uint32_t texWidth,
+			uint32_t texHeight,
+			VulkanDevice* device,
+			VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VkFilter filter = VK_FILTER_LINEAR,
+			VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 
 		void forFrameBuffer(VulkanDevice* device,
 			VkFormat format,
