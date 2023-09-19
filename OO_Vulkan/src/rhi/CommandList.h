@@ -45,7 +45,8 @@ namespace rhi
 		
 		CommandList* m_cmdList;
 
-		DescriptorSetInfo& BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type, VkShaderStageFlags stageFlagsInclude = 0);
+		DescriptorSetInfo& BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type);
+		DescriptorSetInfo& BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type, VkImageView viewOverride);
 		DescriptorSetInfo& BindSampler(uint32_t binding, VkSampler sampler, VkShaderStageFlags stageFlagsInclude = 0);
 		DescriptorSetInfo& BindBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlagsInclude = 0);
 	};

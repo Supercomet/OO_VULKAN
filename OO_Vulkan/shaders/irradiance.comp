@@ -34,11 +34,11 @@ void main()
     vec3 irradiance = vec3(0);
     
     
-    for (float phi = 0.0; phi < 2.0 * pi; phi += sampleDelta)
+    for (float phi = 0.0; phi < 2.0 * PI; phi += sampleDelta)
     {
         float sinPhi = sin(phi);
         float cosPhi = cos(phi);
-        for (float theta = 0.0; theta < 0.5 * pi; theta += sampleDelta)
+        for (float theta = 0.0; theta < 0.5 * PI; theta += sampleDelta)
         {
             float sinTheta = sin(theta);
             float cosTheta = cos(theta);
@@ -56,7 +56,7 @@ void main()
     float invTotalSamples = 1.0 / nrSamples;
     
     
-    irradiance *= pi * invTotalSamples;
+    irradiance *= PI * invTotalSamples;
     imageStore(resultImage, cubeCoord, vec4(irradiance, 1.0));
 	
 	//vec3 N = normalize( vec3(1,0,0) );

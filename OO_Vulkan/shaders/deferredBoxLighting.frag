@@ -17,6 +17,7 @@ layout (set = 0, binding = 5) uniform texture2D samplerEmissive;
 layout (set = 0, binding = 6) uniform texture2D samplerShadows;
 layout (set = 0, binding = 7) uniform texture2D samplerSSAO;
 
+
 #include "lights.shader"
 
 layout( push_constant ) uniform lightpc
@@ -24,6 +25,7 @@ layout( push_constant ) uniform lightpc
 	LightPC PC;
 };
 
+#include "shadowCalculation.shader"
 #include "lightingEquations.shader"
 
 
@@ -69,7 +71,7 @@ void main()
 	LocalLightInstance lightInfo = Lights_SSBO[inLightInstance];
 
 	vec3 lightContribution = vec3(0.0);
-	vec3 res = EvalLight(lightInfo, fragPos, normal, roughness ,albedo.rgb, metalness);	
+    vec3 res = EvalLight(lightInfo, fragPos, uboFrameContext.cameraPosition.xyz, normal, roughness, albedo.rgb, metalness);
 	lightContribution += res;
 	
 	// calculate shadow if this is a shadow light

@@ -23,6 +23,7 @@ layout (set = 0, binding = 7) uniform texture2D textureSSAO;
 layout (set = 0, binding = 9) uniform sampler cubeSampler;
 layout (set = 0, binding = 10) uniform textureCube skyTexture;
 
+
 #include "lights.shader"
 
 layout( push_constant ) uniform lightpc
@@ -30,6 +31,7 @@ layout( push_constant ) uniform lightpc
 	LightPC PC;
 };
 
+#include "shadowCalculation.shader"
 #include "lightingEquations.shader"
 
 
@@ -73,7 +75,7 @@ void main()
 	lightCol.w = PC.ambient; 
     
 	
-	vec3 result = EvalDirectionalLight(lightCol, lightDir,fragPos,normal,roughness,albedo.rgb,metalness);
+    vec3 result = EvalDirectionalLight(lightCol, lightDir, uboFrameContext.cameraPosition.xyz, fragPos, normal, roughness, albedo.rgb, metalness);
 	
     vec3 cubeCol = texture(samplerCube(skyTexture, basicSampler), normal).rgb;
 	

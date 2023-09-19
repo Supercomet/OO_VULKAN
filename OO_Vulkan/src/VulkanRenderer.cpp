@@ -168,6 +168,9 @@ VulkanRenderer::~VulkanRenderer()
 	if (g_radianceMap.image.image != VK_NULL_HANDLE) {
 		g_radianceMap.destroy();
 	}
+	if (g_prefilterMap.image.image != VK_NULL_HANDLE) {
+		g_prefilterMap.destroy();
+	}
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
@@ -252,8 +255,10 @@ VulkanRenderer::~VulkanRenderer()
 	vkDestroyPipeline(m_device.logicalDevice, pso_utilFullscreenBlit, nullptr);
 	vkDestroyPipeline(m_device.logicalDevice, pso_utilAMDSPD, nullptr);
 	vkDestroyPipeline(m_device.logicalDevice, pso_radiance, nullptr);
+	vkDestroyPipeline(m_device.logicalDevice, pso_prefilter, nullptr);
 	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::AMDSPDPSOLayout, nullptr);
 	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::RadiancePSOLayout, nullptr);
+	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::prefilterPSOLayout, nullptr);
 
 	renderPass_default.destroy();
 	renderPass_default_noDepth.destroy();
@@ -910,6 +915,18 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::compute_Radiance;
 	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::RadiancePSOLayout));
 	VK_NAME(m_device.logicalDevice, "Radiance_PSOLayout", PSOLayoutDB::RadiancePSOLayout);
+
+	DescriptorBuilder::Begin()
+		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(1, nullptr, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(2, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BuildLayout(SetLayoutDB::compute_prefilter);
+
+	// create compute here
+	pipelineLayoutCreateInfo.setLayoutCount = 1;
+	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::compute_prefilter;
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::prefilterPSOLayout));
+	VK_NAME(m_device.logicalDevice, "prefilterPSOLayout", PSOLayoutDB::prefilterPSOLayout);
 }
 
 void VulkanRenderer::CreateDefaultPSO()
@@ -995,6 +1012,17 @@ void VulkanRenderer::CreateDefaultPSO()
 	computeCI.stage = LoadShader(m_device, radianceShader, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_radiance));
 	VK_NAME(m_device.logicalDevice, "pso_Radiance", pso_radiance);
+	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
+
+	if (pso_prefilter != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_prefilter, nullptr);
+	}
+	const char* prefilterShader = "Shaders/bin/envPrefilter.comp.spv";
+	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::prefilterPSOLayout);
+	computeCI.stage = LoadShader(m_device, prefilterShader, VK_SHADER_STAGE_COMPUTE_BIT);
+	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_prefilter));
+	VK_NAME(m_device.logicalDevice, "pso_prefilter", pso_prefilter);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
 	
 }
@@ -2751,7 +2779,7 @@ void VulkanRenderer::GenerateRadianceMap(VkCommandBuffer cmdlist, vkutils::CubeT
 	g_radianceMap.CreateImageView();
 	vkutils::ComputeImageBarrier(cmdlist, g_radianceMap, VK_IMAGE_LAYOUT_UNDEFINED, g_radianceMap.referenceLayout);
 	
-	rhi::CommandList cmd{cmdlist, "RadianceMapGeneration", glm::vec4{1.0,0.0,0.0,1.0}};
+	rhi::CommandList cmd{cmdlist, "RadianceMapGeneration"};
 
 	// use source to create radiance map for 6 faces using compute
 	cmd.BindPSO(pso_radiance, PSOLayoutDB::RadiancePSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
@@ -2765,6 +2793,61 @@ void VulkanRenderer::GenerateRadianceMap(VkCommandBuffer cmdlist, vkutils::CubeT
 
 
 	// use spd to generate mipmaps
+
+}
+
+void VulkanRenderer::GeneratePrefilterMap(VkCommandBuffer cmdlist, vkutils::CubeTexture& cubemap)
+{
+	g_prefilterMap = cubemap;
+	g_prefilterMap.image = {};
+	g_prefilterMap.name = "prefilterMap";
+	g_prefilterMap.format = G_HDR_FORMAT;
+	g_prefilterMap.width = 128;
+	g_prefilterMap.height = 128;
+
+	const uint32_t NumRoughnessSampler = 6;
+
+	g_prefilterMap.AllocateImageMemory(&m_device, g_prefilterMap.usage, NumRoughnessSampler);
+	g_prefilterMap.CreateImageView();
+	vkutils::ComputeImageBarrier(cmdlist, g_prefilterMap, VK_IMAGE_LAYOUT_UNDEFINED, g_prefilterMap.referenceLayout);
+
+	rhi::CommandList cmd{ cmdlist, "PrefilterGeneration",glm::vec4{1.0,0.0,0.0,1.0} };
+	// use source to create radiance map for 6 faces using compute
+	cmd.BindPSO(pso_prefilter, PSOLayoutDB::prefilterPSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
+	//cmd.DescriptorSetBegin(0)
+	//	.BindSampler(0, GfxSamplerManager::GetSampler_Cube())
+	//	.BindImage(1, &cubemap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+	//	.BindImage(2, &g_prefilterMap, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+
+	VkPushConstantRange range{};
+	range.size = sizeof(float);
+	range.stageFlags = VK_SHADER_STAGE_ALL;
+
+	for (size_t i = 0; i < g_prefilterMap.mipLevels; i++)
+	{
+		VkImageView view = g_prefilterMap.GenerateMipView(i);
+		float roughness = float(i) / (g_prefilterMap.mipLevels - 1);
+
+		cmd.SetPushConstant(PSOLayoutDB::prefilterPSOLayout, range, &roughness);
+
+		glm::vec2 dims = glm::vec2{ g_prefilterMap.width>>i,g_prefilterMap.height>>i };
+
+		const uint32_t CUBE_FACES = 6;
+		cmd.DescriptorSetBegin(0)
+			.BindSampler(0, GfxSamplerManager::GetSampler_Cube())
+			.BindImage(1, &cubemap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+			.BindImage(2, &g_prefilterMap, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, view);
+
+		cmd.Dispatch(dims.x/ 16 + 1, dims.y / 16 + 1, CUBE_FACES);
+		auto delFun = [imgView = view, dev = m_device.logicalDevice]
+			{
+				vkDestroyImageView(dev, imgView, nullptr);
+			};
+		DelayedDeleter::get()->DeleteAfterFrames(delFun);
+	}
+	
+
+
 
 }
 
@@ -4058,6 +4141,7 @@ uint32_t VulkanRenderer::CreateCubeMapTexture(const std::string& folderName)
 
 		VkCommandBuffer cmdlist = GetCommandBuffer();
 		GenerateRadianceMap(cmdlist, g_cubeMap);
+		GeneratePrefilterMap(cmdlist, g_cubeMap);
 		SubmitSingleCommandAndWait(cmdlist);
 
 		GenerateMipmaps(g_radianceMap);

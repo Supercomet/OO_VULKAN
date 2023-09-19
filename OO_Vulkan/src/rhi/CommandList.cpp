@@ -503,23 +503,28 @@ void CommandList::CommitDescriptors()
 		dynamicOffsetCnt ? dynOffsets.data() : nullptr);
 }
 
-DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type, VkShaderStageFlags stageFlagsInclude)
+DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type)
 {	
+	BindImage(binding, texture, type, texture->view);
+	return *this;
+}
+
+DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type, VkImageView viewOverride)
+{
 	VkImageLayout layout = (type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 	VkDescriptorImageInfo texinfo = oGFX::vkutils::inits::descriptorImageInfo(
 		VK_NULL_HANDLE, // no sampler
-		texture->view,
+		viewOverride,
 		layout);
 
-	builder.BindImage(binding, &texinfo, type, shaderStage | stageFlagsInclude);
+	builder.BindImage(binding, &texinfo, type, shaderStage);
 
 	this->m_cmdList->BeginTrackingImage(texture);
 	ResourceStateTracking* tracked = m_cmdList->getTrackedImage(texture);
 	tracked->expectedLayout = layout;
 
 	return *this;
-
 }
 
 DescriptorSetInfo& DescriptorSetInfo::BindSampler(uint32_t binding, VkSampler sampler, VkShaderStageFlags stageFlagsInclude)

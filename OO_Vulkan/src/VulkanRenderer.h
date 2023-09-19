@@ -89,6 +89,7 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout compute_singleSSBO;
 	inline static VkDescriptorSetLayout compute_AMDSPD;
 	inline static VkDescriptorSetLayout compute_Radiance;
+	inline static VkDescriptorSetLayout compute_prefilter;
 
 };
 
@@ -114,6 +115,7 @@ struct PSOLayoutDB
 	inline static VkPipelineLayout shadowPrepassPSOLayout; 
 	inline static VkPipelineLayout AMDSPDPSOLayout; 
 	inline static VkPipelineLayout RadiancePSOLayout; 
+	inline static VkPipelineLayout prefilterPSOLayout; 
 	inline static VkPipelineLayout skypassPSOLayout; 
 };
 
@@ -343,6 +345,7 @@ public:
 	void UnloadTexture(uint32_t textureID);
 	void GenerateMipmaps(vkutils::Texture& texture);
 	void GenerateRadianceMap(VkCommandBuffer cmdlist , vkutils::CubeTexture& texture);
+	void GeneratePrefilterMap(VkCommandBuffer cmdlist , vkutils::CubeTexture& texture);
 
 	oGFX::Font* LoadFont(const std::string& filename);
 	oGFX::TexturePacker CreateFontAtlas(const std::string& filename, oGFX::Font& font);
@@ -406,6 +409,7 @@ public:
 
 	vkutils::CubeTexture g_cubeMap;
 	vkutils::CubeTexture g_radianceMap;
+	vkutils::CubeTexture g_prefilterMap;
 
 	std::vector<ImTextureID> g_imguiIDs;
 
@@ -428,6 +432,7 @@ public:
 	VkPipeline pso_utilFullscreenBlit;
 	VkPipeline pso_utilAMDSPD;
 	VkPipeline pso_radiance;
+	VkPipeline pso_prefilter;
 
 	VulkanRenderpass renderPass_default{};
 	VulkanRenderpass renderPass_default_noDepth{};

@@ -87,6 +87,38 @@ namespace vkutils
 		VK_NAME(device->logicalDevice, name.empty() ? "CreateImage::view" : name.c_str(), view);
 	}
 
+	VkImageView Texture::GenerateMipView(uint32_t desiredMip)
+	{
+
+		VkImageViewType imageType = [texType = this->type]()->VkImageViewType {
+			switch (texType)
+			{
+			case TextureType::TEXTURE_2D: return VK_IMAGE_VIEW_TYPE_2D;
+			case TextureType::TEXTURE_2D_ARRAY: return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+			case TextureType::CUBE_MAP: return VK_IMAGE_VIEW_TYPE_CUBE;
+
+			default:return VK_IMAGE_VIEW_TYPE_2D;
+			}}();
+
+			// Create local view
+			VkImageView localView;
+
+			VkImageViewCreateInfo viewCreateInfo = {};
+			viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			viewCreateInfo.pNext = NULL;
+			viewCreateInfo.viewType = imageType;
+			viewCreateInfo.format = format;
+			viewCreateInfo.subresourceRange = { aspectMask, 0, 1, 0, 1 };
+			viewCreateInfo.subresourceRange.levelCount = 1;
+			viewCreateInfo.subresourceRange.baseMipLevel = desiredMip;
+			viewCreateInfo.subresourceRange.layerCount = layerCount;
+			viewCreateInfo.image = image.image;
+			VK_CHK(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &localView));
+			VK_NAME(device->logicalDevice, name.empty() ? "CreateMipView::view" : name.c_str(), localView);
+
+		return localView;
+	}
+
 	void Texture::AllocateImageMemory(VulkanDevice* device, const VkImageUsageFlags& imageUsageFlags, uint32_t mips)
 	{
 		mipLevels = mips;

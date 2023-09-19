@@ -23,7 +23,7 @@ float G_Phong_Beckman_impl(float a)
 
 float D_Phong(vec3 N, vec3 H, float alpha)
 {
-    return (alpha+2.0)/ (2*pi) * pow(dot(N,H), alpha);
+    return (alpha+2.0)/ (2*PI) * pow(dot(N,H), alpha);
 }
 
 float G_Phong(vec3 V, vec3 H, float a)
@@ -42,7 +42,7 @@ vec3 PhongBRDF(vec3 L ,vec3 V , vec3 H , vec3 N , float alpha , vec3 Kd , vec3 K
     vec3 F = Ks + (1.0-Ks) * pow(1-LH,5); // Fresnel approximation
     float G = G_Phong(V,H,alpha)* G_Phong(L,H,alpha); // Self-occluding self-shadowing
     
-    return Kd/pi + D*F/4.0 * G;
+    return Kd/PI + D*F/4.0 * G;
 }
 
 float D_Beckham(vec3 N, vec3 H, float alpha)
@@ -52,7 +52,7 @@ float D_Beckham(vec3 N, vec3 H, float alpha)
     float vTan = approx_tan(H,N);
     float NdotH = dot(N,H);
 
-    return 1.0/ (pi*aBaB * NdotH*NdotH) * exp(-vTan*vTan/aBaB);
+    return 1.0/ (PI*aBaB * NdotH*NdotH) * exp(-vTan*vTan/aBaB);
 }
 
 float G_Beckman(vec3 V, vec3 H, float a){
@@ -70,7 +70,7 @@ vec3 BeckhamBRDF(vec3 L ,vec3 V , vec3 H , vec3 N , float alpha , vec3 Kd , vec3
     vec3 F = Ks + (1.0-Ks) * pow(1-LH,5);
     float G = G_Beckman(L,H,alpha) * G_Beckman(V,H,alpha);
     
-    return Kd/pi + D*F/4.0 * G;
+    return Kd/PI + D*F/4.0 * G;
 }
 
 float D_GGX(vec3 N, vec3 H , float alpha)
@@ -89,7 +89,7 @@ float D_GGX(vec3 N, vec3 H , float alpha)
     //    return 1.0;
     //}
 
-    float denom = (pi * pow( internalCacl + 1.0 , 2));
+    float denom = (PI * pow( internalCacl + 1.0 , 2));
     float result = a2 / (denom+0.0001);
     
     return result;
@@ -120,73 +120,13 @@ vec3 GGXBRDF(vec3 L ,vec3 V , vec3 H , vec3 N , float alpha , vec3 Kd , vec3 Ks)
     vec3 F = Ks + (1.0 - Ks) * pow(1 - LH, 5);
     float G = G_GGX(L,H,alpha) * G_GGX(V,H,alpha);
     
-    vec3 result = Kd / pi + D * F / 4.0 * G;   
+    vec3 result = Kd / PI + D * F / 4.0 * G;   
    
     return result;
 }
 
 
 
-vec2 GetShadowMapRegion(int gridID, in vec2 uv, in vec2 gridSize)
-{
-	
-    vec2 gridIncrement = vec2(1.0) / gridSize; // size for each cell
-
-    vec2 actualUV = gridIncrement * uv; // uv local to this cell
-
-	// avoid the modolus operator not sure how much that matters
-    int y = gridID / int(gridSize.x);
-    int x = gridID - int(gridSize.x * y);
-
-    vec2 offset = gridIncrement * vec2(x, y); // offset to our cell
-
-    return offset + actualUV; //sampled position
-}
-
-float ShadowCalculation(int lightIndex, int gridID, in vec4 fragPosLightSpace, float NdotL)
-{
-
-	// perspective divide
-    vec4 projCoords = fragPosLightSpace / fragPosLightSpace.w;
-	//normalization [0,1] tex coords only.. FOR VULKAN DONT DO Z
-    projCoords.xy = projCoords.xy * 0.5 + 0.5;
-
-    vec2 uvs = vec2(projCoords.x, projCoords.y);
-    uvs = GetShadowMapRegion(gridID, uvs, PC.shadowMapGridDim);
-	
-	// Flip y during sample
-    uvs = vec2(uvs.x, 1.0 - uvs.y);
-	
-	// Bounds check for the actual shadow map
-    float sampledDepth = 0.0;
-    float lowerBoundsLimit = 0.000001;
-    float boundsLimit = 0.999999;
-    if (projCoords.x > boundsLimit || projCoords.x < lowerBoundsLimit
-		|| projCoords.y > boundsLimit || projCoords.y < lowerBoundsLimit
-		)
-    {
-        return 1.0;
-    }
-    else
-    {
-        sampledDepth = texture(sampler2D(samplerShadows,basicSampler), uvs).r;
-    }
-    float currDepth = projCoords.z;
-
-    float maxbias = PC.maxBias;
-    float mulBias = PC.mulBias;
-    float bias = max(mulBias * (1.0 - NdotL), maxbias);
-    float shadow = 1.0;
-    if (currDepth < sampledDepth - bias)
-    {
-        if (currDepth > 0 && currDepth < 1.0)
-        {
-            shadow = 0.20;
-        }
-    }
-
-    return shadow;
-}
 
 float AttenuationFactor(float radius, float dist)
 {
@@ -217,7 +157,7 @@ float Sascha_D_GGX(float dotNH, float roughness)
     float alpha = roughness * roughness;
     float alpha2 = alpha * alpha;
     float denom = dotNH * dotNH * (alpha2 - 1.0) + 1.0;
-    return (alpha2) / (pi * denom * denom);
+    return (alpha2) / (PI * denom * denom);
 }
 
 float G_SchlicksmithGGX(float dotNL, float dotNV, float roughness)
@@ -289,7 +229,7 @@ float Specular_D_GGX(in float alpha, in float NdotH)
 {
     const float alpha2 = alpha * alpha;
     const float lower = (NdotH * NdotH * (alpha2 - 1)) + 1;
-    return alpha2 / max(1e-5, pi * lower * lower);
+    return alpha2 / max(1e-5, PI * lower * lower);
 }
 
 // Schlick-Smith specular G (visibility) with Hable's LdotH optimization
@@ -326,33 +266,18 @@ vec3 SpecularBRDF(in float alpha, in vec3 specularColor, in float NdotV, in floa
     return specular_D * specular_F * specular_G;
 }
 
-float EvalShadowMap(in LocalLightInstance lightInfo, int lightIndex, in vec3 normal, in vec3 fragPos)
+vec3 EvalLight(in LocalLightInstance lightInfo
+                , in vec3 fragPos
+                ,in vec3 cameraPos
+                , in vec3 normal
+                , float roughness
+                , in vec3 albedo
+                , float metalness)
 {
     vec3 N = normal;
-    vec3 L = normalize(lightInfo.position.xyz - fragPos);
-    float NdotL = max(0.0, dot(N, L));
-    float shadow = 1.0;
-    if (lightInfo.info.x > 0)
-    {
-        if (lightInfo.info.x == 1)
-        {
-            int gridID = lightInfo.info.y;
-            for (int i = 0; i < 6; ++i)
-            {
-                vec4 outFragmentLightPos = lightInfo.projection * lightInfo.view[i] * vec4(fragPos, 1.0);
-                shadow *= ShadowCalculation(lightIndex, gridID + i, outFragmentLightPos, NdotL);
-            }
-        }
-    }
-    return shadow;
-}
-
-vec3 EvalLight(in LocalLightInstance lightInfo, in vec3 fragPos, in vec3 normal, float roughness, in vec3 albedo, float metalness)
-{
-    vec3 N = normal;    
     
     // Viewer to fragment
-    vec3 V = normalize(uboFrameContext.cameraPosition.xyz - fragPos);
+    vec3 V = normalize(cameraPos - fragPos);
     
     // Vector to light
     vec3 L = lightInfo.position.xyz - fragPos;
@@ -380,8 +305,8 @@ vec3 EvalLight(in LocalLightInstance lightInfo, in vec3 fragPos, in vec3 normal,
     vec3 result = vec3(0.0f, 0.0f, 0.0f);
     result += specular * atten;
    
-    if(false)
-	{        
+    if (false)
+    {
 		//distribute the light across the area
        
     	// Attenuation
@@ -393,10 +318,13 @@ vec3 EvalLight(in LocalLightInstance lightInfo, in vec3 fragPos, in vec3 normal,
         vec3 Ks = vec3(metalness);
         vec3 diff = GGXBRDF(L, V, H, N, alpha, Kd, Ks) * NdotL * atten * lCol;
 
+        float modifySpecular = 1.0;
+        //modifySpecular = PC.specularModifier;
+        
         vec3 R = -reflect(L, N);
         float RdotV = max(0.0, dot(R, V));
         vec3 spec = lCol * metalness
-		* pow(RdotV, max(PC.specularModifier, 1.0))
+		* pow(RdotV, max(modifySpecular, 1.0))
 		* atten;
         
         result = diff + spec;
@@ -408,6 +336,7 @@ vec3 EvalLight(in LocalLightInstance lightInfo, in vec3 fragPos, in vec3 normal,
 
 vec3 EvalDirectionalLight(in vec4 lightCol
                         , in vec3 lightDir
+                        , in vec3 cameraPos
                         , in vec3 fragPos
                         , in vec3 normal
                         , float roughness
@@ -416,7 +345,7 @@ vec3 EvalDirectionalLight(in vec4 lightCol
 {
     vec3 N = normal;    
     // Viewer to fragment
-    vec3 V = normalize(uboFrameContext.cameraPosition.xyz - fragPos);    
+    vec3 V = normalize(cameraPos - fragPos);    
     // Vector to light
     vec3 L = normalize(lightDir);
     // Half vector

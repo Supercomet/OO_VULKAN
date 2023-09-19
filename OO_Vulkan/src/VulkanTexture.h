@@ -59,6 +59,7 @@ namespace vkutils
 		void updateDescriptor();
 		void destroy(bool delayed = false);
 		void CreateImageView();
+		VkImageView GenerateMipView(uint32_t desiredMip);
 		void AllocateImageMemory(VulkanDevice* device, const VkImageUsageFlags& imageUsageFlags, uint32_t mips = 1);
 	};
 
