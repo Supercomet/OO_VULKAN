@@ -1,0 +1,74 @@
+#version 460
+
+#include "shader_utility.shader"
+
+layout (local_size_x = 16, local_size_y = 16) in;
+layout (set=0, binding = 0) uniform sampler basicSampler;
+layout (set=0, binding = 1,rgba8) uniform readonly imageCube inputImage;
+layout (set=0, binding = 2, rgba16f) uniform writeonly imageCube resultImage;
+
+void main()
+{	
+	
+    ivec2 cubemapSize = imageSize(inputImage);
+    ivec2 outputSize = imageSize(resultImage);
+	
+    ivec3 cubeCoord = ivec3(gl_GlobalInvocationID);
+    vec3 worldPos = cubeCoordToWorld(cubeCoord, outputSize);
+	// tagent space from origin point
+    vec3 normal = normalize(worldPos);
+    vec3 up = vec3(0.0, 1.0, 0.0); 
+    
+    float dotProduct = dot(normal, up); // prevent cross against zero
+    if (abs(dotProduct) > 1.0 - EPSILON)
+    {
+        // If N is nearly parallel to up, choose a different up vector.
+        up = vec3(1.0, 0.0, 0.0); // Or any other suitable vector
+    }
+
+    vec3 right = normalize(cross(up, normal));
+    up = cross(normal, right);
+	
+    float sampleDelta = 0.025;
+    float nrSamples = 0.0;
+    vec3 irradiance = vec3(0);
+    
+    
+    for (float phi = 0.0; phi < 2.0 * pi; phi += sampleDelta)
+    {
+        float sinPhi = sin(phi);
+        float cosPhi = cos(phi);
+        for (float theta = 0.0; theta < 0.5 * pi; theta += sampleDelta)
+        {
+            float sinTheta = sin(theta);
+            float cosTheta = cos(theta);
+            // spherical to cartesian, in tangent space
+            vec3 sphereCoord = vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);
+	        // tangent space to world
+            vec3 sampleVec = sphereCoord.x * right + sphereCoord.y * up + sphereCoord.z * normal;
+	        // world to cube coord
+            ivec3 sampleCoord = texCoordToCube(sampleVec, cubemapSize);
+            
+            irradiance += imageLoad(inputImage, sampleCoord).rgb * cosTheta * sinTheta;
+            nrSamples++;
+        }
+    }
+    float invTotalSamples = 1.0 / nrSamples;
+    
+    
+    irradiance *= pi * invTotalSamples;
+    imageStore(resultImage, cubeCoord, vec4(irradiance, 1.0));
+	
+	//vec3 N = normalize( vec3(1,0,0) );
+	//ivec2 sz = textureSize(samplerCube(inputImage,basicSampler),0);
+	//vec2 uv = vec2(gl_GlobalInvocationID.xy)/sz;
+	//vec2 coords = (uv - 0.5) * 2;
+	//
+	//vec3 sampleDir = normalize(vec3(N.x,coords.x,coords.y));
+	//
+	//vec4 inputVal = texture(samplerCube(inputImage,basicSampler), sampleDir);
+  
+
+	 //Note: Store operations to any texel that is outside the boundaries of the bound image will do nothing.
+    // imageStore(resultImage, ivec3(gl_GlobalInvocationID.xy, gl_GlobalInvocationID.z), inputVal);
+}

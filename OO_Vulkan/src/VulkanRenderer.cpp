@@ -901,7 +901,7 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 
 	DescriptorBuilder::Begin()
 		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindImage(1, nullptr, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(1, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BuildLayout(SetLayoutDB::compute_Radiance);
 
@@ -990,7 +990,7 @@ void VulkanRenderer::CreateDefaultPSO()
 	{
 		vkDestroyPipeline(m_device.logicalDevice, pso_radiance, nullptr); 
 	}
-	const char* radianceShader = "Shaders/bin/radiance.comp.spv";
+	const char* radianceShader = "Shaders/bin/irradiance.comp.spv";
 	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::RadiancePSOLayout);
 	computeCI.stage = LoadShader(m_device, radianceShader, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_radiance));
@@ -2743,22 +2743,25 @@ void VulkanRenderer::GenerateRadianceMap(VkCommandBuffer cmdlist, vkutils::CubeT
 	g_radianceMap = cubemap;
 	g_radianceMap.image = {};
 	g_radianceMap.name = "radianceMap";
+	g_radianceMap.format = G_HDR_FORMAT;
+	g_radianceMap.width = 32;
+	g_radianceMap.height = 32;
 
 	g_radianceMap.AllocateImageMemory(&m_device, g_radianceMap.usage);
 	g_radianceMap.CreateImageView();
+	vkutils::ComputeImageBarrier(cmdlist, g_radianceMap, VK_IMAGE_LAYOUT_UNDEFINED, g_radianceMap.referenceLayout);
 	
 	rhi::CommandList cmd{cmdlist, "RadianceMapGeneration", glm::vec4{1.0,0.0,0.0,1.0}};
-
-	vkutils::TransitionImage(cmdlist, g_radianceMap, g_radianceMap.referenceLayout);
 
 	// use source to create radiance map for 6 faces using compute
 	cmd.BindPSO(pso_radiance, PSOLayoutDB::RadiancePSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 	cmd.DescriptorSetBegin(0)
 		.BindSampler(0, GfxSamplerManager::GetSampler_Cube())
-		.BindImage(1, &cubemap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		.BindImage(1, &cubemap, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 		.BindImage(2, &g_radianceMap, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
-	cmd.Dispatch(g_radianceMap.width / 16 + 1, g_radianceMap.height / 16 + 1);
+	const uint32_t CUBE_FACES = 6;
+	cmd.Dispatch(g_radianceMap.width / 16 + 1, g_radianceMap.height / 16 + 1, CUBE_FACES);
 
 
 	// use spd to generate mipmaps
@@ -4049,7 +4052,6 @@ uint32_t VulkanRenderer::CreateCubeMapTexture(const std::string& folderName)
 
 		g_cubeMap.name = imageInfo.name;
 		g_cubeMap.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h, imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
-
 		// dont generate for now
 		GenerateMipmaps(g_cubeMap);
 

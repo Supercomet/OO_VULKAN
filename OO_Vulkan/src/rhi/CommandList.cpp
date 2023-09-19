@@ -134,7 +134,12 @@ namespace rhi
 			if (state.expectedLayout != state.currentLayout) 
 			{
 				// TODO: Batch together barriers
-				vkutils::TransitionImage(m_VkCommandBuffer, *tex, state.currentLayout, state.expectedLayout);
+				if (state.expectedLayout == VK_IMAGE_USAGE_STORAGE_BIT) {
+					vkutils::ComputeImageBarrier(m_VkCommandBuffer, *tex, state.currentLayout, state.expectedLayout);
+				}
+				else {
+					vkutils::TransitionImage(m_VkCommandBuffer, *tex, state.currentLayout, state.expectedLayout);
+				}
 				state.currentLayout = state.expectedLayout;
 			}
 			else 

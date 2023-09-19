@@ -134,7 +134,7 @@ namespace vkutils
 			std::cerr << "Failed to create a image!" << std::endl;
 			__debugbreak();
 		}
-
+		this->currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		VK_NAME(device->logicalDevice, name.empty() ? "AllocateImage" : name.c_str(), image.image);
 	}
 

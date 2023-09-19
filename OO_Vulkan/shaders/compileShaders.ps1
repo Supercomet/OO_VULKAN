@@ -42,7 +42,7 @@ $files = @(
 	"ssao.frag",
 	"ssaoBlur.frag",
 	"additiveComposite.comp",
-	"radiance.comp",
+	"irradiance.comp",
 	"brightPixels.comp",
 	"computeCull.comp",
 	"downsample.comp",
