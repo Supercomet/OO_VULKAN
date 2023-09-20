@@ -4169,6 +4169,8 @@ uint32_t VulkanRenderer::CreateCubeMapTexture(const std::string& folderName)
 	oGFX::FileImageData imageData;
 	imageData.CreateCube(folderName);
 
+	OO_ASSERT(imageData.imgData.size());
+
 	//#define OVERIDE_TEXTURE_SIZE_ONE
 #ifdef OVERIDE_TEXTURE_SIZE_ONE
 	imageData.w = 1;

@@ -269,6 +269,7 @@ namespace oGFX
 	};
 
 	bool IsFileDDS(const std::string& fileName);
+	bool IsFileHDR(const std::string& fileName);
 
 	namespace vkutils
 	{
