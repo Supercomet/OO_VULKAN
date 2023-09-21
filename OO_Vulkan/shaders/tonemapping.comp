@@ -48,7 +48,7 @@ void main()
 	
 	// also gamma correct before returning    
 	const float gamma = 2.2;
-    result = pow(result.rgb, vec3(1/gamma));
+    result = pow(result.rgb, vec3(gamma));
     
 
     //Note: Store operations to any texel that is outside the boundaries of the bound image will do nothing.

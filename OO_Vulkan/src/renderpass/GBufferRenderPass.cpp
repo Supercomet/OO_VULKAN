@@ -160,7 +160,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		cmd.BindAttachment(i, &attachments[i]);
 	}
 	constexpr bool clearOnDraw = true;
-	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH], clearOnDraw);
+	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 	
 	cmd.BindPSO(pso_GBufferDefault, PSOLayoutDB::defaultPSOLayout);
 	cmd.SetDefaultViewportAndScissor();
@@ -465,6 +465,8 @@ void GBufferRenderPass::CreatePipeline()
 	pipelineCI.pDynamicState = &dynamicState;
 	pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
 	pipelineCI.pStages = shaderStages.data();
+
+	depthStencilState.depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
 
 	// write to stencil buffer
 	depthStencilState.stencilTestEnable = VK_TRUE;

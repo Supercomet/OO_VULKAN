@@ -50,6 +50,7 @@ extern GfxRenderpass* g_LightingPass;
 extern GfxRenderpass* g_ShadowPass;
 extern GfxRenderpass* g_SSAORenderPass;
 extern GfxRenderpass* g_SkyRenderPass;
+extern GfxRenderpass* g_ZPrePass;
 
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	#include "renderpass/ForwardDecalRenderpass.h"
@@ -352,6 +353,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	GfxRenderpass* ptr;
 	rpd->RegisterRenderPass(g_ShadowPass);
 	rpd->RegisterRenderPass(g_GBufferRenderPass);
+	rpd->RegisterRenderPass(g_ZPrePass);
 	rpd->RegisterRenderPass(g_SkyRenderPass);
 	rpd->RegisterRenderPass(g_DebugDrawRenderpass);
 	rpd->RegisterRenderPass(g_LightingPass);
@@ -2400,6 +2402,11 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			shadowsRendered = true;
 		}
 
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_ZPrePass->Draw(cmd);
+		}
+		
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_GBufferRenderPass->Draw(cmd);
