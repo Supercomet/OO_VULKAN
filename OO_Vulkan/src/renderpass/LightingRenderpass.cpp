@@ -129,7 +129,9 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 		.BindImage(7, &vr.attachments.SSAO_finalTarget, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindBuffer(8, &vr.globalLightBuffer[vr.getFrame()].GetDescriptorBufferInfo(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 		.BindSampler(9, GfxSamplerManager::GetSampler_Cube()) // cube sampler
-		.BindImage(10, &vr.g_radianceMap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE); // cube map
+		.BindImage(10, &vr.g_radianceMap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // cube map
+		.BindImage(11, &vr.g_prefilterMap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // prefilter map
+		.BindImage(12, &vr.g_brdfLUT, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE); // brdflut
 	
 	cmd.SetDefaultViewportAndScissor();
 
@@ -195,7 +197,7 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	cmd.BindVertexBuffer(BIND_POINT_WEIGHTS_BUFFER_ID, 1, vr.skinningVertexBuffer.getBufferPtr());
 	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer[currFrame].getBufferPtr());
 
-	// cmd.DrawIndexed(cube.indicesCount, (uint32_t)lightCnt, cube.baseIndices, cube.baseVertex, 0);
+	cmd.DrawIndexed(cube.indicesCount, (uint32_t)lightCnt, cube.baseIndices, cube.baseVertex, 0);
 
 }
 
@@ -322,6 +324,8 @@ void LightingPass::CreatePipelineLayout()
 		.BindBuffer(8, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
 		.BindImage(9, &dummy, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS) // cube sampler
 		.BindImage(10, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS) // cube map
+		.BindImage(11, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,VK_SHADER_STAGE_ALL_GRAPHICS) // prefilter map
+		.BindImage(12, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,VK_SHADER_STAGE_ALL_GRAPHICS) // brdflut
 		.BuildLayout(SetLayoutDB::Lighting);
 
 

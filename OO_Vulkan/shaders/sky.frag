@@ -26,6 +26,6 @@ void main()
 	vec3 gamma= vec3(2.2);
 	gamma = vec3(1);
 
-	outFragcolor = texture(samplerCube(skyTexture,basicSampler), uvw);
+    outFragcolor = texture(samplerCube(skyTexture, basicSampler), uvw);
 	outFragcolor.rgb = pow(outFragcolor.rgb, gamma);
 }

@@ -22,6 +22,8 @@ layout (set = 0, binding = 7) uniform texture2D textureSSAO;
 
 layout (set = 0, binding = 9) uniform sampler cubeSampler;
 layout (set = 0, binding = 10) uniform textureCube irradianceCube;
+layout (set = 0, binding = 11)uniform textureCube prefilterCube;
+layout (set = 0, binding = 12)uniform texture2D brdfLUT;
 
 
 #include "lights.shader"
@@ -65,24 +67,42 @@ void main()
 	float metalness = (material.g);
 
 	// just perform ambient
-	vec3 lightDir = -normalize(PC.directionalLight.xyz);
+	
 	
 	// Ambient part
 	vec3 emissive = texture(sampler2D(textureEmissive,basicSampler),inUV).rgb;
 	emissive = vec3(0);
 
 	vec4 lightCol = vec4(1.0,1.0,1.0,1.0);
-	lightCol.w = PC.ambient; 
+    lightCol.w = PC.ambient;
+	
+    vec3 lightDir = -normalize(PC.directionalLight.xyz);
+	
+    SurfaceProperties surface;
+    surface.albedo = albedo.rgb;
+    surface.roughness = roughness;
+    surface.metalness = metalness;
+    surface.lightCol = lightCol.rgb * lightCol.w;
+    surface.lightRadius = 0.0f;
+    surface.N = normalize(normal);
+    surface.V = normalize(uboFrameContext.cameraPosition.xyz - fragPos);
+    surface.L = normalize(lightDir);
+    surface.H = normalize(surface.L + surface.V);
+    surface.dist = length((lightDir) - fragPos);
 	
     vec3 irradiance = vec3(1);
     irradiance = texture(samplerCube(irradianceCube, basicSampler), normal).rgb;
-    irradiance *= uboFrameContext.vector4_values0.x;
+    vec3 R = normalize(reflect(-surface.V, surface.N));
 	
-    vec3 result = EvalDirectionalLight(lightCol, lightDir
-									, uboFrameContext.cameraPosition.xyz, fragPos
-									, normal, roughness, metalness
-									, albedo.rgb, irradiance);
-
+    const float MAX_REFLECTION_LOD = 6.0;
+    vec3 prefilteredColor = textureLod(samplerCube(prefilterCube, basicSampler), R, roughness * MAX_REFLECTION_LOD).rgb;
+    vec2 lutVal = texture(sampler2D( brdfLUT, basicSampler),vec2(max(dot(surface.N, surface.V), 0.0), roughness)).rg;
+	
+    //vec3 result = EvalDirectionalLight(surface, irradiance, prefilteredColor,lutVal);
+	vec3 result = SaschaWillemsDirectionalLight(surface,
+													irradiance,
+													prefilteredColor,
+													lutVal);
 	
     outFragcolor = vec4(result.rgb, albedo.a);
 

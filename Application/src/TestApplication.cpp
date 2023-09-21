@@ -57,7 +57,7 @@
 static VulkanRenderer* gs_RenderEngine = nullptr;
 static GraphicsWorld gs_GraphicsWorld;
 static constexpr int hardCodedLights = 6;
-
+static bool drawDebugLights = false;
 
 using BindlessTextureIndex = uint32_t;
 static constexpr BindlessTextureIndex INVALID_BINDLESS_TEXTURE_INDEX = 0xFFFFFFFF;
@@ -1294,7 +1294,7 @@ void TestApplication::ToolUI_Settings()
         auto& lightSettings = gs_RenderEngine->currWorld->lightSettings;   
         {
             ImGui::Text("Lighting");
-            ImGui::PushID(std::atoi("Lighting"));
+            ImGui::PushID(std::atoi("Lighting"));                      
             ImGui::DragFloat("Ambient", &lightSettings.ambient, 0.01f);
             ImGui::DragFloat4("Directional", &lightSettings.direction.x, 0.01f);
             ImGui::DragFloat("Max bias", &lightSettings.maxBias, 0.01f);
@@ -1618,7 +1618,7 @@ void TestApplication::Tool_HandleUI()
 
 			if (ImGui::BeginTabItem("Light"))
 			{
-				
+                ImGui::Checkbox("Draw Debug lights", &drawDebugLights);
 				if (ImGui::SmallButton("Create PointLight")) 
                 {
                     int32_t lightId = gs_GraphicsWorld.CreateLightInstance();
@@ -1645,6 +1645,10 @@ void TestApplication::Tool_HandleUI()
                     int i = 0;
                     for (auto& light : gs_RenderEngine->currWorld->GetAllOmniLightInstances())
                     {
+                        if (drawDebugLights == true) {
+                            oGFX::Sphere s(light.position, light.radius.x);
+                            oGFX::DebugDraw::AddSphere(s, light.color);
+                        }
 					ImGui::PushID(i++);
                     SetLightEnabled(light,true);
                         ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.01f);

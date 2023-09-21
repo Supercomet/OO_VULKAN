@@ -1,6 +1,37 @@
 #include "shader_utility.shader"
 #include "shared_structs.h"
 
+struct SurfaceProperties
+{
+    vec3 albedo;
+    float roughness;
+    float metalness;
+    vec3 lightCol;
+    float lightRadius;
+    vec3 N;
+    vec3 V;
+    vec3 L;
+    vec3 H;
+    float dist;
+};
+
+struct PBRInfo
+{
+    float NdotL; // cos angle between normal and light direction
+    float NdotV; // cos angle between normal and view direction
+    float NdotH; // cos angle between normal and half vector
+    float LdotH; // cos angle between light direction and half vector
+    float VdotH; // cos angle between view direction and half vector
+    float perceptualRoughness; // roughness value, as authored by the model creator (input to shader)
+    float metalness; // metallic value at the surface
+    vec3 reflectance0; // full reflectance color (normal incidence angle)
+    vec3 reflectance90; // reflectance color at grazing angle
+    float alphaRoughness; // roughness mapped to a more linear change in the roughness (proposed by [2])
+    vec3 diffuseColor; // color contribution from diffuse lighting
+    vec3 specularColor; // color contribution from specular lighting
+    float ambientScale;
+};
+
 float approx_tan(vec3 V, vec3 N)
 {
     float VN = clamp(dot(V,N),EPSILON,1.0);
@@ -339,45 +370,30 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-vec3 EvalDirectionalLight(in vec4 lightCol
-                        , in vec3 lightDir
-                        , in vec3 cameraPos
-                        , in vec3 fragPos
-                        , in vec3 normal
-                        , float roughness
-                        , float metalness
-                        , in vec3 albedo
+vec3 EvalDirectionalLight(in SurfaceProperties surface
                         , in vec3 irradiance
+                        , in vec3 prefilteredColor
+                        ,in vec2 lutVal
 )
 {
-    vec3 N = normal;    
+    vec3 N = surface.N;    
     // Viewer to fragment
-    vec3 V = normalize(cameraPos - fragPos);    
+    vec3 V = surface.V;    
     // Vector to light
-    vec3 L = normalize(lightDir);
+    vec3 L = surface.L;
     // Half vector
-    vec3 H = normalize(L + V);
+    vec3 H = surface.H;
     
-    vec4 lightColInten = lightCol;
-    vec3 lCol = lightColInten.rgb * lightColInten.w;
-    
-    // vec3 specular = vec3(0.0);
-    metalness = metalness;
-    roughness = roughness;
+    vec3 lCol = surface.lightCol;    
+    float metalness = surface.metalness;
+    float roughness = surface.roughness;
     
     
-    vec3 baseDiffusePBR = mix(albedo.rgb, vec3(0, 0, 0), metalness);
-
-    vec3 kS = fresnelSchlickRoughness(max(dot(N, V), 0.0), 1.0 - baseDiffusePBR,roughness);
-    vec3 kD = 1.0 - kS;
-    kD *= 1.0 - metalness;
-    vec3 diffuse = irradiance * albedo;
-    vec3 ambient = (kD * diffuse);// * ao;
-    
-    
+    vec3 baseDiffusePBR = mix(surface.albedo, vec3(0, 0, 0), metalness);
+   
     // Specular coefficiant - fixed reflectance value for non-metals
     const float kSpecularCoefficient = 0.04f;
-    vec3 baseSpecular = mix(vec3(kSpecularCoefficient, kSpecularCoefficient, kSpecularCoefficient), baseDiffusePBR, metalness); //* occlusion;
+    vec3 baseSpecular = mix(vec3(kSpecularCoefficient), baseDiffusePBR, metalness); //* occlusion;
     
     float NdotV = clamp(dot(N, V), 0.0, 1.0);
 
@@ -396,8 +412,18 @@ vec3 EvalDirectionalLight(in vec4 lightCol
     
     vec3 finalColor = NdotL * lCol * ((baseDiffusePBR * diffuseTerm) + specularTerm);
     
-    ambient = irradiance;
-    //return vec3(NdotL);
+    vec3 kS = fresnelSchlickRoughness(max(dot(N, V), 0.0), 1.0 - baseDiffusePBR, roughness);
+    vec3 kD = 1.0 - kS;
+    kD *= 1.0 - metalness;
+    vec3 diffuse = irradiance * surface.albedo;
+    vec3 ambient = (kD * diffuse); // * ao;
+    vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), baseDiffusePBR, roughness);
+    vec2 envBRDF = lutVal;
+    vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+    
+    
+    ambient = kD * diffuse + specular;
+    return specular;
     return finalColor +ambient;
 }
 
@@ -437,4 +463,213 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness)
 	
     vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
     return normalize(sampleVec);
+}
+
+// Basic Lambertian diffuse
+// Implementation from Lambert's Photometria https://archive.org/details/lambertsphotome00lambgoog
+// See also [1], Equation 1
+vec3 diffuse(PBRInfo pbrInputs)
+{
+    return pbrInputs.diffuseColor / PI;
+}
+
+// The following equation models the Fresnel reflectance term of the spec equation (aka F())
+// Implementation of fresnel from [4], Equation 15
+vec3 specularReflection(PBRInfo pbrInputs)
+{
+    return pbrInputs.reflectance0 + (pbrInputs.reflectance90 - pbrInputs.reflectance0) * pow(clamp(1.0 - pbrInputs.VdotH, 0.0, 1.0), 5.0);
+}
+
+// This calculates the specular geometric attenuation (aka G()),
+// where rougher material will reflect less light back to the viewer.
+// This implementation is based on [1] Equation 4, and we adopt their modifications to
+// alphaRoughness as input as originally proposed in [2].
+float geometricOcclusion(PBRInfo pbrInputs)
+{
+    float NdotL = pbrInputs.NdotL;
+    float NdotV = pbrInputs.NdotV;
+    float r = pbrInputs.alphaRoughness;
+
+    float attenuationL = 2.0 * NdotL / (NdotL + sqrt(r * r + (1.0 - r * r) * (NdotL * NdotL)));
+    float attenuationV = 2.0 * NdotV / (NdotV + sqrt(r * r + (1.0 - r * r) * (NdotV * NdotV)));
+    return attenuationL * attenuationV;
+}
+
+// The following equation(s) model the distribution of microfacet normals across the area being drawn (aka D())
+// Implementation from "Average Irregularity Representation of a Roughened Surface for Ray Reflection" by T. S. Trowbridge, and K. P. Reitz
+// Follows the distribution function recommended in the SIGGRAPH 2013 course notes from EPIC Games [1], Equation 3.
+float microfacetDistribution(PBRInfo pbrInputs)
+{
+    float roughnessSq = pbrInputs.alphaRoughness * pbrInputs.alphaRoughness;
+    float f = (pbrInputs.NdotH * roughnessSq - pbrInputs.NdotH) * pbrInputs.NdotH + 1.0;
+    return roughnessSq / (PI * f * f);
+}
+
+vec3 getIBLContribution(PBRInfo pbrInputs,vec3 irradiance, vec2 brdf, vec3 prefiltedCol)
+{
+    const float MAX_REFLECTION_LOD = 6.0;
+    float lod = (pbrInputs.perceptualRoughness * MAX_REFLECTION_LOD);
+	// retrieve a scale and bias to F0. See [1], Figure 3
+    vec3 diffuseLight = irradiance.rgb;
+
+    vec3 specularLight = prefiltedCol.rgb;
+
+    vec3 diffuse = diffuseLight * pbrInputs.diffuseColor;
+    vec3 specular = specularLight * (pbrInputs.specularColor * brdf.x + brdf.y);
+
+	// For presentation, this allows us to disable IBL terms
+	// For presentation, this allows us to disable IBL terms
+    diffuse *= pbrInputs.ambientScale;
+    specular *= pbrInputs.ambientScale;
+
+    return diffuse + specular;
+}
+
+vec3 SaschaWillemsEvalLight(in SurfaceProperties surface
+                        , in vec3 irradiance
+                        , in vec3 prefilteredColor
+                        , in vec2 lutVal
+)
+{
+    vec3 N = surface.N;
+    // Viewer to fragment
+    vec3 V = surface.V;
+    // Vector to light
+    vec3 L = surface.L;
+    // Half vector
+    vec3 H = surface.H;
+    
+    vec3 lCol = surface.lightCol;
+    float metallic = surface.metalness;
+    float roughness = surface.roughness;
+    
+    
+    vec3 f0 = vec3(0.04);
+    vec3 diffuseColor = surface.albedo.rgb * (vec3(1.0) - f0);
+    diffuseColor *= 1.0 - metallic;
+    
+    float alphaRoughness = roughness * roughness;
+    vec3 specularColor = mix(f0, surface.albedo.rgb, metallic);
+    
+    float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
+    
+    // For typical incident reflectance range (between 4% to 100%) set the grazing reflectance to 100% for typical fresnel effect.
+	// For very low reflectance range on highly diffuse objects (below 4%), incrementally reduce grazing reflecance to 0%.
+    float reflectance90 = clamp(reflectance * 25.0, 0.0, 1.0);
+    vec3 specularEnvironmentR0 = specularColor.rgb;
+    vec3 specularEnvironmentR90 = vec3(1.0) * reflectance90;
+    
+    float NdotL = clamp(dot(N, L), 0.001, 1.0);
+    float NdotV = clamp(abs(dot(N, V)), 0.001, 1.0);
+    float NdotH = clamp(dot(N, H), 0.0, 1.0);
+    float LdotH = clamp(dot(L, H), 0.0, 1.0);
+    float VdotH = clamp(dot(V, H), 0.0, 1.0);
+    
+    PBRInfo pbrInputs = PBRInfo(
+        NdotL,
+		NdotV,
+		NdotH,
+		LdotH,
+		VdotH,
+		surface.roughness,
+		surface.metalness,
+		specularEnvironmentR0,
+		specularEnvironmentR90,
+		alphaRoughness,
+		diffuseColor,
+		specularColor,
+        1.0f
+);
+    
+    vec3 F = specularReflection(pbrInputs);
+    float G = geometricOcclusion(pbrInputs);
+    float D = microfacetDistribution(pbrInputs);
+    
+    const vec3 u_LightColor = surface.lightCol;
+    
+    // Calculation of analytical lighting contribution
+    vec3 diffuseContrib = (1.0 - F) * diffuse(pbrInputs);
+    vec3 specContrib = F * G * D / (4.0 * NdotL * NdotV);
+	// Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
+    vec3 color = NdotL * u_LightColor * (diffuseContrib + specContrib);
+
+	// Calculate lighting contribution from image based lighting source (IBL)
+    // color += getIBLContribution(pbrInputs, irradiance, lutVal, prefilteredColor);
+    
+    return color;
+}
+
+vec3 SaschaWillemsDirectionalLight(in SurfaceProperties surface
+                        , in vec3 irradiance
+                        , in vec3 prefilteredColor
+                        , in vec2 lutVal
+)
+{
+    vec3 N = surface.N;
+    // Viewer to fragment
+    vec3 V = surface.V;
+    // Vector to light
+    vec3 L = surface.L;
+    // Half vector
+    vec3 H = surface.H;
+    
+    vec3 lCol = surface.lightCol;
+    float metallic = surface.metalness;
+    float roughness = surface.roughness;
+    
+    
+    vec3 f0 = vec3(0.04);
+    vec3 diffuseColor = surface.albedo.rgb * (vec3(1.0) - f0);
+    diffuseColor *= 1.0 - metallic;
+    
+    float alphaRoughness = roughness * roughness;    
+    vec3 specularColor = mix(f0, surface.albedo.rgb, metallic);
+    
+    float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
+    
+    // For typical incident reflectance range (between 4% to 100%) set the grazing reflectance to 100% for typical fresnel effect.
+	// For very low reflectance range on highly diffuse objects (below 4%), incrementally reduce grazing reflecance to 0%.
+    float reflectance90 = clamp(reflectance * 25.0, 0.0, 1.0);
+    vec3 specularEnvironmentR0 = specularColor.rgb;
+    vec3 specularEnvironmentR90 = vec3(1.0) * reflectance90;
+    
+    float NdotL = clamp(dot(N, L), 0.001, 1.0);
+    float NdotV = clamp(abs(dot(N, V)), 0.001, 1.0);
+    float NdotH = clamp(dot(N, H), 0.0, 1.0);
+    float LdotH = clamp(dot(L, H), 0.0, 1.0);
+    float VdotH = clamp(dot(V, H), 0.0, 1.0);
+    
+    PBRInfo pbrInputs = PBRInfo(
+        NdotL,
+		NdotV,
+		NdotH,
+		LdotH,
+		VdotH,
+		surface.roughness,
+		surface.metalness,
+		specularEnvironmentR0,
+		specularEnvironmentR90,
+		alphaRoughness,
+		diffuseColor,
+		specularColor,
+        1.0f
+);
+    
+    vec3 F = specularReflection(pbrInputs);
+    float G = geometricOcclusion(pbrInputs);
+    float D = microfacetDistribution(pbrInputs);
+    
+    const vec3 u_LightColor = surface.lightCol;
+    
+    // Calculation of analytical lighting contribution
+    vec3 diffuseContrib = (1.0 - F) * diffuse(pbrInputs);
+    vec3 specContrib = F * G * D / (4.0 * NdotL * NdotV);
+	// Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
+    vec3 color = NdotL * u_LightColor * (diffuseContrib + specContrib);
+
+	// Calculate lighting contribution from image based lighting source (IBL)
+    color += getIBLContribution(pbrInputs, irradiance, lutVal, prefilteredColor);
+    
+    return color;
+
 }
