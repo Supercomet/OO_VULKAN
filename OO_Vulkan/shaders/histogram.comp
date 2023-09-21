@@ -1,0 +1,51 @@
+#version 460
+
+#include "shared_structs.h"
+#include "shader_utility.shader"
+
+layout (local_size_x = 16, local_size_y = 16) in;
+layout (binding = 0, rgba16f) uniform readonly image2D inputImage;
+layout(std430,/*set = 0,*/ binding = 1) buffer GPUhisto{
+	HistoStruct histo;
+};
+
+shared uint sData[256];
+
+void main()
+{
+	ivec2 local = ivec2(gl_LocalInvocationID.x,gl_LocalInvocationID.y);
+ 	ivec2 texPos = ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y);
+
+	int width  = int(gl_WorkGroupSize.x * gl_NumWorkGroups.x);
+	int height = int(gl_WorkGroupSize.y * gl_NumWorkGroups.y);
+
+	int flatidx = local.x + local.y * int(gl_WorkGroupSize.x);
+	sData[flatidx] = 0;
+	barrier();
+
+	if(	gl_GlobalInvocationID.x < width && gl_GlobalInvocationID.y < height	)
+	{
+		vec4 col = imageLoad(inputImage, texPos);
+		
+		// convert to lum
+        float luminanceValue = RGBtoLuminance(col.rgb);
+
+		// histogramming log2(lum) to shared memory
+        atomicAdd(sData[uint(log2(luminanceValue))], 1);
+		barrier();		
+
+		// summing inputs to know total invocations
+		if(gl_GlobalInvocationID.x+ gl_GlobalInvocationID.y == 0){	
+			ivec2 imgdim = imageSize(inputImage);
+			int imgSize = imgdim.x * imgdim.y;
+			histo.cdf[0] = imgSize;
+		}
+		
+	}
+	// save local histogram to global memory
+	atomicAdd(histo.histoBin[flatidx], sData[flatidx]);
+}
+ 	
+ 
+ 
+ 

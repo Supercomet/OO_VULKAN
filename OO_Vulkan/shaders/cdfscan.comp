@@ -1,0 +1,70 @@
+#version 460
+
+// do single pass one thread for each bin
+layout (local_size_x = 256, local_size_y = 1) in;
+layout (binding = 0, rgba8) uniform readonly image2D inputImage;
+
+#include "shared_structs.h"
+
+layout(std430,/*set = 0,*/ binding = 1) buffer GPUhisto{
+	HistoStruct histo;
+};
+
+// our brave firefighters
+shared float sCDF[256];
+shared float totalSamples;
+
+void main()
+{
+
+    ivec2 texPos = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 local = ivec2(gl_LocalInvocationID.x, gl_LocalInvocationID.y);
+    int width = int(gl_WorkGroupSize.x);
+    int flatidx = local.x;
+	 
+    if (gl_LocalInvocationID.x == 0)
+    {
+		//reset the cdf
+        totalSamples = histo.cdf[0];
+        histo.cdf[0] = 0.0;
+    }
+    barrier();
+	//calculate prob
+    sCDF[flatidx] = float(histo.histoBin[flatidx]) / totalSamples;
+    barrier();
+	 
+	// lol cdf scan
+    int stride = 1;
+    while (stride <= width)
+    {
+        int index = (local.x + 1) * stride * 2 - 1;
+        if (index < width)
+        {
+            sCDF[index] += sCDF[index - stride];
+        }
+        stride = stride * 2;
+	 
+        barrier();
+    }
+	 
+    int backStride = width / 2;
+    while (backStride > 0)
+    {
+        int index = (local.x + 1) * backStride * 2 - 1;
+        if ((index + backStride) < width)
+        {
+            sCDF[index + backStride] += sCDF[index];
+        }
+        backStride = backStride / 2;
+        barrier();
+    }
+	 
+    barrier();
+	 //store to global
+    histo.cdf[flatidx] = sCDF[flatidx];
+
+}
+ 	
+ 
+ 
+ 
