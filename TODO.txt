@@ -3,7 +3,6 @@ Graphic Features:
     • Sky dome
 
 • GBuffer Render Targets:
-    • Normal should be R10G10B10A2
     • Remove Entity ID GBuffer RT
     • Emissive should be RGBA8
         • Optimization opportunity: Separate render pass for objects that have emissive, which should not be alot
@@ -64,6 +63,10 @@ Engineering Tasks:
         • If done properly, 1 DispatchIndirect for whole scene
             • Only because everything uses the same uber GBuffer Shader, else its 1 DispatchIndirect per Shader
 
+• Skinning buffer should be accessed using structured buffers not vertex input
+	• same for instance data
+	• same for bone information	
+
 • Separate GBuffer draw call specifically for skinned meshes
     • Can (should) be run in parallel in another thread & Renderer
     • dont mix with static non-skinned meshes
@@ -96,6 +99,9 @@ Engineering Tasks:
 
 ///////////////////////////////////////////////////////////////////////////////
 Done:
+• GBuffer Render Targets:
+    • Normal should be R8G8B8A8
+
 • Implement Full Z-PrePass
     • Treat every Opaque object as an occluder to keep things simple
 
