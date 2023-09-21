@@ -22,6 +22,7 @@ VkSampler GfxSamplerManager::shadowSampler = nullptr;
 VkSampler GfxSamplerManager::ssaoClampSampler = nullptr;
 VkSampler GfxSamplerManager::blackBorderSampler = nullptr;
 VkSampler GfxSamplerManager::edgeClampSampler = nullptr;
+VkSampler GfxSamplerManager::cubeSampler = nullptr;
 // TODO: Add more sampler objects as needed...
 
 void GfxSamplerManager::Init()
@@ -146,6 +147,25 @@ void GfxSamplerManager::Init()
         VK_NAME(device, "blackBorderSampler", blackBorderSampler);
     }
 
+    {
+        VkSamplerCreateInfo samplerCreateInfo = oGFX::vkutils::inits::samplerCreateInfo();
+        samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+        samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+        samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerCreateInfo.mipLodBias = 0.0f;
+        samplerCreateInfo.maxAnisotropy = maxAni;
+        samplerCreateInfo.anisotropyEnable = aniEnabled;
+        samplerCreateInfo.minLod = 0.0f;
+        samplerCreateInfo.maxLod = FLT_MAX;
+        samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+        VK_CHK(vkCreateSampler(device, &samplerCreateInfo, nullptr, &cubeSampler));
+        VK_NAME(device, "cubeSampler", cubeSampler);
+    }
+
+    
 }
 
 void GfxSamplerManager::Shutdown()
@@ -159,6 +179,7 @@ void GfxSamplerManager::Shutdown()
     vkDestroySampler(device, ssaoClampSampler, nullptr);
     vkDestroySampler(device, edgeClampSampler, nullptr);
     vkDestroySampler(device, blackBorderSampler, nullptr);
+    vkDestroySampler(device, cubeSampler, nullptr);
 
     // TODO: Add more sampler objects as needed...
 }

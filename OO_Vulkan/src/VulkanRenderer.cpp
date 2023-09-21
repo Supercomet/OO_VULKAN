@@ -49,6 +49,7 @@ extern GfxRenderpass* g_GBufferRenderPass;
 extern GfxRenderpass* g_LightingPass;
 extern GfxRenderpass* g_ShadowPass;
 extern GfxRenderpass* g_SSAORenderPass;
+extern GfxRenderpass* g_SkyRenderPass;
 
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	#include "renderpass/ForwardDecalRenderpass.h"
@@ -99,6 +100,8 @@ extern GfxRenderpass* g_SSAORenderPass;
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
 // vulkan debug callback
+
+#pragma optimize("", off)
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -118,7 +121,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	}
 
 	return VK_FALSE;
+
 }
+#pragma optimize("", on)
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
@@ -157,7 +162,18 @@ VulkanRenderer::~VulkanRenderer()
 	}
 	s.close();
 
-	
+	if (g_cubeMap.image.image != VK_NULL_HANDLE) {
+		g_cubeMap.destroy();
+	}
+	if (g_radianceMap.image.image != VK_NULL_HANDLE) {
+		g_radianceMap.destroy();
+	}
+	if (g_prefilterMap.image.image != VK_NULL_HANDLE) {
+		g_prefilterMap.destroy();
+	}
+	if (g_brdfLUT.image.image != VK_NULL_HANDLE) {
+		g_brdfLUT.destroy();
+	}
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
@@ -238,10 +254,16 @@ VulkanRenderer::~VulkanRenderer()
 	vkDestroySemaphore(m_device.logicalDevice, frameCountSemaphore, nullptr);
 
 	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::defaultPSOLayout, nullptr);
-	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::PSO_fullscreenBlitLayout, nullptr);
+	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::fullscreenBlitPSOLayout, nullptr);
 	vkDestroyPipeline(m_device.logicalDevice, pso_utilFullscreenBlit, nullptr);
 	vkDestroyPipeline(m_device.logicalDevice, pso_utilAMDSPD, nullptr);
-	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::AMDSPDLayout, nullptr);
+	vkDestroyPipeline(m_device.logicalDevice, pso_radiance, nullptr);
+	vkDestroyPipeline(m_device.logicalDevice, pso_prefilter, nullptr);
+	vkDestroyPipeline(m_device.logicalDevice, pso_brdfLUT, nullptr);
+	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::AMDSPDPSOLayout, nullptr);
+	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::RadiancePSOLayout, nullptr);
+	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::prefilterPSOLayout, nullptr);
+	vkDestroyPipelineLayout(m_device.logicalDevice, PSOLayoutDB::BRDFLUTPSOLayout, nullptr);
 
 	renderPass_default.destroy();
 	renderPass_default_noDepth.destroy();
@@ -330,6 +352,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	GfxRenderpass* ptr;
 	rpd->RegisterRenderPass(g_ShadowPass);
 	rpd->RegisterRenderPass(g_GBufferRenderPass);
+	rpd->RegisterRenderPass(g_SkyRenderPass);
 	rpd->RegisterRenderPass(g_DebugDrawRenderpass);
 	rpd->RegisterRenderPass(g_LightingPass);
 	rpd->RegisterRenderPass(g_SSAORenderPass);
@@ -644,7 +667,7 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 	}
 }
 
-void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& src, VkImageLayout srcFinal, vkutils::Texture2D& dst, VkImageLayout dstFinal) 
+void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture& src, VkImageLayout srcFinal, vkutils::Texture& dst, VkImageLayout dstFinal) 
 {
 	
 	const VkCommandBuffer cmdlist = inCmd;
@@ -679,7 +702,7 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& s
 		VK_NULL_HANDLE,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	cmd.BindPSO(pso_utilFullscreenBlit, PSOLayoutDB::PSO_fullscreenBlitLayout);
+	cmd.BindPSO(pso_utilFullscreenBlit, PSOLayoutDB::fullscreenBlitPSOLayout);
 
 	// create descriptor for this pass
 	cmd.DescriptorSetBegin(0)
@@ -692,7 +715,7 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& s
 	range.offset = 0;
 	range.size = sizeof(SSAOPC);
 
-	cmd.SetPushConstant(PSOLayoutDB::PSO_fullscreenBlitLayout, range, &pc);
+	cmd.SetPushConstant(PSOLayoutDB::fullscreenBlitPSOLayout, range, &pc);
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO),
 		m_device.properties.limits.minUniformBufferOffsetAlignment));
@@ -714,7 +737,7 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture2D& s
 	
 }
 
-void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture2D& src,VkImageLayout srcFinal, vkutils::Texture2D& dst,VkImageLayout dstFinal)
+void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture& src,VkImageLayout srcFinal, vkutils::Texture& dst,VkImageLayout dstFinal)
 {
 	bool supportsBlit = true;
 
@@ -868,8 +891,8 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 
 	pipelineLayoutCreateInfo.setLayoutCount = 1;
 	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::util_fullscreenBlit;
-	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::PSO_fullscreenBlitLayout));
-	VK_NAME(m_device.logicalDevice, "fullscreenPSOLayout", PSOLayoutDB::PSO_fullscreenBlitLayout);
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::fullscreenBlitPSOLayout));
+	VK_NAME(m_device.logicalDevice, "fullscreenPSOLayout", PSOLayoutDB::fullscreenBlitPSOLayout);
 	
 	
 	DescriptorBuilder::Begin()
@@ -883,10 +906,43 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	// create compute here
 	pipelineLayoutCreateInfo.setLayoutCount = 1;
 	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::compute_AMDSPD;
-	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::AMDSPDLayout));
-	VK_NAME(m_device.logicalDevice, "AMDSPD_PSOLayout", PSOLayoutDB::AMDSPDLayout);
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::AMDSPDPSOLayout));
+	VK_NAME(m_device.logicalDevice, "AMDSPD_PSOLayout", PSOLayoutDB::AMDSPDPSOLayout);
+
+	DescriptorBuilder::Begin()
+		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(1, nullptr, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(2, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BuildLayout(SetLayoutDB::compute_Radiance);
+
+	// create compute here
+	pipelineLayoutCreateInfo.setLayoutCount = 1;
+	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::compute_Radiance;
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::RadiancePSOLayout));
+	VK_NAME(m_device.logicalDevice, "Radiance_PSOLayout", PSOLayoutDB::RadiancePSOLayout);
+
+	DescriptorBuilder::Begin()
+		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(1, nullptr, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(2, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BuildLayout(SetLayoutDB::compute_prefilter);
+
+	// create compute here
+	pipelineLayoutCreateInfo.setLayoutCount = 1;
+	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::compute_prefilter;
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::prefilterPSOLayout));
+	VK_NAME(m_device.logicalDevice, "prefilterPSOLayout", PSOLayoutDB::prefilterPSOLayout);
 
 
+	DescriptorBuilder::Begin()
+		.BindImage(2, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BuildLayout(SetLayoutDB::compute_brdfLUT);
+
+	// create compute here
+	pipelineLayoutCreateInfo.setLayoutCount = 1;
+	pipelineLayoutCreateInfo.pSetLayouts = &SetLayoutDB::compute_brdfLUT;
+	VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &pipelineLayoutCreateInfo, nullptr, &PSOLayoutDB::BRDFLUTPSOLayout));
+	VK_NAME(m_device.logicalDevice, "BRDFLUTPSOLayout", PSOLayoutDB::BRDFLUTPSOLayout);
 }
 
 void VulkanRenderer::CreateDefaultPSO()
@@ -910,7 +966,7 @@ void VulkanRenderer::CreateDefaultPSO()
 	std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 	VkPipelineDynamicStateCreateInfo dynamicState = oGFX::vkutils::inits::pipelineDynamicStateCreateInfo(dynamicStateEnables);
 
-	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::PSO_fullscreenBlitLayout, renderPass_default_noDepth.pass);
+	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(PSOLayoutDB::fullscreenBlitPSOLayout, renderPass_default_noDepth.pass);
 	pipelineCI.pInputAssemblyState = &inputAssemblyState;
 	pipelineCI.pRasterizationState = &rasterizationState;
 	pipelineCI.pColorBlendState = &colorBlendState;
@@ -938,7 +994,7 @@ void VulkanRenderer::CreateDefaultPSO()
 
 	pipelineCI.pNext = &renderingInfo;
 	
-	pipelineCI.layout = PSOLayoutDB::PSO_fullscreenBlitLayout;
+	pipelineCI.layout = PSOLayoutDB::fullscreenBlitPSOLayout;
 	colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
 	blendAttachmentState= oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
 	
@@ -957,11 +1013,45 @@ void VulkanRenderer::CreateDefaultPSO()
 		vkDestroyPipeline(m_device.logicalDevice, pso_utilAMDSPD, nullptr); 
 	}
 	const char* computeShader = "Shaders/bin/ffx_spd_downsample_pass.glsl.spv";
-	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::AMDSPDLayout);
+	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::AMDSPDPSOLayout);
 	computeCI.stage = LoadShader(m_device, computeShader, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_utilAMDSPD));
 	VK_NAME(m_device.logicalDevice, "pso_AMDSPD", pso_utilAMDSPD);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
+
+	if (pso_radiance != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_radiance, nullptr); 
+	}
+	const char* radianceShader = "Shaders/bin/irradiance.comp.spv";
+	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::RadiancePSOLayout);
+	computeCI.stage = LoadShader(m_device, radianceShader, VK_SHADER_STAGE_COMPUTE_BIT);
+	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_radiance));
+	VK_NAME(m_device.logicalDevice, "pso_Radiance", pso_radiance);
+	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
+
+	if (pso_prefilter != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_prefilter, nullptr);
+	}
+	const char* prefilterShader = "Shaders/bin/envPrefilter.comp.spv";
+	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::prefilterPSOLayout);
+	computeCI.stage = LoadShader(m_device, prefilterShader, VK_SHADER_STAGE_COMPUTE_BIT);
+	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_prefilter));
+	VK_NAME(m_device.logicalDevice, "pso_prefilter", pso_prefilter);
+	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
+
+	if (pso_brdfLUT != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_brdfLUT, nullptr);
+	}
+	const char* lutShader = "Shaders/bin/brdfLUT.comp.spv";
+	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::BRDFLUTPSOLayout);
+	computeCI.stage = LoadShader(m_device, lutShader, VK_SHADER_STAGE_COMPUTE_BIT);
+	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_brdfLUT));
+	VK_NAME(m_device.logicalDevice, "pso_brdfLUT", pso_brdfLUT);
+	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
+	
 	
 }
 
@@ -1109,7 +1199,7 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 			if (image.image.image == VK_NULL_HANDLE)
 			{
 				image.name = "GW_"+std::to_string(wrdID)+":COL";
-				image.forFrameBuffer(&m_device, G_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+				image.forFrameBuffer(&m_device, G_NON_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 					m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height);
 				fbCache.RegisterFramebuffer(image);
 				auto cmd = GetCommandBuffer();
@@ -1201,7 +1291,7 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	allocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
 
 	vmaCreateImage(m_device.m_allocator, &imageCreateCI, &allocCI, &dstImage.image, &dstImage.allocation, &dstImage.allocationInfo);
-	vkutils::Texture2D temptex;
+	vkutils::Texture temptex;
 	temptex.width = target.width;
 	temptex.height = target.height;
 	temptex.format = target.format;
@@ -2021,6 +2111,10 @@ void VulkanRenderer::UploadInstanceData()
 				gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
 				gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
 				gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
+				mat4 inverseXform = glm::inverse(xform);
+				gpt.invRow0 = vec4(inverseXform[0][0], inverseXform[1][0], inverseXform[2][0], inverseXform[3][0]);
+				gpt.invRow1 = vec4(inverseXform[0][1], inverseXform[1][1], inverseXform[2][1], inverseXform[3][1]);
+				gpt.invRow2 = vec4(inverseXform[0][2], inverseXform[1][2], inverseXform[2][2], inverseXform[3][2]);
 				gpuTransform.emplace_back(gpt);
 			}
 			// skined mesh
@@ -2309,24 +2403,34 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_GBufferRenderPass->Draw(cmd);
-		}		
+		}	
+		
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			VK_NAME(m_device.logicalDevice, "SSAO_CMD", cmd);
 			g_SSAORenderPass->Draw(cmd);
 		}
+
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_LightingPass->Draw(cmd);
 		}
+
+		if(g_cubeMap.image.image != VK_NULL_HANDLE)
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
-			g_ForwardParticlePass->Draw(cmd);
+			g_SkyRenderPass->Draw(cmd);
 		}
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_BloomPass->Draw(cmd);
 		}
+
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_ForwardParticlePass->Draw(cmd);
+		}
+
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_ForwardUIPass->Draw(cmd);
@@ -2518,7 +2622,7 @@ void ffxSpdSetup(uint32_t*    dispatchThreadGroupCountXY,
     }
 }
 
-void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
+void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 {
 	auto oldLayout = texture.currentLayout;
 	
@@ -2527,7 +2631,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 
 	if (texMips < 2) return;
 
-	vkutils::Texture2D generatedTexture; // writing into a new texture
+	vkutils::Texture generatedTexture; // writing into a new texture
 	generatedTexture = texture;
 	generatedTexture.image.image = VK_NULL_HANDLE;
 	generatedTexture.image.allocation = VK_NULL_HANDLE;
@@ -2546,6 +2650,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 	viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 	viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 	viewCreateInfo.subresourceRange.levelCount = 1;
+	viewCreateInfo.subresourceRange.layerCount = texture.layerCount;
 	viewCreateInfo.subresourceRange.baseMipLevel = 0;
 	
 	viewCreateInfo.image = generatedTexture.image.image;
@@ -2604,8 +2709,10 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 		vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 		VkImageCopy region{};
 		region.srcSubresource = VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT,0,0,1};
+		region.srcSubresource.layerCount = texture.layerCount;
 		region.srcOffset = {};
 		region.dstSubresource = VkImageSubresourceLayers{ VK_IMAGE_ASPECT_COLOR_BIT,0,0,1 };
+		region.dstSubresource.layerCount = generatedTexture.layerCount;
 		region.dstOffset={};
 		region.extent = { texture.width,texture.height,1 };
 		vkCmdCopyImage(cmd, texture.image.image, texture.currentLayout
@@ -2632,8 +2739,8 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 			0, nullptr,
 			1, &bmb,
 			0, nullptr);
-		cmdlist.BindPSO(pso_utilAMDSPD, PSOLayoutDB::AMDSPDLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
-		cmdlist.BindDescriptorSet(PSOLayoutDB::AMDSPDLayout, 0, dstsets, VK_PIPELINE_BIND_POINT_COMPUTE, 0);
+		cmdlist.BindPSO(pso_utilAMDSPD, PSOLayoutDB::AMDSPDPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+		cmdlist.BindDescriptorSet(PSOLayoutDB::AMDSPDPSOLayout, 0, dstsets, VK_PIPELINE_BIND_POINT_COMPUTE, 0);
 
 
 		CB::AMDSPD_UBO spdConstants{};
@@ -2652,7 +2759,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 		// This value is the image region dimension that each thread group of the FSR shader operates on
 		uint32_t dispatchX = dispatchThreadGroupCountXY[0];
 		uint32_t dispatchY = dispatchThreadGroupCountXY[1];
-		uint32_t dispatchZ = 1; // tex.depth
+		uint32_t dispatchZ = generatedTexture.layerCount; // tex.depth
 		//vmaAllocateMemory
 		void* data{};
 		vmaMapMemory(m_device.m_allocator, SPDconstantBuffer.alloc, &data);
@@ -2684,6 +2791,120 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture2D& texture)
 		vkDestroyImageView(m_device.logicalDevice, mipViews[i], nullptr);
 	}
 	//DelayedDeleter::get()->DeleteAfterFrames([buffer = std::move(scratchBuffer)]() mutable {buffer.destroy(); });
+}
+
+void VulkanRenderer::GenerateRadianceMap(VkCommandBuffer cmdlist, vkutils::CubeTexture& cubemap)
+{
+
+	g_radianceMap = cubemap;
+	g_radianceMap.image = {};
+	g_radianceMap.name = "radianceMap";
+	g_radianceMap.format = G_HDR_FORMAT;
+	g_radianceMap.width = 32;
+	g_radianceMap.height = 32;
+
+	g_radianceMap.AllocateImageMemory(&m_device, g_radianceMap.usage);
+	g_radianceMap.CreateImageView();
+	vkutils::ComputeImageBarrier(cmdlist, g_radianceMap, VK_IMAGE_LAYOUT_UNDEFINED, g_radianceMap.referenceLayout);
+	
+	rhi::CommandList cmd{cmdlist, "RadianceMapGeneration"};
+
+	glm::vec4 values{};
+	const float MAX_LIGHT_CONTRIBUTION = 100.0f;
+	values.x = MAX_LIGHT_CONTRIBUTION;
+
+	VkPushConstantRange pcr{};
+	pcr.size = sizeof(glm::vec4);
+	pcr.stageFlags = VK_SHADER_STAGE_ALL;
+
+	cmd.SetPushConstant(PSOLayoutDB::RadiancePSOLayout, pcr, &values.x);
+
+	// use source to create radiance map for 6 faces using compute
+	cmd.BindPSO(pso_radiance, PSOLayoutDB::RadiancePSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.DescriptorSetBegin(0)
+		.BindSampler(0, GfxSamplerManager::GetSampler_Cube())
+		.BindImage(1, &cubemap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		.BindImage(2, &g_radianceMap, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+
+	const uint32_t CUBE_FACES = 6;
+	cmd.Dispatch(g_radianceMap.width / 16 + 1, g_radianceMap.height / 16 + 1, CUBE_FACES);
+
+
+	// use spd to generate mipmaps
+
+}
+
+void VulkanRenderer::GeneratePrefilterMap(VkCommandBuffer cmdlist, vkutils::CubeTexture& cubemap)
+{
+	g_prefilterMap = cubemap;
+	g_prefilterMap.image = {};
+	g_prefilterMap.name = "prefilterMap";
+	g_prefilterMap.format = G_HDR_FORMAT;
+	g_prefilterMap.width = 128;
+	g_prefilterMap.height = 128;
+
+	const uint32_t NumRoughnessSampler = 6;
+
+	g_prefilterMap.AllocateImageMemory(&m_device, g_prefilterMap.usage, NumRoughnessSampler);
+	g_prefilterMap.CreateImageView();
+	vkutils::ComputeImageBarrier(cmdlist, g_prefilterMap, VK_IMAGE_LAYOUT_UNDEFINED, g_prefilterMap.referenceLayout);
+
+	rhi::CommandList cmd{ cmdlist, "PrefilterGeneration"};
+	// use source to create radiance map for 6 faces using compute
+	cmd.BindPSO(pso_prefilter, PSOLayoutDB::prefilterPSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
+	//cmd.DescriptorSetBegin(0)
+	//	.BindSampler(0, GfxSamplerManager::GetSampler_Cube())
+	//	.BindImage(1, &cubemap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+	//	.BindImage(2, &g_prefilterMap, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+
+	VkPushConstantRange range{};
+	range.size = sizeof(float);
+	range.stageFlags = VK_SHADER_STAGE_ALL;
+
+	for (size_t i = 0; i < g_prefilterMap.mipLevels; i++)
+	{
+		VkImageView view = g_prefilterMap.GenerateMipView(i);
+		float roughness = float(i) / (g_prefilterMap.mipLevels - 1);
+
+		cmd.SetPushConstant(PSOLayoutDB::prefilterPSOLayout, range, &roughness);
+
+		glm::vec2 dims = glm::vec2{ g_prefilterMap.width>>i,g_prefilterMap.height>>i };
+
+		const uint32_t CUBE_FACES = 6;
+		cmd.DescriptorSetBegin(0)
+			.BindSampler(0, GfxSamplerManager::GetSampler_Cube())
+			.BindImage(1, &cubemap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+			.BindImage(2, &g_prefilterMap, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, view);
+
+		cmd.Dispatch(dims.x/ 16 + 1, dims.y / 16 + 1, CUBE_FACES);
+		auto delFun = [imgView = view, dev = m_device.logicalDevice]
+			{
+				vkDestroyImageView(dev, imgView, nullptr);
+			};
+		DelayedDeleter::get()->DeleteAfterFrames(delFun);
+	}
+	
+
+
+
+}
+
+void VulkanRenderer::GenerateBRDFLUT(VkCommandBuffer cmdlist, vkutils::Texture2D& texture)
+{
+	if (g_brdfLUT.image.image != VK_NULL_HANDLE) return; // already generated
+	g_brdfLUT.PrepareEmpty(VK_FORMAT_R16G16_SFLOAT, 512, 512, &m_device);
+	g_brdfLUT.name = "BRDF_LUT";
+	g_brdfLUT.AllocateImageMemory(&m_device,g_brdfLUT.usage);
+	g_brdfLUT.CreateImageView();
+	vkutils::SetImageInitialState(cmdlist, g_brdfLUT);
+
+	rhi::CommandList cmd{ cmdlist, "BRDF LUT gen",glm::vec4{1.0,0.0,0.0,1.0} };	
+	cmd.BindPSO(pso_brdfLUT, PSOLayoutDB::BRDFLUTPSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.DescriptorSetBegin(0)
+		.BindImage(2, &g_brdfLUT, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+	cmd.Dispatch(g_brdfLUT.width / 16 + 1, g_brdfLUT.height / 16 + 1);
+
+
 }
 
 bool VulkanRenderer::ResizeSwapchain()
@@ -3952,6 +4173,49 @@ uint32_t VulkanRenderer::CreateTextureImage(const std::string& fileName)
 	return value;
 }
 
+uint32_t VulkanRenderer::CreateCubeMapTexture(const std::string& folderName)
+{
+	//Load image file
+	oGFX::FileImageData imageData;
+	imageData.CreateCube(folderName);
+
+	OO_ASSERT(imageData.imgData.size());
+
+	//#define OVERIDE_TEXTURE_SIZE_ONE
+#ifdef OVERIDE_TEXTURE_SIZE_ONE
+	imageData.w = 1;
+	imageData.h = 1;
+	imageData.dataSize = 1 * 1 * 4;
+	imageData.mipInformation.front().imageExtent = VkExtent3D{ 1,1,1 };
+#endif // OVERIDE_TEXTURE_SIZE_ONE
+
+	auto lam = [this, imageInfo = imageData, highVal = imageData.highestColValue]() {
+
+		g_cubeMap.name = imageInfo.name;
+		g_cubeMap.highestColValue = highVal;
+		g_cubeMap.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h, imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
+		// dont generate for now
+		GenerateMipmaps(g_cubeMap);
+
+
+		VkCommandBuffer cmdlist = GetCommandBuffer();
+		GenerateRadianceMap(cmdlist, g_cubeMap);
+		GeneratePrefilterMap(cmdlist, g_cubeMap);
+		GenerateBRDFLUT(cmdlist, g_brdfLUT);
+		SubmitSingleCommandAndWait(cmdlist);
+
+		GenerateMipmaps(g_radianceMap);
+
+		};
+	{
+		std::scoped_lock s{ g_mut_workQueue };
+		g_workQueue.emplace_back(lam);
+	}
+	
+	imageData.Free();
+	return 0;
+}
+
 uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo)
 {
 	VkDeviceSize imageSize = imageInfo.dataSize;
@@ -3976,8 +4240,8 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 	auto lam = [this, indx, imageInfo]() {
 		auto& texture = g_Textures[indx];
 
-		texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 		texture.name = imageInfo.name;
+		texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 
 		GenerateMipmaps(texture);
 

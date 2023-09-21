@@ -75,6 +75,7 @@ struct LightPC
     float maxBias;
     float mulBias;
     float specularModifier;
+    vec4 directionalLight;
     vec2 resolution;
 };
 
@@ -125,6 +126,9 @@ struct GPUTransform
 	vec4 row0;
 	vec4 row1;
 	vec4 row2;
+    vec4 invRow0;
+    vec4 invRow1;
+    vec4 invRow2;
 	vec4 colour; // temp
 };
 

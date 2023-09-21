@@ -1,4 +1,3 @@
-layout (location = 0) in vec2 inUVo2;
 layout (location = 1) in flat int inLightInstance;
 layout (location = 0) out vec4 outFragcolor;
 
@@ -18,6 +17,7 @@ layout (set = 0, binding = 5) uniform texture2D samplerEmissive;
 layout (set = 0, binding = 6) uniform texture2D samplerShadows;
 layout (set = 0, binding = 7) uniform texture2D samplerSSAO;
 
+
 #include "lights.shader"
 
 layout( push_constant ) uniform lightpc
@@ -25,6 +25,7 @@ layout( push_constant ) uniform lightpc
 	LightPC PC;
 };
 
+#include "shadowCalculation.shader"
 #include "lightingEquations.shader"
 
 
@@ -44,33 +45,21 @@ void main()
 	// Get G-Buffer values
 	vec4 depth = texture(sampler2D(samplerDepth,basicSampler), inUV);
 	vec3 fragPos = WorldPosFromDepth(depth.r,inUV,uboFrameContext.inverseProjection,uboFrameContext.inverseView);
-	//fragPos.z = depth.r;
-	vec3 normal = texture(sampler2D(samplerNormal,basicSampler), inUV).rgb;
-	if(dot(normal,normal) == 0.0)
-	{
-		outFragcolor = vec4(0);
-	//	outFragcolor = vec4(0.0,0.0,1.0,1.0);
-		return;
-	}
-	vec4 albedo = texture(sampler2D(samplerAlbedo,basicSampler), inUV);
-	vec4 material = texture(sampler2D(samplerMaterial,basicSampler), inUV);
-	float SSAO = texture(sampler2D(samplerSSAO,basicSampler), inUV).r;
-	float specular = material.g;
-	float roughness = 1.0 - material.r;
 
-	// Render-target composition
-	//float ambient = PC.ambient;
-	float ambient = 0.0;
-	//if (DecodeFlags(material.z) == 0x1)
-	//{
-	//	ambient = 1.0;
-	//}
-	
+	outFragcolor = vec4(0,0,0,1);
+	vec3 normal = texture(sampler2D(samplerNormal,basicSampler), inUV).rgb;
+	if(dot(normal,normal) == 0.0) return;
+	normal = normalize(normal);
+
+	vec4 albedo = texture(sampler2D(samplerAlbedo,basicSampler), inUV);
 	const float gamma = 2.2;
 	albedo.rgb =  pow(albedo.rgb, vec3(1.0/gamma));
 
-	// Ambient part
-	vec3 result = albedo.rgb  * ambient;
+	vec4 material = texture(sampler2D(samplerMaterial,basicSampler), inUV);
+	float SSAO = texture(sampler2D(samplerSSAO,basicSampler), inUV).r;
+	float roughness = clamp(material.r,0.005,1.0);
+	float metalness = clamp(material.g,0.005,1.0);
+
 
 	// remove SSAO if not wanted
 	if(PC.useSSAO == 0){
@@ -79,21 +68,24 @@ void main()
 	
 	float outshadow = texture(sampler2D(samplerShadows,basicSampler),inUV).r;
 	
-	// Point Lights
+	LocalLightInstance lightInfo = Lights_SSBO[inLightInstance];
+
 	vec3 lightContribution = vec3(0.0);
-	/////////for(int i = 0; i < PC.numLights; ++i)
-	{
-		vec3 res = EvalLight(inLightInstance, fragPos, normal, roughness ,albedo.rgb, specular);	
-
-		lightContribution += res;
-	}
-
-	//lightContribution *= outshadow;
+    vec3 res = EvalLight(lightInfo, fragPos, uboFrameContext.cameraPosition.xyz, normal, roughness, albedo.rgb, metalness);
+	lightContribution += res;
 	
+	// calculate shadow if this is a shadow light
+	float shadowValue = EvalShadowMap(lightInfo, inLightInstance, normal, fragPos);
+	lightContribution *= shadowValue;
+
+	float ambient = 0.0;
+	ambient = PC.ambient;
 	vec3 ambientContribution = albedo.rgb  * ambient;
+	ambientContribution = vec3(0.0);
+
 	//vec3 emissive = texture(sampler2D(samplerEmissive,basicSampler),inUV).rgb;
 	vec3 emissive = vec3(0);
-	result =  (ambientContribution * SSAO + lightContribution) + emissive;
+	vec3 result =  (ambientContribution * SSAO + lightContribution) + emissive;
 
 	outFragcolor = vec4(result, albedo.a);	
 

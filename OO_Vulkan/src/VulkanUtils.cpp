@@ -611,6 +611,19 @@ namespace oGFX
 			});
 	}
 
+	bool IsFileHDR(const std::string& fileName)
+	{
+		auto path = std::filesystem::path(fileName);
+		std::string a = path.extension().string();
+		std::string b(".hdr");
+
+		return std::equal(a.begin(), a.end(),
+			b.begin(), b.end(),
+			[](char a, char b) {
+				return tolower(a) == b;
+			});
+	}
+
 	bool FileImageData::Create(const std::string& fileName)
 	{
 		name = fileName;
@@ -642,6 +655,148 @@ namespace oGFX
 			mipInformation.push_back(bufferCopyRegion);
 
 			this->format = VK_FORMAT_R8G8B8A8_UNORM;
+			return imgData.size() ? true : false;
+		}
+
+		return false;
+	}
+
+
+	uint16_t float_to_half(const float x)
+	{
+		const uint32_t HALF_FLOAT_MAX_VALUE = 65504;
+		const uint32_t HALF_FLOAT_MAX = 0x7bff;
+
+		if (x > HALF_FLOAT_MAX_VALUE) return uint16_t(HALF_FLOAT_MAX);// guard against high values
+		// IEEE-754 16-bit floating-point format (without infinity): 1-5-10, exp-15, +-131008.0, +-6.1035156E-5, +-5.9604645E-8, 3.311 digits
+		const uint32_t b = *reinterpret_cast<const uint32_t*>(&x) + 0x00001000; // round-to-nearest-even: add last bit after truncated mantissa
+		const uint32_t e = (b & 0x7F800000) >> 23; // exponent
+		const uint32_t m = b & 0x007FFFFF; // mantissa; in line below: 0x007FF000 = 0x00800000-0x00001000 = decimal indicator flag - initial rounding
+		return (b & 0x80000000) >> 16 | (e > 112) * ((((e - 112) << 10) & 0x7C00) | m >> 13) | ((e < 113) & (e > 101)) * ((((0x007FF000 + m) >> (125 - e)) + 1) >> 1) | (e > 143) * 0x7FFF; // sign : normalized : denormalized : saturate
+	}
+
+#pragma optimize("", off)
+	bool FileImageData::CreateCube(const std::string& folder)
+	{
+		const uint32_t CUBE_FACES = 6;
+		std::array<std::string, CUBE_FACES> fileNames
+		{
+			"px",
+			"nx",
+			"py",
+			"ny",
+			"pz",
+			"nz",
+		};
+
+		for (const auto& entry : std::filesystem::directory_iterator(folder)) {
+			if (entry.is_regular_file()) 
+			{
+				// Get the file's extension (if any)
+				std::string fileName = entry.path().stem().string();
+				std::string extension = entry.path().extension().string();
+
+				for (size_t i = 0; i < fileNames.size(); i++)
+				{
+					if (fileNames[i] == fileName) 
+					{
+						fileNames[i] = entry.path().string();
+					}
+				}
+			}
+		}
+
+		for (size_t i = 0; i < fileNames.size(); i++)
+		{
+			if (std::filesystem::exists(fileNames[i]) == false) 
+			{
+				__debugbreak();
+			}
+		}
+
+		dataSize = 0;
+		bool isdds = oGFX::IsFileDDS(fileNames[0]);
+		if (isdds == true)
+		{
+			__debugbreak(); // not implemented
+		}
+		else
+		{
+			bool isHDR = IsFileHDR(fileNames.front());
+			bool force4Channel = false;
+			for (size_t i = 0; i < CUBE_FACES; i++)
+			{
+				decodeType = ExtensionType::STB;				
+
+				unsigned char* ptr = nullptr;
+				size_t chunkSize{};
+				if (isHDR) 
+				{
+					ptr = (unsigned char*)stbi_loadf(fileNames[i].c_str(), &this->w, &this->h, &this->channels, force4Channel? STBI_rgb_alpha :STBI_default);
+					if (this->channels == 3) {
+						force4Channel = true;
+						stbi_image_free(ptr);
+						ptr = (unsigned char*)stbi_loadf(fileNames[i].c_str(), &this->w, &this->h, &this->channels, force4Channel ? STBI_rgb_alpha : STBI_default);
+					}
+					chunkSize = size_t(this->w) * size_t(this->h) * size_t(force4Channel? STBI_rgb_alpha* sizeof(float) : this->channels * sizeof(float));
+				}
+				else 
+				{
+					ptr = stbi_load(fileNames[i].c_str(), &this->w, &this->h, &this->channels, STBI_rgb_alpha);
+					chunkSize = size_t(this->w) * size_t(this->h) * size_t(STBI_rgb_alpha);
+				}
+
+				imgData.resize(dataSize + chunkSize);
+				memcpy(imgData.data()+dataSize, ptr, chunkSize);
+
+				VkBufferImageCopy bufferCopyRegion = {};
+				bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				bufferCopyRegion.imageSubresource.mipLevel = 0;
+				bufferCopyRegion.imageSubresource.baseArrayLayer = i;
+				bufferCopyRegion.imageSubresource.layerCount = 1;
+				bufferCopyRegion.imageExtent.width = this->w;
+				bufferCopyRegion.imageExtent.height = this->h;
+				bufferCopyRegion.imageExtent.depth = 1;
+				bufferCopyRegion.bufferOffset = dataSize;
+				mipInformation.push_back(bufferCopyRegion);
+
+				dataSize += chunkSize;
+				
+				stbi_image_free(ptr);
+			}
+
+			if (isHDR) 
+			{
+				this->format = [channels = this->channels]() {
+					switch (channels)
+					{
+					case 1: return VK_FORMAT_R16_SFLOAT;
+					case 2: return VK_FORMAT_R16G16_SFLOAT;
+					case 3: return VK_FORMAT_R16G16B16A16_SFLOAT;
+					case 4: return VK_FORMAT_R16G16B16A16_SFLOAT;
+					default:return VK_FORMAT_R16G16B16A16_SFLOAT;
+					}
+				}();
+				std::vector<uint8_t> processed;
+				processed.resize(imgData.size() / 2);
+				uint16_t* data = (uint16_t*)processed.data();
+				for (size_t i = 0; i < processed.size()/2; i++)
+				{
+					float fltValue = *(float*)(imgData.data() + i * sizeof(float));
+					this->highestColValue = std::max(this->highestColValue, fltValue);
+					data[i] = float_to_half(fltValue);
+				}
+				std::swap(imgData, processed);
+				dataSize /= 2; // data is halved
+				for (size_t i = 0; i < mipInformation.size(); i++)
+				{
+					mipInformation[i].bufferOffset /= 2;
+				}
+			}
+			else 
+			{
+				this->format = VK_FORMAT_R8G8B8A8_UNORM;
+			}
 			return imgData.size() ? true : false;
 		}
 

@@ -92,7 +92,7 @@ namespace rhi
 		m_regionNamed = false;
 	}
 
-	void CommandList::BeginTrackingImage(vkutils::Texture2D* tex)
+	void CommandList::BeginTrackingImage(vkutils::Texture* tex)
 	{
 		auto iter = m_trackedTextures.find(tex);
 		if (iter == m_trackedTextures.end())
@@ -107,13 +107,24 @@ namespace rhi
 		}
 	}
 
-	ResourceStateTracking* CommandList::getTrackedImage(vkutils::Texture2D* tex)
+	ResourceStateTracking* CommandList::getTrackedImage(vkutils::Texture* tex)
 	{
 		auto iter = m_trackedTextures.find(tex);
 		if (iter != m_trackedTextures.end()) {
 			return &iter->second;
 		}
 		return nullptr;
+	}
+
+	ResourceStateTracking* CommandList::ensureTrackedImage(vkutils::Texture* tex)
+	{
+		ResourceStateTracking* result = getTrackedImage(tex);
+		if (result == nullptr)
+		{
+			BeginTrackingImage(tex);
+			result = getTrackedImage(tex);
+		}
+		return result;
 	}
 
 	void CommandList::VerifyImageResourceStates()
@@ -123,7 +134,12 @@ namespace rhi
 			if (state.expectedLayout != state.currentLayout) 
 			{
 				// TODO: Batch together barriers
-				vkutils::TransitionImage(m_VkCommandBuffer, *tex, state.currentLayout, state.expectedLayout);
+				if (state.expectedLayout == VK_IMAGE_USAGE_STORAGE_BIT) {
+					vkutils::ComputeImageBarrier(m_VkCommandBuffer, *tex, state.currentLayout, state.expectedLayout);
+				}
+				else {
+					vkutils::TransitionImage(m_VkCommandBuffer, *tex, state.currentLayout, state.expectedLayout);
+				}
 				state.currentLayout = state.expectedLayout;
 			}
 			else 
@@ -146,6 +162,43 @@ namespace rhi
 		}
 	}
 
+	void CommandList::CopyImage(vkutils::Texture* src, vkutils::Texture* dst)
+	{
+		OO_ASSERT(src != nullptr && dst != nullptr);
+
+		const ResourceStateTracking* dstTrack = ensureTrackedImage(dst);
+		const ResourceStateTracking* srcTrack = ensureTrackedImage(src);
+		// we will use and restore the tracked states
+
+		VkImageSubresourceLayers srcCopy{ VK_IMAGE_ASPECT_COLOR_BIT ,0,0,1 };
+		srcCopy.layerCount = src->layerCount;
+		if (src->format == VulkanRenderer::G_DEPTH_FORMAT) {
+			srcCopy.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+
+		VkImageSubresourceLayers dstCopy{ VK_IMAGE_ASPECT_COLOR_BIT ,0,0,1 };
+		dstCopy.layerCount = src->layerCount;
+		if (dst->format == VulkanRenderer::G_DEPTH_FORMAT) {
+			dstCopy.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+
+		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *src,srcTrack->currentLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *dst,dstTrack->currentLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		VkImageCopy region{};
+		region.srcSubresource = srcCopy;
+		region.srcOffset = {};
+		region.dstSubresource = dstCopy;
+		region.dstOffset = {};
+		region.extent = { src->width,src->height,1 };
+		vkCmdCopyImage(m_VkCommandBuffer,src->image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+			, dst->image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &region);
+		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, srcTrack->currentLayout);
+		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstTrack->currentLayout);
+
+		//dont need to modify tracked state because we have returned it
+	}
+
 void CommandList::BeginNameRegion(const char* name, const glm::vec4 col)
 {
 	auto region = VulkanRenderer::get()->pfnDebugMarkerRegionBegin;
@@ -164,18 +217,12 @@ void CommandList::BeginNameRegion(const char* name, const glm::vec4 col)
 	}
 }
 
-void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture2D* tex, bool clearOnDraw)
+void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture* tex, bool clearOnDraw)
 {
 
 	if (tex) {
 		//start tracking
-		ResourceStateTracking* tracked = getTrackedImage(tex);
-		if (tracked == nullptr)
-		{
-			
-			BeginTrackingImage(tex);
-			tracked = getTrackedImage(tex);
-		}
+		ResourceStateTracking* tracked = ensureTrackedImage(tex);		
 		tracked->expectedLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 
@@ -187,11 +234,14 @@ void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture2D* tex, bo
 		albedoInfo.resolveImageLayout = {};
 		albedoInfo.imageView = tex->view;
 		albedoInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		albedoInfo.loadOp = clearOnDraw ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		//albedoInfo.loadOp = clearOnDraw ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		// handled by should clear draw
 		albedoInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		albedoInfo.clearValue = VkClearValue{ {} };
 
 		m_attachments[bindPoint] = albedoInfo;
+		m_shouldClearAttachment[bindPoint] = clearOnDraw;
+
 		m_highestAttachmentBound = std::max<int32_t>(bindPoint, m_highestAttachmentBound);
 
 		m_renderArea.extent = { tex->width, tex->height };
@@ -204,19 +254,14 @@ void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture2D* tex, bo
 
 }
 
-void CommandList::BindDepthAttachment(vkutils::Texture2D* tex, bool clearOnDraw)
+void CommandList::BindDepthAttachment(vkutils::Texture* tex, bool clearOnDraw)
 {
-	//start tracking
-	ResourceStateTracking* tracked = getTrackedImage(tex);
-	if (tracked == nullptr)
-	{
-		BeginTrackingImage(tex);
-		tracked = getTrackedImage(tex);
-	}
-	tracked->expectedLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
 	if (tex) 
-	{	
+	{
+		//start tracking
+		ResourceStateTracking* tracked = ensureTrackedImage(tex);
+		tracked->expectedLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
 		VkRenderingAttachmentInfo depthInfo{};
 		depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
 		depthInfo.pNext = NULL;
@@ -225,11 +270,16 @@ void CommandList::BindDepthAttachment(vkutils::Texture2D* tex, bool clearOnDraw)
 		depthInfo.resolveImageLayout = {};
 		depthInfo.imageView = tex->view;
 		depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		depthInfo.loadOp = clearOnDraw ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		// depthInfo.loadOp = clearOnDraw ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		// handled by should clear
 		depthInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		depthInfo.clearValue = VkClearValue{ {} };
 		m_depth = depthInfo;
 		m_depthBound = true;
+		m_shouldClearDepth = clearOnDraw;
+
+		m_renderArea.extent.width = std::max(tex->width, m_renderArea.extent.width);
+		m_renderArea.extent.height = std::max(tex->height, m_renderArea.extent.height);
 	}
 	else 
 	{
@@ -251,6 +301,15 @@ void CommandList::BeginRendering(VkRect2D renderArea)
 {
 
 	VerifyImageResourceStates();
+
+	
+	m_depth.loadOp = m_shouldClearDepth ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+	m_shouldClearDepth = false;
+	for (size_t i = 0; i < m_highestAttachmentBound + 1; i++)
+	{
+		m_attachments[i].loadOp = m_shouldClearAttachment[i] ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		m_shouldClearAttachment[i] = false;
+	}
 
 	VkRenderingInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -390,6 +449,11 @@ void CommandList::SetScissor(const VkRect2D& scissor)
 	this->SetScissor(0, 1, &s);
 }
 
+VkCommandBuffer CommandList::getCommandBuffer()
+{
+	return m_VkCommandBuffer;
+}
+
 void CommandList::CommitDescriptors()
 {
 	uint32_t count{};
@@ -439,23 +503,28 @@ void CommandList::CommitDescriptors()
 		dynamicOffsetCnt ? dynOffsets.data() : nullptr);
 }
 
-DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Texture2D* texture, VkDescriptorType type, VkShaderStageFlags stageFlagsInclude)
+DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type)
 {	
+	BindImage(binding, texture, type, texture->view);
+	return *this;
+}
+
+DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type, VkImageView viewOverride)
+{
 	VkImageLayout layout = (type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 	VkDescriptorImageInfo texinfo = oGFX::vkutils::inits::descriptorImageInfo(
 		VK_NULL_HANDLE, // no sampler
-		texture->view,
+		viewOverride,
 		layout);
 
-	builder.BindImage(binding, &texinfo, type, shaderStage | stageFlagsInclude);
+	builder.BindImage(binding, &texinfo, type, shaderStage);
 
 	this->m_cmdList->BeginTrackingImage(texture);
 	ResourceStateTracking* tracked = m_cmdList->getTrackedImage(texture);
 	tracked->expectedLayout = layout;
 
 	return *this;
-
 }
 
 DescriptorSetInfo& DescriptorSetInfo::BindSampler(uint32_t binding, VkSampler sampler, VkShaderStageFlags stageFlagsInclude)

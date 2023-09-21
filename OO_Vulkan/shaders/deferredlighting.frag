@@ -1,6 +1,9 @@
 layout (location = 0) in vec2 inUV;
 layout (location = 0) out vec4 outFragcolor;
 
+ #extension GL_EXT_samplerless_texture_functions : require
+
+
 #include "frame.shader"
 layout(set = 1, binding = 0) uniform UboFrameContext
 {
@@ -9,13 +12,17 @@ layout(set = 1, binding = 0) uniform UboFrameContext
 #include "shared_structs.h"
 
 layout (set = 0, binding = 0) uniform sampler basicSampler; 
-layout (set = 0, binding = 1) uniform texture2D samplerDepth;
-layout (set = 0, binding = 2) uniform texture2D samplerNormal;
-layout (set = 0, binding = 3) uniform texture2D samplerAlbedo;
-layout (set = 0, binding = 4) uniform texture2D samplerMaterial;
-layout (set = 0, binding = 5) uniform texture2D samplerEmissive;
+layout (set = 0, binding = 1) uniform texture2D textureDepth;
+layout (set = 0, binding = 2) uniform texture2D textureNormal;
+layout (set = 0, binding = 3) uniform texture2D textureAlbedo;
+layout (set = 0, binding = 4) uniform texture2D textureMaterial;
+layout (set = 0, binding = 5) uniform texture2D textureEmissive;
 layout (set = 0, binding = 6) uniform texture2D samplerShadows;
-layout (set = 0, binding = 7) uniform texture2D samplerSSAO;
+layout (set = 0, binding = 7) uniform texture2D textureSSAO;
+
+layout (set = 0, binding = 9) uniform sampler cubeSampler;
+layout (set = 0, binding = 10) uniform textureCube irradianceCube;
+
 
 #include "lights.shader"
 
@@ -24,6 +31,7 @@ layout( push_constant ) uniform lightpc
 	LightPC PC;
 };
 
+#include "shadowCalculation.shader"
 #include "lightingEquations.shader"
 
 
@@ -36,15 +44,46 @@ uint DecodeFlags(in float value)
 
 void main()
 {
-	// just perform ambient
-	vec4 albedo = texture(sampler2D(samplerAlbedo,basicSampler), inUV);
-	float ambient = PC.ambient;
 	
+	// Get G-Buffer values
+	float depth = texelFetch(textureDepth,ivec2(gl_FragCoord.xy) , 0).r;
+
+	vec4 albedo = texture(sampler2D(textureAlbedo,basicSampler), inUV);
+	float ambient = PC.ambient;
+	vec3 fragPos = WorldPosFromDepth(depth.r,inUV,uboFrameContext.inverseProjection,uboFrameContext.inverseView);
+	vec3 normal = texture(sampler2D(textureNormal,basicSampler), inUV).rgb;
+	normal = normalize(normal);
+
 	const float gamma = 2.2;
 	albedo.rgb =  pow(albedo.rgb, vec3(1.0/gamma));
+	
+    //albedo.rgb = vec3(1,1,0);
+
+	vec4 material = texture(sampler2D(textureMaterial,basicSampler), inUV);
+	float SSAO = texture(sampler2D(textureSSAO,basicSampler), inUV).r;
+    float roughness = (material.r);
+	float metalness = (material.g);
+
+	// just perform ambient
+	vec3 lightDir = -normalize(PC.directionalLight.xyz);
+	
 	// Ambient part
-	vec3 emissive = texture(sampler2D(samplerEmissive,basicSampler),inUV).rgb;
-	vec3 result = albedo.rgb  * ambient + emissive;
-	outFragcolor = vec4(result, albedo.a);	
+	vec3 emissive = texture(sampler2D(textureEmissive,basicSampler),inUV).rgb;
+	emissive = vec3(0);
+
+	vec4 lightCol = vec4(1.0,1.0,1.0,1.0);
+	lightCol.w = PC.ambient; 
+	
+    vec3 irradiance = vec3(1);
+    irradiance = texture(samplerCube(irradianceCube, basicSampler), normal).rgb;
+    irradiance *= uboFrameContext.vector4_values0.x;
+	
+    vec3 result = EvalDirectionalLight(lightCol, lightDir
+									, uboFrameContext.cameraPosition.xyz, fragPos
+									, normal, roughness, metalness
+									, albedo.rgb, irradiance);
+
+	
+    outFragcolor = vec4(result.rgb, albedo.a);
 
 }

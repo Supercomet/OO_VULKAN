@@ -4,6 +4,8 @@
 
 #include <vector>
 #include <memory>
+#include <string>
+#include "Font.h"
 
 class TestApplication
 {
@@ -11,6 +13,8 @@ public:
 
     void Init();
     void Run();
+
+    int32_t CreateTextHelper(glm::mat4 xform, std::string str, oGFX::Font* testFont);
 
 private:
 

@@ -247,6 +247,7 @@ namespace oGFX
 		int32_t h{};
 		int32_t channels{};
 		uint64_t dataSize{};
+		float highestColValue{1.0f};
 		std::vector<uint8_t> imgData{};
 		std::vector<VkBufferImageCopy> mipInformation{};
 		enum class ExtensionType : uint8_t
@@ -264,10 +265,12 @@ namespace oGFX
 		VkFormat format{ VK_FORMAT_R8G8B8A8_UNORM };
 
 		bool Create(const std::string& fileName);
+		bool CreateCube(const std::string& folder);
 		void Free();
 	};
 
 	bool IsFileDDS(const std::string& fileName);
+	bool IsFileHDR(const std::string& fileName);
 
 	namespace vkutils
 	{
