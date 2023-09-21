@@ -122,6 +122,7 @@ void LightingHistogram::Shutdown()
 
 	vmaDestroyBuffer(vr.m_device.m_allocator, vr.lightingHistogram.buffer, vr.lightingHistogram.alloc);
 
+	vkDestroyPipelineLayout(device, PSOLayoutDB::histogramPSOLayout, nullptr);
 	vr.attachments.shadow_depth.destroy();
 	vkDestroyPipeline(device, pso_LightingHistogram, nullptr);
 	vkDestroyPipeline(device, pso_lightingCDFScan, nullptr);
