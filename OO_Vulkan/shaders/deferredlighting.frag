@@ -21,7 +21,7 @@ layout (set = 0, binding = 6) uniform texture2D samplerShadows;
 layout (set = 0, binding = 7) uniform texture2D textureSSAO;
 
 layout (set = 0, binding = 9) uniform sampler cubeSampler;
-layout (set = 0, binding = 10) uniform textureCube skyTexture;
+layout (set = 0, binding = 10) uniform textureCube irradianceCube;
 
 
 #include "lights.shader"
@@ -73,11 +73,16 @@ void main()
 
 	vec4 lightCol = vec4(1.0,1.0,1.0,1.0);
 	lightCol.w = PC.ambient; 
-    
 	
-    vec3 result = EvalDirectionalLight(lightCol, lightDir, uboFrameContext.cameraPosition.xyz, fragPos, normal, roughness, albedo.rgb, metalness);
+    vec3 irradiance = vec3(1);
+    irradiance = texture(samplerCube(irradianceCube, basicSampler), normal).rgb;
+    irradiance *= uboFrameContext.vector4_values0.x;
 	
-    vec3 cubeCol = texture(samplerCube(skyTexture, basicSampler), normal).rgb;
+    vec3 result = EvalDirectionalLight(lightCol, lightDir
+									, uboFrameContext.cameraPosition.xyz, fragPos
+									, normal, roughness, metalness
+									, albedo.rgb, irradiance);
+
 	
     outFragcolor = vec4(result.rgb, albedo.a);
 

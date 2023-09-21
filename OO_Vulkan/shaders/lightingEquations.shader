@@ -334,14 +334,21 @@ vec3 EvalLight(in LocalLightInstance lightInfo
     return result;
 }
 
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
 vec3 EvalDirectionalLight(in vec4 lightCol
                         , in vec3 lightDir
                         , in vec3 cameraPos
                         , in vec3 fragPos
                         , in vec3 normal
                         , float roughness
+                        , float metalness
                         , in vec3 albedo
-                        , float metalness)
+                        , in vec3 irradiance
+)
 {
     vec3 N = normal;    
     // Viewer to fragment
@@ -357,14 +364,17 @@ vec3 EvalDirectionalLight(in vec4 lightCol
     // vec3 specular = vec3(0.0);
     metalness = metalness;
     roughness = roughness;
-    //specular += SaschaBRDF(L, V, N, metalness, roughness, lCol, albedo.rgb);
-    //
-    // vec3 result = vec3(0.0f, 0.0f, 0.0f);
-    //result += specular;
-  
+    
     
     vec3 baseDiffusePBR = mix(albedo.rgb, vec3(0, 0, 0), metalness);
 
+    vec3 kS = fresnelSchlickRoughness(max(dot(N, V), 0.0), 1.0 - baseDiffusePBR,roughness);
+    vec3 kD = 1.0 - kS;
+    kD *= 1.0 - metalness;
+    vec3 diffuse = irradiance * albedo;
+    vec3 ambient = (kD * diffuse);// * ao;
+    
+    
     // Specular coefficiant - fixed reflectance value for non-metals
     const float kSpecularCoefficient = 0.04f;
     vec3 baseSpecular = mix(vec3(kSpecularCoefficient, kSpecularCoefficient, kSpecularCoefficient), baseDiffusePBR, metalness); //* occlusion;
@@ -386,8 +396,9 @@ vec3 EvalDirectionalLight(in vec4 lightCol
     
     vec3 finalColor = NdotL * lCol * ((baseDiffusePBR * diffuseTerm) + specularTerm);
     
+    ambient = irradiance*0.01;
     //return vec3(NdotL);
-    return finalColor;
+    return finalColor +ambient;
 }
 
 float RadicalInverse_VdC(uint bits)

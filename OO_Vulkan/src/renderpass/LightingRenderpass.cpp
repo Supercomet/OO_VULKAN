@@ -129,7 +129,7 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 		.BindImage(7, &vr.attachments.SSAO_finalTarget, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindBuffer(8, &vr.globalLightBuffer[vr.getFrame()].GetDescriptorBufferInfo(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 		.BindSampler(9, GfxSamplerManager::GetSampler_Cube()) // cube sampler
-		.BindImage(10, &vr.g_cubeMap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE); // cube map
+		.BindImage(10, &vr.g_radianceMap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE); // cube map
 	
 	cmd.SetDefaultViewportAndScissor();
 

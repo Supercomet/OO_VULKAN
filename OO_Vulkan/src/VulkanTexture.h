@@ -52,6 +52,7 @@ namespace vkutils
 		VkImageUsageFlags usage{};
 		VkImageAspectFlags aspectMask{};
 		VkFilter filter{};
+		float highestColValue{1.0f};
 		bool targetSwapchain = true;
 		bool isValid = false;
 		float renderScale = 1.0f;

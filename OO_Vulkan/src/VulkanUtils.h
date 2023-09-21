@@ -247,6 +247,7 @@ namespace oGFX
 		int32_t h{};
 		int32_t channels{};
 		uint64_t dataSize{};
+		float highestColValue{1.0f};
 		std::vector<uint8_t> imgData{};
 		std::vector<VkBufferImageCopy> mipInformation{};
 		enum class ExtensionType : uint8_t

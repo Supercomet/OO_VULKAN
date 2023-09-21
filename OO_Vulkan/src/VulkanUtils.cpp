@@ -664,6 +664,10 @@ namespace oGFX
 
 	uint16_t float_to_half(const float x)
 	{
+		const uint32_t HALF_FLOAT_MAX_VALUE = 65504;
+		const uint32_t HALF_FLOAT_MAX = 0x7bff;
+
+		if (x > HALF_FLOAT_MAX_VALUE) return uint16_t(HALF_FLOAT_MAX);// guard against high values
 		// IEEE-754 16-bit floating-point format (without infinity): 1-5-10, exp-15, +-131008.0, +-6.1035156E-5, +-5.9604645E-8, 3.311 digits
 		const uint32_t b = *reinterpret_cast<const uint32_t*>(&x) + 0x00001000; // round-to-nearest-even: add last bit after truncated mantissa
 		const uint32_t e = (b & 0x7F800000) >> 23; // exponent
@@ -779,6 +783,7 @@ namespace oGFX
 				for (size_t i = 0; i < processed.size()/2; i++)
 				{
 					float fltValue = *(float*)(imgData.data() + i * sizeof(float));
+					this->highestColValue = std::max(this->highestColValue, fltValue);
 					data[i] = float_to_half(fltValue);
 				}
 				std::swap(imgData, processed);

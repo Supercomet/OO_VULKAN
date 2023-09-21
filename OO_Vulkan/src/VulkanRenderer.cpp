@@ -911,7 +911,7 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 
 	DescriptorBuilder::Begin()
 		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindImage(1, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(1, nullptr, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BuildLayout(SetLayoutDB::compute_Radiance);
 
@@ -2809,11 +2809,21 @@ void VulkanRenderer::GenerateRadianceMap(VkCommandBuffer cmdlist, vkutils::CubeT
 	
 	rhi::CommandList cmd{cmdlist, "RadianceMapGeneration"};
 
+	glm::vec4 values{};
+	const float MAX_LIGHT_CONTRIBUTION = 100.0f;
+	values.x = MAX_LIGHT_CONTRIBUTION;
+
+	VkPushConstantRange pcr{};
+	pcr.size = sizeof(glm::vec4);
+	pcr.stageFlags = VK_SHADER_STAGE_ALL;
+
+	cmd.SetPushConstant(PSOLayoutDB::RadiancePSOLayout, pcr, &values.x);
+
 	// use source to create radiance map for 6 faces using compute
 	cmd.BindPSO(pso_radiance, PSOLayoutDB::RadiancePSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 	cmd.DescriptorSetBegin(0)
 		.BindSampler(0, GfxSamplerManager::GetSampler_Cube())
-		.BindImage(1, &cubemap, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+		.BindImage(1, &cubemap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(2, &g_radianceMap, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
 	const uint32_t CUBE_FACES = 6;
@@ -4179,9 +4189,10 @@ uint32_t VulkanRenderer::CreateCubeMapTexture(const std::string& folderName)
 	imageData.mipInformation.front().imageExtent = VkExtent3D{ 1,1,1 };
 #endif // OVERIDE_TEXTURE_SIZE_ONE
 
-	auto lam = [this, imageInfo = imageData]() {
+	auto lam = [this, imageInfo = imageData, highVal = imageData.highestColValue]() {
 
 		g_cubeMap.name = imageInfo.name;
+		g_cubeMap.highestColValue = highVal;
 		g_cubeMap.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h, imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 		// dont generate for now
 		GenerateMipmaps(g_cubeMap);
