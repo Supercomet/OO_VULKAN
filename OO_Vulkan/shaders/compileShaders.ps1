@@ -45,6 +45,8 @@ $files = @(
 	"irradiance.comp",
 	"envPrefilter.comp",
 	"brdfLUT.comp",
+	"cdfscan.comp",
+	"histogram.comp",
 	"brightPixels.comp",
 	"computeCull.comp",
 	"downsample.comp",
