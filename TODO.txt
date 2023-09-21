@@ -1,6 +1,5 @@
 Graphic Features:
 • IBL rendering
-    • Directional light
     • Sky dome
 
 • GBuffer Render Targets:
@@ -27,8 +26,6 @@ Graphic Features:
     • Generate screen-space grid, using grid index as index to lights buffer
     • Dispatch draw calls on screen via DrawIndirect. Build tile screen positions & offsets in separate CS
 
-• Implement Full Z-PrePass
-    • Treat every Opaque object as an occluder to keep things simple
 
 • AMD ShadowFX: https://github.com/GPUOpen-Effects/ShadowFX
     
@@ -78,9 +75,6 @@ Engineering Tasks:
     • Suballocate exact necessary bytes as neededed for culled instances
     • Pass buffer offset to VS
 
-• Don't clear GBuffer every frame
-    • Your game should have every pixel in every GBuffer Render Target filled up.
-
 • Encapsulate as many Vulkan API calls as possible inside your "CommandList" class
 
 • Multi-thread all Graphic Tasks & Renderers
@@ -102,9 +96,16 @@ Engineering Tasks:
 
 ///////////////////////////////////////////////////////////////////////////////
 Done:
+• Implement Full Z-PrePass
+    • Treat every Opaque object as an occluder to keep things simple
+
 • IBL rendering
+	• Directional light
     • Scene cube map
     • Once implemented, remove gbuffer albedo clear
+
+• Don't clear GBuffer every frame
+    • Your game should have every pixel in every GBuffer Render Target filled up.
 	
 • Standardize resource SRV and UAV access in each GfxRenderer
 	• Have an initial state that each resource should be in
