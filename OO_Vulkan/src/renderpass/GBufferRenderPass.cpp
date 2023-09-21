@@ -467,6 +467,7 @@ void GBufferRenderPass::CreatePipeline()
 	pipelineCI.pStages = shaderStages.data();
 
 	depthStencilState.depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
+	depthStencilState.depthWriteEnable = VK_FALSE;
 
 	// write to stencil buffer
 	depthStencilState.stencilTestEnable = VK_TRUE;
