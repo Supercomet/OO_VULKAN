@@ -192,6 +192,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 		pc.shadowCol = colSettings.shadowColour;
 		pc.midCol = colSettings.midtonesColour;
 		pc.highCol = colSettings.highlightColour;
+		pc.exposure = colSettings.exposure;
 
 		pc.shadowCol.a /= 1000.0f;
 		pc.midCol.a /= 1000.0f;

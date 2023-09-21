@@ -100,7 +100,7 @@ struct ColourCorrectPC
     vec4 midCol;
     vec4 highCol;
     vec2 threshold;
-
+    float exposure;
 };
 
 struct VignettePC

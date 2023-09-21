@@ -396,7 +396,7 @@ vec3 EvalDirectionalLight(in vec4 lightCol
     
     vec3 finalColor = NdotL * lCol * ((baseDiffusePBR * diffuseTerm) + specularTerm);
     
-    ambient = irradiance*0.01;
+    ambient = irradiance;
     //return vec3(NdotL);
     return finalColor +ambient;
 }

@@ -42,30 +42,16 @@ void main()
     vec2 uvs = (vec2(gl_GlobalInvocationID.xy) + 0.5) / textureSize(sampler2D( inputImage, basicSampler),
     0);
     vec4 res = texture( sampler2D( inputImage, basicSampler), uvs);
+    
 
-	
-
-	float shadowThreshold = pc.threshold.x;
-	float highlightThreshold = pc.threshold.y;
-
-	float luminance = dot(res.rgb, vec3(0.2126, 0.7152, 0.0722));
-    float shadow = smoothstep(0.0, shadowThreshold, luminance);
-    float highlight = smoothstep(highlightThreshold, 1.0, luminance);
-    float midtones = 1.0 - shadow - highlight;
-
-    vec3 correctedColor = res.rgb;
-    correctedColor = mix(correctedColor, pc.shadowCol.rgb, (1.0-shadow) * pc.shadowCol.a);
-    correctedColor = mix(correctedColor, pc.midCol.rgb, midtones * pc.midCol.a);
-	
-    correctedColor = mix(correctedColor, pc.highCol.rgb, highlight * pc.highCol.a);
-
-	vec3 result = aces_tonemap(correctedColor.rgb);
+    vec3 result = aces_tonemap(res.rgb * pc.exposure);
 	
 	// also gamma correct before returning    
 	const float gamma = 2.2;
-    result = pow(res.rgb, vec3(gamma));
+    result = pow(result.rgb, vec3(gamma));
+    
 
     //Note: Store operations to any texel that is outside the boundaries of the bound image will do nothing.
-    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(res.rgb, 1.0));
+    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(result.rgb, 1.0));
 }
 

@@ -783,40 +783,7 @@ void TestApplication::Run()
 
             {
                 PROFILE_SCOPED("ImGui::Update");
-                ImGui::Begin("Problems");
-                if(ImGui::Button("Reload Shaders") )
-                {
-                    gs_RenderEngine->m_reloadShaders = true;
-                }
-                ImGui::Checkbox("EditCam", &s_boolCamera);
-                ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
-                if(ImGui::TreeNode("Bloom") ){
-                    auto& cs = gs_GraphicsWorld.bloomSettings;
-                    ImGui::Checkbox("Bloom Enabled", &gs_GraphicsWorld.bloomSettings.enabled);
-                    ImGui::DragFloat("bloom thresh", &cs.threshold,0.001f,0.0f,1.0f);
-                    ImGui::DragFloat("soft thresh", &cs.softThreshold,0.001f,0.0f,1.0f);
-
-                    ImGui::TreePop();
-                }
-                if(ImGui::TreeNode("ColourCorreciton") ){
-                    auto& cs = gs_GraphicsWorld.colourSettings;
-                    ImGui::DragFloat("shadowThresh", &cs.shadowThreshold,0.001f,0.0f,1.0f);
-                    ImGui::DragFloat("highThresh", &cs.highlightThreshold,0.001f,0.0f,1.0f);
-                    ImGui::ColorEdit4("shadow", glm::value_ptr(cs.shadowColour));
-                    ImGui::ColorEdit4("mid", glm::value_ptr(cs.midtonesColour));
-                    ImGui::ColorEdit4("high", glm::value_ptr(cs.highlightColour));
-
-                    ImGui::TreePop();
-                }
-                if(ImGui::TreeNode("vignette") ){
-                    auto& vs = gs_GraphicsWorld.vignetteSettings;
-                    ImGui::ColorEdit4("vigCol", glm::value_ptr(vs.colour));
-                    ImGui::DragFloat("innerRadius", &vs.innerRadius,0.01f);
-                    ImGui::DragFloat("outerRadius", &vs.outerRadius,0.01f);
-
-                    ImGui::TreePop();
-                }
-            
+                ImGui::Begin("Problems");            
                 if (ImGui::Button("Cause problems"))
                 {
                     uint32_t col = 0x00FFFF00;
@@ -847,13 +814,7 @@ void TestApplication::Run()
                 }
                 ImGui::End();
 
-                static bool ManyCamera{ true };
-                gs_GraphicsWorld.numCameras = 2;
-                ManyCamera = gs_GraphicsWorld.shouldRenderCamera[1];
-                if (ImGui::Checkbox("Many camera", &ManyCamera))
-                {
-                    gs_GraphicsWorld.shouldRenderCamera[1] = ManyCamera;
-                }
+               
 
                 if (Input::GetKeyTriggered(KEY_P))
                 {
@@ -875,16 +836,24 @@ void TestApplication::Run()
                         ImGui::Image(gs_GraphicsWorld.imguiID[0], {800,600});
                     }
                 }
-                    ImGui::End();
+                ImGui::End();
            
                 if (ImGui::Begin("Editor"))
                 {
+                    static bool ManyCamera{ true };
+                    gs_GraphicsWorld.numCameras = 2;
+                    ManyCamera = gs_GraphicsWorld.shouldRenderCamera[1];
+                    if (ImGui::Checkbox("Many camera", &ManyCamera))
+                    {
+                        gs_GraphicsWorld.shouldRenderCamera[1] = ManyCamera;
+                    }
+                    ImGui::Checkbox("EditCam", &s_boolCamera);
                     if (gs_GraphicsWorld.imguiID[1])
                     {
                         ImGui::Image(gs_GraphicsWorld.imguiID[1], {800,600});
                     }
                 }
-                    ImGui::End();
+                ImGui::End();
             
             }
 
@@ -1305,28 +1274,69 @@ void TestApplication::ToolUI_Settings()
 	ImGui::Separator();
     {
         ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Scene Settings");
+        auto& cs = gs_GraphicsWorld.colourSettings;
+        ImGui::SliderFloat("exposure", &cs.exposure, 0.0f, 12.0f);
+
         auto& ssaoSettings = gs_RenderEngine->currWorld->ssaoSettings;
-        ImGui::Text("SSAO");
-        ImGui::PushID(std::atoi("SSAO"));
-        ImGui::DragFloat("Radius", &ssaoSettings.radius,0.01f);
-        ImGui::DragFloat("Bias", &ssaoSettings.bias,0.01f);
-        ImGui::DragFloat("Intensity", &ssaoSettings.intensity,0.01f);
-        uint32_t mmin =1;
-        uint32_t mmax = 64;
-        ImGui::DragScalar("Samples", ImGuiDataType_U32, &ssaoSettings.samples, 0.1f , &mmin, &mmax);
-        ImGui::PopID();
+        {
+            ImGui::Text("SSAO");
+            ImGui::PushID(std::atoi("SSAO"));
+            ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
+            ImGui::DragFloat("Radius", &ssaoSettings.radius, 0.01f);
+            ImGui::DragFloat("Bias", &ssaoSettings.bias, 0.01f);
+            ImGui::DragFloat("Intensity", &ssaoSettings.intensity, 0.01f);
+            uint32_t mmin = 1;
+            uint32_t mmax = 64;
+            ImGui::DragScalar("Samples", ImGuiDataType_U32, &ssaoSettings.samples, 0.1f, &mmin, &mmax);
+            ImGui::PopID();
+        }
+        
         auto& lightSettings = gs_RenderEngine->currWorld->lightSettings;   
-        ImGui::Text("Lighting");
-        ImGui::PushID(std::atoi("Lighting"));
-        ImGui::DragFloat("Ambient", &lightSettings.ambient,0.01f);
-        ImGui::DragFloat4("Directional", &lightSettings.direction.x, 0.01f);
-        ImGui::DragFloat("Max bias", &lightSettings.maxBias,0.01f);
-        ImGui::DragFloat("Bias multiplier", &lightSettings.biasMultiplier,0.01f);
-        ImGui::PopID();
+        {
+            ImGui::Text("Lighting");
+            ImGui::PushID(std::atoi("Lighting"));
+            ImGui::DragFloat("Ambient", &lightSettings.ambient, 0.01f);
+            ImGui::DragFloat4("Directional", &lightSettings.direction.x, 0.01f);
+            ImGui::DragFloat("Max bias", &lightSettings.maxBias, 0.01f);
+            ImGui::DragFloat("Bias multiplier", &lightSettings.biasMultiplier, 0.01f);
+            ImGui::PopID();
+        }       
+
+        if (ImGui::TreeNode("Bloom")) {
+            auto& cs = gs_GraphicsWorld.bloomSettings;
+            ImGui::Checkbox("Bloom Enabled", &gs_GraphicsWorld.bloomSettings.enabled);
+            ImGui::DragFloat("bloom thresh", &cs.threshold, 0.001f, 0.0f, 1.0f);
+            ImGui::DragFloat("soft thresh", &cs.softThreshold, 0.001f, 0.0f, 1.0f);
+
+            ImGui::TreePop();
+        }
+        
+        if (ImGui::TreeNode("ColourCorreciton")) {
+            ImGui::DragFloat("shadowThresh", &cs.shadowThreshold, 0.001f, 0.0f, 1.0f);
+            ImGui::DragFloat("highThresh", &cs.highlightThreshold, 0.001f, 0.0f, 1.0f);
+            ImGui::ColorEdit4("shadow", glm::value_ptr(cs.shadowColour));
+            ImGui::ColorEdit4("mid", glm::value_ptr(cs.midtonesColour));
+            ImGui::ColorEdit4("high", glm::value_ptr(cs.highlightColour));
+
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("vignette")) {
+            auto& vs = gs_GraphicsWorld.vignetteSettings;
+            ImGui::ColorEdit4("vigCol", glm::value_ptr(vs.colour));
+            ImGui::DragFloat("innerRadius", &vs.innerRadius, 0.01f);
+            ImGui::DragFloat("outerRadius", &vs.outerRadius, 0.01f);
+
+            ImGui::TreePop();
+        }
+
     }
     ImGui::Separator();
     {
 		ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Shader Debug Tool");
+        if (ImGui::Button("Reload Shaders", {0,40}))
+        {
+            gs_RenderEngine->m_reloadShaders = true;
+        }
 		ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);      
 		ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);        
 		ImGui::DragFloat4("vector4_values2", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values2), 0.01f);

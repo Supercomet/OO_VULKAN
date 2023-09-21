@@ -983,7 +983,7 @@ void VulkanRenderer::CreateDefaultPSO()
 	//pipelineCI.renderPass = renderPass_default_noDepth.pass;
 	pipelineCI.renderPass = VK_NULL_HANDLE;
 
-	VkFormat format = VK_FORMAT_B8G8R8A8_SRGB;
+	VkFormat format = m_swapchain.swapChainImageFormat;
 	VkPipelineRenderingCreateInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 	renderingInfo.viewMask = {};

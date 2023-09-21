@@ -319,7 +319,7 @@ void main()
 */
 static uint32_t __glsl_shader_frag_spv[] =
 {
-#if 0 // modified for our needs
+#if 1 // original code
     0x07230203,0x00010000,0x00080001,0x0000001e,0x00000000,0x00020011,0x00000001,0x0006000b,
     0x00000001,0x4c534c47,0x6474732e,0x3035342e,0x00000000,0x0003000e,0x00000000,0x00000001,
     0x0007000f,0x00000004,0x00000004,0x6e69616d,0x00000000,0x00000009,0x0000000d,0x00030010,
@@ -345,7 +345,7 @@ static uint32_t __glsl_shader_frag_spv[] =
     0x0000001b,0x0000001a,0x00050057,0x00000007,0x0000001c,0x00000017,0x0000001b,0x00050085,
     0x00000007,0x0000001d,0x00000012,0x0000001c,0x0003003e,0x00000009,0x0000001d,0x000100fd,
     0x00010038
-#endif
+#else // modified for our needs
     0x07230203,0x00010000,0x0008000a,0x0000002c,0x00000000,0x00020011,0x00000001,0x0006000b,
     0x00000001,0x4c534c47,0x6474732e,0x3035342e,0x00000000,0x0003000e,0x00000000,0x00000001,
     0x0007000f,0x00000004,0x00000004,0x6e69616d,0x00000000,0x00000009,0x0000000d,0x00030010,
@@ -380,6 +380,7 @@ static uint32_t __glsl_shader_frag_spv[] =
     0x0000000a,0x00000029,0x00000028,0x00050057,0x00000007,0x0000002a,0x00000025,0x00000029,
     0x00050085,0x00000007,0x0000002b,0x00000020,0x0000002a,0x0003003e,0x00000009,0x0000002b,
     0x000100fd,0x00010038
+#endif
 };
 
 //-----------------------------------------------------------------------------
@@ -1640,7 +1641,7 @@ static void ImGui_ImplVulkan_CreateWindow(ImGuiViewport* viewport)
     }
 
     // Select Surface Format
-    const VkFormat requestSurfaceImageFormat[] = {VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB ,VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
+    const VkFormat requestSurfaceImageFormat[] = {VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
     const VkColorSpaceKHR requestSurfaceColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
     wd->SurfaceFormat = ImGui_ImplVulkanH_SelectSurfaceFormat(v->PhysicalDevice, wd->Surface, requestSurfaceImageFormat, (size_t)IM_ARRAYSIZE(requestSurfaceImageFormat), requestSurfaceColorSpace);
 
