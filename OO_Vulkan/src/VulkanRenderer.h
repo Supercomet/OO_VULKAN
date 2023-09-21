@@ -479,6 +479,8 @@ public:
 	oGFX::AllocatedBuffer SPDatomicBuffer;
 	oGFX::AllocatedBuffer SPDconstantBuffer;
 
+	oGFX::AllocatedBuffer lightingHistogram;
+
 	std::vector<DescriptorAllocator> descAllocs;
 	DescriptorLayoutCache DescLayoutCache;
 

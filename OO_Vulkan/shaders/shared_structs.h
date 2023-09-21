@@ -142,9 +142,9 @@ struct GPUObjectInformation
     vec4 emissiveColour;
 };
 
-struct HistoStruct 
-{
+struct HistoStruct{
     uint histoBin[256];
+    float cdf[256];
 };
 
 #endif //! COMMON_HOST_DEVICE

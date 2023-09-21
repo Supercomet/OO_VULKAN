@@ -13,9 +13,6 @@ Technology is prohibited.
 *//*************************************************************************************/
 #include "GfxRenderpass.h"
 
-#include "imgui/imgui.h"
-#include "imgui/backends/imgui_impl_vulkan.h"
-
 #include "Window.h"
 #include "VulkanRenderer.h"
 #include "VulkanUtils.h"
@@ -54,11 +51,13 @@ DECLARE_RENDERPASS(LightingHistogram);
 
 
 VkPipeline pso_LightingHistogram{};
+VkPipeline pso_lightingCDFScan{};
 
 void LightingHistogram::Init()
 {
 	SetupRenderpass();
 	SetupFramebuffer();
+	SetupDependencies();
 }
 
 void LightingHistogram::CreatePSO()
@@ -68,6 +67,12 @@ void LightingHistogram::CreatePSO()
 
 bool LightingHistogram::SetupDependencies()
 {
+	auto& vr = *VulkanRenderer::get();
+	VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(HistoStruct)
+						, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, flags
+						, vr.lightingHistogram);
+	
 	// TODO: If shadows are disabled, return false.
 
 	// READ: Scene data SSBO
@@ -92,13 +97,22 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
     PROFILE_GPU_CONTEXT(cmdlist);
     PROFILE_GPU_EVENT("LightingHistogram");
 	
-	const float vpHeight = (float)depth.height;
-	const float vpWidth = (float)depth.width;
 	rhi::CommandList cmd{ cmdlist, "LightingHistogram"};
 
+	VkDescriptorBufferInfo dbi{};
+	dbi.buffer = vr.lightingHistogram.buffer;
+	dbi.offset = 0;
+	dbi.range = VK_WHOLE_SIZE;
 
-	cmd.BindPSO(pso_LightingHistogram, PSOLayoutDB::defaultPSOLayout);
+	cmd.BindPSO(pso_LightingHistogram, PSOLayoutDB::histogramPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.DescriptorSetBegin(0)
+		.BindImage(0, &vr.attachments.lighting_target, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+		.BindBuffer(1, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
+	cmd.Dispatch(vr.attachments.lighting_target.width / 16 + 1, vr.attachments.lighting_target.height / 16 + 1);
+
+	cmd.BindPSO(pso_lightingCDFScan, PSOLayoutDB::histogramPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.Dispatch(1);
 }
 
 void LightingHistogram::Shutdown()
@@ -106,8 +120,11 @@ void LightingHistogram::Shutdown()
 	auto& vr = *VulkanRenderer::get();
 	auto& device = vr.m_device.logicalDevice;
 
+	vmaDestroyBuffer(vr.m_device.m_allocator, vr.lightingHistogram.buffer, vr.lightingHistogram.alloc);
+
 	vr.attachments.shadow_depth.destroy();
 	vkDestroyPipeline(device, pso_LightingHistogram, nullptr);
+	vkDestroyPipeline(device, pso_lightingCDFScan, nullptr);
 }
 
 void LightingHistogram::SetupRenderpass()
@@ -124,6 +141,9 @@ void LightingHistogram::SetupRenderpass()
 		.BindBuffer(1, &dummybuf, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BuildLayout(SetLayoutDB::compute_histogram);
 
+	VkPipelineLayoutCreateInfo plci = oGFX::vkutils::inits::pipelineLayoutCreateInfo(&SetLayoutDB::compute_histogram,1);
+	vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::histogramPSOLayout);
+
 }
 
 void LightingHistogram::SetupFramebuffer()
@@ -138,8 +158,8 @@ void LightingHistogram::CreatePipeline()
 	auto& m_device = vr.m_device;
 
 	
-	const char* histoShader=  "Shaders/bin/LightingHistogram.comp.spv";
 	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::histogramPSOLayout);
+	const char* histoShader=  "Shaders/bin/histogram.comp.spv";
 	computeCI.stage = vr.LoadShader(m_device, histoShader, VK_SHADER_STAGE_COMPUTE_BIT);
 	
 	if (pso_LightingHistogram != VK_NULL_HANDLE)
@@ -148,6 +168,16 @@ void LightingHistogram::CreatePipeline()
 	}
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_LightingHistogram));
 	VK_NAME(m_device.logicalDevice, "pso_LightingHistogram", pso_LightingHistogram);
+	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
+
+	const char* cdfShader=  "Shaders/bin/cdfscan.comp.spv";
+	computeCI.stage = vr.LoadShader(m_device, cdfShader, VK_SHADER_STAGE_COMPUTE_BIT);
+	if (pso_lightingCDFScan != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_lightingCDFScan, nullptr);
+	}
+	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_lightingCDFScan));
+	VK_NAME(m_device.logicalDevice, "pso_lightingCDFScan", pso_lightingCDFScan);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
 
 }

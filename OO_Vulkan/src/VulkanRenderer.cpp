@@ -47,6 +47,7 @@ extern GfxRenderpass* g_ForwardParticlePass;
 extern GfxRenderpass* g_ForwardUIPass;
 extern GfxRenderpass* g_GBufferRenderPass;
 extern GfxRenderpass* g_LightingPass;
+extern GfxRenderpass* g_LightingHistogram;
 extern GfxRenderpass* g_ShadowPass;
 extern GfxRenderpass* g_SSAORenderPass;
 extern GfxRenderpass* g_SkyRenderPass;
@@ -118,7 +119,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 		int x;
 		std::cerr << pCallbackData->pMessage << "\n" << std::endl;
 		//assert(false); temp comment out
-		x=5; // for breakpoint
+			x=5; // for breakpoint
 	}
 
 	return VK_FALSE;
@@ -357,6 +358,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	rpd->RegisterRenderPass(g_SkyRenderPass);
 	rpd->RegisterRenderPass(g_DebugDrawRenderpass);
 	rpd->RegisterRenderPass(g_LightingPass);
+	rpd->RegisterRenderPass(g_LightingHistogram);
 	rpd->RegisterRenderPass(g_SSAORenderPass);
 	rpd->RegisterRenderPass(g_ForwardParticlePass);
 	rpd->RegisterRenderPass(g_ForwardUIPass);
@@ -2422,6 +2424,11 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_LightingPass->Draw(cmd);
 		}
+
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_LightingHistogram->Draw(cmd);
+		}		
 
 		if(g_cubeMap.image.image != VK_NULL_HANDLE)
 		{
