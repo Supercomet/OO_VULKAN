@@ -24,6 +24,11 @@ vec3 DecodeNormalHelper(vec3 SrcNormal)
     return SrcNormal * 2.0f - 1.0f;
 }
 
+float RGBtoLuminance(vec3 srcRGB)
+{
+    return dot(srcRGB, vec3(0.2126, 0.7152, 0.0722));
+}
+
 uint wang_hash(uint seed)
 {
     seed = (seed ^ 61) ^ (seed >> 16);

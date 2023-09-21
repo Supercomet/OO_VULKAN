@@ -91,6 +91,7 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout compute_Radiance;
 	inline static VkDescriptorSetLayout compute_prefilter;
 	inline static VkDescriptorSetLayout compute_brdfLUT;
+	inline static VkDescriptorSetLayout compute_histogram;
 
 };
 
@@ -119,6 +120,7 @@ struct PSOLayoutDB
 	inline static VkPipelineLayout prefilterPSOLayout; 
 	inline static VkPipelineLayout BRDFLUTPSOLayout; 
 	inline static VkPipelineLayout skypassPSOLayout; 
+	inline static VkPipelineLayout histogramPSOLayout; 
 };
 
 // Moving all constant buffer structures into this CB namespace.
