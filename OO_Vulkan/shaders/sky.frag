@@ -23,9 +23,9 @@ void main()
 	vec3 worldPos = WorldPosFromDepth(0.1,inUV,uboFrameContext.inverseProjection,uboFrameContext.inverseView);
 	vec3 uvw = normalize(worldPos- uboFrameContext.cameraPosition.xyz);
 	
-	vec3 gamma= vec3(2.2);
-	gamma = vec3(1);
 
     outFragcolor = texture(samplerCube(skyTexture, basicSampler), uvw);
-	outFragcolor.rgb = pow(outFragcolor.rgb, gamma);
+    outFragcolor *= uboFrameContext.vector4_values0.x;
+	vec3 gamma= vec3(2.2);
+    outFragcolor.rgb = pow(outFragcolor.rgb, vec3(1.0) / gamma);
 }

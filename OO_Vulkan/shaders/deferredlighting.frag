@@ -63,8 +63,8 @@ void main()
 
 	vec4 material = texture(sampler2D(textureMaterial,basicSampler), inUV);
 	float SSAO = texture(sampler2D(textureSSAO,basicSampler), inUV).r;
-    float roughness = (material.r);
-	float metalness = (material.g);
+    float roughness = clamp(material.r,0.01,1.0);
+    float metalness = clamp(material.g,0.01,1.0);
 
 	// just perform ambient
 	
@@ -92,10 +92,13 @@ void main()
 	
     vec3 irradiance = vec3(1);
     irradiance = texture(samplerCube(irradianceCube, basicSampler), normal).rgb;
+    irradiance *= uboFrameContext.vector4_values0.x;
     vec3 R = normalize(reflect(-surface.V, surface.N));
 	
     const float MAX_REFLECTION_LOD = 6.0;
     vec3 prefilteredColor = textureLod(samplerCube(prefilterCube, basicSampler), R, roughness * MAX_REFLECTION_LOD).rgb;
+    prefilteredColor *= uboFrameContext.vector4_values0.x;
+	
     vec2 lutVal = texture(sampler2D( brdfLUT, basicSampler),vec2(max(dot(surface.N, surface.V), 0.0), roughness)).rg;
 	
     //vec3 result = EvalDirectionalLight(surface, irradiance, prefilteredColor,lutVal);

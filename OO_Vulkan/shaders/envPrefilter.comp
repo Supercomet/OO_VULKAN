@@ -59,7 +59,10 @@ void main()
             float saSample = 1.0 / (totalSamples * pdf + 0.0001);
             float mipLevel = u_roughness == 0.0 ? 0.0 : 0.5 * log2(saSample / saTexel);
 
-            prefilteredColor += textureLod(samplerCube(inputImage,basicSampler), L, mipLevel).rgb * dotNL;
+            vec3 sampledColor = textureLod(samplerCube(inputImage, basicSampler), L, mipLevel).rgb * dotNL;
+            
+            const float clampValue = 100.0;
+            prefilteredColor += clamp(sampledColor, 0.0, clampValue);
             totalWeight += dotNL;
         }
     }
