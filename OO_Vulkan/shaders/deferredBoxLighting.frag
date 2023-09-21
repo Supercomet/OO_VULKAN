@@ -51,7 +51,7 @@ void main()
 	vec3 fragPos = WorldPosFromDepth(depth.r,inUV,uboFrameContext.inverseProjection,uboFrameContext.inverseView);
 
 	outFragcolor = vec4(0,0,0,1);
-	vec3 normal = texture(sampler2D(samplerNormal,basicSampler), inUV).rgb;
+	vec3 normal = DecodeNormalHelper(texture(sampler2D(samplerNormal,basicSampler), inUV).rgb);
 	if(dot(normal,normal) == 0.0) return;
 	normal = normalize(normal);
 

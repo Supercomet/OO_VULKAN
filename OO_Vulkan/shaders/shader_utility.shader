@@ -14,6 +14,16 @@ float max3(vec3 v)
     return max(max(v.x, v.y), v.z);
 }
 
+vec3 EncodeNormalHelper(vec3 SrcNormal)
+{
+    return SrcNormal * .5f + .5f;
+}
+
+vec3 DecodeNormalHelper(vec3 SrcNormal)
+{
+    return SrcNormal * 2.0f - 1.0f;
+}
+
 uint wang_hash(uint seed)
 {
     seed = (seed ^ 61) ^ (seed >> 16);

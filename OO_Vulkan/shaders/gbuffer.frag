@@ -103,13 +103,13 @@ void main()
     uint perInstanceData              = inInstanceData.y & 0xFF;
     const uint textureIndex_Emissive  = inInstanceData.y >> 16;
    
-
+    vec3 normalInfo = vec3(0.0);
     {
         outAlbedo.rgb = texture(sampler2D(textureDescriptorArray[textureIndex_Albedo],basicSampler), inUV.xy).rgb;
     }
 	
     {
-        outNormal = vec4(inLightData.n, 0.0);
+        normalInfo = inLightData.n;
     }
 
 	if(textureIndex_Normal != 1)
@@ -127,10 +127,12 @@ void main()
         mat3 inTBN = mat3(inLightData.t,inLightData.b,inLightData.n);
             
         // old method
-		outNormal.rgb = normalize(inTBN * map);
+        normalInfo.rgb = normalize(inTBN * map);
        
-        outNormal.rgb = genNorms;        
-	}
+        normalInfo.rgb = genNorms;
+    }
+    
+    outNormal.rgb = EncodeNormalHelper(normalInfo);
 
     {
         // Commented out because unused.
