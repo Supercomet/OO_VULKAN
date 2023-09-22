@@ -55,9 +55,8 @@ void main()
 	vec3 fragPos = WorldPosFromDepth(depth.r,inUV,uboFrameContext.inverseProjection,uboFrameContext.inverseView);
 	vec3 normal = DecodeNormalHelper(texture(sampler2D(textureNormal,basicSampler), inUV).rgb);
 	normal = normalize(normal);
-
-	const float gamma = 2.2;
-	albedo.rgb =  pow(albedo.rgb, vec3(1.0/gamma));
+	
+    albedo.rgb = GammaToLinear(albedo.rgb);
 	
     //albedo.rgb = vec3(1,1,0);
 

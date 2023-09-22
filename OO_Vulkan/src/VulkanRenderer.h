@@ -92,6 +92,8 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout compute_prefilter;
 	inline static VkDescriptorSetLayout compute_brdfLUT;
 	inline static VkDescriptorSetLayout compute_histogram;
+	inline static VkDescriptorSetLayout compute_luminance;
+	inline static VkDescriptorSetLayout compute_tonemap;
 
 };
 
@@ -112,6 +114,7 @@ struct PSOLayoutDB
 	inline static VkPipelineLayout SSAOPSOLayout;
 	inline static VkPipelineLayout SSAOBlurPSOLayout;
 	inline static VkPipelineLayout BloomPSOLayout; 
+	inline static VkPipelineLayout tonemapPSOLayout; 
 	inline static VkPipelineLayout doubleImageStoreLayout; 
 	inline static VkPipelineLayout singleSSBOlayout; 
 	inline static VkPipelineLayout shadowPrepassPSOLayout; 
@@ -121,6 +124,7 @@ struct PSOLayoutDB
 	inline static VkPipelineLayout BRDFLUTPSOLayout; 
 	inline static VkPipelineLayout skypassPSOLayout; 
 	inline static VkPipelineLayout histogramPSOLayout; 
+	inline static VkPipelineLayout luminancePSOLayout; 
 };
 
 // Moving all constant buffer structures into this CB namespace.
@@ -287,6 +291,7 @@ public:
 	int32_t m_numShadowcastLights{0};
 	uint32_t renderTargetInUseID{ 0 };
 	float renderClock{ 0.0f };
+	float deltaTime{ 0.0016f };
 
 	int32_t GetPixelValue(uint32_t fbID, glm::vec2 uv);
 
@@ -480,6 +485,7 @@ public:
 	oGFX::AllocatedBuffer SPDconstantBuffer;
 
 	oGFX::AllocatedBuffer lightingHistogram;
+	oGFX::AllocatedBuffer LuminanceBuffer;
 
 	std::vector<DescriptorAllocator> descAllocs;
 	DescriptorLayoutCache DescLayoutCache;

@@ -29,6 +29,18 @@ float RGBtoLuminance(vec3 srcRGB)
     return dot(srcRGB, vec3(0.2126, 0.7152, 0.0722));
 }
 
+vec3 GammaToLinear(vec3 srcRGB)
+{
+    const float gamma = 2.2;
+    return pow(srcRGB, vec3(gamma));
+}
+
+vec3 LinearToGamma(vec3 srcRGB)
+{
+    const float gamma = 2.2;
+    return pow(srcRGB, 1.0/vec3(gamma));
+}
+
 uint wang_hash(uint seed)
 {
     seed = (seed ^ 61) ^ (seed >> 16);

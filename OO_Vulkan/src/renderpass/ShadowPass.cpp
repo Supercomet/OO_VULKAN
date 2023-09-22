@@ -231,7 +231,6 @@ void ShadowPass::SetupRenderpass()
 
 	vr.attachments.shadow_depth.name = "SHADOW_ATLAS";
 	vr.attachments.shadow_depth.forFrameBuffer(&m_device, vr.G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height, false);
-	vr.fbCache.RegisterFramebuffer(vr.attachments.shadow_depth);
 
 	auto cmd = vr.GetCommandBuffer();
 	vkutils::SetImageInitialState(cmd, vr.attachments.shadow_depth);

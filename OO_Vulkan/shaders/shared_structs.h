@@ -147,4 +147,11 @@ struct HistoStruct{
     float cdf[256];
 };
 
+struct LuminencePC {
+    float minLogLum;
+    float deltaLogLum;
+    float timeCoeff;
+    float pixelsSampled;
+};
+
 #endif //! COMMON_HOST_DEVICE

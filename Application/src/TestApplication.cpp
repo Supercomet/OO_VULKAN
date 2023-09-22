@@ -755,6 +755,7 @@ void TestApplication::Run()
             m_ApplicationDT = deltaTime;
             // Pass frame information to the render engine
             gs_RenderEngine->renderClock += deltaTime;
+            gs_RenderEngine->deltaTime = deltaTime;
 
             //reset keys
             Input::Begin();
@@ -1275,7 +1276,7 @@ void TestApplication::ToolUI_Settings()
     {
         ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Scene Settings");
         auto& cs = gs_GraphicsWorld.colourSettings;
-        ImGui::SliderFloat("exposure", &cs.exposure, 0.0f, 12.0f);
+        ImGui::DragFloat("exposure", &cs.exposure,0.01f, 0.0f, 12.0f);
 
         auto& ssaoSettings = gs_RenderEngine->currWorld->ssaoSettings;
         {

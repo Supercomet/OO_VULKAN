@@ -56,8 +56,7 @@ void main()
 	normal = normalize(normal);
 
 	vec4 albedo = texture(sampler2D(samplerAlbedo,basicSampler), inUV);
-	const float gamma = 2.2;
-	albedo.rgb =  pow(albedo.rgb, vec3(1.0/gamma));
+    albedo.rgb = GammaToLinear(albedo.rgb);
 
 	vec4 material = texture(sampler2D(samplerMaterial,basicSampler), inUV);
 	float SSAO = texture(sampler2D(samplerSSAO,basicSampler), inUV).r;

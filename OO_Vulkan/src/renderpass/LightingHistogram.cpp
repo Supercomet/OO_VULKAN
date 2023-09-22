@@ -70,8 +70,12 @@ bool LightingHistogram::SetupDependencies()
 	auto& vr = *VulkanRenderer::get();
 	VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(HistoStruct)
-						, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, flags
+						, VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, flags
 						, vr.lightingHistogram);
+
+	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(float)
+		, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, flags
+		, vr.LuminanceBuffer);
 	
 	// TODO: If shadows are disabled, return false.
 
@@ -104,14 +108,45 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 	dbi.offset = 0;
 	dbi.range = VK_WHOLE_SIZE;
 
+	VkPushConstantRange pcr{};
+	pcr.size = sizeof(LuminencePC);
+	pcr.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	
+	float minLogLum = -8.0f;
+	float maxLogLum = 3.5f;
+	float histogramParams[4] = {
+		minLogLum,
+		1.0f / (maxLogLum - minLogLum),
+	};	
+
+	vkCmdFillBuffer(cmdlist, vr.lightingHistogram.buffer, 0, VK_WHOLE_SIZE, 0);
+
 	cmd.BindPSO(pso_LightingHistogram, PSOLayoutDB::histogramPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.SetPushConstant(PSOLayoutDB::histogramPSOLayout, pcr, &histogramParams);
 	cmd.DescriptorSetBegin(0)
 		.BindImage(0, &vr.attachments.lighting_target, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 		.BindBuffer(1, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-
 	cmd.Dispatch(vr.attachments.lighting_target.width / 16 + 1, vr.attachments.lighting_target.height / 16 + 1);
 
-	cmd.BindPSO(pso_lightingCDFScan, PSOLayoutDB::histogramPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+	float tau = 1.1f;
+	float frameTime = vr.deltaTime;
+	float timeCoeff = glm::clamp<float>(1.0f - glm::exp(-frameTime * tau), 0.0, 1.0);
+	float avgParams[4] = {
+		minLogLum,
+		maxLogLum - minLogLum,
+		timeCoeff,
+		static_cast<float>(vr.attachments.lighting_target.width * vr.attachments.lighting_target.height),
+	};
+
+	VkDescriptorBufferInfo lumBufferInfo{};
+	lumBufferInfo.buffer = vr.LuminanceBuffer.buffer;
+	lumBufferInfo.offset = 0;
+	lumBufferInfo.range = VK_WHOLE_SIZE;
+	cmd.BindPSO(pso_lightingCDFScan, PSOLayoutDB::luminancePSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.DescriptorSetBegin(0)
+		.BindBuffer(0, &lumBufferInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+		.BindBuffer(1, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+	cmd.SetPushConstant(PSOLayoutDB::luminancePSOLayout, pcr, &avgParams);
 	cmd.Dispatch(1);
 }
 
@@ -121,8 +156,10 @@ void LightingHistogram::Shutdown()
 	auto& device = vr.m_device.logicalDevice;
 
 	vmaDestroyBuffer(vr.m_device.m_allocator, vr.lightingHistogram.buffer, vr.lightingHistogram.alloc);
+	vmaDestroyBuffer(vr.m_device.m_allocator, vr.LuminanceBuffer.buffer, vr.LuminanceBuffer.alloc);
 
 	vkDestroyPipelineLayout(device, PSOLayoutDB::histogramPSOLayout, nullptr);
+	vkDestroyPipelineLayout(device, PSOLayoutDB::luminancePSOLayout, nullptr);
 	vr.attachments.shadow_depth.destroy();
 	vkDestroyPipeline(device, pso_LightingHistogram, nullptr);
 	vkDestroyPipeline(device, pso_lightingCDFScan, nullptr);
@@ -141,10 +178,26 @@ void LightingHistogram::SetupRenderpass()
 		.BindImage(0, &dummy, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindBuffer(1, &dummybuf, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BuildLayout(SetLayoutDB::compute_histogram);
-
-	VkPipelineLayoutCreateInfo plci = oGFX::vkutils::inits::pipelineLayoutCreateInfo(&SetLayoutDB::compute_histogram,1);
+	
+	VkPushConstantRange pushConstantRange{ VK_SHADER_STAGE_ALL, 0, 128 };
+	
+	VkPipelineLayoutCreateInfo plci{};
+	plci = oGFX::vkutils::inits::pipelineLayoutCreateInfo(&SetLayoutDB::compute_histogram, 1);
+	plci.pushConstantRangeCount = 1;
+	plci.pPushConstantRanges = &pushConstantRange;
 	vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::histogramPSOLayout);
+	VK_NAME(m_device.logicalDevice, "histogramPSOLayout", PSOLayoutDB::histogramPSOLayout);
 
+	DescriptorBuilder::Begin()
+		.BindBuffer(0, &dummybuf, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(1, &dummybuf, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BuildLayout(SetLayoutDB::compute_luminance);
+
+	plci = oGFX::vkutils::inits::pipelineLayoutCreateInfo(&SetLayoutDB::compute_luminance, 1);
+	plci.pushConstantRangeCount = 1;
+	plci.pPushConstantRanges = &pushConstantRange;
+	vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::luminancePSOLayout);
+	VK_NAME(m_device.logicalDevice, "luminancePSOLayout", PSOLayoutDB::luminancePSOLayout);
 }
 
 void LightingHistogram::SetupFramebuffer()
@@ -158,8 +211,8 @@ void LightingHistogram::CreatePipeline()
 	auto& vr = *VulkanRenderer::get();
 	auto& m_device = vr.m_device;
 
-	
-	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::histogramPSOLayout);
+	VkComputePipelineCreateInfo computeCI{};
+	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::histogramPSOLayout);
 	const char* histoShader=  "Shaders/bin/histogram.comp.spv";
 	computeCI.stage = vr.LoadShader(m_device, histoShader, VK_SHADER_STAGE_COMPUTE_BIT);
 	
@@ -171,6 +224,7 @@ void LightingHistogram::CreatePipeline()
 	VK_NAME(m_device.logicalDevice, "pso_LightingHistogram", pso_LightingHistogram);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr);
 
+	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::luminancePSOLayout);
 	const char* cdfShader=  "Shaders/bin/cdfscan.comp.spv";
 	computeCI.stage = vr.LoadShader(m_device, cdfShader, VK_SHADER_STAGE_COMPUTE_BIT);
 	if (pso_lightingCDFScan != VK_NULL_HANDLE)

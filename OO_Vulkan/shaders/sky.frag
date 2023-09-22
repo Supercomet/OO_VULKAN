@@ -27,5 +27,6 @@ void main()
     outFragcolor = texture(samplerCube(skyTexture, basicSampler), uvw);
     outFragcolor *= uboFrameContext.vector4_values0.x;
 	vec3 gamma= vec3(2.2);
-    outFragcolor.rgb = pow(outFragcolor.rgb, vec3(1.0) / gamma);
+	
+    outFragcolor.rgb = (outFragcolor.rgb);
 }

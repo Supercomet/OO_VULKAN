@@ -166,9 +166,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 	vkutils::Texture2D* previousBuffer{ &mainImage };
 
 	if (vr.currWorld->bloomSettings.enabled == true)
-		previousBuffer = PerformBloom(cmd);
-	
-	
+		previousBuffer = PerformBloom(cmd);	
 	
 	marker.pMarkerName = "TonemappingCOMP";
 	if (regionBegin)
@@ -177,14 +175,19 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 	}	
 	// tone mapping 
 	{// composite online main buffer
-		cmd.BindPSO(pso_tone_mapping, PSOLayoutDB::BloomPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+		cmd.BindPSO(pso_tone_mapping, PSOLayoutDB::tonemapPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
 		vkutils::Texture2D * outputBuffer = (&vr.attachments.SD_target[0]);
 		vkutils::Texture2D * inputBuffer = previousBuffer;
+
+		VkDescriptorBufferInfo dbi{};
+		dbi.buffer = vr.LuminanceBuffer.buffer;
+		dbi.range = VK_WHOLE_SIZE;
 
 		cmd.DescriptorSetBegin(0)
 			.BindSampler(0, GfxSamplerManager::GetSampler_BlackBorder())
 			.BindImage(1, inputBuffer, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
-			.BindImage(2, outputBuffer, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+			.BindImage(2, outputBuffer, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+			.BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
 		auto& colSettings = vr.currWorld->colourSettings;
 		ColourCorrectPC pc;
@@ -296,6 +299,7 @@ void BloomPass::Shutdown()
 	vr.attachments.SD_target[1].destroy();
 
 	vkDestroyPipelineLayout(device, PSOLayoutDB::BloomPSOLayout, nullptr);
+	vkDestroyPipelineLayout(device, PSOLayoutDB::tonemapPSOLayout, nullptr);
 	vkDestroyPipelineLayout(device, PSOLayoutDB::doubleImageStoreLayout, nullptr);
 	vkDestroyPipeline(device, pso_bloom_bright, nullptr);
 	vkDestroyPipeline(device, pso_bloom_up, nullptr);
@@ -347,6 +351,14 @@ void BloomPass::CreateDescriptors()
 			.BuildLayout(SetLayoutDB::compute_doubleImageStore);
 	}
 
+	VkDescriptorBufferInfo dbi{};
+	DescriptorBuilder::Begin()
+		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(1, &texSrc, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT) // we construct world position using depth
+		.BindImage(2, &texOut, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BuildLayout(SetLayoutDB::compute_tonemap);
+
 
 
 }
@@ -376,6 +388,10 @@ void BloomPass::CreatePipelineLayout()
 
 		VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::doubleImageStoreLayout));
 		VK_NAME(m_device.logicalDevice, "doubleImageStore_PSOLayout", PSOLayoutDB::doubleImageStoreLayout);
+		
+		setLayouts[0] = SetLayoutDB::compute_tonemap;
+		VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::tonemapPSOLayout));
+		VK_NAME(m_device.logicalDevice, "tonemapPSOLayout", PSOLayoutDB::tonemapPSOLayout);
 
 	}
 }
@@ -595,15 +611,6 @@ void BloomPass::CreatePipeline()
 	VK_NAME(m_device.logicalDevice, "pso_additive_composite", pso_additive_composite);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
 
-	if (pso_tone_mapping != VK_NULL_HANDLE)
-	{
-		vkDestroyPipeline(m_device.logicalDevice, pso_tone_mapping, nullptr);
-	}
-	computeCI.stage = vr.LoadShader(m_device, toneMap, VK_SHADER_STAGE_COMPUTE_BIT);
-	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_tone_mapping));
-	VK_NAME(m_device.logicalDevice, "pso_tone_mapping", pso_tone_mapping);
-	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
-
 	if (pso_vignette != VK_NULL_HANDLE)
 	{
 		vkDestroyPipeline(m_device.logicalDevice, pso_vignette, nullptr);
@@ -622,4 +629,13 @@ void BloomPass::CreatePipeline()
 	VK_NAME(m_device.logicalDevice, "pso_fxaa", pso_fxaa);
 	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
 	
+	if (pso_tone_mapping != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, pso_tone_mapping, nullptr);
+	}
+	computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::tonemapPSOLayout);
+	computeCI.stage = vr.LoadShader(m_device, toneMap, VK_SHADER_STAGE_COMPUTE_BIT);
+	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_tone_mapping));
+	VK_NAME(m_device.logicalDevice, "pso_tone_mapping", pso_tone_mapping);
+	vkDestroyShaderModule(m_device.logicalDevice, computeCI.stage.module, nullptr); // destroy compute
 }

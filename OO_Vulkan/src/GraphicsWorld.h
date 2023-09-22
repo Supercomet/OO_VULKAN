@@ -272,7 +272,7 @@ public:
         glm::vec4 shadowColour{};
         glm::vec4 midtonesColour{};
         glm::vec4 highlightColour{};
-        float exposure = 1.0f;
+        float exposure = 0.20f;
     }colourSettings{};
 
     struct VignetteSettings
