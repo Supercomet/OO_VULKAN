@@ -486,6 +486,8 @@ public:
 
 	oGFX::AllocatedBuffer lightingHistogram;
 	oGFX::AllocatedBuffer LuminanceBuffer;
+	oGFX::AllocatedBuffer LuminanceMonitor;
+	void* monitorData;
 
 	std::vector<DescriptorAllocator> descAllocs;
 	DescriptorLayoutCache DescLayoutCache;

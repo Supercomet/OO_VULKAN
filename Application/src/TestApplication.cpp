@@ -1253,6 +1253,7 @@ void TestApplication::ToolUI_Camera()
 void TestApplication::ToolUI_Settings()
 {
 	ImGui::TextColored({ 0.0,1.0,0.0,1.0 }, "Application");
+    ImGui::Text("Luminance: %f", *(float*)gs_RenderEngine->monitorData);
     ImGui::Text("gpu vector bytes : %llu", accumulatedBytes);
 	ImGui::Text("m_ApplicationFrame : %u", m_ApplicationFrame);
 	ImGui::Text("m_ApplicationTimer : %f", m_ApplicationTimer);

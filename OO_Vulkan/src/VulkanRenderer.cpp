@@ -347,7 +347,12 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 	CreateLightingBuffers();
 
-	
+
+	oGFX::CreateBuffer(m_device.m_allocator, sizeof(float), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT , LuminanceMonitor);
+	VK_CHK(vmaMapMemory(m_device.m_allocator, LuminanceMonitor.alloc, &monitorData));
+	*(float*)monitorData = 133.7;
+
 
 	// Calls "Init()" on all registered render passes. Order is not guarunteed.
 	auto rpd = RenderPassDatabase::Get();
@@ -2425,16 +2430,22 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			g_LightingPass->Draw(cmd);
 		}
 
-		{
-			const VkCommandBuffer cmd = GetCommandBuffer();
-			g_LightingHistogram->Draw(cmd);
-		}		
-
 		if(g_cubeMap.image.image != VK_NULL_HANDLE)
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_SkyRenderPass->Draw(cmd);
 		}
+
+		{
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_LightingHistogram->Draw(cmd);
+			VkBufferCopy region{};
+			region.size = sizeof(float);
+			vkCmdCopyBuffer(cmd, LuminanceBuffer.buffer, LuminanceMonitor.buffer, 1, &region);
+			vmaFlushAllocation(m_device.m_allocator, LuminanceMonitor.alloc, 0, sizeof(float));
+		}		
+
+
 		{
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_BloomPass->Draw(cmd);
