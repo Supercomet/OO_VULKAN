@@ -131,7 +131,8 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 		.BindSampler(9, GfxSamplerManager::GetSampler_Cube()) // cube sampler
 		.BindImage(10, &vr.g_radianceMap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // cube map
 		.BindImage(11, &vr.g_prefilterMap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // prefilter map
-		.BindImage(12, &vr.g_brdfLUT, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE); // brdflut
+		.BindImage(12, &vr.g_brdfLUT, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // brdflut
+		.BindSampler(13, GfxSamplerManager::GetSampler_ShowMapClamp()); // shadwosampler
 	
 	cmd.SetDefaultViewportAndScissor();
 
@@ -326,6 +327,7 @@ void LightingPass::CreatePipelineLayout()
 		.BindImage(10, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS) // cube map
 		.BindImage(11, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,VK_SHADER_STAGE_ALL_GRAPHICS) // prefilter map
 		.BindImage(12, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,VK_SHADER_STAGE_ALL_GRAPHICS) // brdflut
+		.BindImage(13, &dummy, VK_DESCRIPTOR_TYPE_SAMPLER,VK_SHADER_STAGE_ALL_GRAPHICS) // shadow sampler
 		.BuildLayout(SetLayoutDB::Lighting);
 
 

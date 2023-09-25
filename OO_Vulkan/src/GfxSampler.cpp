@@ -90,6 +90,8 @@ void GfxSamplerManager::Init()
         samplerCreateInfo.minLod = 0.0f;
         samplerCreateInfo.maxLod = 1.0f;
         samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+        samplerCreateInfo.compareEnable = VK_TRUE;
+        samplerCreateInfo.compareOp = VK_COMPARE_OP_GREATER;
         VK_CHK(vkCreateSampler(device, &samplerCreateInfo, nullptr, &shadowSampler));
         VK_NAME(device, "shadowSampler", shadowSampler);
     }

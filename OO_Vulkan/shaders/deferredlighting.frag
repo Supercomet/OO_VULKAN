@@ -17,13 +17,14 @@ layout (set = 0, binding = 2) uniform texture2D textureNormal;
 layout (set = 0, binding = 3) uniform texture2D textureAlbedo;
 layout (set = 0, binding = 4) uniform texture2D textureMaterial;
 layout (set = 0, binding = 5) uniform texture2D textureEmissive;
-layout (set = 0, binding = 6) uniform texture2D samplerShadows;
+layout (set = 0, binding = 6) uniform texture2D textureShadows;
 layout (set = 0, binding = 7) uniform texture2D textureSSAO;
 
 layout (set = 0, binding = 9) uniform sampler cubeSampler;
 layout (set = 0, binding = 10) uniform textureCube irradianceCube;
 layout (set = 0, binding = 11)uniform textureCube prefilterCube;
 layout (set = 0, binding = 12)uniform texture2D brdfLUT;
+layout (set = 0, binding = 13)uniform samplerShadow shadowSampler;
 
 
 #include "lights.shader"

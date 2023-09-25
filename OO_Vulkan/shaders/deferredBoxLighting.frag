@@ -9,18 +9,20 @@ layout(set = 1, binding = 0) uniform UboFrameContext
 #include "shared_structs.h"
 
 layout (set = 0, binding = 0) uniform sampler basicSampler; 
-layout (set = 0, binding = 1) uniform texture2D samplerDepth;
-layout (set = 0, binding = 2) uniform texture2D samplerNormal;
-layout (set = 0, binding = 3) uniform texture2D samplerAlbedo;
-layout (set = 0, binding = 4) uniform texture2D samplerMaterial;
-layout (set = 0, binding = 5) uniform texture2D samplerEmissive;
-layout (set = 0, binding = 6) uniform texture2D samplerShadows;
-layout (set = 0, binding = 7) uniform texture2D samplerSSAO;
-
+layout (set = 0, binding = 1) uniform texture2D textureDepth;
+layout (set = 0, binding = 2) uniform texture2D textureNormal;
+layout (set = 0, binding = 3) uniform texture2D textureAlbedo;
+layout (set = 0, binding = 4) uniform texture2D textureMaterial;
+layout (set = 0, binding = 5) uniform texture2D textureEmissive;
+layout (set = 0, binding = 6) uniform texture2D textureShadows;
+layout (set = 0, binding = 7) uniform texture2D textureSSAO;
+// layout 8 taken by buffer
 layout (set = 0, binding = 9) uniform sampler cubeSampler;
 layout (set = 0, binding = 10) uniform textureCube irradianceCube;
 layout (set = 0, binding = 11)uniform textureCube prefilterCube;
 layout (set = 0, binding = 12)uniform texture2D brdfLUT;
+
+layout (set = 0, binding = 13) uniform samplerShadow shadowSampler;
 
 
 #include "lights.shader"
@@ -47,19 +49,19 @@ void main()
 	vec2 inUV = gl_FragCoord.xy / PC.resolution.xy;
 	
 	// Get G-Buffer values
-	vec4 depth = texture(sampler2D(samplerDepth,basicSampler), inUV);
+	vec4 depth = texture(sampler2D(textureDepth,basicSampler), inUV);
 	vec3 fragPos = WorldPosFromDepth(depth.r,inUV,uboFrameContext.inverseProjection,uboFrameContext.inverseView);
 
 	outFragcolor = vec4(0,0,0,1);
-	vec3 normal = DecodeNormalHelper(texture(sampler2D(samplerNormal,basicSampler), inUV).rgb);
+	vec3 normal = DecodeNormalHelper(texture(sampler2D(textureNormal,basicSampler), inUV).rgb);
 	if(dot(normal,normal) == 0.0) return;
 	normal = normalize(normal);
 
-	vec4 albedo = texture(sampler2D(samplerAlbedo,basicSampler), inUV);
+	vec4 albedo = texture(sampler2D(textureAlbedo,basicSampler), inUV);
     albedo.rgb = GammaToLinear(albedo.rgb);
 
-	vec4 material = texture(sampler2D(samplerMaterial,basicSampler), inUV);
-	float SSAO = texture(sampler2D(samplerSSAO,basicSampler), inUV).r;
+	vec4 material = texture(sampler2D(textureMaterial,basicSampler), inUV);
+	float SSAO = texture(sampler2D(textureSSAO,basicSampler), inUV).r;
 	float roughness = material.r;
 	float metalness = material.g;
 	
@@ -71,7 +73,7 @@ void main()
 		SSAO = 1.0;
 	}
 	
-	float outshadow = texture(sampler2D(samplerShadows,basicSampler),inUV).r;
+	float outshadow = texture(sampler2D(textureShadows,basicSampler),inUV).r;
 	
 	LocalLightInstance lightInfo = Lights_SSBO[inLightInstance];
 
