@@ -1298,7 +1298,8 @@ void TestApplication::ToolUI_Settings()
             ImGui::Text("Lighting");
             ImGui::PushID(std::atoi("Lighting"));                      
             ImGui::DragFloat("Ambient", &lightSettings.ambient, 0.01f);
-            ImGui::DragFloat4("Directional", &lightSettings.direction.x, 0.01f);
+            ImGui::DragFloat3("Directional", &lightSettings.directionalLight.x, 0.01f);
+            ImGui::DragFloat4("Directional Color", &lightSettings.directionalLightColor.x, 0.01f);
             ImGui::DragFloat("Max bias", &lightSettings.maxBias, 0.01f);
             ImGui::DragFloat("Bias multiplier", &lightSettings.biasMultiplier, 0.01f);
             ImGui::PopID();

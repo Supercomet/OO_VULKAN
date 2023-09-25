@@ -17,6 +17,12 @@ layout (set = 0, binding = 1) uniform textureCube   skyTexture;
 
 #include "shader_utility.shader"
 
+layout( push_constant ) uniform lightpc
+{
+LightPC PC;
+};
+
+
 void main()
 {
 	// Get G-Buffer values
@@ -25,7 +31,7 @@ void main()
 	
 
     outFragcolor = texture(samplerCube(skyTexture, basicSampler), uvw);
-    outFragcolor *= uboFrameContext.vector4_values0.x;
+    outFragcolor *= PC.ambient;
 	vec3 gamma= vec3(2.2);
 	
     outFragcolor.rgb = (outFragcolor.rgb);

@@ -109,6 +109,14 @@ void SkyRenderPass::Draw(const VkCommandBuffer cmdlist)
 		.BindSampler(0, GfxSamplerManager::GetSampler_Cube())
 		.BindImage(1, &vr.g_cubeMap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
 
+	LightPC pc{};
+	pc.ambient = vr.currWorld->lightSettings.ambient;
+	VkPushConstantRange pcr{};
+	pcr.size = sizeof(LightPC);
+	pcr.stageFlags = VK_SHADER_STAGE_ALL;
+
+	cmd.SetPushConstant(PSOLayoutDB::skypassPSOLayout, pcr, &pc);
+
 	cmd.BindDescriptorSet(PSOLayoutDB::skypassPSOLayout, 1, 1, &vr.descriptorSets_uniform[currFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, 1, &dynamicOffset);
 
 	cmd.DrawFullScreenQuad();

@@ -250,11 +250,12 @@ public:
 
     struct LightingSettings
     {
-        float ambient = 0.5f;
+        float ambient = 0.2f;
         float maxBias = 0.0001f;
         float biasMultiplier = 0.002f;
         float specularModifier = 16.0f;
-        glm::vec3 direction{0, -1, 0};
+        glm::vec3 directionalLight{0, -1, 0};
+        glm::vec4 directionalLightColor{ 1, 1, 1, 1 };
     }lightSettings{};
 
     struct BloomSettings

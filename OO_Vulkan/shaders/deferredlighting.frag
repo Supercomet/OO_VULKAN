@@ -73,8 +73,7 @@ void main()
 	vec3 emissive = texture(sampler2D(textureEmissive,basicSampler),inUV).rgb;
 	emissive = vec3(0);
 
-	vec4 lightCol = vec4(1.0,1.0,1.0,1.0);
-    lightCol.w = PC.ambient;
+    vec4 lightCol = PC.lightColorInten;
 	
     vec3 lightDir = -normalize(PC.directionalLight.xyz);
 	
@@ -92,12 +91,12 @@ void main()
 	
     vec3 irradiance = vec3(1);
     irradiance = texture(samplerCube(irradianceCube, basicSampler), normal).rgb;
-    irradiance *= uboFrameContext.vector4_values0.x;
+    irradiance *= PC.ambient;
     vec3 R = normalize(reflect(-surface.V, surface.N));
 	
     const float MAX_REFLECTION_LOD = 6.0;
     vec3 prefilteredColor = textureLod(samplerCube(prefilterCube, basicSampler), R, roughness * MAX_REFLECTION_LOD).rgb;
-    prefilteredColor *= uboFrameContext.vector4_values0.x;
+    prefilteredColor *= PC.ambient;
 	
     vec2 lutVal = texture(sampler2D( brdfLUT, basicSampler),vec2(max(dot(surface.N, surface.V), 0.0), roughness)).rg;
 	

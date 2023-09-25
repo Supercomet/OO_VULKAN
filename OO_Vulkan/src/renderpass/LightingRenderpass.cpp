@@ -146,8 +146,9 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	LightPC pc{};
 	pc.useSSAO = vr.useSSAO ? 1 : 0;
 	pc.specularModifier = vr.currWorld->lightSettings.specularModifier;
-	glm::vec3 normalizedDir = glm::normalize(vr.currWorld->lightSettings.direction);
+	glm::vec3 normalizedDir = glm::normalize(vr.currWorld->lightSettings.directionalLight);
 	pc.directionalLight = vec4{ normalizedDir, 0.0f };
+	pc.lightColorInten = vr.currWorld->lightSettings.directionalLightColor;
 	pc.resolution.x = (float)tex->width;
 	pc.resolution.y = (float)tex->height;
 
