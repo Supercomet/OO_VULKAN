@@ -93,6 +93,7 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout compute_brdfLUT;
 	inline static VkDescriptorSetLayout compute_histogram;
 	inline static VkDescriptorSetLayout compute_luminance;
+	inline static VkDescriptorSetLayout compute_brightPixels;
 	inline static VkDescriptorSetLayout compute_tonemap;
 
 };
@@ -116,6 +117,7 @@ struct PSOLayoutDB
 	inline static VkPipelineLayout BloomPSOLayout; 
 	inline static VkPipelineLayout tonemapPSOLayout; 
 	inline static VkPipelineLayout doubleImageStoreLayout; 
+	inline static VkPipelineLayout brightPixelsLayout; 
 	inline static VkPipelineLayout singleSSBOlayout; 
 	inline static VkPipelineLayout shadowPrepassPSOLayout; 
 	inline static VkPipelineLayout AMDSPDPSOLayout; 

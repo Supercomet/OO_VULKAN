@@ -259,7 +259,7 @@ public:
 
     struct BloomSettings
     {
-        bool enabled = false;
+        bool enabled = true;
         float threshold = 10.0f;
         float softThreshold = 0.01f;
     }bloomSettings{};

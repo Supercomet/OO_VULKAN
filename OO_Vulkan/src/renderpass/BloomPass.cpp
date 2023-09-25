@@ -301,6 +301,7 @@ void BloomPass::Shutdown()
 	vkDestroyPipelineLayout(device, PSOLayoutDB::BloomPSOLayout, nullptr);
 	vkDestroyPipelineLayout(device, PSOLayoutDB::tonemapPSOLayout, nullptr);
 	vkDestroyPipelineLayout(device, PSOLayoutDB::doubleImageStoreLayout, nullptr);
+	vkDestroyPipelineLayout(device, PSOLayoutDB::brightPixelsLayout, nullptr);
 	vkDestroyPipeline(device, pso_bloom_bright, nullptr);
 	vkDestroyPipeline(device, pso_bloom_up, nullptr);
 	vkDestroyPipeline(device, pso_bloom_down, nullptr);
@@ -353,13 +354,17 @@ void BloomPass::CreateDescriptors()
 
 	VkDescriptorBufferInfo dbi{};
 	DescriptorBuilder::Begin()
+		.BindImage(1, &texSrc, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT) // we construct world position using depth
+		.BindImage(2, &texOut, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BuildLayout(SetLayoutDB::compute_brightPixels);
+	
+	DescriptorBuilder::Begin()
 		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(1, &texSrc, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT) // we construct world position using depth
 		.BindImage(2, &texOut, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BuildLayout(SetLayoutDB::compute_tonemap);
-
-
 
 }
 
@@ -387,7 +392,12 @@ void BloomPass::CreatePipelineLayout()
 		setLayouts[0] = SetLayoutDB::compute_doubleImageStore;
 
 		VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::doubleImageStoreLayout));
-		VK_NAME(m_device.logicalDevice, "doubleImageStore_PSOLayout", PSOLayoutDB::doubleImageStoreLayout);
+		VK_NAME(m_device.logicalDevice, "doubleImageStore_PSOLayout", PSOLayoutDB::doubleImageStoreLayout);	
+		
+		setLayouts[0] = SetLayoutDB::compute_brightPixels;
+
+		VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::brightPixelsLayout));
+		VK_NAME(m_device.logicalDevice, "brightPixelsLayout", PSOLayoutDB::brightPixelsLayout);
 		
 		setLayouts[0] = SetLayoutDB::compute_tonemap;
 		VK_CHK(vkCreatePipelineLayout(m_device.logicalDevice, &plci, nullptr, &PSOLayoutDB::tonemapPSOLayout));
@@ -418,11 +428,15 @@ vkutils::Texture2D* BloomPass::PerformBloom(rhi::CommandList& cmd)
 		{		
 			regionBegin(cmdlist, &marker);
 		}
+		cmd.BindPSO(pso_bloom_bright, PSOLayoutDB::brightPixelsLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 
+		VkDescriptorBufferInfo dbi{};
+		dbi.buffer = vr.LuminanceBuffer.buffer;
+		dbi.range = VK_WHOLE_SIZE;
 		cmd.DescriptorSetBegin(0)
-			.BindSampler(0, GfxSamplerManager::GetSampler_BlackBorder())
 			.BindImage(1, &mainImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-			.BindImage(2, &vr.attachments.Bloom_brightTarget, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+			.BindImage(2, &vr.attachments.Bloom_brightTarget, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+			.BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
 		BloomPC pc;
 		auto knee = vr.currWorld->bloomSettings.threshold * vr.currWorld->bloomSettings.softThreshold;
@@ -436,8 +450,7 @@ vkutils::Texture2D* BloomPass::PerformBloom(rhi::CommandList& cmd)
 		pcr.offset = 0;
 		pcr.size = sizeof(BloomPC);
 		pcr.stageFlags = VK_SHADER_STAGE_ALL;
-		cmd.SetPushConstant(PSOLayoutDB::doubleImageStoreLayout, pcr, &pc);
-		std::array<VkDescriptorSet, 1> descs{vr.descriptorSet_fullscreenBlit};
+		cmd.SetPushConstant(PSOLayoutDB::brightPixelsLayout, pcr, &pc);
 
 		cmd.Dispatch((vr.attachments.Bloom_brightTarget.width - 1) / 16 + 1, (vr.attachments.Bloom_brightTarget.height - 1) / 16 + 1);
 		if (regionEnd)
@@ -575,7 +588,7 @@ void BloomPass::CreatePipeline()
 	{
 		vkDestroyPipeline(m_device.logicalDevice, pso_bloom_bright, nullptr);
 	}
-	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::doubleImageStoreLayout);
+	VkComputePipelineCreateInfo computeCI = oGFX::vkutils::inits::computeCreateInfo(PSOLayoutDB::brightPixelsLayout);
 	computeCI.stage = vr.LoadShader(m_device, shaderCS, VK_SHADER_STAGE_COMPUTE_BIT);
 	VK_CHK(vkCreateComputePipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &pso_bloom_bright));
 	VK_NAME(m_device.logicalDevice, "pso_bloom_bright", pso_bloom_bright);
