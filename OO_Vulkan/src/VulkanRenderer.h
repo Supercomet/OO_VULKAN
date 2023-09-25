@@ -407,7 +407,7 @@ public:
 	ModelFileResource* LoadModelFromFile(const std::string& file);
 	ModelFileResource* LoadMeshFromBuffers(std::vector<oGFX::Vertex>& vertex, std::vector<uint32_t>& indices, gfxModel* model);
 	void LoadSubmesh(gfxModel& mdl, SubMesh& submesh, aiMesh* aimesh, ModelFileResource* modelFile);
-	void LoadBoneInformation(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiMesh& aimesh, std::vector<oGFX::BoneWeight>& boneWeights, uint32_t& vCnt);
+	void LoadBoneInformation(ModelFileResource& fileData, oGFX::Skeleton& skeleton, aiMesh& aimesh, std::vector<BoneWeight>& boneWeights, uint32_t& vCnt);
 	void BuildSkeletonRecursive(ModelFileResource& fileData, aiNode* ainode, oGFX::BoneNode* node, glm::mat4 parentXform = glm::mat4(1.0f), std::string prefix = std::string("\t"));
 	const oGFX::Skeleton* GetSkeleton(uint32_t modelID);
 	oGFX::CPUSkeletonInstance* CreateSkeletonInstance(uint32_t modelID);
@@ -459,7 +459,6 @@ public:
 	GpuVector<oGFX::IndirectCommand> shadowCasterCommandsBuffer[MAX_FRAME_DRAWS];
 	uint32_t indirectDrawCount{};
 
-	GpuVector<oGFX::BoneWeight> skinningVertexBuffer;
 	GpuVector<LocalLightInstance> globalLightBuffer[MAX_FRAME_DRAWS];
 
 	// - Descriptors
@@ -473,6 +472,9 @@ public:
 	// SSBO
 	std::vector<glm::mat4> boneMatrices{};
 	GpuVector<glm::mat4> gpuBoneMatrixBuffer[MAX_FRAME_DRAWS];
+
+	std::vector<BoneWeight> g_skinningBoneWeights;
+	GpuVector<BoneWeight> gpuSkinningBoneWeightsBuffer;
 
 	// SSBO
 	std::vector<GPUTransform> gpuTransform{};

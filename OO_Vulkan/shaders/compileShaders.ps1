@@ -39,6 +39,7 @@ $files = @(
 	"forwardUI.frag",
 	"gbuffer.frag",
 	"shadow.frag",
+	"zprepass.vert",
 	"ssao.frag",
 	"ssaoBlur.frag",
 	"additiveComposite.comp",

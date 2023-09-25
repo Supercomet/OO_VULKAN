@@ -136,7 +136,6 @@ void ForwardParticlePass::Draw(const VkCommandBuffer cmdlist)
 	// Bind merged mesh vertex & index buffers, instancing buffers.
 	std::vector<VkBuffer> vtxBuffers{
 		vr.g_GlobalMeshBuffers.VtxBuffer.getBuffer(),
-		vr.skinningVertexBuffer.getBuffer(),
 	};
 
 	VkDeviceSize offsets[2]{

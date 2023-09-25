@@ -1526,6 +1526,7 @@ void VulkanRenderer::CreateDescriptorSets_GPUScene()
 		.BindBuffer(3, gpuTransformBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.BindBuffer(4, gpuBoneMatrixBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.BindBuffer(5, objectInformationBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		.BindBuffer(6, gpuSkinningBoneWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
 }
 
@@ -1898,9 +1899,9 @@ void VulkanRenderer::InitializeRenderBuffers()
 	//g_GlobalMeshBuffers.IdxBuffer.reserve(8 * 1000 * 1000);
 	//g_GlobalMeshBuffers.VtxBuffer.reserve(1 * 1000 * 1000);
 
-	skinningVertexBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	gpuSkinningBoneWeightsBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	//skinningVertexBuffer.reserve(MAX_SKINNING_VERTEX_BUFFER_SIZE);  
-	VK_NAME(m_device.logicalDevice, "Skinning Vertex Buffer", skinningVertexBuffer.getBuffer());
+	VK_NAME(m_device.logicalDevice, "Skinning Weights Buffer", gpuSkinningBoneWeightsBuffer.getBuffer());
 	
 
 	for (size_t i = 0; i < g_particleDatas.size(); i++)
@@ -1932,7 +1933,7 @@ void VulkanRenderer::DestroyRenderBuffers()
 		g_particleCommandsBuffer[i].destroy();
 	}
 	
-	skinningVertexBuffer.destroy();
+	gpuSkinningBoneWeightsBuffer.destroy();
 
 	for (size_t i = 0; i < g_particleDatas.size(); i++)
 	{
@@ -1942,7 +1943,6 @@ void VulkanRenderer::DestroyRenderBuffers()
 	vmaDestroyBuffer(m_device.m_allocator, SPDconstantBuffer.buffer, SPDconstantBuffer.alloc);
 	vmaDestroyBuffer(m_device.m_allocator, SPDatomicBuffer.buffer, SPDatomicBuffer.alloc);
 
-	
 }
 
 void VulkanRenderer::GenerateCPUIndirectDrawCommands()
@@ -2132,7 +2132,7 @@ void VulkanRenderer::UploadInstanceData()
 						b = mat4(1.0f);
 					}
 				}
-				
+				oi.boneWeightsOffset = mdl.skinningWeightsOffset;
 				oi.boneStartIdx = static_cast<uint32_t>(boneMatrices.size());
 				//oi.boneCnt = static_cast<uint32_t>(ent.bones.size());
 
@@ -2292,7 +2292,7 @@ void VulkanRenderer::BeginDraw()
 			auto cmd = GetCommandBuffer();
 			if (g_GlobalMeshBuffers.IdxBuffer.m_mustUpdate) g_GlobalMeshBuffers.IdxBuffer.flushToGPU(cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
 			if (g_GlobalMeshBuffers.VtxBuffer.m_mustUpdate) g_GlobalMeshBuffers.VtxBuffer.flushToGPU(cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
-			if (skinningVertexBuffer.m_mustUpdate) skinningVertexBuffer.flushToGPU(cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+			if (gpuSkinningBoneWeightsBuffer.m_mustUpdate) gpuSkinningBoneWeightsBuffer.flushToGPU(cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
 			
 			UpdateUniformBuffers();
 			UploadInstanceData();
@@ -2311,6 +2311,7 @@ void VulkanRenderer::BeginDraw()
 				.BindBuffer(3, gpuTransformBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 				.BindBuffer(4, gpuBoneMatrixBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 				.BindBuffer(5, objectInformationBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+				.BindBuffer(6, gpuSkinningBoneWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 				.Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
 	
 			auto uniformMinAlignment = m_device.properties.limits.minUniformBufferOffsetAlignment;
@@ -3702,7 +3703,14 @@ ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
 		if (model->skeleton)
 		{
 			auto& sk = model->skeleton;
-			skinningVertexBuffer.addWriteCommand(sk->boneWeights.size(), sk->boneWeights.data(), model->baseVertex);
+			model->skinningWeightsOffset = this->g_skinningBoneWeights.size();
+			this->g_skinningBoneWeights.resize(model->skinningWeightsOffset + sk->boneWeights.size());
+			memcpy(this->g_skinningBoneWeights.data() + model->skinningWeightsOffset
+				, sk->boneWeights.data()
+				, sk->boneWeights.size() * sizeof(BoneWeight));
+			
+			gpuSkinningBoneWeightsBuffer.addWriteCommand(sk->boneWeights.size(), sk->boneWeights.data(), model->skinningWeightsOffset);
+			
 		}
 	};
 
@@ -3717,7 +3725,7 @@ ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
 void VulkanRenderer::LoadBoneInformation(ModelFileResource& fileData,
 	oGFX::Skeleton& skeleton,
 	aiMesh& aimesh,
-	std::vector<oGFX::BoneWeight>& boneWeights,
+	std::vector<BoneWeight>& boneWeights,
 	uint32_t& vCnt
 )
 {

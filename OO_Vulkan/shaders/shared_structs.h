@@ -4,7 +4,6 @@
 
 #define BIND_POINT_VERTEX_BUFFER_ID  0
 #define BIND_POINT_INSTANCE_BUFFER_ID  2
-#define BIND_POINT_WEIGHTS_BUFFER_ID  1
 #define BIND_POINT_GPU_SCENE_BUFFER_ID  3
 
 
@@ -133,13 +132,20 @@ struct GPUTransform
 	vec4 colour; // temp
 };
 
+const uint MAX_BONE_NUM = 4;
+struct BoneWeight
+{
+    uint boneIdx[MAX_BONE_NUM];
+    float boneWeights[MAX_BONE_NUM];
+};
+
 // struct represents perobject information in gpu
 struct GPUObjectInformation
 {
     uint boneStartIdx;
     int entityID;
     uint materialIdx;
-    uint unused;
+    uint boneWeightsOffset;
     vec4 emissiveColour;
 };
 

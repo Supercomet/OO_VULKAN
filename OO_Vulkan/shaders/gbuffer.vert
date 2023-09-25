@@ -10,8 +10,6 @@ layout(location = 2) in vec3 inColor;
 layout(location = 3) in vec3 inTangent;
 layout(location = 4) in vec2 inUV;
 
-layout(location = 5)in uvec4 inBoneIdx;
-layout(location = 6)in vec4 inBoneWeights;
 
 
 layout(location = 15) in uvec4 inInstanceData;
@@ -83,8 +81,16 @@ void main()
 	bool skinned = UnpackSkinned(inInstanceData.y);
     if(skinned)
 	{
+        uint thisVert = gl_VertexIndex - gl_BaseVertex;
+        BoneWeight boneInfo = GetBoneWeights(thisVert + objectInfo.boneWeightsOffset);
+		
+        uvec4 boneIndices = UnpackBoneIndices(boneInfo);		
+        vec4 boneWeights = UnpackBoneWeights(boneInfo);
+		
 		mat4x4 boneToModel; // what do i do with this
-		outPosition = ComputeSkinnedVertexPosition(dInsMatrix,inPosition,inBoneIdx,inBoneWeights,objectInfo.boneStartIdx,boneToModel);
+		outPosition = ComputeSkinnedVertexPosition(dInsMatrix,inPosition
+													, boneIndices, boneWeights
+													,objectInfo.boneStartIdx,boneToModel);
 		mat3 inverseTransformBone = transpose(mat3(inverse(boneToModel)));
 		outLightData.n = normalize(inverseTransformBone*NN);
 	}
