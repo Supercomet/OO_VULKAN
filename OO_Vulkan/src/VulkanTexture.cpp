@@ -600,6 +600,7 @@ namespace vkutils
 
 		image.allocation = VK_NULL_HANDLE;
 		image.image = VK_NULL_HANDLE;
+		view = VK_NULL_HANDLE;
 
 		bool n = name.empty();
 

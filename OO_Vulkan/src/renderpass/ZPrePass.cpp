@@ -132,7 +132,7 @@ void ZPrePass::Draw(const VkCommandBuffer cmdlist)
 	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer[currFrame].getBufferPtr());
 	cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-	cmd.DrawIndexedIndirect(vr.shadowCasterCommandsBuffer[currFrame].getBuffer(), 0, static_cast<uint32_t>(vr.shadowCasterCommandsBuffer[currFrame].size()));
+	cmd.DrawIndexedIndirect(vr.indirectCommandsBuffer[currFrame].getBuffer(), 0, static_cast<uint32_t>(vr.indirectCommandsBuffer[currFrame].size()));
 
 	//vkutils::TransitionImage(cmdlist, vr.attachments.shadow_depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }

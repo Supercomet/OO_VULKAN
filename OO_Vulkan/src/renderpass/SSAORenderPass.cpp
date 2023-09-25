@@ -268,8 +268,7 @@ void SSAORenderPass::CreateDescriptors()
 	auto& vr = *VulkanRenderer::get();
 	// At this point, all dependent resources (gbuffer etc) must be ready.
 	auto& attachments = vr.attachments.gbuffer;
-	assert(gbuffer != nullptr);
-
+	
 	VkDescriptorImageInfo texDescriptorDepth = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_SSAOEdgeClamp(),
 		attachments[GBufferAttachmentIndex::DEPTH]   .view,

@@ -348,11 +348,6 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	CreateLightingBuffers();
 
 
-	oGFX::CreateBuffer(m_device.m_allocator, sizeof(float), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT , LuminanceMonitor);
-	VK_CHK(vmaMapMemory(m_device.m_allocator, LuminanceMonitor.alloc, &monitorData));
-
-
 	// Calls "Init()" on all registered render passes. Order is not guarunteed.
 	auto rpd = RenderPassDatabase::Get();
 	GfxRenderpass* ptr;
@@ -2822,6 +2817,7 @@ void VulkanRenderer::GenerateRadianceMap(VkCommandBuffer cmdlist, vkutils::CubeT
 
 	g_radianceMap = cubemap;
 	g_radianceMap.image = {};
+	g_radianceMap.view = VK_NULL_HANDLE;
 	g_radianceMap.name = "radianceMap";
 	g_radianceMap.format = G_HDR_FORMAT;
 	g_radianceMap.width = 32;
@@ -2862,6 +2858,7 @@ void VulkanRenderer::GeneratePrefilterMap(VkCommandBuffer cmdlist, vkutils::Cube
 {
 	g_prefilterMap = cubemap;
 	g_prefilterMap.image = {};
+	g_prefilterMap.view = VK_NULL_HANDLE;
 	g_prefilterMap.name = "prefilterMap";
 	g_prefilterMap.format = G_HDR_FORMAT;
 	g_prefilterMap.width = 128;
@@ -3985,19 +3982,18 @@ uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned
 	memcpy(fileData.imgData.data(), imgData, fileData.dataSize);
 	//fileData.imgData = imgData;
 
-	auto ind = CreateTextureImageImmediate(fileData);
-	auto& tex = g_Textures[ind];
-
-	if (generateMips)
+	auto ind = CreateTextureImage(fileData);
+	
+	auto lam = [this, ind]() {
+		UpdateBindlessGlobalTexture(ind);
+		};
 	{
-		GenerateMipmaps(tex);
+		std::scoped_lock s{ g_mut_workQueue };
+		g_workQueue.emplace_back(lam);
 	}
 
-	//create texture descriptor
-	int descriptorLoc = UpdateBindlessGlobalTexture(ind);
-
 	//return location of set with texture
-	return descriptorLoc;
+	return ind;
 
 }
 
