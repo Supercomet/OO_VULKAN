@@ -101,9 +101,7 @@ void DebugDrawRenderpass::Draw(const VkCommandBuffer cmdlist)
 	rhi::CommandList cmd{ cmdlist, "Debug Pass"};
 
 	auto& attachments = vr.attachments.gbuffer;
-	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
+	
 	cmd.BindAttachment(0, &vr.renderTargets[vr.renderTargetInUseID].texture);
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 
@@ -132,9 +130,6 @@ void DebugDrawRenderpass::Draw(const VkCommandBuffer cmdlist)
 		
 		cmd.DrawIndexed((uint32_t)(vr.g_DebugDrawIndexBufferGPU[currFrame].size()), 1);
 	}
-
-	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, vr.renderTargets[vr.renderTargetInUseID].texture.referenceLayout);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], attachments[GBufferAttachmentIndex::DEPTH].referenceLayout);
 }
 
 void DebugDrawRenderpass::Shutdown()

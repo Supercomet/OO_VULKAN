@@ -157,12 +157,6 @@ void ForwardUIPass::Draw(const VkCommandBuffer cmdlist)
 	cmd.DrawIndexed(static_cast<uint32_t>(ScreenSpaceIndices), static_cast<uint32_t>(ScreenSpaceCnt)
 					,ScreenSpaceIdxOffset, 0, 0);  // draw screenspace
 
-	// vkCmdEndRenderPass(cmdlist);
-	
-
-	vkutils::TransitionImage(cmdlist, vr.renderTargets[vr.renderTargetInUseID].texture, vr.renderTargets[vr.renderTargetInUseID].texture.referenceLayout);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], attachments[GBufferAttachmentIndex::DEPTH].referenceLayout);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], attachments[GBufferAttachmentIndex::ENTITY_ID].referenceLayout);
 }
 
 void ForwardUIPass::Shutdown()

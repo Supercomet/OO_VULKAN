@@ -103,8 +103,6 @@ void ForwardParticlePass::Draw(const VkCommandBuffer cmdlist)
 
 	auto& attachments = vr.attachments.gbuffer;
 
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
 	// Clear values for all attachments written in the fragment shader
 	std::array<VkClearValue, GBufferAttachmentIndex::MAX_ATTACHMENTS> clearValues;
 	clearValues[GBufferAttachmentIndex::NORMAL]  .color = zeroFloat4;
@@ -112,9 +110,6 @@ void ForwardParticlePass::Draw(const VkCommandBuffer cmdlist)
 	clearValues[GBufferAttachmentIndex::MATERIAL].color = zeroFloat4;
 	clearValues[GBufferAttachmentIndex::ENTITY_ID].color = rMinusOne;
 	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 1.0f, 0 };
-
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	vkutils::TransitionImage(cmdlist, renderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 	rhi::CommandList cmd{ cmdlist, "Forward Particles Pass"};
 	cmd.BindAttachment(0, &renderTarget);
@@ -153,11 +148,6 @@ void ForwardParticlePass::Draw(const VkCommandBuffer cmdlist)
 	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.g_particleDatas[currFrame].getBufferPtr());
 	cmd.DrawIndexedIndirect(vr.g_particleCommandsBuffer[currFrame].getBuffer(), 0, static_cast<uint32_t>(vr.g_particleCommandsBuffer[currFrame].size()));
 
-	
-
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::ENTITY_ID], attachments[GBufferAttachmentIndex::ENTITY_ID].referenceLayout);
-	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], attachments[GBufferAttachmentIndex::DEPTH].referenceLayout);
-	vkutils::TransitionImage(cmdlist, renderTarget, renderTarget.referenceLayout);
 }
 
 void ForwardParticlePass::Shutdown()

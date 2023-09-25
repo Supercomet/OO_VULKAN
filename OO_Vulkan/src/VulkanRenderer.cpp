@@ -671,8 +671,7 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 }
 
 void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture& src, VkImageLayout srcFinal, vkutils::Texture& dst, VkImageLayout dstFinal) 
-{
-	
+{	
 	const VkCommandBuffer cmdlist = inCmd;
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("Blit");
@@ -682,8 +681,6 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture& src
 
 	glm::uvec2 renderSize = glm::vec2{ dst.width,dst.height };
 
-	//vkutils::TransitionImage(cmdlist, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	//vkutils::TransitionImage(cmdlist, src, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	VkDescriptorImageInfo texdesc = oGFX::vkutils::inits::descriptorImageInfo(
 		GfxSamplerManager::GetSampler_SSAOEdgeClamp(),
 		src.view,
@@ -722,22 +719,8 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture& src
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO),
 		m_device.properties.limits.minUniformBufferOffsetAlignment));
-	//cmd.BindDescriptorSet(PSOLayoutDB::PSO_fullscreenBlitLayout, 0,
-	//	std::array<VkDescriptorSet, 1>
-	//	{
-	//		descriptorSet_fullscreenBlit,
-	//	},
-	//	VK_PIPELINE_BIND_POINT_GRAPHICS,
-	//	0
-	//);
 
 	cmd.DrawFullScreenQuad();
-	//vkCmdEndRenderPass(cmdlist);
-	
-
-	//vkutils::TransitionImage(cmdlist, src, srcFinal);
-	//vkutils::TransitionImage(cmdlist, dst, dstFinal);
-	
 }
 
 void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture& src,VkImageLayout srcFinal, vkutils::Texture& dst,VkImageLayout dstFinal)
@@ -1755,16 +1738,28 @@ void VulkanRenderer::DrawGUI()
 
 	// temp hardcode until its in its own renderer
 	vkutils::TransitionImage(cmdlist, m_swapchain.swapChainImages[swapchainIdx], m_swapchain.swapChainImages[swapchainIdx].referenceLayout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	if (renderTargets[0].inUse == true)
+	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
-		vkutils::TransitionImage(cmdlist, renderTargets[0].texture, renderTargets[0].texture.referenceLayout, VK_IMAGE_LAYOUT_GENERAL);
+		if (renderTargets[i].inUse == true)
+		{
+			vkutils::TransitionImage(cmdlist, renderTargets[i].texture, renderTargets[i].texture.referenceLayout, VK_IMAGE_LAYOUT_GENERAL);
+		}
 	}
 	vkCmdBeginRenderPass(cmdlist, &GUIpassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdlist);
 	vkCmdEndRenderPass(cmdlist);
 
-	vkutils::TransitionImage(cmdlist, renderTargets[0].texture, VK_IMAGE_LAYOUT_GENERAL, renderTargets[0].texture.referenceLayout);
+	for (size_t i = 0; i < renderTargets.size(); i++)
+	{
+		if (renderTargets[i].inUse == true)
+		{
+			vkutils::TransitionImage(cmdlist, renderTargets[i].texture, VK_IMAGE_LAYOUT_GENERAL, renderTargets[i].texture.referenceLayout);
+		}
+	}
+	
+	
 
+	// set by final renderpass
 	m_swapchain.swapChainImages[swapchainIdx].currentLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	//std::cout << currentFrame << " DrawGui " << std::to_string(swapchainIdx) <<" " 
 	//	<< oGFX::vkutils::tools::VkImageLayoutString(m_swapchain.swapChainImages[swapchainIdx].currentLayout) << std::endl;
@@ -2457,7 +2452,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 #if defined		(ENABLE_DECAL_IMPLEMENTATION)
 		RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
 #endif				
-		//if (shouldRunDebugDraw) // for now need to run regardless because of transition.. TODO: FIX IT ONE DAY
+		if (shouldRunDebugDraw) // for now need to run regardless because of transition.. TODO: FIX IT ONE DAY
 		{
 			// RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
 			const VkCommandBuffer cmd = GetCommandBuffer();
@@ -2475,18 +2470,16 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		auto thisID = currWorld->targetIDs[1];
 		auto& texture = renderTargets[thisID].texture;		
 
-		vkutils::TransitionImage(GetCommandBuffer(), texture, VK_IMAGE_LAYOUT_GENERAL);
-
 		auto nextID = currWorld->targetIDs[0];
 		auto& nextTexture = renderTargets[nextID].texture;
-		FullscreenBlit(GetCommandBuffer(), nextTexture, VK_IMAGE_LAYOUT_GENERAL, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		FullscreenBlit(GetCommandBuffer(), nextTexture, nextTexture.referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 	}
 	else
 	{
 		auto thisID = currWorld->targetIDs[0];
 		auto& texture = renderTargets[thisID].texture;
-		FullscreenBlit(GetCommandBuffer(), texture, VK_IMAGE_LAYOUT_GENERAL, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		FullscreenBlit(GetCommandBuffer(), texture, texture.referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	}
 	// only blit main framebuffer
 }
