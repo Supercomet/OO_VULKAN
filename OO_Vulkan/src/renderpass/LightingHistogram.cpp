@@ -112,21 +112,27 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 	pcr.size = sizeof(LuminencePC);
 	pcr.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	
+
+
+	vkCmdFillBuffer(cmdlist, vr.lightingHistogram.buffer, 0, VK_WHOLE_SIZE, 0);
+
+	auto& target = vr.attachments.lighting_target;
+
+	cmd.BindPSO(pso_LightingHistogram, PSOLayoutDB::histogramPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+
 	float minLogLum = -8.0f;
 	float maxLogLum = 3.5f;
 	float histogramParams[4] = {
 		minLogLum,
 		1.0f / (maxLogLum - minLogLum),
-	};	
-
-	vkCmdFillBuffer(cmdlist, vr.lightingHistogram.buffer, 0, VK_WHOLE_SIZE, 0);
-
-	cmd.BindPSO(pso_LightingHistogram, PSOLayoutDB::histogramPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+		target.width,
+		target.height
+	};
 	cmd.SetPushConstant(PSOLayoutDB::histogramPSOLayout, pcr, &histogramParams);
 	cmd.DescriptorSetBegin(0)
-		.BindImage(0, &vr.attachments.lighting_target, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+		.BindImage(0, &target, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 		.BindBuffer(1, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-	cmd.Dispatch(vr.attachments.lighting_target.width / 16 + 1, vr.attachments.lighting_target.height / 16 + 1);
+	cmd.Dispatch(target.width / 16 + 1, target.height / 16 + 1);
 
 	float tau = 1.1f;
 	float frameTime = vr.deltaTime;
@@ -135,8 +141,24 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 		minLogLum,
 		maxLogLum - minLogLum,
 		timeCoeff,
-		static_cast<float>(vr.attachments.lighting_target.width * vr.attachments.lighting_target.height),
+		static_cast<float>(target.width * target.height),
 	};
+
+	VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+	bmb.buffer = vr.lightingHistogram.buffer;
+	bmb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+	bmb.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+	bmb.offset = 0;
+	bmb.size = VK_WHOLE_SIZE;
+	bmb.srcQueueFamilyIndex = vr.m_device.queueIndices.graphicsFamily;
+	vkCmdPipelineBarrier(
+		cmdlist,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		0,
+		0, nullptr,
+		1, &bmb,
+		0, nullptr);
 
 	VkDescriptorBufferInfo lumBufferInfo{};
 	lumBufferInfo.buffer = vr.LuminanceBuffer.buffer;
@@ -160,7 +182,6 @@ void LightingHistogram::Shutdown()
 
 	vkDestroyPipelineLayout(device, PSOLayoutDB::histogramPSOLayout, nullptr);
 	vkDestroyPipelineLayout(device, PSOLayoutDB::luminancePSOLayout, nullptr);
-	vr.attachments.shadow_depth.destroy();
 	vkDestroyPipeline(device, pso_LightingHistogram, nullptr);
 	vkDestroyPipeline(device, pso_lightingCDFScan, nullptr);
 }

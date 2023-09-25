@@ -51,27 +51,18 @@ void main()
 	sData[flatidx] = 0;
 	barrier();
 
-	if(	gl_GlobalInvocationID.x < width && gl_GlobalInvocationID.y < height	)
+    if (texPos.x < width && texPos.y < height)
 	{
-		vec4 col = imageLoad(inputImage, texPos);
+        vec4 col = imageLoad(inputImage, texPos);
 		
         uint binIdx = colorToBin(col.rgb, PC.minLogLum, PC.deltaLogLum);
        
-
 		// histogramming log2(lum) to shared memory
-        atomicAdd(sData[binIdx], 1);
-		barrier();		
-
-		// summing inputs to know total invocations
-		// if(gl_GlobalInvocationID.x+ gl_GlobalInvocationID.y == 0){	
-		// 	 ivec2 imgdim = imageSize(inputImage);
-		// 	 int imgSize = imgdim.x * imgdim.y;
-		// 	 histo.cdf[0] = imgSize;
-		// }
+        atomicAdd(sData[binIdx], 1);		
+		barrier();
+    }	
 		
-		atomicAdd(histo.histoBin[flatidx], sData[flatidx]);
-    }
-    
+    atomicAdd(histo.histoBin[flatidx], sData[flatidx]);
 	// save local histogram to global memory
 }
  	
