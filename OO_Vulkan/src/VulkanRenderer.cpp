@@ -351,7 +351,6 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	oGFX::CreateBuffer(m_device.m_allocator, sizeof(float), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT , LuminanceMonitor);
 	VK_CHK(vmaMapMemory(m_device.m_allocator, LuminanceMonitor.alloc, &monitorData));
-	*(float*)monitorData = 133.7;
 
 
 	// Calls "Init()" on all registered render passes. Order is not guarunteed.
