@@ -38,10 +38,6 @@ Engineering Tasks:
 • Proper Frame Fencing
     • Should only stall CPU before the FIRST command buffer submission
 
-• HDR Render Targets:
-	• Should be R10G10B11
-	• Should return to RGBA8 after tonemapping
-
 • GPU-driven renderer
     • Implement this Step-by-Step. This is a huge & complex undertaking with multiple chained indirect dispatches
     • 1st Evolution: Batch & dispatch draw calls on CPU first
@@ -107,7 +103,11 @@ Done:
     • Attenuate scene color based on scene luminance (eye adaptation)
     • Tonemapping result & everything after should be in LDR space (RGBA8)
     • Adapt bloom pass to use scene luminance +/* defined const to extract bright pixels
-
+	
+• HDR Render Targets:
+	• Should be R11G11B10
+	• Should return to RGBA8 after tonemapping
+	
 • IBL rendering
 	• Directional light
     • Scene cube map
