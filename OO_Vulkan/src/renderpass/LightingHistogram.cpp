@@ -144,22 +144,6 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 		static_cast<float>(target.width * target.height),
 	};
 
-	//VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
-	//bmb.buffer = vr.lightingHistogram.buffer;
-	//bmb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-	//bmb.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-	//bmb.offset = 0;
-	//bmb.size = VK_WHOLE_SIZE;
-	//bmb.srcQueueFamilyIndex = vr.m_device.queueIndices.graphicsFamily;
-	//vkCmdPipelineBarrier(
-	//	cmdlist,
-	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-	//	0,
-	//	0, nullptr,
-	//	1, &bmb,
-	//	0, nullptr);
-
 	VkDescriptorBufferInfo lumBufferInfo{};
 	lumBufferInfo.buffer = vr.LuminanceBuffer.buffer;
 	lumBufferInfo.offset = 0;
@@ -179,6 +163,7 @@ void LightingHistogram::Shutdown()
 
 	vmaDestroyBuffer(vr.m_device.m_allocator, vr.lightingHistogram.buffer, vr.lightingHistogram.alloc);
 	vmaDestroyBuffer(vr.m_device.m_allocator, vr.LuminanceBuffer.buffer, vr.LuminanceBuffer.alloc);
+	vmaDestroyBuffer(vr.m_device.m_allocator, vr.LuminanceMonitor.buffer, vr.LuminanceMonitor.alloc);
 
 	vkDestroyPipelineLayout(device, PSOLayoutDB::histogramPSOLayout, nullptr);
 	vkDestroyPipelineLayout(device, PSOLayoutDB::luminancePSOLayout, nullptr);
