@@ -62,7 +62,7 @@ void BloomPass::Init()
 	auto& vr = *VulkanRenderer::get();
 	auto swapchainext = vr.m_swapchain.swapChainExtent;
 	vr.attachments.Bloom_brightTarget.name = "bloom_bright";
-	vr.attachments.Bloom_brightTarget.forFrameBuffer(&vr.m_device, vr.G_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+	vr.attachments.Bloom_brightTarget.forFrameBuffer(&vr.m_device, vr.G_HDR_FORMAT_ALPHA, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		swapchainext.width, swapchainext.height, true, 1.0f);
 	vr.fbCache.RegisterFramebuffer(vr.attachments.Bloom_brightTarget);
 	float renderScale = 0.5f;
@@ -70,7 +70,7 @@ void BloomPass::Init()
 	{
 		// generate textures with half sizes
 		vr.attachments.Bloom_downsampleTargets[i].name = "bloom_down_" + std::to_string(i);
-		vr.attachments.Bloom_downsampleTargets[i].forFrameBuffer(&vr.m_device, vr.G_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+		vr.attachments.Bloom_downsampleTargets[i].forFrameBuffer(&vr.m_device, vr.G_HDR_FORMAT_ALPHA, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 			swapchainext.width, swapchainext.height, true, renderScale);
 		vr.fbCache.RegisterFramebuffer(vr.attachments.Bloom_downsampleTargets[i]);
 

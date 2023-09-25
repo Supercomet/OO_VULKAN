@@ -567,7 +567,7 @@ void VulkanRenderer::CreateDefaultRenderpass()
 	renderPass_default_noDepth.Init(m_device, renderPassCreateInfo);
 
 
-	renderpassAttachments[0].format = G_HDR_FORMAT;
+	renderpassAttachments[0].format = G_HDR_FORMAT_ALPHA;
 	renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(renderpassAttachments.size());
 	renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(subpassDependancies.size());
 	renderPass_HDR.name = "defaulRenderpassHDR";
@@ -2812,7 +2812,7 @@ void VulkanRenderer::GenerateRadianceMap(VkCommandBuffer cmdlist, vkutils::CubeT
 	g_radianceMap.image = {};
 	g_radianceMap.view = VK_NULL_HANDLE;
 	g_radianceMap.name = "radianceMap";
-	g_radianceMap.format = G_HDR_FORMAT;
+	g_radianceMap.format = G_HDR_FORMAT_ALPHA;
 	g_radianceMap.width = 32;
 	g_radianceMap.height = 32;
 
@@ -2853,7 +2853,7 @@ void VulkanRenderer::GeneratePrefilterMap(VkCommandBuffer cmdlist, vkutils::Cube
 	g_prefilterMap.image = {};
 	g_prefilterMap.view = VK_NULL_HANDLE;
 	g_prefilterMap.name = "prefilterMap";
-	g_prefilterMap.format = G_HDR_FORMAT;
+	g_prefilterMap.format = G_HDR_FORMAT_ALPHA;
 	g_prefilterMap.width = 128;
 	g_prefilterMap.height = 128;
 

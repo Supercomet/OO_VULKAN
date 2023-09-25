@@ -50,7 +50,8 @@ void main()
     vec3 result = vec4(QuadraticThreshold(res.rgb, pc.threshold.x, pc.threshold.yzw), res.a).rgb;
     
     float maxThreshold = LuminanceValue * pc.threshold.x;
-    brightness = log2(brightness);
+    
+    brightness = brightness > EPSILON ? log2(brightness) : 0.0;
     if (brightness > maxThreshold)
     {
         result = res.rgb;

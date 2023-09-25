@@ -198,7 +198,7 @@ void ForwardParticlePass::SetupRenderpass()
 		auto& attachments = vr.attachments.gbuffer;
 	// Formats
 	//attachmentDescs[GBufferAttachmentIndex::POSITION].format = attachments[GBufferAttachmentIndex::POSITION].format;
-	attachmentDescs[0]  .format = vr.G_HDR_FORMAT;
+	attachmentDescs[0]  .format = vr.G_HDR_FORMAT_ALPHA;
 	attachmentDescs[1]  .format = attachments[GBufferAttachmentIndex::ENTITY_ID].format;
 	attachmentDescs[2]  .format = vr.G_DEPTH_FORMAT;
 	

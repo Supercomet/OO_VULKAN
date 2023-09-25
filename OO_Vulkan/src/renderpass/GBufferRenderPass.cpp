@@ -680,7 +680,7 @@ void GBufferRenderPass::SetupResources() {
 	attachments[GBufferAttachmentIndex::DEPTH	].forFrameBuffer(&m_device, vr.G_DEPTH_FORMAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height);
 	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::DEPTH]);
 	attachments[GBufferAttachmentIndex::EMISSIVE	].name = "GB_Emissive";
-	attachments[GBufferAttachmentIndex::EMISSIVE	].forFrameBuffer(&m_device, vr.G_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	attachments[GBufferAttachmentIndex::EMISSIVE	].forFrameBuffer(&m_device, vr.G_HDR_FORMAT_ALPHA, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
 	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::EMISSIVE]);
 	
 	vr.attachments.shadowMask.name = "GB_ShadowMask";
