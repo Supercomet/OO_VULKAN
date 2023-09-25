@@ -1,9 +1,6 @@
 Graphic Features:
 • IBL rendering
     • Sky dome
-	
-• HDR pipeline
-    • Adapt bloom pass to use scene luminance +/* defined const to extract bright pixels
 
 • GBuffer Render Targets:
     • Remove Entity ID GBuffer RT
@@ -14,11 +11,6 @@ Graphic Features:
     • Practically mandatory. Uploading the entire scene's worth of instance transforms every frame cannot scale up.
     • Same for Directional Light Shadow pass
     • Cull objects ONCE per view-proj (Main Camera, each CSM cascade), then re-use culled lists of objects in all Renderers
-
-• True HDR pipeline
-    • Luminance Histogram generation
-    • Attenuate scene color based on scene luminance (eye adaptation)
-    • Tonemapping result & everything after should be in LDR space (RGBA8)
 
 • Tile-based Deferred Rendering
     • Support point lights only for now
@@ -109,6 +101,12 @@ Done:
 
 • Implement Full Z-PrePass
     • Treat every Opaque object as an occluder to keep things simple
+
+• True HDR pipeline
+    • Luminance Histogram generation
+    • Attenuate scene color based on scene luminance (eye adaptation)
+    • Tonemapping result & everything after should be in LDR space (RGBA8)
+    • Adapt bloom pass to use scene luminance +/* defined const to extract bright pixels
 
 • IBL rendering
 	• Directional light
