@@ -28,7 +28,7 @@ float ShadowCalculation(int lightIndex, int gridID, in vec4 fragPosLightSpace, f
     vec2 uvs = vec2(projCoords.x, projCoords.y);
     uvs = GetShadowMapRegion(gridID, uvs, PC.shadowMapGridDim);
     
-    float oneTexelUV = 1.0/4096;
+    float oneTexelUV = 1.0 / ( 4096);
 	
 	// Flip y during sample
     uvs = vec2(uvs.x, 1.0 - uvs.y);
@@ -60,16 +60,27 @@ float ShadowCalculation(int lightIndex, int gridID, in vec4 fragPosLightSpace, f
             }
             else
             {        
-                shadowFactor += texture(sampler2DShadow(textureShadows, shadowSampler), vec3(uvs + vec2(x,y), currDepth + bias)).r;
-               
+                shadowFactor += 0.2+ texture(sampler2DShadow(textureShadows, shadowSampler)
+                                            , vec3(uvs + vec2(x,y)*oneTexelUV, currDepth + bias)).r;
             }
-            //shadowFactor += texture(sampler2DShadow(textureShadows, shadowSampler), vec3(uvs, currDepth + bias)).r;
-            count++;
+           count++;
         }
 	
     }
     shadow = shadowFactor / count;   
-   
+    
+    // old code for documentation purpose
+    //if (projCoords.x > boundsLimit || projCoords.x < lowerBoundsLimit
+	//	    || projCoords.y > boundsLimit || projCoords.y < lowerBoundsLimit
+	//	    )
+    //{
+    //    shadow += 1.0;
+    //}
+    //else
+    //{
+    //    shadow = texture(sampler2DShadow(textureShadows, shadowSampler), vec3(uvs, currDepth + bias)).r;        
+    //}
+            
      //sampledDepth = texture(sampler2D(textureShadows, basicSampler), uvs).r;
     //if (currDepth < sampledDepth - bias)
     //{
@@ -78,7 +89,7 @@ float ShadowCalculation(int lightIndex, int gridID, in vec4 fragPosLightSpace, f
     //        shadow = 0.20;
     //    }
     //}
-    shadow = clamp(shadow, 0.2, 1.0);
+    shadow = clamp(shadow, 0.1, 1.0);
 
     return shadow;
 }
