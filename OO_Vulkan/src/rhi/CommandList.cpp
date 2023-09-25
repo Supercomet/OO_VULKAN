@@ -77,7 +77,7 @@ namespace rhi
 	}
 	CommandList::~CommandList()
 	{
-		RestoreImageResourceStates();
+		RestoreResourceStates();
 		EndNamedRegion();
 	}
 
@@ -98,7 +98,7 @@ namespace rhi
 		if (iter == m_trackedTextures.end())
 		{
 			//printf("  Tracking %s ..\n", tex->name.c_str());
-			ResourceStateTracking state;
+			ImageStateTracking state;
 			OO_ASSERT(tex->referenceLayout == tex->currentLayout);
 			state.referenceLayout = tex->referenceLayout;
 			state.currentLayout = tex->referenceLayout;
@@ -107,7 +107,7 @@ namespace rhi
 		}
 	}
 
-	ResourceStateTracking* CommandList::getTrackedImage(vkutils::Texture* tex)
+	ImageStateTracking* CommandList::getTrackedImage(vkutils::Texture* tex)
 	{
 		auto iter = m_trackedTextures.find(tex);
 		if (iter != m_trackedTextures.end()) {
@@ -116,15 +116,57 @@ namespace rhi
 		return nullptr;
 	}
 
-	ResourceStateTracking* CommandList::ensureTrackedImage(vkutils::Texture* tex)
+	ImageStateTracking* CommandList::ensureTrackedImage(vkutils::Texture* tex)
 	{
-		ResourceStateTracking* result = getTrackedImage(tex);
+		ImageStateTracking* result = getTrackedImage(tex);
 		if (result == nullptr)
 		{
 			BeginTrackingImage(tex);
 			result = getTrackedImage(tex);
 		}
 		return result;
+	}
+
+	void CommandList::BeginTrackingBuffer(VkBuffer buffer)
+	{
+		auto iter = m_trackedBuffers.find(buffer);
+		if (iter == m_trackedBuffers.end())
+		{
+			BufferStateTracking state;
+			m_trackedBuffers[buffer] = state;
+		}
+	}
+
+	BufferStateTracking* CommandList::getTrackedBuffer(VkBuffer buffer)
+	{
+		auto iter = m_trackedBuffers.find(buffer);
+		if (iter != m_trackedBuffers.end()) {
+			return &iter->second;
+		}
+		return nullptr;
+	}
+
+	BufferStateTracking* CommandList::ensureTrackedBuffer(VkBuffer buffer)
+	{
+		BufferStateTracking* result = getTrackedBuffer(buffer);
+		if (result == nullptr)
+		{
+			BeginTrackingBuffer(buffer);
+			result = getTrackedBuffer(buffer);
+		}
+		return result;
+	}
+
+	void CommandList::VerifyResourceStates()
+	{
+		VerifyImageResourceStates();
+		VerifyBufferResourceStates();
+	}
+
+	void CommandList::RestoreResourceStates()
+	{
+		RestoreImageResourceStates();
+		RestoreBufferResourceStates();
 	}
 
 	void CommandList::VerifyImageResourceStates()
@@ -162,12 +204,55 @@ namespace rhi
 		}
 	}
 
+	void CommandList::VerifyBufferResourceStates()
+	{
+		for (auto& [buffer, state] : m_trackedBuffers)
+		{
+			if (state.currentAccess != state.expectedAccess || state.expectedAccess == UAV)
+			{
+				VkAccessFlags srcAccess = state.currentAccess == UAV ? VK_ACCESS_MEMORY_WRITE_BIT : VK_ACCESS_MEMORY_READ_BIT;
+				VkAccessFlags dstAccess = state.expectedAccess == UAV ? VK_ACCESS_MEMORY_WRITE_BIT : VK_ACCESS_MEMORY_READ_BIT;
+
+				VkPipelineStageFlags prevStage = state.previousStage == VK_PIPELINE_BIND_POINT_COMPUTE ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+				VkPipelineStageFlags nextStage = m_pipelineBindPoint == VK_PIPELINE_BIND_POINT_COMPUTE ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+
+				// TODO: Batch together barriers
+				oGFX::vkutils::tools::insertBufferMemoryBarrier(m_VkCommandBuffer, VulkanRenderer::get()->m_device.queueIndices.graphicsFamily,
+					buffer, srcAccess, dstAccess,
+					prevStage, nextStage);
+				state.currentAccess = state.expectedAccess;
+				state.previousStage = m_pipelineBindPoint;
+			}
+		}
+	}
+
+	void CommandList::RestoreBufferResourceStates()
+	{
+		for (auto& [buffer, state] : m_trackedBuffers)
+		{
+			if (state.currentAccess != state.expectedAccess || state.currentAccess == UAV)
+			{
+				VkAccessFlags srcAccess = state.currentAccess == UAV ? VK_ACCESS_MEMORY_WRITE_BIT : VK_ACCESS_MEMORY_READ_BIT;
+				VkAccessFlags dstAccess = state.expectedAccess == UAV ? VK_ACCESS_MEMORY_WRITE_BIT : VK_ACCESS_MEMORY_READ_BIT;
+				
+				VkPipelineStageFlags prevStage = state.previousStage == VK_PIPELINE_BIND_POINT_COMPUTE ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+				VkPipelineStageFlags nextStage = m_pipelineBindPoint == VK_PIPELINE_BIND_POINT_COMPUTE ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+				
+				// TODO: Batch together barriers
+				oGFX::vkutils::tools::insertBufferMemoryBarrier(m_VkCommandBuffer, VulkanRenderer::get()->m_device.queueIndices.graphicsFamily,
+					buffer, srcAccess, dstAccess,
+					prevStage, nextStage);
+				state.currentAccess = state.referenceAccess;
+			}
+		}
+	}
+
 	void CommandList::CopyImage(vkutils::Texture* src, vkutils::Texture* dst)
 	{
 		OO_ASSERT(src != nullptr && dst != nullptr);
 
-		const ResourceStateTracking* dstTrack = ensureTrackedImage(dst);
-		const ResourceStateTracking* srcTrack = ensureTrackedImage(src);
+		const ImageStateTracking* dstTrack = ensureTrackedImage(dst);
+		const ImageStateTracking* srcTrack = ensureTrackedImage(src);
 		// we will use and restore the tracked states
 
 		VkImageSubresourceLayers srcCopy{ VK_IMAGE_ASPECT_COLOR_BIT ,0,0,1 };
@@ -222,7 +307,7 @@ void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture* tex, bool
 
 	if (tex) {
 		//start tracking
-		ResourceStateTracking* tracked = ensureTrackedImage(tex);		
+		ImageStateTracking* tracked = ensureTrackedImage(tex);		
 		tracked->expectedLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 
@@ -259,7 +344,7 @@ void CommandList::BindDepthAttachment(vkutils::Texture* tex, bool clearOnDraw)
 	if (tex) 
 	{
 		//start tracking
-		ResourceStateTracking* tracked = ensureTrackedImage(tex);
+		ImageStateTracking* tracked = ensureTrackedImage(tex);
 		tracked->expectedLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		VkRenderingAttachmentInfo depthInfo{};
@@ -299,10 +384,9 @@ void CommandList::BindIndexBuffer(VkBuffer buffer, VkDeviceSize offset, VkIndexT
 
 void CommandList::BeginRendering(VkRect2D renderArea)
 {
+	VerifyResourceStates();
+	CommitDescriptors();
 
-	VerifyImageResourceStates();
-
-	
 	m_depth.loadOp = m_shouldClearDepth ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 	m_shouldClearDepth = false;
 	for (size_t i = 0; i < m_highestAttachmentBound + 1; i++)
@@ -332,18 +416,13 @@ void CommandList::EndRendering()
 
 void CommandList::Draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance)
 {
-	CommitDescriptors();
-	
 	BeginRendering(m_renderArea);
-
 	vkCmdDraw(m_VkCommandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
 	EndRendering();
 }
 
 void CommandList::DrawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance)
 {
-	CommitDescriptors();
-	
 	BeginRendering(m_renderArea);
 	vkCmdDrawIndexed(m_VkCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 	EndRendering();
@@ -351,8 +430,6 @@ void CommandList::DrawIndexed(uint32_t indexCount, uint32_t instanceCount, uint3
 
 void CommandList::DrawIndexedIndirect(VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride)
 {
-	CommitDescriptors();
-
 	BeginRendering(m_renderArea);
 	::DrawIndexedIndirect(m_VkCommandBuffer, buffer, offset, drawCount, stride);
 	EndRendering();
@@ -398,8 +475,6 @@ void CommandList::BindDescriptorSet(VkPipelineLayout layout,
 
 void CommandList::DrawFullScreenQuad()
 {
-	CommitDescriptors();
-
 	BeginRendering(m_renderArea);
 	vkCmdDraw(m_VkCommandBuffer, 3, 1, 0, 0);
 	EndRendering();
@@ -407,7 +482,7 @@ void CommandList::DrawFullScreenQuad()
 
 void CommandList::Dispatch(uint32_t x, uint32_t y, uint32_t z)
 {
-	VerifyImageResourceStates();
+	VerifyResourceStates();
 	CommitDescriptors();
 	vkCmdDispatch(m_VkCommandBuffer, x, y, z);
 }
@@ -521,7 +596,7 @@ DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Textu
 	builder.BindImage(binding, &texinfo, type, shaderStage);
 
 	this->m_cmdList->BeginTrackingImage(texture);
-	ResourceStateTracking* tracked = m_cmdList->getTrackedImage(texture);
+	ImageStateTracking* tracked = m_cmdList->getTrackedImage(texture);
 	tracked->expectedLayout = layout;
 
 	return *this;
@@ -538,9 +613,13 @@ DescriptorSetInfo& DescriptorSetInfo::BindSampler(uint32_t binding, VkSampler sa
 	return *this;
 }
 
-DescriptorSetInfo& DescriptorSetInfo::BindBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, VkShaderStageFlags stageFlagsInclude)
+DescriptorSetInfo& DescriptorSetInfo::BindBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, ResourceUsage access, VkShaderStageFlags stageFlagsInclude)
 {
 	builder.BindBuffer(binding, bufferInfo, type, shaderStage | stageFlagsInclude);
+	this->m_cmdList->BeginTrackingBuffer(bufferInfo->buffer);
+	BufferStateTracking* tracked = m_cmdList->getTrackedBuffer(bufferInfo->buffer);
+	tracked->expectedAccess = access;
+
 	return *this;
 }
 

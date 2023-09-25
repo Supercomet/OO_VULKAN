@@ -999,6 +999,31 @@ size_t oGFX::vkutils::tools::UniformBufferPaddedSize(size_t size, size_t bufferM
 	return result;
 }
 
+void oGFX::vkutils::tools::insertBufferMemoryBarrier(VkCommandBuffer cmdbuffer,uint32_t queueFamily
+	, VkBuffer buffer
+	, VkAccessFlags srcAccessMask
+	, VkAccessFlags dstAccessMask
+	, VkPipelineStageFlags srcStageMask
+	, VkPipelineStageFlags dstStageMask
+	, VkDeviceSize offset, VkDeviceSize range)
+{
+	VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+	bmb.buffer = buffer;
+	bmb.srcAccessMask = srcAccessMask;
+	bmb.dstAccessMask = dstAccessMask;
+	bmb.offset = offset;
+	bmb.size = range;
+	bmb.srcQueueFamilyIndex = queueFamily;
+	vkCmdPipelineBarrier(
+		cmdbuffer,
+		srcStageMask,
+		dstStageMask,
+		0,
+		0, nullptr,
+		1, &bmb,
+		0, nullptr);
+}
+
 std::string oGFX::vkutils::tools::VkResultString(VkResult value)
 {
 	switch (value) {

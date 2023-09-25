@@ -307,6 +307,17 @@ namespace oGFX
 				VkImageSubresourceRange subresourceRange);
 
 			size_t UniformBufferPaddedSize(size_t size, size_t bufferMinAlignment);
+
+			void insertBufferMemoryBarrier(
+				VkCommandBuffer cmdbuffer,
+				uint32_t queueFamily,
+				VkBuffer image,
+				VkAccessFlags srcAccessMask,
+				VkAccessFlags dstAccessMask,
+				VkPipelineStageFlags srcStageMask,
+				VkPipelineStageFlags dstStageMask,
+				VkDeviceSize offset = 0,
+				VkDeviceSize range = VK_WHOLE_SIZE);
 		}
 
 		namespace inits

@@ -107,7 +107,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		cmd.BindPSO(pso_ComputeCull, PSOLayoutDB::singleSSBOlayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 
 		cmd.DescriptorSetBegin(0)
-			.BindBuffer(1, vr.indirectCommandsBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+			.BindBuffer(1, vr.indirectCommandsBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rhi::UAV)
 			.BindBuffer(2, vr.instanceBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 			.BindBuffer(3, vr.gpuTransformBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		
@@ -244,7 +244,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 			.BindImage(3, &attachments[GBufferAttachmentIndex::NORMAL], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 
 			.BindImage(6, &vr.attachments.shadowMask, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-			.BindBuffer(8, vr.globalLightBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+			.BindBuffer(8, vr.globalLightBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 			//.Build(shadowprepassDS, SetLayoutDB::compute_shadowPrepass);
 
 		uint32_t offset = 1;

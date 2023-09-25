@@ -131,7 +131,7 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 	cmd.SetPushConstant(PSOLayoutDB::histogramPSOLayout, pcr, &histogramParams);
 	cmd.DescriptorSetBegin(0)
 		.BindImage(0, &target, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-		.BindBuffer(1, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		.BindBuffer(1, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rhi::UAV);
 	cmd.Dispatch(target.width / 16 + 1, target.height / 16 + 1);
 
 	float tau = 1.1f;
@@ -144,21 +144,21 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 		static_cast<float>(target.width * target.height),
 	};
 
-	VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
-	bmb.buffer = vr.lightingHistogram.buffer;
-	bmb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-	bmb.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-	bmb.offset = 0;
-	bmb.size = VK_WHOLE_SIZE;
-	bmb.srcQueueFamilyIndex = vr.m_device.queueIndices.graphicsFamily;
-	vkCmdPipelineBarrier(
-		cmdlist,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		0,
-		0, nullptr,
-		1, &bmb,
-		0, nullptr);
+	//VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+	//bmb.buffer = vr.lightingHistogram.buffer;
+	//bmb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+	//bmb.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+	//bmb.offset = 0;
+	//bmb.size = VK_WHOLE_SIZE;
+	//bmb.srcQueueFamilyIndex = vr.m_device.queueIndices.graphicsFamily;
+	//vkCmdPipelineBarrier(
+	//	cmdlist,
+	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+	//	0,
+	//	0, nullptr,
+	//	1, &bmb,
+	//	0, nullptr);
 
 	VkDescriptorBufferInfo lumBufferInfo{};
 	lumBufferInfo.buffer = vr.LuminanceBuffer.buffer;
@@ -166,8 +166,8 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 	lumBufferInfo.range = VK_WHOLE_SIZE;
 	cmd.BindPSO(pso_lightingCDFScan, PSOLayoutDB::luminancePSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
 	cmd.DescriptorSetBegin(0)
-		.BindBuffer(0, &lumBufferInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-		.BindBuffer(1, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		.BindBuffer(0, &lumBufferInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rhi::UAV)
+		.BindBuffer(1, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rhi::UAV);
 	cmd.SetPushConstant(PSOLayoutDB::luminancePSOLayout, pcr, &avgParams);
 	cmd.Dispatch(1);
 }
