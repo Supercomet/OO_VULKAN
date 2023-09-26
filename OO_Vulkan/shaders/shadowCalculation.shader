@@ -19,17 +19,17 @@ vec2 GetShadowMapRegion(int gridID, in vec2 uv, in vec2 gridSize)
 
 float ShadowCalculation(int lightIndex, int gridID, in vec4 fragPosLightSpace, float NdotL)
 {
-
+    const float oneTexelUV = 1.0 / (4096.0);
 	// perspective divide
     vec4 projCoords = fragPosLightSpace / fragPosLightSpace.w;
 	//normalization [0,1] tex coords only.. FOR VULKAN DONT DO Z
     projCoords.xy = projCoords.xy * 0.5 + 0.5;
 
     vec2 uvs = vec2(projCoords.x, projCoords.y);
+    uvs = clamp(uvs, oneTexelUV, 1.0 - oneTexelUV); // clamp between the grids
     uvs = GetShadowMapRegion(gridID, uvs, PC.shadowMapGridDim);
     
-    float oneTexelUV = 1.0 / ( 4096);
-	
+   
 	// Flip y during sample
     uvs = vec2(uvs.x, 1.0 - uvs.y);
 	
@@ -47,20 +47,22 @@ float ShadowCalculation(int lightIndex, int gridID, in vec4 fragPosLightSpace, f
     int range = 1;
     
     float lowerBoundsLimit = 0.0 + EPSILON;
-    float boundsLimit = 1.0 - EPSILON;
+    float boundsLimit = 1.0 - EPSILON;    
+    
     for (int x = -range; x <= range; x++)
     {
         for (int y = -range; y <= range; y++)
         {
             if (projCoords.x > boundsLimit || projCoords.x < lowerBoundsLimit
 		    || projCoords.y > boundsLimit || projCoords.y < lowerBoundsLimit
+               || currDepth > boundsLimit
 		    )
             {
                 shadowFactor += 1.0;
             }
             else
             {        
-                shadowFactor += 0.2+ texture(sampler2DShadow(textureShadows, shadowSampler)
+                shadowFactor += texture(sampler2DShadow(textureShadows, shadowSampler)
                                             , vec3(uvs + vec2(x,y)*oneTexelUV, currDepth + bias)).r;
             }
            count++;
@@ -89,7 +91,6 @@ float ShadowCalculation(int lightIndex, int gridID, in vec4 fragPosLightSpace, f
     //        shadow = 0.20;
     //    }
     //}
-    shadow = clamp(shadow, 0.1, 1.0);
 
     return shadow;
 }
@@ -98,19 +99,25 @@ float EvalShadowMap(in LocalLightInstance lightInfo, int lightIndex, in vec3 nor
 {
     vec3 N = normal;
     vec3 L = normalize(lightInfo.position.xyz - fragPos);
+    
+   
+    
     float NdotL = max(0.0, dot(N, L));
     float shadow = 1.0;
-    if (lightInfo.info.x > 0)
+    switch (lightInfo.info.x)
     {
-        if (lightInfo.info.x == 1)
+        // this is point light
+        case 1:
         {
-            int gridID = lightInfo.info.y;
-            for (int i = 0; i < 6; ++i)
-            {
-                vec4 outFragmentLightPos = lightInfo.projection * lightInfo.view[i] * vec4(fragPos, 1.0);
-                shadow *= ShadowCalculation(lightIndex, gridID + i, outFragmentLightPos, NdotL);
-            }
+            int gridID = lightInfo.info.y;           
+            // get a cube coordinate for the layer to use
+            ivec3 map = texCoordToCube(-L, vec2(1));                
+            vec4 outFragmentLightPos = lightInfo.projection * lightInfo.view[map.z] * vec4(fragPos, 1.0);
+            shadow = ShadowCalculation(lightIndex, gridID + map.z, outFragmentLightPos, NdotL);
+            
         }
-    }
+        default: return shadow;
+    }       
+   
     return shadow;
 }

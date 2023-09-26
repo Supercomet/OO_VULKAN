@@ -50,7 +50,7 @@ void main()
 	
 	// Get G-Buffer values
 	vec4 depth = texture(sampler2D(textureDepth,basicSampler), inUV);
-	vec3 fragPos = WorldPosFromDepth(depth.r,inUV,uboFrameContext.inverseProjection,uboFrameContext.inverseView);
+	vec3 fragWorldPos = WorldPosFromDepth(depth.r,inUV,uboFrameContext.inverseProjection,uboFrameContext.inverseView);
 
 	outFragcolor = vec4(0,0,0,1);
 	vec3 normal = DecodeNormalHelper(texture(sampler2D(textureNormal,basicSampler), inUV).rgb);
@@ -78,12 +78,12 @@ void main()
 	LocalLightInstance lightInfo = Lights_SSBO[inLightInstance];
 
 	vec3 lightContribution = vec3(0.0);
-    vec3 res = EvalLight(lightInfo, fragPos, uboFrameContext.cameraPosition.xyz, normal, roughness, albedo.rgb, metalness);
+    vec3 res = EvalLight(lightInfo, fragWorldPos, uboFrameContext.cameraPosition.xyz, normal, roughness, albedo.rgb, metalness);
 	lightContribution += res;
 	
 	// calculate shadow if this is a shadow light
 	
-    vec3 lightDir = lightInfo.position.xyz - fragPos;
+    vec3 lightDir = lightInfo.position.xyz - fragWorldPos;
 	
 
     SurfaceProperties surface;
@@ -93,7 +93,7 @@ void main()
     surface.lightCol = lightInfo.color.rgb * lightInfo.color.w;
     surface.lightRadius = lightInfo.radius.x;
     surface.N = normalize(normal);
-    surface.V = normalize(uboFrameContext.cameraPosition.xyz - fragPos);
+    surface.V = normalize(uboFrameContext.cameraPosition.xyz - fragWorldPos);
     surface.L = normalize(lightDir);
     surface.H = normalize(surface.L + surface.V);
     surface.dist = length(lightDir);
@@ -115,7 +115,10 @@ void main()
 													prefilteredColor,
 													lutVal);
 	
-    float shadowValue = EvalShadowMap(lightInfo, inLightInstance, normal, fragPos);
+   
+	
+    float shadowValue = EvalShadowMap(lightInfo, inLightInstance, normal, fragWorldPos);
+ 
     result *= shadowValue;
     result *= attenuation;
 	
