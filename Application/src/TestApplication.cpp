@@ -148,10 +148,6 @@ struct EntityInfo
     void SyncToGraphicsWorld()
     {
         auto& gfxWorldObjectInstance = gs_GraphicsWorld.GetObjectInstance(gfxID);
-        gfxWorldObjectInstance.position = position;
-        gfxWorldObjectInstance.scale = scale;
-        gfxWorldObjectInstance.rot = rot;
-        gfxWorldObjectInstance.rotVec = rotVec;
         gfxWorldObjectInstance.localToWorld = getLocalToWorld();
         gfxWorldObjectInstance.flags = flags;
     }
@@ -205,10 +201,6 @@ void CreateGraphicsEntityHelper(EntityInfo& ei)
     //UpdateBV(gs_RenderEngine->models[e.modelID].cpuModel, e);
     ObjectInstance o{};
 	o.name = ei.name;
-	o.position = ei.position;
-	o.scale = ei.scale;
-	o.rot = ei.rot;
-	o.rotVec = ei.rotVec;
 	o.bindlessGlobalTextureIndex_Albedo = ei.bindlessGlobalTextureIndex_Albedo;
 	o.bindlessGlobalTextureIndex_Normal = ei.bindlessGlobalTextureIndex_Normal;
 	o.bindlessGlobalTextureIndex_Roughness = ei.bindlessGlobalTextureIndex_Roughness;
@@ -737,6 +729,40 @@ void TestApplication::Run()
 
     gs_GraphicsWorld.m_HardcodedDecalInstance.position = glm::vec3{ 0.0f,0.0f,0.0f };
 
+    std::mutex g_ImguiMutex;
+
+    bool renderMe = true;
+    auto renderWorker = [renderer = gs_RenderEngine, &keepRendering = renderMe, &mut = g_ImguiMutex]() {
+        OPTICK_THREAD("RenderThread");
+        auto lastTime = std::chrono::high_resolution_clock::now();
+        while (keepRendering == true)
+        {
+            PROFILE_FRAME("RENDER LOOP");
+            auto now = std::chrono::high_resolution_clock::now();
+            float deltaTime = std::chrono::duration<float>(now - lastTime).count();
+            lastTime = now;
+
+            renderer->renderClock += deltaTime;
+            renderer->deltaTime = deltaTime;
+
+
+
+            if (renderer->PrepareFrame() == true)
+            {
+                renderer->RenderFrame();
+
+                mut.lock();
+                renderer->DrawGUI();
+                mut.unlock();
+                
+                renderer->Present();
+            }
+          
+        }
+      
+    };
+
+    std::thread renderThread(renderWorker);
     //----------------------------------------------------------------------------------------------------
     // Application Loop
     //----------------------------------------------------------------------------------------------------
@@ -754,8 +780,8 @@ void TestApplication::Run()
             m_ApplicationTimer += deltaTime;
             m_ApplicationDT = deltaTime;
             // Pass frame information to the render engine
-            gs_RenderEngine->renderClock += deltaTime;
-            gs_RenderEngine->deltaTime = deltaTime;
+            // gs_RenderEngine->renderClock += deltaTime;
+            // gs_RenderEngine->deltaTime = deltaTime;
 
             //reset keys
             Input::Begin();
@@ -773,14 +799,17 @@ void TestApplication::Run()
                 // If the aspect ratio changes, then the projection matrix must be updated correctly...
                 camera.SetAspectRatio((float)mainWindow.m_width / (float)mainWindow.m_height);
                 gs_CameraController.Update(deltaTime);
-            }
+            }      
+
 
             {
                 PROFILE_SCOPED("ImGui::NewFrame");
+                g_ImguiMutex.lock();
                 ImGui_ImplVulkan_NewFrame();
                 ImGui_ImplWin32_NewFrame();
                 ImGui::NewFrame();
-            }          
+            }    
+          
 
             {
                 PROFILE_SCOPED("ImGui::Update");
@@ -858,79 +887,81 @@ void TestApplication::Run()
             
             }
 
-            if (gs_RenderEngine->PrepareFrame() == true)
-            {
-                PROFILE_SCOPED("gs_RenderEngine->PrepareFrame() == true");
-
-                if (s_freezeLight == false)
-                {
-					OmniLightInstance* lights[hardCodedLights];
-                    for (size_t i = 0; i < hardCodedLights; i++)
+            // if (gs_RenderEngine->PrepareFrame() == true)
+            // {
+            //     PROFILE_SCOPED("gs_RenderEngine->PrepareFrame() == true");
+            // 
+            //     if (s_freezeLight == false)
+            //     {
+			// 		OmniLightInstance* lights[hardCodedLights];
+            //         for (size_t i = 0; i < hardCodedLights; i++)
+            //         {
+            //             lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
+            //         }
+            // 
+            // 
+			// 		static float lightTimer = 0.0f;
+			// 		lightTimer += deltaTime * 0.25f;
+            // 
+            //                  
+			// 		lights[0]->position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
+			// 		lights[0]->position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
+            //                  
+			// 		lights[1]->position.x = -4.0f + sin(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
+			// 		lights[1]->position.z = 0.0f + cos(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
+            //                  
+			// 		lights[2]->position.x = 4.0f + sin(glm::radians(360.0f * lightTimer)) * 2.0f;
+			// 		lights[2]->position.z = 0.0f + cos(glm::radians(360.0f * lightTimer)) * 2.0f;
+            //                  
+			// 		lights[4]->position.x = 0.0f + sin(glm::radians(360.0f * lightTimer + 90.0f)) * 5.0f;
+			// 		lights[4]->position.z = 0.0f - cos(glm::radians(360.0f * lightTimer + 45.0f)) * 5.0f;
+            //                  
+			// 		lights[5]->position.x = 0.0f + sin(glm::radians(-360.0f * lightTimer + 135.0f)) * 10.0f;
+			// 		lights[5]->position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
+            // 
+            //     }
+            // 
+            //     // We need to test debug draw...
+                   RunTest_DebugDraw();
+            // 
+            //     // Render the frame
+            //     gs_RenderEngine->RenderFrame();
+            // 
+                    // Create a dockspace over the mainviewport so that we can dock stuff
+                    ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
+                        ImGuiDockNodeFlags_PassthruCentralNode // make the dockspace transparent
+                        | ImGuiDockNodeFlags_NoDockingInCentralNode // dont allow docking in the central area
+                    );
+            // 
+            //     if (m_ShowImGuiDemoWindow)
+            //     {
+            //         PROFILE_SCOPED("ImGui::ShowDemoWindow");
+            //         ImGui::ShowDemoWindow();
+            //     }
+            // 
+                    // ImGuizmo
+                    Tool_HandleGizmoManipulation();
+                    
+                    // Display ImGui Window
                     {
-                        lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
+                        PROFILE_SCOPED("ImGuiSceneHelper");
+                        Tool_HandleUI();
                     }
+            // 
+            //     {
+            //         PROFILE_SCOPED("ImGui::Render");
+            //         ImGui::Render();  // Rendering UI
+            //     }
+            //     gs_RenderEngine->DrawGUI();
+            // 
+            //     gs_RenderEngine->Present();
+            // }
 
-
-					static float lightTimer = 0.0f;
-					lightTimer += deltaTime * 0.25f;
-
-                             
-					lights[0]->position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
-					lights[0]->position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
-                             
-					lights[1]->position.x = -4.0f + sin(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
-					lights[1]->position.z = 0.0f + cos(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
-                             
-					lights[2]->position.x = 4.0f + sin(glm::radians(360.0f * lightTimer)) * 2.0f;
-					lights[2]->position.z = 0.0f + cos(glm::radians(360.0f * lightTimer)) * 2.0f;
-                             
-					lights[4]->position.x = 0.0f + sin(glm::radians(360.0f * lightTimer + 90.0f)) * 5.0f;
-					lights[4]->position.z = 0.0f - cos(glm::radians(360.0f * lightTimer + 45.0f)) * 5.0f;
-                             
-					lights[5]->position.x = 0.0f + sin(glm::radians(-360.0f * lightTimer + 135.0f)) * 10.0f;
-					lights[5]->position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
-
-                }
-
-                // Upload CPU light data to GPU. Ideally this should only contain lights that intersects the camera frustum.
-                gs_RenderEngine->UploadLights();
-
-                // We need to test debug draw...
-                RunTest_DebugDraw();
-
-                // Render the frame
-                gs_RenderEngine->RenderFrame();
-
-                // Create a dockspace over the mainviewport so that we can dock stuff
-                ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(),
-                    ImGuiDockNodeFlags_PassthruCentralNode // make the dockspace transparent
-                    | ImGuiDockNodeFlags_NoDockingInCentralNode // dont allow docking in the central area
-                );
-
-                if (m_ShowImGuiDemoWindow)
-                {
-                    PROFILE_SCOPED("ImGui::ShowDemoWindow");
-                    ImGui::ShowDemoWindow();
-                }
-
-                // ImGuizmo
-                Tool_HandleGizmoManipulation();
-                
-                // Display ImGui Window
-                {
-                    PROFILE_SCOPED("ImGuiSceneHelper");
-                    Tool_HandleUI();
-                }
-
-                {
-                    PROFILE_SCOPED("ImGui::Render");
-                    ImGui::Render();  // Rendering UI
-                }
-                gs_RenderEngine->DrawGUI();
-
-                gs_RenderEngine->Present();
+            {
+                PROFILE_SCOPED("ImGui::Render");
+                ImGui::Render();  // Rendering UI
+                g_ImguiMutex.unlock();
             }
-
             //finish for all windows
             ImGui::EndFrame();
             if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
@@ -939,12 +970,22 @@ void TestApplication::Run()
                 ImGui::RenderPlatformWindowsDefault();
             }
 
+            //finish for all windows
+            // ImGui::EndFrame();
+            // if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+            // {
+            //     ImGui::UpdatePlatformWindows();
+            //     ImGui::RenderPlatformWindowsDefault();
+            // }
+
         }
     }
 
     //----------------------------------------------------------------------------------------------------
     // Application Shutdown
     //----------------------------------------------------------------------------------------------------
+    renderMe = false;
+    renderThread.join();
 
     gs_RenderEngine->DestroyWorld(&gs_GraphicsWorld);
     gs_RenderEngine->DestroyImGUI();

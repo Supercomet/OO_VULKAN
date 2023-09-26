@@ -61,11 +61,6 @@ ENUM_OPERATORS_GEN(UIInstanceFlags, uint32_t)
 struct ObjectInstance
 {
     std::string name;
-    // Begin These are temp until its fully integrated
-    glm::vec3 position{};
-    glm::vec3 scale{1.0f};
-    float rot{};
-    glm::vec3 rotVec{0.0f,1.0f,0.0f};
 
     uint32_t bindlessGlobalTextureIndex_Albedo{ 0xFFFFFFFF };
     uint32_t bindlessGlobalTextureIndex_Normal{ 0xFFFFFFFF };
@@ -285,6 +280,7 @@ public:
     }vignetteSettings{};
 
     friend class VulkanRenderer;
+    friend class GraphicsBatch;
 private:
     int32_t m_entityCount{};
     BitContainer<ObjectInstance> m_ObjectInstances;
@@ -297,7 +293,10 @@ private:
     bool initialized = false;
 
     //etc
-
+    std::vector<ObjectInstance> m_objectsCopy;
+    std::vector<UIInstance> m_UIcopy;
+    std::vector<OmniLightInstance> m_OmniLightCopy;
+    std::vector<EmitterInstance> m_EmitterCopy;
     // + Spatial Acceleration Structures
     // + Culling object BV against frustum
 };

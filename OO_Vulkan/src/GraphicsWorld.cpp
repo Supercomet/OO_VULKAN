@@ -18,6 +18,33 @@ Technology is prohibited.
 void GraphicsWorld::BeginFrame()
 {
 	// TODO: What do you do at the beginning of the frame?
+	m_objectsCopy.clear();
+	m_objectsCopy.reserve(m_ObjectInstances.size());
+	for (const ObjectInstance& src: m_ObjectInstances)
+	{
+		m_objectsCopy.emplace_back(src);
+	}
+
+	m_EmitterCopy.clear();
+	m_EmitterCopy.reserve(m_EmitterInstances.size());
+	for (const EmitterInstance& src: m_EmitterInstances)
+	{
+		m_EmitterCopy.emplace_back(src);
+	}
+
+	m_UIcopy.clear();
+	m_UIcopy.reserve(m_UIInstances.size());
+	for (const UIInstance& src: m_UIInstances)
+	{
+		m_UIcopy.emplace_back(src);
+	}
+
+	m_OmniLightCopy.clear();
+	m_OmniLightCopy.reserve(m_OmniLightInstances.size());
+	for (const OmniLightInstance& src: m_OmniLightInstances)
+	{
+		m_OmniLightCopy.emplace_back(src);
+	}
 }
 
 void GraphicsWorld::EndFrame()

@@ -1747,7 +1747,11 @@ void VulkanRenderer::DrawGUI()
 		}
 	}
 	vkCmdBeginRenderPass(cmdlist, &GUIpassInfo, VK_SUBPASS_CONTENTS_INLINE);
-	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdlist);
+	auto* drawData = ImGui::GetDrawData();
+	if (drawData)
+	{
+		ImGui_ImplVulkan_RenderDrawData(drawData, cmdlist);
+	}
 	vkCmdEndRenderPass(cmdlist);
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
@@ -2274,6 +2278,7 @@ void VulkanRenderer::BeginDraw()
 
 		if (currWorld)
 		{
+			currWorld->BeginFrame();
 			batches = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
 			batches.GenerateBatches();
 		}
