@@ -169,7 +169,7 @@ void ShadowPass::Draw(const VkCommandBuffer cmdlist)
 					//cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpWidth , (uint32_t)vpHeight } });
 
 					// calculate viewport for each light
-					cmd.SetViewport(VkViewport{ customVP.x, customVP.y,increment.x, -vpHeight +(vpHeight-increment.y), 0.0f, 1.0f });
+					cmd.SetViewport(VkViewport{ customVP.x+1, customVP.y+1,increment.x-1, -(increment.y-1), 0.0f, 1.0f });
 					// TODO: Set exact region for scissor
 					cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpHeight, (uint32_t)vpWidth } });
 

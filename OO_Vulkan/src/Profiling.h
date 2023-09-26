@@ -25,7 +25,7 @@ Technology is prohibited.
 #pragma warning( disable : 6385 ) // invalid data
 
 #if defined(USE_PROFILING_OPTICK)
-    #include "optick/optick.h"
+    #include "optick.h"
     #define PROFILE_SCOPED(...)              OPTICK_EVENT(__VA_ARGS__);
     #define PROFILE_FRAME(...)               OPTICK_FRAME(__VA_ARGS__);
     #define PROFILE_THREAD(...)              OPTICK_THREAD(__VA_ARGS__);
