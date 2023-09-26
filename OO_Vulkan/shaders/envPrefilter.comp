@@ -40,7 +40,7 @@ void main()
     {
       // generate sample vector towards the alignment of the specular lobe
         vec2 Xi = Hammersley(i, totalSamples);
-        vec3 H = ImportanceSampleGGX(Xi, N, u_roughness);
+        vec3 H = ImportanceSampleGGX(Xi, u_roughness,N);
         float dotHV = dot(H, V);
         vec3 L = normalize(2.0 * dotHV * H - V);
 
