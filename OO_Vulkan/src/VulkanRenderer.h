@@ -302,6 +302,8 @@ public:
 
 	bool deferredRendering = true;
 
+	void CPUwaitforGPU(size_t frameNum);
+
 	void CreateLightingBuffers();
 	void UploadLights();
 	void UploadBones();
@@ -441,6 +443,9 @@ public:
 	std::vector<VkSemaphore> renderSemaphore;
 	std::vector<VkFence> drawFences;
 	VkSemaphore frameCountSemaphore;
+	size_t CurrentFrameGPU{};
+	std::condition_variable cpuCV;
+	std::mutex cpuMutex;
 
 	// - Pipeline
 	VkPipeline pso_utilFullscreenBlit;

@@ -770,6 +770,8 @@ void TestApplication::Run()
         while (mainWindow.windowShouldClose == false)
         {
             PROFILE_FRAME("MainThread");
+            int64_t frame = std::max<int64_t>(int64_t(m_ApplicationFrame) - 1, 0);
+            gs_RenderEngine->CPUwaitforGPU(frame);
 
 			auto now = std::chrono::high_resolution_clock::now();
 			float deltaTime = std::chrono::duration<float>(now - lastTime).count();

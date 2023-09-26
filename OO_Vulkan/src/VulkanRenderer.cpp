@@ -1327,6 +1327,12 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 
 }
 
+void VulkanRenderer::CPUwaitforGPU(size_t frameNum)
+{
+	std::unique_lock l(cpuMutex);
+	cpuCV.wait(l, [f = frameNum, &gpu = CurrentFrameGPU] { return gpu > f; });
+}
+
 void VulkanRenderer::CreateLightingBuffers()
 {
 	//oGFX::CreateBuffer(m_device.physicalDevice, m_device.logicalDevice, sizeof(CB::LightUBO), 
@@ -2226,10 +2232,12 @@ void VulkanRenderer::BeginDraw()
 {
 	PROFILE_SCOPED();
 
-	//vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, UINT64_MAX);
-	uint64_t res{};
-	VK_CHK(vkGetSemaphoreCounterValue(m_device.logicalDevice, frameCountSemaphore, &res));
-	//printf("[FRAME COUNTER %5llu]\n", res);
+	{
+		std::scoped_lock l{cpuMutex};
+		VK_CHK(vkGetSemaphoreCounterValue(m_device.logicalDevice, frameCountSemaphore, &CurrentFrameGPU));
+		//printf("[FRAME COUNTER %5llu]\n", res);
+	}
+	cpuCV.notify_one(); // wake up the CPU waiting for N-1 frame
 
 	//wait for given fence to signal from last draw before continuing
 	VK_CHK(vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, std::numeric_limits<uint64_t>::max()));
