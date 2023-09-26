@@ -11,6 +11,7 @@ layout (binding = 2,rgba16f) uniform writeonly image2D resultImage;
 layout (binding = 3) readonly buffer Luminance
 {
     float LuminanceValue;
+    float LumAverage;
 };
 layout(push_constant)uniform PushBloomConstant
 {
@@ -46,10 +47,10 @@ void main()
     // Note: Load operations from any texel that is outside of the boundaries of the bound image will return all zeros.
 	vec4 res = imageLoad(inputImage, ivec2(gl_GlobalInvocationID.xy) );
 
-	float brightness = dot(res.rgb, vec3(0.2126, 0.7152, 0.0722));
+    float brightness = RGBtoLuminance(res.rgb);
     vec3 result = vec4(QuadraticThreshold(res.rgb, pc.threshold.x, pc.threshold.yzw), res.a).rgb;
     
-    float maxThreshold = LuminanceValue * pc.threshold.x;
+    float maxThreshold = LumAverage * pc.threshold.x;
     
     brightness = brightness > EPSILON ? log2(brightness) : 0.0;
     if (brightness > maxThreshold)

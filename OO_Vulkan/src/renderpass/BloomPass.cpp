@@ -478,7 +478,13 @@ vkutils::Texture2D* BloomPass::PerformBloom(rhi::CommandList& cmd)
 				//currImage->Resize(prevImage->width / 2, prevImage->height / 2);
 				//std::cout << "HOW?\n"; 
 			}
+			float mipLevel = float(i);
+			VkPushConstantRange pcr{};
+			pcr.offset = 0;
+			pcr.size = sizeof(float);
+			pcr.stageFlags = VK_SHADER_STAGE_ALL;
 
+			cmd.SetPushConstant(PSOLayoutDB::BloomPSOLayout, pcr, &mipLevel);
 
 			cmd.DescriptorSetBegin(0)
 				.BindSampler(0, GfxSamplerManager::GetSampler_BlackBorder())

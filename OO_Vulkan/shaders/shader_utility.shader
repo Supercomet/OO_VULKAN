@@ -14,6 +14,17 @@ float max3(vec3 v)
     return max(max(v.x, v.y), v.z);
 }
 
+// Based omn http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/
+float random(vec2 co)
+{
+    float a = 12.9898;
+    float b = 78.233;
+    float c = 43758.5453;
+    float dt = dot(co.xy, vec2(a, b));
+    float sn = mod(dt, 3.14);
+    return fract(sin(sn) * c);
+}
+
 vec3 EncodeNormalHelper(vec3 SrcNormal)
 {
     return SrcNormal * .5f + .5f;

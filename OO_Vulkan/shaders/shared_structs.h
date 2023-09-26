@@ -154,6 +154,11 @@ struct HistoStruct{
     float cdf[256];
 };
 
+struct LuminenceData {
+    float LumOut;
+    float AverageLogLum;
+};
+
 struct LuminencePC {
     float minLogLum;
     float deltaLogLum;

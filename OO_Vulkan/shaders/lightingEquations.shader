@@ -442,27 +442,22 @@ vec2 Hammersley(uint i, uint N)
     return vec2(float(i) / float(N), RadicalInverse_VdC(i));
 }
 
-vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness)
+vec3 ImportanceSampleGGX(vec2 Xi, float roughness, vec3 normal)
 {
-    float a = roughness * roughness;
-	
-    float phi = 2.0 * PI * Xi.x;
-    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y));
+   // Maps a 2D point to a hemisphere with spread based on roughness
+    float alpha = roughness * roughness;
+    float phi = 2.0 * PI * Xi.x + random(normal.xz) * 0.1;
+    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (alpha * alpha - 1.0) * Xi.y));
     float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
-	
-    // from spherical coordinates to cartesian coordinates
-    vec3 H;
-    H.x = cos(phi) * sinTheta;
-    H.y = sin(phi) * sinTheta;
-    H.z = cosTheta;
-	
-    // from tangent-space vector to world-space sample vector
-    vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
-    vec3 tangent = normalize(cross(up, N));
-    vec3 bitangent = cross(N, tangent);
-	
-    vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
-    return normalize(sampleVec);
+    vec3 H = vec3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+
+	// Tangent space
+    vec3 up = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangentX = normalize(cross(up, normal));
+    vec3 tangentY = normalize(cross(normal, tangentX));
+
+	// Convert to world Space
+    return normalize(tangentX * H.x + tangentY * H.y + normal * H.z);
 }
 
 // Basic Lambertian diffuse

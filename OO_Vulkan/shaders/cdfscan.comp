@@ -10,6 +10,7 @@ buffer LuminanceOutput
 {
     //float LumOut[];
     float LumOut;
+    float LumLogAverage;
 };
 
 layout(std430,/*set = 0,*/ binding = 1)
@@ -94,7 +95,8 @@ void main()
             luminanceLastFrame = 0.0;
         }
         float adaptedLum = luminanceLastFrame + (weightedAverageLuminance - luminanceLastFrame) * PC.timeCoeff;
-        LumOut = weightedAverageLuminance;
+        LumLogAverage = weightedLogAverage;
+        LumOut = adaptedLum;
     }
     
 	 //store to global

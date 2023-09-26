@@ -73,11 +73,11 @@ bool LightingHistogram::SetupDependencies()
 						, VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, flags
 						, vr.lightingHistogram);
 
-	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(float)
+	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(LuminenceData)
 		, VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_TRANSFER_SRC_BIT|VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, flags
 		, vr.LuminanceBuffer);
 	
-	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(float), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(LuminenceData), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT, vr.LuminanceMonitor);
 	VK_CHK(vmaMapMemory(vr.m_device.m_allocator,vr.LuminanceMonitor.alloc, &vr.monitorData));
 

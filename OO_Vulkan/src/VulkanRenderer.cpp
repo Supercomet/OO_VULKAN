@@ -2430,9 +2430,9 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_LightingHistogram->Draw(cmd);
 			VkBufferCopy region{};
-			region.size = sizeof(float);
+			region.size = sizeof(LuminenceData);
 			vkCmdCopyBuffer(cmd, LuminanceBuffer.buffer, LuminanceMonitor.buffer, 1, &region);
-			vmaFlushAllocation(m_device.m_allocator, LuminanceMonitor.alloc, 0, sizeof(float));
+			vmaFlushAllocation(m_device.m_allocator, LuminanceMonitor.alloc, 0, sizeof(LuminenceData));
 		}		
 
 
