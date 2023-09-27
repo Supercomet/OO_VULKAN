@@ -1006,7 +1006,7 @@ int32_t TestApplication::CreateTextHelper(glm::mat4 xform, std::string str, oGFX
         ent.bindlessGlobalTextureIndex_Albedo = testFont->m_atlasID;
         ent.localToWorld = xform* glm::rotate(glm::radians<float>(180.0f), glm::vec3(0, 1, 0)) ;
         ent.textData = std::move(str);
-        ent.colour = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f);
+        ent.colour = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
         //ent.fontAsset = testFont.get();
         ent.format.box.max = { 1.0f,1.0f };
         ent.format.box.min = { -1.0f,-1.0f };

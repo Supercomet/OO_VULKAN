@@ -1329,6 +1329,7 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 
 void VulkanRenderer::CPUwaitforGPU(size_t frameNum)
 {
+	PROFILE_SCOPED();
 	std::unique_lock l(cpuMutex);
 	cpuCV.wait(l, [f = frameNum, &gpu = CurrentFrameGPU] { return gpu > f; });
 }
