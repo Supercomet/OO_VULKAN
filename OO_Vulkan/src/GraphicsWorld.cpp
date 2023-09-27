@@ -14,14 +14,29 @@ Technology is prohibited.
 *//*************************************************************************************/
 #include "GraphicsWorld.h"
 #include "Font.h"
+#include "VulkanRenderer.h"
 
 void GraphicsWorld::BeginFrame()
 {
+	auto& vr = *VulkanRenderer::get();
 	// TODO: What do you do at the beginning of the frame?
 	m_objectsCopy.clear();
 	m_objectsCopy.reserve(m_ObjectInstances.size());
-	for (const ObjectInstance& src: m_ObjectInstances)
+	for ( ObjectInstance& src: m_ObjectInstances)
 	{
+		if (src.isSkinned()) 
+		{
+			auto& mdl = vr.g_globalModels[src.modelID];
+			if (src.bones.empty())
+			{
+				OO_ASSERT(mdl.skeleton->inverseBindPose.size() && "Src model does not have bones");
+				src.bones.resize(mdl.skeleton->inverseBindPose.size());
+				for (auto& b : src.bones)
+				{
+					b = mat4(1.0f);
+				}
+			}
+		}
 		m_objectsCopy.emplace_back(src);
 	}
 

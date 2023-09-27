@@ -2050,7 +2050,7 @@ void VulkanRenderer::UploadInstanceData()
 	if (currWorld)
 	{
 		uint32_t matCnt = 0;
-		for (auto& ent : currWorld->GetAllObjectInstances())
+		for (auto& ent : currWorld->m_objectsCopy)
 		{
 			
 			auto& mdl = g_globalModels[ent.modelID];
@@ -2134,18 +2134,9 @@ void VulkanRenderer::UploadInstanceData()
 			if ((ent.flags & ObjectInstanceFlags::SKINNED) == ObjectInstanceFlags::SKINNED)
 			{
 				auto& mdl = g_globalModels[ent.modelID];
-
-				if (ent.bones.empty())
-				{
-					ent.bones.resize(mdl.skeleton->inverseBindPose.size());
-					for (auto& b:ent.bones )
-					{
-						b = mat4(1.0f);
-					}
-				}
+				OO_ASSERT(ent.bones.size() && "Skinned should have bones by now");
 				oi.boneWeightsOffset = mdl.skinningWeightsOffset;
 				oi.boneStartIdx = static_cast<uint32_t>(boneMatrices.size());
-				//oi.boneCnt = static_cast<uint32_t>(ent.bones.size());
 
 				for (size_t i = 0; i < ent.bones.size(); i++)
 				{
@@ -2288,7 +2279,7 @@ void VulkanRenderer::BeginDraw()
 		if (currWorld)
 		{
 			currWorld->BeginFrame();
-			batches = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
+			batches.Init(currWorld, this, MAX_OBJECTS);
 			batches.GenerateBatches();
 		}
 
@@ -2750,22 +2741,22 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 		vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_GENERAL);
 
 		//clear buffer
-		vkCmdFillBuffer(cmd, atomic.buffer, atomic.offset, VK_WHOLE_SIZE, 0);
-		VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
-		bmb.buffer = atomic.buffer;
-		bmb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-		bmb.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-		bmb.offset = 0;
-		bmb.size = VK_WHOLE_SIZE;
-		bmb.srcQueueFamilyIndex = m_device.queueIndices.graphicsFamily;
-		vkCmdPipelineBarrier(
-			cmd,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			0,
-			0, nullptr,
-			1, &bmb,
-			0, nullptr);
+		// vkCmdFillBuffer(cmd, atomic.buffer, atomic.offset, VK_WHOLE_SIZE, 0);
+		// VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+		// bmb.buffer = atomic.buffer;
+		// bmb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+		// bmb.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+		// bmb.offset = 0;
+		// bmb.size = VK_WHOLE_SIZE;
+		// bmb.srcQueueFamilyIndex = m_device.queueIndices.graphicsFamily;
+		// vkCmdPipelineBarrier(
+		// 	cmd,
+		// 	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		// 	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		// 	0,
+		// 	0, nullptr,
+		// 	1, &bmb,
+		// 	0, nullptr);
 		cmdlist.BindPSO(pso_utilAMDSPD, PSOLayoutDB::AMDSPDPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
 		cmdlist.BindDescriptorSet(PSOLayoutDB::AMDSPDPSOLayout, 0, dstsets, VK_PIPELINE_BIND_POINT_COMPUTE, 0);
 

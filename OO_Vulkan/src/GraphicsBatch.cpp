@@ -28,22 +28,20 @@ Technology is prohibited.
 #include <sstream>
 #include <numeric>
 
-GraphicsBatch GraphicsBatch::Init(GraphicsWorld* gw, VulkanRenderer* renderer, size_t maxObjects)
+void GraphicsBatch::Init(GraphicsWorld* gw, VulkanRenderer* renderer, size_t maxObjects)
 {
 	assert(gw != nullptr);
 	assert(renderer != nullptr);
 
-	GraphicsBatch gb;
-	gb.m_world = gw;
-	gb.m_renderer = renderer;
+	m_world = gw;
+	m_renderer = renderer;
 
-	for (auto& batch : gb.m_batches)
+	for (auto& batch : m_batches)
 	{
 		batch.reserve(maxObjects);
 	}
 	s_scratchBuffer.reserve(maxObjects);
 
-	return gb;
 }
 
 void AppendBatch(std::vector<oGFX::IndirectCommand>& dest, std::vector<oGFX::IndirectCommand>& src)
@@ -83,7 +81,7 @@ void GraphicsBatch::GenerateBatches()
 
 void GraphicsBatch::ProcessLights()
 {
-	for (auto& light : m_world->GetAllOmniLightInstances())
+	for (auto& light : m_world->m_OmniLightCopy)
 	{
 		constexpr glm::vec3 up{ 0.0f,1.0f,0.0f };
 		constexpr glm::vec3 right{ 1.0f,0.0f,0.0f };
@@ -122,7 +120,7 @@ void GraphicsBatch::ProcessLights()
 	int32_t gridIdx = 0;
 
 	m_culledLights.clear();
-	auto& lights = m_world->GetAllOmniLightInstances();
+	auto& lights = m_world->m_OmniLightCopy;
 	m_culledLights.reserve(lights.size());
 	//oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetUp(),oGFX::Colors::GREEN);
 	//oGFX::DebugDraw::AddArrow(currWorld->cameras[0].m_position, currWorld->cameras[0].m_position + currWorld->cameras[0].GetRight(),oGFX::Colors::RED);
@@ -198,7 +196,7 @@ void GraphicsBatch::ProcessGeometry()
 {
 	using Batch = GraphicsBatch::DrawBatch;
 	using Flags = ObjectInstanceFlags;
-	auto& entities = m_world->GetAllObjectInstances();
+	auto& entities = m_world->m_objectsCopy;
 	int32_t currModelID{ -1 };
 	int32_t cnt{ 0 };
 	for (auto& ent : entities)
@@ -283,7 +281,10 @@ void GraphicsBatch::ProcessGeometry()
 void GraphicsBatch::ProcessUI()
 {
 	using Flags = UIInstanceFlags;
-	auto& allUI = m_world->GetAllUIInstances();
+	auto& allUI = m_world->m_UIcopy;
+
+	PROFILE_SCOPED();
+
 
 	for (auto& ui: allUI)
 	{
@@ -337,7 +338,7 @@ void GraphicsBatch::ProcessUI()
 
 void GraphicsBatch::ProcessParticleEmitters()
 {
-	auto& allEmitters = m_world->GetAllEmitterInstances();
+	auto& allEmitters = m_world->m_EmitterCopy;
 	m_particleList.clear();
 	m_particleCommands.clear();
 	/// Create parciles batch
@@ -480,8 +481,6 @@ void GraphicsBatch::GenerateTextGeometry(const UIInstance& ui)
 {
 	using FontFormatting = oGFX::FontFormatting;
 	using FontAlignment = oGFX::FontAlignment;
-	PROFILE_SCOPED("Generate text geom");
-
 
 
 	auto* fontAtlas = ui.fontAsset;
