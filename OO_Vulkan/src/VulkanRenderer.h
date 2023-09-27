@@ -204,7 +204,7 @@ public:
 	static constexpr int MAX_OBJECTS = 2048;
 	static constexpr VkFormat G_DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT_S8_UINT;
 	static constexpr VkFormat G_NORMALS_FORMAT = VK_FORMAT_R8G8B8A8_UNORM;
-	static constexpr VkCompareOp G_DEPTH_COMPARISON = VK_COMPARE_OP_GREATER;
+	static constexpr VkCompareOp G_DEPTH_COMPARISON = VK_COMPARE_OP_GREATER_OR_EQUAL;
 	static constexpr VkFormat G_HDR_FORMAT_ALPHA = VK_FORMAT_R16G16B16A16_SFLOAT;
 	static constexpr VkFormat G_HDR_FORMAT = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
 	static constexpr VkFormat G_NON_HDR_FORMAT = VK_FORMAT_R8G8B8A8_UNORM;
@@ -302,8 +302,6 @@ public:
 
 	bool deferredRendering = true;
 
-	void CPUwaitforGPU(size_t frameNum);
-
 	void CreateLightingBuffers();
 	void UploadLights();
 	void UploadBones();
@@ -327,6 +325,7 @@ public:
 	void DrawGUI();
 	void DestroyImGUI();
 	void RestartImgui();
+	void PerformImguiRestart();
 	void ImguiSoftDestroy();
 
 	void InitializeRenderBuffers();
@@ -443,9 +442,6 @@ public:
 	std::vector<VkSemaphore> renderSemaphore;
 	std::vector<VkFence> drawFences;
 	VkSemaphore frameCountSemaphore;
-	size_t CurrentFrameGPU{};
-	std::condition_variable cpuCV;
-	std::mutex cpuMutex;
 
 	// - Pipeline
 	VkPipeline pso_utilFullscreenBlit;
@@ -535,6 +531,7 @@ public:
 	bool resizeSwapchain = false;
 	bool m_prepared = false;
 	bool m_reloadShaders = false;
+	bool m_restartIMGUI = false;
 
 
 	// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.

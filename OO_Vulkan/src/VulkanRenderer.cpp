@@ -103,7 +103,6 @@ VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
 // vulkan debug callback
 
-#pragma optimize("", off)
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -125,7 +124,6 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 
 }
-#pragma optimize("", on)
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
@@ -426,7 +424,6 @@ void VulkanRenderer::CreateInstance(const oGFX::SetupInfo& setupSpecs)
 {
 		m_instance.Init(setupSpecs);
 }
-
 class SDL_Window;
 void VulkanRenderer::CreateSurface(const oGFX::SetupInfo& setupSpecs, Window& window)
 {
@@ -434,8 +431,8 @@ void VulkanRenderer::CreateSurface(const oGFX::SetupInfo& setupSpecs, Window& wi
 	if (window.m_type == Window::WindowType::SDL2)
 	{
 		assert(setupSpecs.SurfaceFunctionPointer); // Surface pointer doesnt work	
-		std::function<void()> fn = setupSpecs.SurfaceFunctionPointer;
-		fn();
+		std::function<bool()> fn = setupSpecs.SurfaceFunctionPointer;
+		auto result = fn();
 	}
 	else
 	{
@@ -1629,7 +1626,7 @@ void VulkanRenderer::InitImGUI()
 	VK_NAME(m_device.logicalDevice, "imguiConfig_descriptorPools", m_imguiConfig.descriptorPools);
 
 	m_imguiInitialized = true;
-	RestartImgui();
+	PerformImguiRestart();
 
 
 	// Create frame buffers for every swap chain image
@@ -1754,11 +1751,9 @@ void VulkanRenderer::DrawGUI()
 		}
 	}
 	vkCmdBeginRenderPass(cmdlist, &GUIpassInfo, VK_SUBPASS_CONTENTS_INLINE);
-	auto* drawData = ImGui::GetDrawData();
-	if (drawData)
-	{
-		ImGui_ImplVulkan_RenderDrawData(drawData, cmdlist);
-	}
+	auto* ptr = ImGui::GetDrawData();
+	if(ptr!= nullptr)
+		ImGui_ImplVulkan_RenderDrawData(ptr, cmdlist);
 	vkCmdEndRenderPass(cmdlist);
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
@@ -1816,6 +1811,11 @@ void checkresult(VkResult checkresult)
 
 void VulkanRenderer::RestartImgui()
 {
+	m_restartIMGUI = true;
+}
+
+void VulkanRenderer::PerformImguiRestart()
+{
 	if (windowPtr->m_type == Window::WindowType::WINDOWS32)
 	{
 		ImGui_ImplWin32_Init(windowPtr->GetRawHandle());
@@ -1854,7 +1854,7 @@ void VulkanRenderer::RestartImgui()
 	VkCommandBuffer command_buffer = beginSingleTimeCommands();
 	ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
 	endSingleTimeCommands(command_buffer); 
-
+	m_imguiInitialized = true;
 }
 
 
@@ -2050,7 +2050,7 @@ void VulkanRenderer::UploadInstanceData()
 	if (currWorld)
 	{
 		uint32_t matCnt = 0;
-		for (auto& ent : currWorld->m_objectsCopy)
+		for (auto& ent : currWorld->GetAllObjectInstances())
 		{
 			
 			auto& mdl = g_globalModels[ent.modelID];
@@ -2134,9 +2134,18 @@ void VulkanRenderer::UploadInstanceData()
 			if ((ent.flags & ObjectInstanceFlags::SKINNED) == ObjectInstanceFlags::SKINNED)
 			{
 				auto& mdl = g_globalModels[ent.modelID];
-				OO_ASSERT(ent.bones.size() && "Skinned should have bones by now");
+
+				if (ent.bones.empty())
+				{
+					ent.bones.resize(mdl.skeleton->inverseBindPose.size());
+					for (auto& b:ent.bones )
+					{
+						b = mat4(1.0f);
+					}
+				}
 				oi.boneWeightsOffset = mdl.skinningWeightsOffset;
 				oi.boneStartIdx = static_cast<uint32_t>(boneMatrices.size());
+				//oi.boneCnt = static_cast<uint32_t>(ent.bones.size());
 
 				for (size_t i = 0; i < ent.bones.size(); i++)
 				{
@@ -2210,6 +2219,11 @@ bool VulkanRenderer::PrepareFrame()
 		resizeSwapchain = false;
 	}
 
+	if (m_restartIMGUI == true)
+	{
+		PerformImguiRestart();
+	}
+
 	if (m_reloadShaders == true) {
 		ReloadShaders();
 		m_reloadShaders = false;
@@ -2224,12 +2238,10 @@ void VulkanRenderer::BeginDraw()
 {
 	PROFILE_SCOPED();
 
-	{
-		std::scoped_lock l{cpuMutex};
-		VK_CHK(vkGetSemaphoreCounterValue(m_device.logicalDevice, frameCountSemaphore, &CurrentFrameGPU));
-		//printf("[FRAME COUNTER %5llu]\n", res);
-	}
-	cpuCV.notify_one(); // wake up the CPU waiting for N-1 frame
+	//vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, UINT64_MAX);
+	uint64_t res{};
+	VK_CHK(vkGetSemaphoreCounterValue(m_device.logicalDevice, frameCountSemaphore, &res));
+	//printf("[FRAME COUNTER %5llu]\n", res);
 
 	//wait for given fence to signal from last draw before continuing
 	VK_CHK(vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, std::numeric_limits<uint64_t>::max()));
@@ -2278,8 +2290,7 @@ void VulkanRenderer::BeginDraw()
 
 		if (currWorld)
 		{
-			currWorld->BeginFrame();
-			batches.Init(currWorld, this, MAX_OBJECTS);
+			batches = GraphicsBatch::Init(currWorld, this, MAX_OBJECTS);
 			batches.GenerateBatches();
 		}
 
@@ -2741,22 +2752,22 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 		vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_GENERAL);
 
 		//clear buffer
-		// vkCmdFillBuffer(cmd, atomic.buffer, atomic.offset, VK_WHOLE_SIZE, 0);
-		// VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
-		// bmb.buffer = atomic.buffer;
-		// bmb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-		// bmb.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-		// bmb.offset = 0;
-		// bmb.size = VK_WHOLE_SIZE;
-		// bmb.srcQueueFamilyIndex = m_device.queueIndices.graphicsFamily;
-		// vkCmdPipelineBarrier(
-		// 	cmd,
-		// 	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		// 	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		// 	0,
-		// 	0, nullptr,
-		// 	1, &bmb,
-		// 	0, nullptr);
+		vkCmdFillBuffer(cmd, atomic.buffer, atomic.offset, VK_WHOLE_SIZE, 0);
+		VkBufferMemoryBarrier bmb{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+		bmb.buffer = atomic.buffer;
+		bmb.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+		bmb.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+		bmb.offset = 0;
+		bmb.size = VK_WHOLE_SIZE;
+		bmb.srcQueueFamilyIndex = m_device.queueIndices.graphicsFamily;
+		vkCmdPipelineBarrier(
+			cmd,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0,
+			0, nullptr,
+			1, &bmb,
+			0, nullptr);
 		cmdlist.BindPSO(pso_utilAMDSPD, PSOLayoutDB::AMDSPDPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
 		cmdlist.BindDescriptorSet(PSOLayoutDB::AMDSPDPSOLayout, 0, dstsets, VK_PIPELINE_BIND_POINT_COMPUTE, 0);
 
