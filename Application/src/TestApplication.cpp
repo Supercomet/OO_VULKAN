@@ -43,6 +43,7 @@
 #include <algorithm>
 #include <bitset>
 #include <sstream>
+#include <barrier>
 
 #include "ImGuizmo.h"
 #include "AppUtils.h"
@@ -731,8 +732,15 @@ void TestApplication::Run()
 
     std::mutex g_ImguiMutex;
 
+    const size_t numThreads = 2;
+    std::barrier g_barrier(numThreads);
+
     bool renderMe = true;
-    auto renderWorker = [renderer = gs_RenderEngine, &keepRendering = renderMe, &mut = g_ImguiMutex]() {
+    auto renderWorker = [renderer = gs_RenderEngine,
+        &keepRendering = renderMe,
+        &mut = g_ImguiMutex,
+        &barrier = g_barrier
+    ]() {
         OPTICK_THREAD("RenderThread");
         auto lastTime = std::chrono::high_resolution_clock::now();
         while (keepRendering == true)
@@ -757,7 +765,8 @@ void TestApplication::Run()
                 
                 renderer->Present();
             }
-          
+            
+            barrier.arrive_and_wait();
         }
       
     };
@@ -771,7 +780,7 @@ void TestApplication::Run()
         {
             PROFILE_FRAME("MainThread");
             int64_t frame = std::max<int64_t>(int64_t(m_ApplicationFrame) - 1, 0);
-            gs_RenderEngine->CPUwaitforGPU(frame);
+
 
 			auto now = std::chrono::high_resolution_clock::now();
 			float deltaTime = std::chrono::duration<float>(now - lastTime).count();
@@ -972,6 +981,8 @@ void TestApplication::Run()
                 ImGui::RenderPlatformWindowsDefault();
             }
 
+           
+            g_barrier.arrive_and_wait();
             //finish for all windows
             // ImGui::EndFrame();
             // if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
