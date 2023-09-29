@@ -757,11 +757,19 @@ void TestApplication::Run()
                 renderer->RenderFrame();
 
                 renderer->DrawGUI();
-                
+
                 renderer->Present();
+               
             }
-            
-            barrier.arrive_and_wait();
+           
+            {
+                PROFILE_SCOPED("wait cpu");
+                barrier.arrive_and_wait();
+            }
+            {
+                PROFILE_SCOPED("wait cpu");
+                barrier.arrive_and_wait();
+            }
         }
       
     };
@@ -775,8 +783,6 @@ void TestApplication::Run()
         {
             PROFILE_FRAME("MainThread");
             int64_t frame = std::max<int64_t>(int64_t(m_ApplicationFrame) - 1, 0);
-
-       
 
 			auto now = std::chrono::high_resolution_clock::now();
 			float deltaTime = std::chrono::duration<float>(now - lastTime).count();
@@ -970,16 +976,25 @@ void TestApplication::Run()
                 ImDrawData* drawData = ImGui::GetDrawData();               
                 gs_RenderEngine->SubmitImguiDrawList(drawData);
             }
-            //finish for all windows
+            //finish for all windows  
+
+            {
+                PROFILE_SCOPED("wait gpu"); 
+                g_barrier.arrive_and_wait();        
+            }
             ImGui::EndFrame();
             if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
             {
                 ImGui::UpdatePlatformWindows();
                 ImGui::RenderPlatformWindowsDefault();
             }
-
            
-            g_barrier.arrive_and_wait();
+            {
+                PROFILE_SCOPED("wait gpu");
+                g_barrier.arrive_and_wait();
+            }
+
+            
             //finish for all windows
             // ImGui::EndFrame();
             // if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
@@ -994,14 +1009,16 @@ void TestApplication::Run()
     //----------------------------------------------------------------------------------------------------
     // Application Shutdown
     //----------------------------------------------------------------------------------------------------
+    gs_RenderEngine->DestroyImGUI(); 
+    ImGui::DestroyContext(ImGui::GetCurrentContext());
+    std::this_thread::sleep_for(std::chrono::seconds(4));
    
     renderMe = false;
     g_barrier.arrive_and_drop();
     renderThread.join();
 
     gs_RenderEngine->DestroyWorld(&gs_GraphicsWorld);
-    gs_RenderEngine->DestroyImGUI();
-    ImGui::DestroyContext(ImGui::GetCurrentContext());
+
 
     if (gs_RenderEngine)
         delete gs_RenderEngine;

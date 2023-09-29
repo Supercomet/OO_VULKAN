@@ -328,7 +328,8 @@ public:
 	void PerformImguiRestart();
 	void ImguiSoftDestroy();
 	ImDrawData m_imguiDrawData;
-	std::vector<ImDrawList*> m_imguiDrawList;
+	std::vector<ImDrawList> m_imguiDrawList;
+	std::vector<ImDrawList*> m_imguiDrawListPtrs;
 	void SubmitImguiDrawList(ImDrawData* drawData);
 	void InvalidateDrawLists();
 
@@ -493,6 +494,11 @@ public:
 	std::vector<oGFX::AllocatedBuffer> vpUniformBuffer{};
 	oGFX::AllocatedBuffer SPDatomicBuffer;
 	oGFX::AllocatedBuffer SPDconstantBuffer;
+
+	oGFX::AllocatedBuffer imguiVertexBuffer;
+	oGFX::AllocatedBuffer imguiIndexBuffer;
+	void* mapped_imguiVertexBuffer;
+	void* mapped_imguiIndexBuffer;
 
 	oGFX::AllocatedBuffer lightingHistogram;
 	oGFX::AllocatedBuffer LuminanceBuffer;

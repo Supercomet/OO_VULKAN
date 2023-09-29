@@ -486,6 +486,7 @@ namespace oGFX
 		vmaCI.usage = VMA_MEMORY_USAGE_AUTO;
 		vmaCI.flags = allocationFlags;
 		VkBufferCreateInfo bufferInfo = oGFX::vkutils::inits::bufferCreateInfo(bufferUsage,bufferSize);
+		vmabuffer.size = bufferSize;
 		VkResult result = vmaCreateBuffer(allocator, &bufferInfo, &vmaCI, &vmabuffer.buffer, &vmabuffer.alloc, &vmabuffer.allocInfo);
 		if (result != VK_SUCCESS)
 		{

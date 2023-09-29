@@ -189,6 +189,7 @@ namespace oGFX
 		VkBuffer buffer;
 		VmaAllocation alloc;
 		VmaAllocationInfo allocInfo;
+		size_t size;
 	};
 
 	struct AllocatedImage {

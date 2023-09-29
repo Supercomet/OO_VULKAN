@@ -1128,7 +1128,9 @@ void VulkanRenderer::CreateCommandBuffers()
 VkCommandBuffer VulkanRenderer::GetCommandBuffer()
 {
 	constexpr bool beginBuffer = true;
-	return m_device.commandPoolManagers[getFrame()].GetNextCommandBuffer(beginBuffer);
+	VkCommandBuffer result = m_device.commandPoolManagers[getFrame()].GetNextCommandBuffer(beginBuffer);
+	VK_NAME(m_device.logicalDevice, "DEFAULTCMD", result);
+	return result;
 }
 
 void VulkanRenderer::SubmitSingleCommandAndWait(VkCommandBuffer cmd)
@@ -1739,26 +1741,29 @@ void VulkanRenderer::DrawGUI()
     const VkCommandBuffer cmdlist = GetCommandBuffer();
 	VK_NAME(m_device.logicalDevice, "IM_GUI_CMD", cmdlist);
 	
+	std::this_thread::sleep_for(std::chrono::milliseconds(21));
 
 	// temp hardcode until its in its own renderer
 	vkutils::TransitionImage(cmdlist, m_swapchain.swapChainImages[swapchainIdx], m_swapchain.swapChainImages[swapchainIdx].referenceLayout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
-		if (renderTargets[i].inUse == true)
+		if (renderTargets[i].texture.image.image != VK_NULL_HANDLE)
 		{
 			vkutils::TransitionImage(cmdlist, renderTargets[i].texture, renderTargets[i].texture.referenceLayout, VK_IMAGE_LAYOUT_GENERAL);
 		}
 	}
 	vkCmdBeginRenderPass(cmdlist, &GUIpassInfo, VK_SUBPASS_CONTENTS_INLINE);
-	ImGui_ImplVulkan_RenderDrawData(&m_imguiDrawData, cmdlist);
+	if (m_imguiDrawData.Valid) 
+	{
+		ImGui_ImplVulkan_RenderDrawData(&m_imguiDrawData, cmdlist);
+	}
 	vkCmdEndRenderPass(cmdlist);
 
 	// Draw call done, invalidate old list
-	InvalidateDrawLists();
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
-		if (renderTargets[i].inUse == true)
+		if (renderTargets[i].texture.image.image != VK_NULL_HANDLE)
 		{
 			vkutils::TransitionImage(cmdlist, renderTargets[i].texture, VK_IMAGE_LAYOUT_GENERAL, renderTargets[i].texture.referenceLayout);
 		}
@@ -1789,7 +1794,7 @@ void VulkanRenderer::SubmitImguiDrawList(ImDrawData* drawData)
 
 	// watch performance if bad change everything to vectors
 	ImDrawData newimguiDrawData;
-	std::vector<ImDrawList*> newimguiDrawList;
+	std::vector<ImDrawList> newimguiDrawList;
 
 	newimguiDrawData.TotalVtxCount = drawData->TotalVtxCount;
 	newimguiDrawData.TotalIdxCount = drawData->TotalIdxCount;
@@ -1799,11 +1804,14 @@ void VulkanRenderer::SubmitImguiDrawList(ImDrawData* drawData)
 	newimguiDrawData.FramebufferScale = ImVec2(1.0f, 1.0f);
 	newimguiDrawData.OwnerViewport = drawData->OwnerViewport;
 
-	newimguiDrawList.reserve(drawData->CmdListsCount);
+	newimguiDrawList.resize(drawData->CmdListsCount);
 	for (size_t i = 0; i < drawData->CmdListsCount; i++)
 	{
-		ImDrawList* myDrawList = drawData->CmdLists[i]->CloneOutput();
-		newimguiDrawList.emplace_back(myDrawList);
+
+		newimguiDrawList[i].CmdBuffer = drawData->CmdLists[i]->CmdBuffer;
+		newimguiDrawList[i].IdxBuffer = drawData->CmdLists[i]->IdxBuffer;
+		newimguiDrawList[i].VtxBuffer = drawData->CmdLists[i]->VtxBuffer;
+		newimguiDrawList[i].Flags = drawData->CmdLists[i]->Flags;
 	}
 
 	auto lam = [this
@@ -1814,7 +1822,12 @@ void VulkanRenderer::SubmitImguiDrawList(ImDrawData* drawData)
 		InvalidateDrawLists();
 		m_imguiDrawList = std::move(inLists);
 		m_imguiDrawData.Valid = true;
-		m_imguiDrawData.CmdLists = m_imguiDrawList.data();
+		m_imguiDrawListPtrs.resize(m_imguiDrawList.size());
+		for (size_t i = 0; i < m_imguiDrawListPtrs.size(); i++)
+		{
+			m_imguiDrawListPtrs[i] = &m_imguiDrawList[i];
+		}
+		m_imguiDrawData.CmdLists = m_imguiDrawListPtrs.data();
 
 		m_imguiDrawData.TotalVtxCount = inDraw.TotalVtxCount;
 		m_imguiDrawData.TotalIdxCount = inDraw.TotalIdxCount;
@@ -1831,11 +1844,8 @@ void VulkanRenderer::SubmitImguiDrawList(ImDrawData* drawData)
 
 void VulkanRenderer::InvalidateDrawLists()
 {
-	for (size_t i = 0; i < m_imguiDrawList.size(); i++)
-	{
-		IM_DELETE(m_imguiDrawList[i]);
-	}
 	m_imguiDrawList.clear();
+	m_imguiDrawData.Valid = false;
 }
 
 void VulkanRenderer::DestroyImGUI()
@@ -1980,6 +1990,15 @@ void VulkanRenderer::InitializeRenderBuffers()
 
 	oGFX::CreateBuffer(m_device.m_allocator, sizeof(CB::AMDSPD_ATOMIC), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, SPDatomicBuffer);
 	oGFX::CreateBuffer(m_device.m_allocator, sizeof(CB::AMDSPD_UBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, SPDconstantBuffer);
+	
+	const size_t STARTING_VERTEX_CNT = 5000;
+	size_t vertex_size = STARTING_VERTEX_CNT * sizeof(ImDrawVert);
+	size_t index_size = STARTING_VERTEX_CNT * sizeof(ImDrawIdx);
+	oGFX::CreateBuffer(m_device.m_allocator, vertex_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, imguiVertexBuffer);
+	oGFX::CreateBuffer(m_device.m_allocator, index_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, imguiIndexBuffer);
+
+	vmaMapMemory(m_device.m_allocator, imguiVertexBuffer.alloc, &mapped_imguiVertexBuffer);
+	vmaMapMemory(m_device.m_allocator, imguiIndexBuffer.alloc, &mapped_imguiIndexBuffer);
 
 
 	// TODO: Move other global GPU buffer initialization here...
@@ -1999,6 +2018,12 @@ void VulkanRenderer::DestroyRenderBuffers()
 		g_UIIndexBufferGPU[i].destroy();
 		g_particleCommandsBuffer[i].destroy();
 	}
+
+	vmaUnmapMemory(m_device.m_allocator, imguiVertexBuffer.alloc);
+	vmaUnmapMemory(m_device.m_allocator, imguiIndexBuffer.alloc);
+	
+	vmaDestroyBuffer(m_device.m_allocator,imguiVertexBuffer.buffer, imguiVertexBuffer.alloc);
+	vmaDestroyBuffer(m_device.m_allocator,imguiIndexBuffer.buffer, imguiIndexBuffer.alloc);
 	
 	gpuSkinningBoneWeightsBuffer.destroy();
 
