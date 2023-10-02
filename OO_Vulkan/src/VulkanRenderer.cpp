@@ -35,7 +35,7 @@ Technology is prohibited.
 #include <imgui/imgui_internal.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/backends/imgui_impl_win32.h>
-static ImDrawListSharedData m_imguiSharedData;
+static ImDrawListSharedData s_imguiSharedData;
 
 #include "../shaders/shared_structs.h"
 
@@ -1630,7 +1630,7 @@ void VulkanRenderer::InitImGUI()
 	m_imguiInitialized = true;
 	PerformImguiRestart();
 
-	memcpy(&m_imguiSharedData, ImGui::GetDrawListSharedData(), sizeof(ImDrawListSharedData));
+	memcpy(&s_imguiSharedData, ImGui::GetDrawListSharedData(), sizeof(ImDrawListSharedData));
 
 	// Create frame buffers for every swap chain image
 	// We need to do this because ImGUI only cares about the colour attachment.
@@ -1806,11 +1806,12 @@ void VulkanRenderer::SubmitImguiDrawList(ImDrawData* drawData)
 	newimguiDrawData.FramebufferScale = ImVec2(1.0f, 1.0f);
 	newimguiDrawData.OwnerViewport = drawData->OwnerViewport;
 
-	newimguiDrawList.resize(drawData->CmdListsCount);
+	newimguiDrawList.reserve(drawData->CmdListsCount);
 	for (size_t i = 0; i < drawData->CmdListsCount; i++)
 	{
-		newimguiDrawList[i] = drawData->CmdLists[i]->CloneOutput();
-		newimguiDrawList[i]->_Data = &m_imguiSharedData;
+		ImDrawList* myDrawList = drawData->CmdLists[i]->CloneOutput();
+		myDrawList->_Data = &s_imguiSharedData;
+		newimguiDrawList.emplace_back(myDrawList);
 	}
 
 	auto lam = [this
@@ -1838,18 +1839,21 @@ void VulkanRenderer::SubmitImguiDrawList(ImDrawData* drawData)
 
 void VulkanRenderer::InvalidateDrawLists()
 {
+	for (size_t i = 0; i < m_imguiDrawList.size(); i++)
+	{
+		IM_DELETE(m_imguiDrawList[i]);
+	}
 	m_imguiDrawList.clear();
-	m_imguiDrawData.Valid = false;
 }
 
 void VulkanRenderer::DestroyImGUI()
 {
 	if (m_imguiInitialized == false) return;
-	std::scoped_lock l{m_imguiShutdownGuard};
+	std::scoped_lock l{ m_imguiShutdownGuard };
 
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
-	m_imguiSharedData.Font = nullptr;
+	s_imguiSharedData.Font = nullptr;
 
 	for (size_t i = 0; i < m_imguiConfig.buffers.size(); i++)
 	{
@@ -2331,9 +2335,12 @@ void VulkanRenderer::BeginDraw()
 	//printf("[FRAME COUNTER %5llu]\n", res);	
 
 	//wait for given fence to signal from last draw before continuing
-	VK_CHK(vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, std::numeric_limits<uint64_t>::max()));
-	//mainually reset fences
-	VK_CHK(vkResetFences(m_device.logicalDevice, 1, &drawFences[getFrame()]));
+	{
+		PROFILE_SCOPED("Wait Swapchain Fence");
+		VK_CHK(vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, std::numeric_limits<uint64_t>::max()));
+		//mainually reset fences
+		VK_CHK(vkResetFences(m_device.logicalDevice, 1, &drawFences[getFrame()]));
+	}
 
 	{
 		PROFILE_SCOPED("Begin Command Buffer");

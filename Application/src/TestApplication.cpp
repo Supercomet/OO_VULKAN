@@ -1011,7 +1011,6 @@ void TestApplication::Run()
     //----------------------------------------------------------------------------------------------------
     gs_RenderEngine->DestroyImGUI(); 
     ImGui::DestroyContext(ImGui::GetCurrentContext());
-    std::this_thread::sleep_for(std::chrono::seconds(4));
    
     renderMe = false;
     g_barrier.arrive_and_drop();
