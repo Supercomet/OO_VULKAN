@@ -32,9 +32,10 @@ Technology is prohibited.
 #include "Window.h"
 
 #include <imgui/imgui.h>
+#include <imgui/imgui_internal.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/backends/imgui_impl_win32.h>
-
+static ImDrawListSharedData m_imguiSharedData;
 
 #include "../shaders/shared_structs.h"
 
@@ -1629,6 +1630,7 @@ void VulkanRenderer::InitImGUI()
 	m_imguiInitialized = true;
 	PerformImguiRestart();
 
+	memcpy(&m_imguiSharedData, ImGui::GetDrawListSharedData(), sizeof(ImDrawListSharedData));
 
 	// Create frame buffers for every swap chain image
 	// We need to do this because ImGUI only cares about the colour attachment.
@@ -1730,6 +1732,7 @@ void VulkanRenderer::DebugGUIcalls()
 void VulkanRenderer::DrawGUI()
 {
 	PROFILE_SCOPED();
+	std::scoped_lock l{m_imguiShutdownGuard};
 	if (m_imguiInitialized == false) return;
 
 	VkRenderPassBeginInfo GUIpassInfo = {};
@@ -1741,7 +1744,6 @@ void VulkanRenderer::DrawGUI()
     const VkCommandBuffer cmdlist = GetCommandBuffer();
 	VK_NAME(m_device.logicalDevice, "IM_GUI_CMD", cmdlist);
 	
-	std::this_thread::sleep_for(std::chrono::milliseconds(21));
 
 	// temp hardcode until its in its own renderer
 	vkutils::TransitionImage(cmdlist, m_swapchain.swapChainImages[swapchainIdx], m_swapchain.swapChainImages[swapchainIdx].referenceLayout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -1794,7 +1796,7 @@ void VulkanRenderer::SubmitImguiDrawList(ImDrawData* drawData)
 
 	// watch performance if bad change everything to vectors
 	ImDrawData newimguiDrawData;
-	std::vector<ImDrawList> newimguiDrawList;
+	std::vector<ImDrawList*> newimguiDrawList;
 
 	newimguiDrawData.TotalVtxCount = drawData->TotalVtxCount;
 	newimguiDrawData.TotalIdxCount = drawData->TotalIdxCount;
@@ -1807,11 +1809,8 @@ void VulkanRenderer::SubmitImguiDrawList(ImDrawData* drawData)
 	newimguiDrawList.resize(drawData->CmdListsCount);
 	for (size_t i = 0; i < drawData->CmdListsCount; i++)
 	{
-
-		newimguiDrawList[i].CmdBuffer = drawData->CmdLists[i]->CmdBuffer;
-		newimguiDrawList[i].IdxBuffer = drawData->CmdLists[i]->IdxBuffer;
-		newimguiDrawList[i].VtxBuffer = drawData->CmdLists[i]->VtxBuffer;
-		newimguiDrawList[i].Flags = drawData->CmdLists[i]->Flags;
+		newimguiDrawList[i] = drawData->CmdLists[i]->CloneOutput();
+		newimguiDrawList[i]->_Data = &m_imguiSharedData;
 	}
 
 	auto lam = [this
@@ -1822,12 +1821,7 @@ void VulkanRenderer::SubmitImguiDrawList(ImDrawData* drawData)
 		InvalidateDrawLists();
 		m_imguiDrawList = std::move(inLists);
 		m_imguiDrawData.Valid = true;
-		m_imguiDrawListPtrs.resize(m_imguiDrawList.size());
-		for (size_t i = 0; i < m_imguiDrawListPtrs.size(); i++)
-		{
-			m_imguiDrawListPtrs[i] = &m_imguiDrawList[i];
-		}
-		m_imguiDrawData.CmdLists = m_imguiDrawListPtrs.data();
+		m_imguiDrawData.CmdLists = m_imguiDrawList.data();
 
 		m_imguiDrawData.TotalVtxCount = inDraw.TotalVtxCount;
 		m_imguiDrawData.TotalIdxCount = inDraw.TotalIdxCount;
@@ -1851,8 +1845,11 @@ void VulkanRenderer::InvalidateDrawLists()
 void VulkanRenderer::DestroyImGUI()
 {
 	if (m_imguiInitialized == false) return;
+	std::scoped_lock l{m_imguiShutdownGuard};
 
 	vkDeviceWaitIdle(m_device.logicalDevice);
+
+	m_imguiSharedData.Font = nullptr;
 
 	for (size_t i = 0; i < m_imguiConfig.buffers.size(); i++)
 	{

@@ -39,6 +39,7 @@ Technology is prohibited.
 #include "Camera.h"
 
 #include "imgui/imgui.h"
+//#include "imgui/imgui_internal.h"
 
 #include "GfxSampler.h"
 #include "GfxRenderpass.h"
@@ -319,6 +320,8 @@ public:
 		std::vector<VkFramebuffer> buffers;
 	}m_imguiConfig{};
 
+	std::mutex m_imguiShutdownGuard;
+
 	void InitImGUI();
 	void ResizeGUIBuffers();
 	void DebugGUIcalls();
@@ -328,8 +331,7 @@ public:
 	void PerformImguiRestart();
 	void ImguiSoftDestroy();
 	ImDrawData m_imguiDrawData;
-	std::vector<ImDrawList> m_imguiDrawList;
-	std::vector<ImDrawList*> m_imguiDrawListPtrs;
+	std::vector<ImDrawList*> m_imguiDrawList;
 	void SubmitImguiDrawList(ImDrawData* drawData);
 	void InvalidateDrawLists();
 
