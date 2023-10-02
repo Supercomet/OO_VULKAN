@@ -74,6 +74,9 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout Lighting;
 	inline static VkDescriptorSetLayout skypass;
 
+	inline static VkDescriptorSetLayout imguiCB;
+	inline static VkDescriptorSetLayout imguiTexture;
+
 	inline static VkDescriptorSetLayout lights;
 	// 
 	inline static VkDescriptorSetLayout ForwardDecal;
@@ -109,6 +112,7 @@ struct Attachments_imguiBinding {
 struct PSOLayoutDB
 {
 	inline static VkPipelineLayout defaultPSOLayout;
+	inline static VkPipelineLayout imguiPSOLayout;
 	inline static VkPipelineLayout fullscreenBlitPSOLayout;
 	inline static VkPipelineLayout lightingPSOLayout;
 	inline static VkPipelineLayout forwardDecalPSOLayout;
@@ -433,6 +437,9 @@ public:
 	vkutils::Texture2D g_brdfLUT;
 
 	std::vector<ImTextureID> g_imguiIDs;
+	std::mutex g_mute_imguiTextureMap;
+	std::unordered_map<ImTextureID, vkutils::Texture*>g_imguiToTexture;
+	vkutils::Texture2D g_imguiFont;
 
 	uint32_t whiteTextureID = static_cast<uint32_t>(-1);
 	uint32_t blackTextureID = static_cast<uint32_t>(-1);
@@ -496,10 +503,9 @@ public:
 	oGFX::AllocatedBuffer SPDatomicBuffer;
 	oGFX::AllocatedBuffer SPDconstantBuffer;
 
-	oGFX::AllocatedBuffer imguiVertexBuffer;
-	oGFX::AllocatedBuffer imguiIndexBuffer;
-	void* mapped_imguiVertexBuffer;
-	void* mapped_imguiIndexBuffer;
+	std::vector<oGFX::AllocatedBuffer> imguiVertexBuffer;
+	std::vector<oGFX::AllocatedBuffer> imguiIndexBuffer;
+	std::vector<oGFX::AllocatedBuffer> imguiConstantBuffer;
 
 	oGFX::AllocatedBuffer lightingHistogram;
 	oGFX::AllocatedBuffer LuminanceBuffer;
@@ -607,7 +613,7 @@ public:
 		}
 	};
 
-	static ImTextureID CreateImguiBinding(VkSampler s, VkImageView v, VkImageLayout l);
+	static ImTextureID CreateImguiBinding(VkSampler s, vkutils::Texture*);
 	ImTextureID GetImguiID(uint32_t textureID);
 
 	static VkPipelineShaderStageCreateInfo LoadShader(VulkanDevice& device, const std::string& fileName, VkShaderStageFlagBits stage);

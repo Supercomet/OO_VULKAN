@@ -297,7 +297,7 @@ void ShadowPass::SetupFramebuffer()
 	auto& vr = *VulkanRenderer::get();
 	auto& m_device = vr.m_device;
 
-	Attachments_imguiBinding::shadowImg = vr.CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), vr.attachments.shadow_depth.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	Attachments_imguiBinding::shadowImg = vr.CreateImguiBinding(GfxSamplerManager::GetSampler_Deferred(), &vr.attachments.shadow_depth);
 }
 
 void ShadowPass::CreatePipeline()

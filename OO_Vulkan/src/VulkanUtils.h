@@ -189,7 +189,9 @@ namespace oGFX
 		VkBuffer buffer;
 		VmaAllocation alloc;
 		VmaAllocationInfo allocInfo;
-		size_t size;
+		VkDescriptorBufferInfo dbi{};
+
+		VkDescriptorBufferInfo* getBufferInfoPtr();
 	};
 
 	struct AllocatedImage {
@@ -226,6 +228,9 @@ namespace oGFX
 	std::vector<char> readFile(const std::string& filename);
 
 	void CreateBuffer(VmaAllocator allocator, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage,
+		VmaAllocationCreateFlags allocationInfo, oGFX::AllocatedBuffer& vmabuffer);
+
+	void CreateOrResizeBuffer(VmaAllocator allocator, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage,
 		VmaAllocationCreateFlags allocationInfo, oGFX::AllocatedBuffer& vmabuffer);
 
 	void CopyBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool transferCommandPool,

@@ -44,6 +44,7 @@ static ImDrawListSharedData s_imguiSharedData;
 
 extern GfxRenderpass* g_BloomPass;
 extern GfxRenderpass* g_DebugDrawRenderpass;
+extern GfxRenderpass* g_ImguiRenderpass;
 extern GfxRenderpass* g_ForwardParticlePass;
 extern GfxRenderpass* g_ForwardUIPass;
 extern GfxRenderpass* g_GBufferRenderPass;
@@ -103,7 +104,7 @@ extern GfxRenderpass* g_ZPrePass;
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
 // vulkan debug callback
-
+#pragma optimize("", off)
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -125,6 +126,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 
 }
+#pragma optimize("", on)
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
@@ -355,6 +357,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	rpd->RegisterRenderPass(g_ZPrePass);
 	rpd->RegisterRenderPass(g_SkyRenderPass);
 	rpd->RegisterRenderPass(g_DebugDrawRenderpass);
+	rpd->RegisterRenderPass(g_ImguiRenderpass);
 	rpd->RegisterRenderPass(g_LightingPass);
 	rpd->RegisterRenderPass(g_LightingHistogram);
 	rpd->RegisterRenderPass(g_SSAORenderPass);
@@ -1191,7 +1194,7 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 				}
 				if (image.image.image && renderTargets[wrdID].imguiTex == 0)
 				{
-					renderTargets[wrdID].imguiTex = CreateImguiBinding(samplerManager.GetDefaultSampler(), image.view, VK_IMAGE_LAYOUT_GENERAL);				
+					renderTargets[wrdID].imguiTex = CreateImguiBinding(samplerManager.GetDefaultSampler(), &image);				
 				}
 				auto& depth =  renderTargets[wrdID].depth;
 				if (depth.image.image == VK_NULL_HANDLE)
@@ -1627,10 +1630,54 @@ void VulkanRenderer::InitImGUI()
 	vkCreateDescriptorPool(m_device.logicalDevice, &dpci, nullptr, &m_imguiConfig.descriptorPools);
 	VK_NAME(m_device.logicalDevice, "imguiConfig_descriptorPools", m_imguiConfig.descriptorPools);
 
+	unsigned char* pixels = nullptr;
+	int width, height;
+	ImGui::GetIO().Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+	std::vector<VkBufferImageCopy> mips;
+	VkDeviceSize buffSz = width * height * 4;
+	VkBufferImageCopy imageRegion{};
+	imageRegion.bufferOffset = 0;											// Offset into data
+	imageRegion.bufferRowLength = 0;										// Row length of data to calculate data spacing
+	imageRegion.bufferImageHeight = 0;										// Image height to calculate data spacing
+	imageRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;	// Which aspect of image to copy
+	imageRegion.imageSubresource.mipLevel = 0;								// Mipmap Level to copy
+	imageRegion.imageSubresource.baseArrayLayer = 0;						// Starting array layer (if array)
+	imageRegion.imageSubresource.layerCount = 1;							// Number of layers to copy starting at baseArray layer
+	imageRegion.imageOffset = { 0,0,0 };									//	Offset into image (as opposed to raw data in buffer offset)
+	imageRegion.imageExtent = { (uint32_t)width,(uint32_t)height, 1 };		//  Size of region to copy as XYZ values
+	mips.push_back(imageRegion);
+	
+	g_imguiFont.fromBuffer(pixels, buffSz, VK_FORMAT_R8G8B8A8_UNORM, width, height, mips, &m_device, m_device.graphicsQueue);
+
 	m_imguiInitialized = true;
 	PerformImguiRestart();
 
 	memcpy(&s_imguiSharedData, ImGui::GetDrawListSharedData(), sizeof(ImDrawListSharedData));
+
+
+
+	struct BackendData {
+		ImGui_ImplVulkan_InitInfo   VulkanInitInfo;
+		VkRenderPass                RenderPass;
+		VkDeviceSize                BufferMemoryAlignment;
+		VkPipelineCreateFlags       PipelineCreateFlags;
+		VkDescriptorSetLayout       DescriptorSetLayout;
+		VkPipelineLayout            PipelineLayout;
+		VkPipeline                  Pipeline;
+		uint32_t                    Subpass;
+		VkShaderModule              ShaderModuleVert;
+		VkShaderModule              ShaderModuleFrag;
+
+		// Font data
+		VkSampler                   FontSampler;
+		VkDeviceMemory              FontMemory;
+		VkImage                     FontImage;
+		VkImageView                 FontView;
+		VkDescriptorSet				FontDescriptorSet;
+	};
+	BackendData* bd = (BackendData*)(ImGui::GetIO().BackendRendererUserData);
+	g_imguiToTexture[bd->FontDescriptorSet] = &g_imguiFont;
+
 
 	// Create frame buffers for every swap chain image
 	// We need to do this because ImGUI only cares about the colour attachment.
@@ -1731,6 +1778,9 @@ void VulkanRenderer::DebugGUIcalls()
 
 void VulkanRenderer::DrawGUI()
 {
+
+	return;
+
 	PROFILE_SCOPED();
 	std::scoped_lock l{m_imguiShutdownGuard};
 	if (m_imguiInitialized == false) return;
@@ -1920,6 +1970,7 @@ void VulkanRenderer::PerformImguiRestart()
 	// This uploads the ImGUI font package to the GPU
 	VkCommandBuffer command_buffer = beginSingleTimeCommands();
 	ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+
 	endSingleTimeCommands(command_buffer); 
 	m_imguiInitialized = true;
 }
@@ -1995,11 +2046,18 @@ void VulkanRenderer::InitializeRenderBuffers()
 	const size_t STARTING_VERTEX_CNT = 5000;
 	size_t vertex_size = STARTING_VERTEX_CNT * sizeof(ImDrawVert);
 	size_t index_size = STARTING_VERTEX_CNT * sizeof(ImDrawIdx);
-	oGFX::CreateBuffer(m_device.m_allocator, vertex_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, imguiVertexBuffer);
-	oGFX::CreateBuffer(m_device.m_allocator, index_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, imguiIndexBuffer);
+	size_t imguiCBsize = sizeof(glm::mat4);
 
-	vmaMapMemory(m_device.m_allocator, imguiVertexBuffer.alloc, &mapped_imguiVertexBuffer);
-	vmaMapMemory(m_device.m_allocator, imguiIndexBuffer.alloc, &mapped_imguiIndexBuffer);
+	imguiVertexBuffer.resize(MAX_FRAME_DRAWS);
+	imguiIndexBuffer.resize(MAX_FRAME_DRAWS);
+	imguiConstantBuffer.resize(MAX_FRAME_DRAWS);
+
+	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
+	{
+		oGFX::CreateBuffer(m_device.m_allocator, vertex_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, imguiVertexBuffer[i]);
+		oGFX::CreateBuffer(m_device.m_allocator, index_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, imguiIndexBuffer[i]);
+		oGFX::CreateBuffer(m_device.m_allocator, imguiCBsize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, imguiConstantBuffer[i]);
+	}
 
 
 	// TODO: Move other global GPU buffer initialization here...
@@ -2020,11 +2078,15 @@ void VulkanRenderer::DestroyRenderBuffers()
 		g_particleCommandsBuffer[i].destroy();
 	}
 
-	vmaUnmapMemory(m_device.m_allocator, imguiVertexBuffer.alloc);
-	vmaUnmapMemory(m_device.m_allocator, imguiIndexBuffer.alloc);
-	
-	vmaDestroyBuffer(m_device.m_allocator,imguiVertexBuffer.buffer, imguiVertexBuffer.alloc);
-	vmaDestroyBuffer(m_device.m_allocator,imguiIndexBuffer.buffer, imguiIndexBuffer.alloc);
+	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
+	{
+		vmaUnmapMemory(m_device.m_allocator, imguiVertexBuffer[i].alloc);
+		vmaUnmapMemory(m_device.m_allocator, imguiIndexBuffer[i].alloc);
+
+		vmaDestroyBuffer(m_device.m_allocator, imguiVertexBuffer[i].buffer, imguiVertexBuffer[i].alloc);
+		vmaDestroyBuffer(m_device.m_allocator, imguiIndexBuffer[i].buffer, imguiIndexBuffer[i].alloc);
+	}
+
 	
 	gpuSkinningBoneWeightsBuffer.destroy();
 
@@ -2562,7 +2624,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			// RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
 			const VkCommandBuffer cmd = GetCommandBuffer();
 			g_DebugDrawRenderpass->Draw(cmd);
-		}
+		}		
 
 		++renderIteration; // next viewport
 	}
@@ -2587,6 +2649,13 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		FullscreenBlit(GetCommandBuffer(), texture, texture.referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	}
 	// only blit main framebuffer
+
+	//if (shouldRunDebugDraw) // for now need to run regardless because of transition.. TODO: FIX IT ONE DAY
+	{
+		// RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
+		const VkCommandBuffer cmd = GetCommandBuffer();
+		g_ImguiRenderpass->Draw(cmd);
+	}
 }
 
 void VulkanRenderer::Present()
@@ -4369,9 +4438,9 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 		texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 
 		GenerateMipmaps(texture);
-
 		//setup imgui binding
-		g_imguiIDs[indx] = CreateImguiBinding(samplerManager.GetDefaultSampler(), texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		g_imguiIDs[indx] = CreateImguiBinding(samplerManager.GetDefaultSampler(), &texture);
+		
 	};
 	{
 		std::scoped_lock s{ g_mut_workQueue };
@@ -4410,7 +4479,7 @@ uint32_t VulkanRenderer::CreateTextureImageImmediate(const oGFX::FileImageData& 
 	texture.name = imageInfo.name;
 
 	//setup imgui binding
-	g_imguiIDs[indx] = CreateImguiBinding(samplerManager.GetDefaultSampler(), texture.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	g_imguiIDs[indx] = CreateImguiBinding(samplerManager.GetDefaultSampler(), &texture);
 	
 
 	// Return index of new texture image
@@ -4486,15 +4555,19 @@ ImTextureID VulkanRenderer::GetImguiID(uint32_t textureID)
 	return g_imguiIDs[textureID];
 }
 
-ImTextureID VulkanRenderer::CreateImguiBinding(VkSampler s, VkImageView v, VkImageLayout l)
+ImTextureID VulkanRenderer::CreateImguiBinding(VkSampler s, vkutils::Texture* tex)
 {
-	
-	if (VulkanRenderer::get()->m_imguiInitialized == false)
+	auto& vr = *VulkanRenderer::get();
+	if (vr.m_imguiInitialized == false)
 	{
 		return 0;
 	}	
-	
-	return ImGui_ImplVulkan_AddTexture(s,v,l);
+	VkDescriptorSet dsc = ImGui_ImplVulkan_AddTexture(s, tex->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	// add to mapping
+	std::scoped_lock l{ vr.g_mute_imguiTextureMap };
+	ImTextureID id = (ImTextureID)dsc;
+	vr.g_imguiToTexture[id] = tex;
+	return dsc;
 }
 
 int Win32SurfaceCreator(ImGuiViewport* vp, ImU64 device, const void* allocator, ImU64* outSurface)

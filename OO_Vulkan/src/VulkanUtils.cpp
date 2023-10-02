@@ -486,13 +486,40 @@ namespace oGFX
 		vmaCI.usage = VMA_MEMORY_USAGE_AUTO;
 		vmaCI.flags = allocationFlags;
 		VkBufferCreateInfo bufferInfo = oGFX::vkutils::inits::bufferCreateInfo(bufferUsage,bufferSize);
-		vmabuffer.size = bufferSize;
 		VkResult result = vmaCreateBuffer(allocator, &bufferInfo, &vmaCI, &vmabuffer.buffer, &vmabuffer.alloc, &vmabuffer.allocInfo);
 		if (result != VK_SUCCESS)
 		{
 			std::cerr << "Failed to create a Buffer!" << std::endl;
 			__debugbreak();
 		}
+		vmabuffer.dbi.buffer = vmabuffer.buffer;
+		vmabuffer.dbi.range = VK_WHOLE_SIZE;
+	}
+
+	void CreateOrResizeBuffer(VmaAllocator allocator, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage, VmaAllocationCreateFlags allocationFlags, oGFX::AllocatedBuffer& vmabuffer)
+	{
+		if (bufferSize <= vmabuffer.allocInfo.size) return;
+
+		if (vmabuffer.buffer) {
+			if (vmabuffer.allocInfo.pMappedData) {
+				vmaUnmapMemory(allocator, vmabuffer.alloc);
+				vmabuffer.allocInfo.pMappedData = nullptr;
+			}
+			vmaDestroyBuffer(allocator, vmabuffer.buffer, vmabuffer.alloc);
+		}
+
+		VmaAllocationCreateInfo vmaCI{};
+		vmaCI.usage = VMA_MEMORY_USAGE_AUTO;
+		vmaCI.flags = allocationFlags;
+		VkBufferCreateInfo bufferInfo = oGFX::vkutils::inits::bufferCreateInfo(bufferUsage, bufferSize);
+		VkResult result = vmaCreateBuffer(allocator, &bufferInfo, &vmaCI, &vmabuffer.buffer, &vmabuffer.alloc, &vmabuffer.allocInfo);
+		if (result != VK_SUCCESS)
+		{
+			std::cerr << "Failed to create a Buffer!" << std::endl;
+			__debugbreak();
+		}
+		vmabuffer.dbi.buffer = vmabuffer.buffer;
+		vmabuffer.dbi.range = VK_WHOLE_SIZE;
 	}
 
 	// TODO: Allow this to make multiple segmented copies
@@ -819,6 +846,11 @@ namespace oGFX
 		{
 			vr.pfnDebugMarkerSetObjectName(device, &info);
 		}
+	}
+
+	VkDescriptorBufferInfo* AllocatedBuffer::getBufferInfoPtr()
+	{
+		return &dbi;
 	}
 
 }
