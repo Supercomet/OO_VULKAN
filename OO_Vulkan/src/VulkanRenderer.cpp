@@ -1904,6 +1904,7 @@ void VulkanRenderer::DestroyImGUI()
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
 	s_imguiSharedData.Font = nullptr;
+	g_imguiFont.destroy();
 
 	for (size_t i = 0; i < m_imguiConfig.buffers.size(); i++)
 	{
@@ -2080,11 +2081,13 @@ void VulkanRenderer::DestroyRenderBuffers()
 
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
 	{
-		vmaUnmapMemory(m_device.m_allocator, imguiVertexBuffer[i].alloc);
-		vmaUnmapMemory(m_device.m_allocator, imguiIndexBuffer[i].alloc);
+		// dont unmap for create mapped bit
+		// vmaUnmapMemory(m_device.m_allocator, imguiVertexBuffer[i].alloc);
+		// vmaUnmapMemory(m_device.m_allocator, imguiIndexBuffer[i].alloc);
 
 		vmaDestroyBuffer(m_device.m_allocator, imguiVertexBuffer[i].buffer, imguiVertexBuffer[i].alloc);
 		vmaDestroyBuffer(m_device.m_allocator, imguiIndexBuffer[i].buffer, imguiIndexBuffer[i].alloc);
+		vmaDestroyBuffer(m_device.m_allocator, imguiConstantBuffer[i].buffer, imguiConstantBuffer[i].alloc);
 	}
 
 	
@@ -2528,6 +2531,11 @@ void VulkanRenderer::RenderFrame()
 			}		
 			
 		}
+		{
+			// RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
+			const VkCommandBuffer cmd = GetCommandBuffer();
+			g_ImguiRenderpass->Draw(cmd);
+		}
     }
 }
 
@@ -2651,11 +2659,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 	// only blit main framebuffer
 
 	//if (shouldRunDebugDraw) // for now need to run regardless because of transition.. TODO: FIX IT ONE DAY
-	{
-		// RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
-		const VkCommandBuffer cmd = GetCommandBuffer();
-		g_ImguiRenderpass->Draw(cmd);
-	}
+	
 }
 
 void VulkanRenderer::Present()

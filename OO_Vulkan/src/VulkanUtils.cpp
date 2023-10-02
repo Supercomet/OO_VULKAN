@@ -501,10 +501,6 @@ namespace oGFX
 		if (bufferSize <= vmabuffer.allocInfo.size) return;
 
 		if (vmabuffer.buffer) {
-			if (vmabuffer.allocInfo.pMappedData) {
-				vmaUnmapMemory(allocator, vmabuffer.alloc);
-				vmabuffer.allocInfo.pMappedData = nullptr;
-			}
 			vmaDestroyBuffer(allocator, vmabuffer.buffer, vmabuffer.alloc);
 		}
 
