@@ -214,7 +214,7 @@ namespace vkutils
 
 		// Use a separate command buffer for texture loading
 		
-		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0, true);
+		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0,0, true);
 
 		if (useStaging)
 		{
@@ -425,7 +425,7 @@ namespace vkutils
 		this->referenceLayout = _imageLayout;
 
 		
-		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0, true);
+		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0,0, true);
 
 		oGFX::AllocatedBuffer stagingBuffer{};
 		oGFX::CreateBuffer(device->m_allocator, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -631,7 +631,7 @@ namespace vkutils
 
 		// Use a separate command buffer for texture loading
 		
-		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0, true);
+		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0,0, true);
 
 		
 		oGFX::AllocatedBuffer stagingBuffer{};
@@ -796,7 +796,7 @@ namespace vkutils
 		this->referenceLayout = _imageLayout;
 		layerCount = CUBE_LAYERS;
 
-		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0, true);
+		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0,0, true);
 
 		oGFX::AllocatedBuffer stagingBuffer{};
 		oGFX::CreateBuffer(device->m_allocator, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,

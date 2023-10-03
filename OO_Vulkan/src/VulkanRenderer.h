@@ -251,7 +251,7 @@ public:
 	void CreateFramebuffers(); 
 	void CreateCommandBuffers();
 
-	VkCommandBuffer GetCommandBuffer(uint32_t thread_id=0);
+	VkCommandBuffer GetCommandBuffer(uint32_t order = 0);
 	void SubmitSingleCommandAndWait(VkCommandBuffer cmd, uint32_t thread_id=0);
 	void SubmitSingleCommand(VkCommandBuffer cmd, uint32_t thread_id=0);
 
@@ -553,6 +553,10 @@ public:
 	bool m_restartIMGUI = false;
 
 	TaskManager g_taskManager;
+	std::mutex g_mut_taskMap;
+	std::unordered_map<std::thread::id,size_t> g_taskManagerMapping;
+	uint32_t mappedThreadCnt{};
+	uint32_t RegisterThreadMapping();
 
 	// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
 	// Bind this to every single shader possible.

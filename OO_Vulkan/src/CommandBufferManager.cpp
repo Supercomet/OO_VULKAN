@@ -34,6 +34,7 @@ VkResult oGFX::CommandBufferManager::InitPool(VkDevice device, uint32_t queueInd
     nextIndices.resize(MAX_THREADS);
     threadSubmitteds.resize(MAX_THREADS);
     threadCBs.resize(MAX_THREADS);
+    threadOrder.resize(MAX_THREADS);
     m_commandpools.resize(MAX_THREADS);
     for (size_t i = 0; i < MAX_THREADS; i++)
     {
@@ -44,11 +45,12 @@ VkResult oGFX::CommandBufferManager::InitPool(VkDevice device, uint32_t queueInd
     return VK_SUCCESS;
 }
 
-VkCommandBuffer oGFX::CommandBufferManager::GetNextCommandBuffer(uint32_t thread_id, bool begin)
+VkCommandBuffer oGFX::CommandBufferManager::GetNextCommandBuffer(uint32_t order, uint32_t thread_id, bool begin)
 {
     auto& submitted = threadSubmitteds[thread_id];
     auto& nextIndex = nextIndices[thread_id];
     auto& commandBuffers = threadCBs[thread_id];
+    auto& buffOrder = threadOrder[thread_id];
 
     if (nextIndex == commandBuffers.size())
     {
@@ -61,6 +63,8 @@ VkCommandBuffer oGFX::CommandBufferManager::GetNextCommandBuffer(uint32_t thread
         vkBeginCommandBuffer(result, &cmdBufInfo);
         submitted[bufferIdx] = eRECSTATUS::RECORDING;
     }
+    buffOrder[bufferIdx] = order;   
+    //printf("Thread [%llu][%2u] order [%2d], got cmd [%x]\n", std::this_thread::get_id(),thread_id, order, result);
     return result;
 }
 
@@ -83,6 +87,7 @@ void oGFX::CommandBufferManager::ResetPools()
         VkCommandPoolResetFlags flags{ VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT };
         VK_CHK(vkResetCommandPool(m_device, m_commandpools[i], flags));
         std::fill(threadSubmitteds[i].begin(), threadSubmitteds[i].end(), eRECSTATUS::INVALID);
+        std::fill(threadOrder[i].begin(), threadOrder[i].end(), 0);
     }
 }
 
@@ -128,12 +133,13 @@ void oGFX::CommandBufferManager::SubmitCommandBufferAndWait(uint32_t thread_id, 
 void oGFX::CommandBufferManager::SubmitAll(VkQueue queue, VkSubmitInfo inInfo, VkFence signalFence)
 {
     // batch together entire submit
-    std::vector<VkCommandBuffer> buffers;
+    std::vector<std::pair<uint32_t,VkCommandBuffer>> orderedBuffers;
     for (size_t thread_id = 0; thread_id < MAX_THREADS; thread_id++)
     {
         auto& commandBuffers = threadCBs[thread_id];
         auto& submitted = threadSubmitteds[thread_id];
-        buffers.reserve(buffers.size() + commandBuffers.size());
+        auto& order = threadOrder[thread_id];
+        orderedBuffers.reserve(orderedBuffers.size() + commandBuffers.size());
         for (size_t i = 0; i < submitted.size(); i++)
         {
             if (submitted[i] == eRECSTATUS::RECORDING)
@@ -145,7 +151,7 @@ void oGFX::CommandBufferManager::SubmitAll(VkQueue queue, VkSubmitInfo inInfo, V
 
             if (submitted[i] == eRECSTATUS::ENDED)
             {
-                buffers.emplace_back(commandBuffers[i]);
+                orderedBuffers.emplace_back(std::make_pair(order[i], commandBuffers[i]));
             }
         }
         for (auto& sub : submitted)
@@ -154,6 +160,20 @@ void oGFX::CommandBufferManager::SubmitAll(VkQueue queue, VkSubmitInfo inInfo, V
                 sub = eRECSTATUS::SUBMITTED;
         }
     }  
+
+    std::vector<VkCommandBuffer> buffers;
+    buffers.resize(orderedBuffers.size());
+
+    std::sort(orderedBuffers.begin(), orderedBuffers.end(),
+        [](const std::pair<uint32_t, VkCommandBuffer>& l, const std::pair<uint32_t, VkCommandBuffer>& r) {
+            return l.first < r.first;
+        }
+    );
+    for (size_t i = 0; i < orderedBuffers.size(); i++)
+    {
+        buffers[i] = orderedBuffers[i].second;
+        //printf("Submitting order [%d] cmd [%p]\n", orderedBuffers[i].first, buffers[i]);
+    }
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -206,5 +226,6 @@ void oGFX::CommandBufferManager::AllocateCommandBuffer(uint32_t thread_id)
 
     threadCBs[thread_id].emplace_back(cb);
     threadSubmitteds[thread_id].emplace_back(eRECSTATUS::INVALID);
+    threadOrder[thread_id].emplace_back(0);
 }
 

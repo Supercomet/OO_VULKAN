@@ -29,7 +29,7 @@ class CommandBufferManager
 {
 public:
 	VkResult InitPool(VkDevice device, uint32_t queueIndex);
-	VkCommandBuffer GetNextCommandBuffer(uint32_t threadID = 0,bool begin = false);
+	VkCommandBuffer GetNextCommandBuffer(uint32_t order, uint32_t threadID = 0,bool begin = false);
 	void EndCommandBuffer(uint32_t thread_id, VkCommandBuffer cmd);
 	void ResetPools();
 	void DestroyPools();
@@ -46,6 +46,7 @@ private:
 	std::vector<uint32_t> nextIndices{};
 	std::vector<std::vector<VkCommandBuffer>> threadCBs;
 	std::vector<std::vector<eRECSTATUS>> threadSubmitteds{};
+	std::vector<std::vector<uint32_t>> threadOrder{};
 };
 
 
