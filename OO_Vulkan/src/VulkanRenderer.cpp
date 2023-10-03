@@ -760,7 +760,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture& src,
 		dst.image.image,
 		0,
 		VK_ACCESS_TRANSFER_WRITE_BIT,
-		dst.currentLayout,
+		dst.referenceLayout,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -771,7 +771,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture& src,
 		src.image.image,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_ACCESS_TRANSFER_READ_BIT,
-		src.currentLayout, // DO PROPER RESOURCE TRACKING
+		src.referenceLayout, // DO PROPER RESOURCE TRACKING
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -835,7 +835,7 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture& src,
 		VK_ACCESS_TRANSFER_WRITE_BIT,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		dstFinal,
+		dst.referenceLayout,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
@@ -846,13 +846,11 @@ void VulkanRenderer::BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture& src,
 		VK_ACCESS_TRANSFER_READ_BIT,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		srcFinal,
+		src.referenceLayout,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
-	dst.currentLayout = dstFinal;
-	src.currentLayout = srcFinal;
 }
 
 void VulkanRenderer::CreateDefaultPSOLayouts()
@@ -1263,8 +1261,6 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 
 	
 	auto& target = attachments.gbuffer[GBufferAttachmentIndex::ENTITY_ID];
-	if (target.currentLayout == VK_IMAGE_LAYOUT_UNDEFINED)
-		return -1;
 
 	VkCommandBuffer copyCmd = GetCommandBuffer(0);
 	VK_NAME(device, "COPY_DST_EDITOR_ID_CMD_LIST", copyCmd);
@@ -1298,11 +1294,10 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	temptex.width = target.width;
 	temptex.height = target.height;
 	temptex.format = target.format;
-	temptex.currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	temptex.image = dstImage;
 
 	// Do the actual blit from the swapchain image to our host visible destination image
-	BlitFramebuffer(copyCmd, target, target.currentLayout, temptex, VK_IMAGE_LAYOUT_GENERAL);
+	BlitFramebuffer(copyCmd, target, target.referenceLayout, temptex, VK_IMAGE_LAYOUT_GENERAL);
 
 	
 	VkSubmitInfo submitInfo{};
@@ -1779,58 +1774,6 @@ void VulkanRenderer::DebugGUIcalls()
 	ImGui::End();
 }
 
-void VulkanRenderer::DrawGUI()
-{
-
-	return;
-
-	PROFILE_SCOPED();
-	std::scoped_lock l{m_imguiShutdownGuard};
-	if (m_imguiInitialized == false) return;
-
-	VkRenderPassBeginInfo GUIpassInfo = {};
-	GUIpassInfo.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	GUIpassInfo.renderPass  = m_imguiConfig.renderPass;
-	GUIpassInfo.framebuffer = m_imguiConfig.buffers[swapchainIdx];
-	GUIpassInfo.renderArea = { {0, 0}, {m_swapchain.swapChainExtent}};
-
-    const VkCommandBuffer cmdlist = GetCommandBuffer();
-	VK_NAME(m_device.logicalDevice, "IM_GUI_CMD", cmdlist);
-	
-
-	// temp hardcode until its in its own renderer
-	vkutils::TransitionImage(cmdlist, m_swapchain.swapChainImages[swapchainIdx], m_swapchain.swapChainImages[swapchainIdx].referenceLayout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	for (size_t i = 0; i < renderTargets.size(); i++)
-	{
-		if (renderTargets[i].texture.image.image != VK_NULL_HANDLE)
-		{
-			vkutils::TransitionImage(cmdlist, renderTargets[i].texture, renderTargets[i].texture.referenceLayout, VK_IMAGE_LAYOUT_GENERAL);
-		}
-	}
-	vkCmdBeginRenderPass(cmdlist, &GUIpassInfo, VK_SUBPASS_CONTENTS_INLINE);
-	if (m_imguiDrawData.Valid) 
-	{
-		ImGui_ImplVulkan_RenderDrawData(&m_imguiDrawData, cmdlist);
-	}
-	vkCmdEndRenderPass(cmdlist);
-
-	// Draw call done, invalidate old list
-
-	for (size_t i = 0; i < renderTargets.size(); i++)
-	{
-		if (renderTargets[i].texture.image.image != VK_NULL_HANDLE)
-		{
-			vkutils::TransitionImage(cmdlist, renderTargets[i].texture, VK_IMAGE_LAYOUT_GENERAL, renderTargets[i].texture.referenceLayout);
-		}
-	}
-	
-	
-
-	// set by final renderpass
-	m_swapchain.swapChainImages[swapchainIdx].currentLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	//std::cout << currentFrame << " DrawGui " << std::to_string(swapchainIdx) <<" " 
-	//	<< oGFX::vkutils::tools::VkImageLayoutString(m_swapchain.swapChainImages[swapchainIdx].currentLayout) << std::endl;
-}
 
 void VulkanRenderer::ImguiSoftDestroy()
 {
@@ -2738,11 +2681,11 @@ void VulkanRenderer::Present()
 
 	//	std::cout << currentFrame << " Present " << std::to_string(swapchainIdx) 
 	//		<<" " << oGFX::vkutils::tools::VkImageLayoutString(m_swapchain.swapChainImages[swapchainIdx].currentLayout) << std::endl;
-	if (m_swapchain.swapChainImages[swapchainIdx].currentLayout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-	{
-		std::cout << currentFrame << " Transition to present.." << std::endl;
-		vkutils::TransitionImage(GetCommandBuffer(), m_swapchain.swapChainImages[swapchainIdx], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-	}
+	// if (m_swapchain.swapChainImages[swapchainIdx].currentLayout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+	// {
+	// 	std::cout << currentFrame << " Transition to present.." << std::endl;
+	// 	vkutils::TransitionImage(GetCommandBuffer(), m_swapchain.swapChainImages[swapchainIdx], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	// }
 #if OO_END_PRODUCT
 #else
 
@@ -2883,7 +2826,7 @@ void ffxSpdSetup(uint32_t*    dispatchThreadGroupCountXY,
 
 void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 {
-	auto oldLayout = texture.currentLayout;
+	auto oldLayout = texture.referenceLayout;
 	
 	constexpr size_t maxNumMips = 13;
 	auto texMips = std::floor(std::log2(std::max(texture.width, texture.height))) + 1;
@@ -2896,7 +2839,6 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 	generatedTexture.image.allocation = VK_NULL_HANDLE;
 	generatedTexture.view = VK_NULL_HANDLE;
 	generatedTexture.name += " xd";
-	generatedTexture.currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 	generatedTexture.AllocateImageMemory(&m_device, generatedTexture.usage, (uint32_t)texMips);
 	generatedTexture.CreateImageView();
@@ -2945,7 +2887,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 	atomic.range = VK_WHOLE_SIZE;
 
 	VkDescriptorImageInfo dii{};
-	dii.imageLayout = texture.currentLayout;
+	dii.imageLayout = texture.referenceLayout;
 	dii.imageView = texture.view;
 	dii.sampler = samplerManager.GetSampler_SSAOEdgeClamp();
 	
@@ -2964,8 +2906,8 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 
 	{
 		rhi::CommandList cmdlist{ cmd, "Mipmap generation" };
-		vkutils::ComputeImageBarrier(cmd, generatedTexture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		vkutils::ComputeImageBarrier(cmd, generatedTexture,VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		vkutils::ComputeImageBarrier(cmd, texture, texture.referenceLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 		VkImageCopy region{};
 		region.srcSubresource = VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT,0,0,1};
 		region.srcSubresource.layerCount = texture.layerCount;
@@ -2974,12 +2916,12 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 		region.dstSubresource.layerCount = generatedTexture.layerCount;
 		region.dstOffset={};
 		region.extent = { texture.width,texture.height,1 };
-		vkCmdCopyImage(cmd, texture.image.image, texture.currentLayout
-			, generatedTexture.image.image, generatedTexture.currentLayout,
-			1, &region);
+		vkCmdCopyImage(cmd, texture.image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+			, generatedTexture.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+			, 1, &region);
 
-		vkutils::ComputeImageBarrier(cmd, generatedTexture, VK_IMAGE_LAYOUT_GENERAL);
-		vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_GENERAL);
+		vkutils::ComputeImageBarrier(cmd, generatedTexture,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		vkutils::ComputeImageBarrier(cmd, texture,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 
 		//clear buffer
 		vkCmdFillBuffer(cmd, atomic.buffer, atomic.offset, VK_WHOLE_SIZE, 0);
@@ -3030,8 +2972,8 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 
 		//vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, texture.mipLevels);
 		// shader read(2-A) -> general(2-A)
-		vkutils::ComputeImageBarrier(cmd, texture, oldLayout);
-		vkutils::ComputeImageBarrier(cmd, generatedTexture, oldLayout);
+		vkutils::ComputeImageBarrier(cmd, texture, VK_IMAGE_LAYOUT_GENERAL, oldLayout);
+		vkutils::ComputeImageBarrier(cmd, generatedTexture, VK_IMAGE_LAYOUT_GENERAL, oldLayout);
 		// shader read(A) -> orig(A)  
 	}
 

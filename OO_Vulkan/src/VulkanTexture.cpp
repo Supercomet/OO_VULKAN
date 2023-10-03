@@ -166,7 +166,6 @@ namespace vkutils
 			std::cerr << "Failed to create a image!" << std::endl;
 			__debugbreak();
 		}
-		this->currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		VK_NAME(device->logicalDevice, name.empty() ? "AllocateImage" : name.c_str(), image.image);
 	}
 
@@ -476,7 +475,6 @@ namespace vkutils
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			referenceLayout,
 			subresourceRange);
-		this->currentLayout = referenceLayout;
 
 		device->commandPoolManagers[0].SubmitCommandBufferAndWait(0, device->graphicsQueue, copyCmd);
 
@@ -663,7 +661,7 @@ namespace vkutils
 		oGFX::vkutils::tools::setImageLayout(
 			copyCmd,
 			image.image,
-			this->currentLayout,
+			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			subresourceRange);
 
@@ -682,24 +680,13 @@ namespace vkutils
 			copyCmd,
 			image.image,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			this->currentLayout,
+			referenceLayout,
 			subresourceRange);
 
 		device->commandPoolManagers[0].SubmitCommandBufferAndWait(0, device->graphicsQueue, copyCmd);
 
 		// Clean up staging resources
 		vmaDestroyBuffer(device->m_allocator, stagingBuffer.buffer, stagingBuffer.alloc);
-	}
-
-	
-	void SetImageInitialState(VkCommandBuffer cmd, Texture2D& texture)
-	{
-	}
-
-	void TransitionImage(VkCommandBuffer cmd, Texture& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
-	{
-		TransitionImage(cmd, texture, texture.currentLayout, targetLayout, mipBegin, mipEnd);
-		texture.currentLayout = targetLayout;
 	}
 
 	void TransitionImage(VkCommandBuffer cmd, Texture& texture, VkImageLayout currentLayout, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
@@ -735,20 +722,14 @@ namespace vkutils
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			subresrange);
-		texture.currentLayout = targetLayout;
 	}
 
 	void SetImageInitialState(VkCommandBuffer cmd, Texture& texture)
 	{
 		// printf("INI(%s)", texture.name.c_str());
-		TransitionImage(cmd, texture, texture.referenceLayout);
-		texture.currentLayout = texture.referenceLayout;
+		TransitionImage(cmd, texture, VK_IMAGE_LAYOUT_UNDEFINED, texture.referenceLayout);
 	}
 
-	void ComputeImageBarrier(VkCommandBuffer cmd, Texture& texture, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
-	{
-		ComputeImageBarrier(cmd, texture, texture.currentLayout, targetLayout, mipBegin, mipEnd);
-	}
 
 	void ComputeImageBarrier(VkCommandBuffer cmd, Texture& texture, VkImageLayout currentLayout, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
 	{
@@ -773,12 +754,11 @@ namespace vkutils
 			texture.image.image,
 			VK_ACCESS_MEMORY_WRITE_BIT,
 			VK_ACCESS_MEMORY_READ_BIT,
-			texture.currentLayout,
+			currentLayout,
 			targetLayout,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			subresrange);
-		texture.currentLayout = targetLayout;
 	}
 
 	void CubeTexture::fromBuffer(void* buffer, VkDeviceSize bufferSize, VkFormat _format, uint32_t texWidth, uint32_t texHeight, std::vector<VkBufferImageCopy> mipInfo, VulkanDevice* device, VkQueue copyQueue, VkImageLayout _imageLayout, VkFilter filter, VkImageUsageFlags imageUsageFlags)
@@ -848,7 +828,6 @@ namespace vkutils
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			referenceLayout,
 			subresourceRange);
-		this->currentLayout = referenceLayout;
 
 		device->commandPoolManagers[0].SubmitCommandBufferAndWait(0, device->graphicsQueue, copyCmd);
 

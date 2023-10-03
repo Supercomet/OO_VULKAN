@@ -328,7 +328,6 @@ public:
 	void InitImGUI();
 	void ResizeGUIBuffers();
 	void DebugGUIcalls();
-	void DrawGUI();
 	void DestroyImGUI();
 	void RestartImgui();
 	void PerformImguiRestart();

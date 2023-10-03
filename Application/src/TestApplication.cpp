@@ -756,8 +756,6 @@ void TestApplication::Run()
             {
                 renderer->RenderFrame();
 
-                renderer->DrawGUI();
-
                 renderer->Present();
                
             }
