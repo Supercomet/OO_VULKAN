@@ -2480,7 +2480,7 @@ void VulkanRenderer::RenderFrame()
 		}
 		{
 			// RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
-			const VkCommandBuffer cmd = GetCommandBuffer();
+			const VkCommandBuffer cmd = GetCommandBuffer(99);
 			g_ImguiRenderpass->Draw(cmd);
 		}
     }

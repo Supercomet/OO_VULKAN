@@ -181,6 +181,8 @@ void ImguiRenderpass::Draw(const VkCommandBuffer cmdlist)
 			{
 				std::scoped_lock l{ vr.g_mute_imguiTextureMap };
 				vkutils::Texture* tex = vr.g_imguiToTexture[pcmd->TextureId];
+				if (tex == nullptr) { tex = &vr.g_Textures[vr.whiteTextureID]; };
+
 				cmd.DescriptorSetBegin(0)
 					.BindImage(0, tex, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 					.BindSampler(1, GfxSamplerManager::GetDefaultSampler());
