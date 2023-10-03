@@ -269,7 +269,7 @@ void ImguiRenderpass::CreatePipeline()
 	auto inputAssembly           = Creator<VkPipelineInputAssemblyStateCreateInfo>(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 	auto viewportStateCreateInfo = Creator<VkPipelineViewportStateCreateInfo>();
 	auto multisamplingCreateInfo = Creator<VkPipelineMultisampleStateCreateInfo>();
-	auto rasterizerCreateInfo    = Creator<VkPipelineRasterizationStateCreateInfo>(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
+	auto rasterizerCreateInfo    = Creator<VkPipelineRasterizationStateCreateInfo>(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 	const std::vector dynamicState{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 	auto dynamicStateCreateInfo  = Creator<VkPipelineDynamicStateCreateInfo>(dynamicState);
 	auto depthStencilCreateInfo  = Creator<VkPipelineDepthStencilStateCreateInfo>(VK_FALSE, VK_FALSE, vr.G_DEPTH_COMPARISON);
