@@ -157,6 +157,8 @@ VulkanRenderer::~VulkanRenderer()
 	//wait until no actions being run on device before destorying
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
+	g_taskManager.Shutdown();
+
 	std::fstream s("stats.txt", std::ios::out);
 	if (s)
 	{
@@ -288,6 +290,8 @@ VulkanRenderer* VulkanRenderer::get()
 
 bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 {
+
+	g_taskManager.Init(std::thread::hardware_concurrency());
 		
 	g_globalModels.reserve(MAX_OBJECTS);
 	std::cout << "create instance\n";
@@ -1129,22 +1133,22 @@ void VulkanRenderer::CreateCommandBuffers()
 	
 }
 
-VkCommandBuffer VulkanRenderer::GetCommandBuffer()
+VkCommandBuffer VulkanRenderer::GetCommandBuffer(uint32_t thread_id)
 {
 	constexpr bool beginBuffer = true;
-	VkCommandBuffer result = m_device.commandPoolManagers[getFrame()].GetNextCommandBuffer(beginBuffer);
+	VkCommandBuffer result = m_device.commandPoolManagers[getFrame()].GetNextCommandBuffer(0,beginBuffer);
 	VK_NAME(m_device.logicalDevice, "DEFAULTCMD", result);
 	return result;
 }
 
-void VulkanRenderer::SubmitSingleCommandAndWait(VkCommandBuffer cmd)
+void VulkanRenderer::SubmitSingleCommandAndWait(VkCommandBuffer cmd, uint32_t thread_id)
 {
-	m_device.commandPoolManagers[getFrame()].SubmitCommandBufferAndWait(m_device.graphicsQueue, cmd);	
+	m_device.commandPoolManagers[getFrame()].SubmitCommandBufferAndWait(thread_id, m_device.graphicsQueue, cmd);
 }
 
-void VulkanRenderer::SubmitSingleCommand(VkCommandBuffer cmd)
+void VulkanRenderer::SubmitSingleCommand(VkCommandBuffer cmd, uint32_t thread_id)
 {
-	m_device.commandPoolManagers[getFrame()].SubmitCommandBuffer(m_device.graphicsQueue, cmd);
+	m_device.commandPoolManagers[getFrame()].SubmitCommandBuffer(thread_id, m_device.graphicsQueue, cmd);
 }
 
 void VulkanRenderer::SetWorld(GraphicsWorld* world)
@@ -1258,7 +1262,7 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	if (target.currentLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 		return -1;
 
-	VkCommandBuffer copyCmd = beginSingleTimeCommands();
+	VkCommandBuffer copyCmd = GetCommandBuffer(0);
 	VK_NAME(device, "COPY_DST_EDITOR_ID_CMD_LIST", copyCmd);
 
 	// Source for the copy is the last rendered swapchain image
@@ -1296,18 +1300,13 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	// Do the actual blit from the swapchain image to our host visible destination image
 	BlitFramebuffer(copyCmd, target, target.currentLayout, temptex, VK_IMAGE_LAYOUT_GENERAL);
 
-	vkEndCommandBuffer(copyCmd);
-
 	
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &copyCmd; 
 
-	vkQueueSubmit(m_device.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(m_device.graphicsQueue);
-	vkFreeCommandBuffers(m_device.logicalDevice, m_device.commandPoolManagers[getFrame()].m_commandpool, 1, &copyCmd);
-
+	SubmitSingleCommandAndWait(copyCmd, 0);
 
 	// Get layout of the image (including row pitch)
 	VkImageSubresource subResource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
@@ -1381,7 +1380,7 @@ void VulkanRenderer::UploadLights()
 	const auto& spotLights = batches.GetLocalLights();
 	m_numShadowcastLights = batches.m_numShadowcastLights;
 	auto cmd = GetCommandBuffer();
-	globalLightBuffer[getFrame()].writeToCmd(spotLights.size(), spotLights.data(), cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+	globalLightBuffer[getFrame()].writeToCmd(spotLights.size(), spotLights.data(), cmd);
 
 }
 
@@ -1982,6 +1981,7 @@ void VulkanRenderer::InitializeRenderBuffers()
 	// In this function, all global rendering related buffers should be initialized, ONCE.
 
 	// Note: Moved here from VulkanRenderer::UpdateIndirectCommands
+	VkCommandBuffer cmd = GetCommandBuffer(0);
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
 	{
 
@@ -1989,7 +1989,7 @@ void VulkanRenderer::InitializeRenderBuffers()
 		VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer[i].getBuffer()); 
 
 		shadowCasterCommandsBuffer[i].Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT );
-		shadowCasterCommandsBuffer[i].reserve(MAX_OBJECTS,m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+		shadowCasterCommandsBuffer[i].reserve(cmd,MAX_OBJECTS);
 		VK_NAME(m_device.logicalDevice, "Shadow Command Buffer", shadowCasterCommandsBuffer[i].getBuffer());
 
 		// Note: Moved here from VulkanRenderer::UpdateInstanceData
@@ -2135,7 +2135,7 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		}
 
 		auto cmd = GetCommandBuffer();
-		indirectCommandsBuffer[getFrame()].writeToCmd(allObjectsCommands.size(), allObjectsCommands.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+		indirectCommandsBuffer[getFrame()].writeToCmd(allObjectsCommands.size(), allObjectsCommands.data(),cmd);
 
 	}
 
@@ -2148,7 +2148,7 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		}
 		shadowCasterCommandsBuffer[getFrame()].clear();
 		auto cmd = GetCommandBuffer();
-		shadowCasterCommandsBuffer[getFrame()].writeToCmd(shadowObjects.size(), (void*)shadowObjects.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+		shadowCasterCommandsBuffer[getFrame()].writeToCmd(shadowObjects.size(), (void*)shadowObjects.data(),cmd);
 	}
 
 	{
@@ -2159,8 +2159,8 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		g_particleDatas[getFrame()].clear();
 
 		auto cmd = GetCommandBuffer();
-		g_particleCommandsBuffer[getFrame()].writeToCmd(particleCommands.size(), particleCommands.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);		
-		g_particleDatas[getFrame()].writeToCmd(particleData.size(), particleData.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+		g_particleCommandsBuffer[getFrame()].writeToCmd(particleCommands.size(), particleCommands.data(),cmd);		
+		g_particleDatas[getFrame()].writeToCmd(particleData.size(), particleData.data(),cmd);
 		
 	}
 
@@ -2313,10 +2313,10 @@ void VulkanRenderer::UploadInstanceData()
 		return;
 	}
 	auto cmd = GetCommandBuffer();
-	gpuTransformBuffer[getFrame()].writeToCmd(gpuTransform.size(), gpuTransform.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
-	gpuBoneMatrixBuffer[getFrame()].writeToCmd(boneMatrices.size(), boneMatrices.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+	gpuTransformBuffer[getFrame()].writeToCmd(gpuTransform.size(), gpuTransform.data(),cmd);
+	gpuBoneMatrixBuffer[getFrame()].writeToCmd(boneMatrices.size(), boneMatrices.data(),cmd);
 
-	objectInformationBuffer[getFrame()].writeToCmd(objectInformation.size(), objectInformation.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+	objectInformationBuffer[getFrame()].writeToCmd(objectInformation.size(), objectInformation.data(),cmd);
 
     // Better to catch this on the software side early than the Vulkan validation layer
 	// TODO: Fix this gracefully
@@ -2325,7 +2325,7 @@ void VulkanRenderer::UploadInstanceData()
 		MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of instance buffer.", L"BAD ERROR");
     }
 
-	instanceBuffer[getFrame()].writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+	instanceBuffer[getFrame()].writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd);
 
 }
 
@@ -2350,8 +2350,8 @@ void VulkanRenderer::UploadUIData()
 	}
 
 	auto cmd = GetCommandBuffer();
-	g_UIVertexBufferGPU[getFrame()].writeToCmd(verts.size(), verts.data(),cmd,m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
-	g_UIIndexBufferGPU[getFrame()].writeToCmd(idx.size(), idx.data(),cmd,m_device.graphicsQueue,m_device.commandPoolManagers[getFrame()].m_commandpool);
+	g_UIVertexBufferGPU[getFrame()].writeToCmd(verts.size(), verts.data(),cmd);
+	g_UIIndexBufferGPU[getFrame()].writeToCmd(idx.size(), idx.data(),cmd);
 
 
 }
@@ -2410,7 +2410,7 @@ void VulkanRenderer::BeginDraw()
 	{
 		PROFILE_SCOPED("Begin Command Buffer");
 
-		m_device.commandPoolManagers[getFrame()].ResetPool();
+		m_device.commandPoolManagers[getFrame()].ResetPools();
 		//Information about how to begin each command buffer
 		VkCommandBufferBeginInfo bufferBeginInfo = oGFX::vkutils::inits::commandBufferBeginInfo();
 		//start recording commanders to command buffer!
@@ -2459,9 +2459,9 @@ void VulkanRenderer::BeginDraw()
 				
 			}
 			auto cmd = GetCommandBuffer();
-			if (g_GlobalMeshBuffers.IdxBuffer.m_mustUpdate) g_GlobalMeshBuffers.IdxBuffer.flushToGPU(cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
-			if (g_GlobalMeshBuffers.VtxBuffer.m_mustUpdate) g_GlobalMeshBuffers.VtxBuffer.flushToGPU(cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
-			if (gpuSkinningBoneWeightsBuffer.m_mustUpdate) gpuSkinningBoneWeightsBuffer.flushToGPU(cmd, m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+			if (g_GlobalMeshBuffers.IdxBuffer.m_mustUpdate) g_GlobalMeshBuffers.IdxBuffer.flushToGPU(cmd);
+			if (g_GlobalMeshBuffers.VtxBuffer.m_mustUpdate) g_GlobalMeshBuffers.VtxBuffer.flushToGPU(cmd);
+			if (gpuSkinningBoneWeightsBuffer.m_mustUpdate) gpuSkinningBoneWeightsBuffer.flushToGPU(cmd);
 			
 			UpdateUniformBuffers();
 			UploadInstanceData();
@@ -2891,7 +2891,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 		.Build(dstsets[0], SetLayoutDB::compute_AMDSPD);
 
 	
-	auto cmd = beginSingleTimeCommands();
+	auto cmd = GetCommandBuffer(0);
 
 	{
 		rhi::CommandList cmdlist{ cmd, "Mipmap generation" };
@@ -2967,9 +2967,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 	}
 
 	//m_device.commandPoolManagers[getFrame()].SubmitCommandBuffer(m_device.graphicsQueue, cmd);
-	endSingleTimeCommands(cmd);
-	vkQueueWaitIdle(m_device.graphicsQueue);
-	vkFreeCommandBuffers(m_device.logicalDevice,m_device.commandPoolManagers[getFrame()].m_commandpool, 1, &cmd);
+	SubmitSingleCommandAndWait(cmd, 0);
 
 	generatedTexture.updateDescriptor();
 
@@ -4107,7 +4105,7 @@ oGFX::CPUSkeletonInstance* VulkanRenderer::CreateSkeletonInstance(uint32_t model
 
 VkCommandBuffer VulkanRenderer::beginSingleTimeCommands()
 {
-	VkCommandBufferAllocateInfo allocInfo= oGFX::vkutils::inits::commandBufferAllocateInfo(m_device.commandPoolManagers[getFrame()].m_commandpool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1);
+	VkCommandBufferAllocateInfo allocInfo= oGFX::vkutils::inits::commandBufferAllocateInfo(m_device.commandPoolManagers[getFrame()].m_commandpools[0], VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1);
 
 	VkCommandBuffer commandBuffer;
 	vkAllocateCommandBuffers(m_device.logicalDevice, &allocInfo, &commandBuffer);
@@ -4264,14 +4262,15 @@ bool VulkanRenderer::UploadDebugDrawBuffers()
 		//g_DebugDrawIndexBufferGPU.clear();
 		return false; // Do not run any debug draw render pass
 	}
+	auto cmd = GetCommandBuffer();
 
-	g_DebugDrawVertexBufferGPU[getFrame()].reserve(g_DebugDrawVertexBufferCPU.size() ,m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
-	g_DebugDrawIndexBufferGPU[getFrame()].reserve(g_DebugDrawIndexBufferCPU.size(),m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+	g_DebugDrawVertexBufferGPU[getFrame()].reserve(cmd, g_DebugDrawVertexBufferCPU.size());
+	g_DebugDrawIndexBufferGPU[getFrame()].reserve(cmd, g_DebugDrawIndexBufferCPU.size());
 
 	// Copy CPU debug draw buffers to the GPU
-	auto cmd = GetCommandBuffer();
-	g_DebugDrawVertexBufferGPU[getFrame()].writeToCmd(g_DebugDrawVertexBufferCPU.size() , g_DebugDrawVertexBufferCPU.data(),cmd,m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
-	g_DebugDrawIndexBufferGPU[getFrame()].writeToCmd(g_DebugDrawIndexBufferCPU.size() , g_DebugDrawIndexBufferCPU.data(),cmd,m_device.graphicsQueue, m_device.commandPoolManagers[getFrame()].m_commandpool);
+	
+	g_DebugDrawVertexBufferGPU[getFrame()].writeToCmd(g_DebugDrawVertexBufferCPU.size() , g_DebugDrawVertexBufferCPU.data(),cmd);
+	g_DebugDrawIndexBufferGPU[getFrame()].writeToCmd(g_DebugDrawIndexBufferCPU.size() , g_DebugDrawIndexBufferCPU.data(),cmd);
 
 	// Clear the CPU debug draw buffers for this frame
 	g_DebugDrawVertexBufferCPU.clear();

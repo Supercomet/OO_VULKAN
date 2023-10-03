@@ -119,6 +119,7 @@
     <ClCompile Include="src\VulkanBuffer.cpp" />
     <ClCompile Include="src\loader\tinyddsloader.cpp" />
     <ClCompile Include="src\TexturePacker.cpp" />
+    <ClCompile Include="src\TaskManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\buildDefs.h" />
@@ -186,6 +187,7 @@
     <ClInclude Include="src\VulkanBuffer.h" />
     <ClInclude Include="src\loader\tinyddsloader.h" />
     <ClInclude Include="src\TexturePacker.h" />
+    <ClInclude Include="src\TaskManager.h" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="glm.natvis" />

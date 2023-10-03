@@ -49,6 +49,8 @@ Technology is prohibited.
 #include "TexturePacker.h"
 #include "Font.h"
 
+#include "TaskManager.h"
+
 #include <vector>
 #include <array>
 #include <set>
@@ -249,9 +251,9 @@ public:
 	void CreateFramebuffers(); 
 	void CreateCommandBuffers();
 
-	VkCommandBuffer GetCommandBuffer();
-	void SubmitSingleCommandAndWait(VkCommandBuffer cmd);
-	void SubmitSingleCommand(VkCommandBuffer cmd);
+	VkCommandBuffer GetCommandBuffer(uint32_t thread_id=0);
+	void SubmitSingleCommandAndWait(VkCommandBuffer cmd, uint32_t thread_id=0);
+	void SubmitSingleCommand(VkCommandBuffer cmd, uint32_t thread_id=0);
 
 	ImTextureID myImg;
 
@@ -550,6 +552,7 @@ public:
 	bool m_reloadShaders = false;
 	bool m_restartIMGUI = false;
 
+	TaskManager g_taskManager;
 
 	// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
 	// Bind this to every single shader possible.

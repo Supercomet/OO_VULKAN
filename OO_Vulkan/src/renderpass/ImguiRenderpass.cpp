@@ -65,6 +65,9 @@ bool ImguiRenderpass::SetupDependencies()
 void ImguiRenderpass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
+	if (vr.m_imguiInitialized == false) return;
+
+	std::scoped_lock lock{ vr.m_imguiShutdownGuard };
 
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
