@@ -213,7 +213,7 @@ namespace vkutils
 
 		// Use a separate command buffer for texture loading
 		
-		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0,0, true);
+		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0, true);
 
 		if (useStaging)
 		{
@@ -366,7 +366,7 @@ namespace vkutils
 			oGFX::vkutils::tools::setImageLayout(copyCmd, image.image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, imageLayout);
 			
 		}
-		device->commandPoolManagers[0].SubmitCommandBufferAndWait(0, device->graphicsQueue, copyCmd);
+		device->commandPoolManagers[0].SubmitCommandBufferAndWait(device->graphicsQueue, copyCmd);
 
 		stbi_image_free(ktxTextureData);
 
@@ -424,7 +424,7 @@ namespace vkutils
 		this->referenceLayout = _imageLayout;
 
 		
-		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0,0, true);
+		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0, true);
 
 		oGFX::AllocatedBuffer stagingBuffer{};
 		oGFX::CreateBuffer(device->m_allocator, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -476,7 +476,7 @@ namespace vkutils
 			referenceLayout,
 			subresourceRange);
 
-		device->commandPoolManagers[0].SubmitCommandBufferAndWait(0, device->graphicsQueue, copyCmd);
+		device->commandPoolManagers[0].SubmitCommandBufferAndWait( device->graphicsQueue, copyCmd);
 
 		// Clean up staging resources
 		vmaDestroyBuffer(device->m_allocator, stagingBuffer.buffer, stagingBuffer.alloc);
@@ -629,7 +629,7 @@ namespace vkutils
 
 		// Use a separate command buffer for texture loading
 		
-		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0,0, true);
+		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0, true);
 
 		
 		oGFX::AllocatedBuffer stagingBuffer{};
@@ -683,7 +683,7 @@ namespace vkutils
 			referenceLayout,
 			subresourceRange);
 
-		device->commandPoolManagers[0].SubmitCommandBufferAndWait(0, device->graphicsQueue, copyCmd);
+		device->commandPoolManagers[0].SubmitCommandBufferAndWait( device->graphicsQueue, copyCmd);
 
 		// Clean up staging resources
 		vmaDestroyBuffer(device->m_allocator, stagingBuffer.buffer, stagingBuffer.alloc);
@@ -776,7 +776,7 @@ namespace vkutils
 		this->referenceLayout = _imageLayout;
 		layerCount = CUBE_LAYERS;
 
-		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0,0, true);
+		VkCommandBuffer copyCmd = device->commandPoolManagers[0].GetNextCommandBuffer(0, true);
 
 		oGFX::AllocatedBuffer stagingBuffer{};
 		oGFX::CreateBuffer(device->m_allocator, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -829,7 +829,7 @@ namespace vkutils
 			referenceLayout,
 			subresourceRange);
 
-		device->commandPoolManagers[0].SubmitCommandBufferAndWait(0, device->graphicsQueue, copyCmd);
+		device->commandPoolManagers[0].SubmitCommandBufferAndWait(device->graphicsQueue, copyCmd);
 
 		// Clean up staging resources
 		vmaDestroyBuffer(device->m_allocator, stagingBuffer.buffer, stagingBuffer.alloc);

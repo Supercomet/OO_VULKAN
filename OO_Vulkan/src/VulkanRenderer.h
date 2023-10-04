@@ -36,6 +36,8 @@ Technology is prohibited.
 #include "Geometry.h"
 #include "Collision.h"
 
+#include "TaskManager.h"
+
 #include "Camera.h"
 
 #include "imgui/imgui.h"
@@ -223,6 +225,7 @@ public:
 	 PFN_vkCmdDebugMarkerBeginEXT pfnDebugMarkerRegionBegin{ nullptr };
 	 PFN_vkCmdDebugMarkerEndEXT pfnDebugMarkerRegionEnd{ nullptr };
 
+	 VulkanRenderer();
 	~VulkanRenderer();
 
 	static VulkanRenderer* get();
@@ -244,6 +247,7 @@ public:
 
 	void FullscreenBlit(VkCommandBuffer cmd, vkutils::Texture& src,VkImageLayout srcFinal, vkutils::Texture& dst,VkImageLayout dstFinal);
 	void BlitFramebuffer(VkCommandBuffer cmd, vkutils::Texture& src,VkImageLayout srcFinal, vkutils::Texture& dst,VkImageLayout dstFinal);
+	VkCommandBuffer m_finalBlitCmd{ VK_NULL_HANDLE };
 
 	void CreateDefaultPSOLayouts();
 	void CreateDefaultPSO();
@@ -251,10 +255,16 @@ public:
 	void CreateFramebuffers(); 
 	void CreateCommandBuffers();
 
-	VkCommandBuffer GetCommandBuffer(uint32_t order = 0);
-	void SubmitSingleCommandAndWait(VkCommandBuffer cmd, uint32_t thread_id=0);
-	void SubmitSingleCommand(VkCommandBuffer cmd, uint32_t thread_id=0);
-
+	VkCommandBuffer GetCommandBuffer();
+	void SubmitSingleCommandAndWait(VkCommandBuffer cmd);
+	void SubmitSingleCommand(VkCommandBuffer cmd);
+	void QueueCommandBuffer(VkCommandBuffer cmd);
+	std::vector<VkCommandBuffer>sequencedBuffers;
+	std::queue<Task>m_taskList;
+	std::vector<Task>m_sequentialTasks;
+	TaskCompletionCallback drawCallRecrodingCompleted{ Task([](void*) {}) };
+	void AddRenderer(GfxRenderpass* pass);
+	
 	ImTextureID myImg;
 
 	bool useSSAO = true;

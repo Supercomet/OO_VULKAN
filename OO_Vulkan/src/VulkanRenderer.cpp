@@ -154,6 +154,10 @@ int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU
 		
 }
 
+VulkanRenderer::VulkanRenderer()
+{
+}
+
 VulkanRenderer::~VulkanRenderer()
 { 
 	//wait until no actions being run on device before destorying
@@ -1134,23 +1138,44 @@ void VulkanRenderer::CreateCommandBuffers()
 	
 }
 
-VkCommandBuffer VulkanRenderer::GetCommandBuffer(uint32_t order)
+VkCommandBuffer VulkanRenderer::GetCommandBuffer()
 {
 	uint32_t thread_id = g_taskManagerMapping[std::this_thread::get_id()];
 	constexpr bool beginBuffer = true;
-	VkCommandBuffer result = m_device.commandPoolManagers[getFrame()].GetNextCommandBuffer(order,thread_id,beginBuffer);
+	VkCommandBuffer result = m_device.commandPoolManagers[getFrame()].GetNextCommandBuffer(thread_id,beginBuffer);
 	VK_NAME(m_device.logicalDevice, "DEFAULTCMD", result);
 	return result;
 }
 
-void VulkanRenderer::SubmitSingleCommandAndWait(VkCommandBuffer cmd, uint32_t thread_id)
+void VulkanRenderer::SubmitSingleCommandAndWait(VkCommandBuffer cmd)
 {
-	m_device.commandPoolManagers[getFrame()].SubmitCommandBufferAndWait(thread_id, m_device.graphicsQueue, cmd);
+	m_device.commandPoolManagers[getFrame()].SubmitCommandBufferAndWait(m_device.graphicsQueue, cmd);
 }
 
-void VulkanRenderer::SubmitSingleCommand(VkCommandBuffer cmd, uint32_t thread_id)
+void VulkanRenderer::SubmitSingleCommand(VkCommandBuffer cmd)
 {
-	m_device.commandPoolManagers[getFrame()].SubmitCommandBuffer(thread_id, m_device.graphicsQueue, cmd);
+	m_device.commandPoolManagers[getFrame()].SubmitCommandBuffer(m_device.graphicsQueue, cmd);
+}
+
+void VulkanRenderer::QueueCommandBuffer(VkCommandBuffer cmd)
+{
+	m_device.commandPoolManagers[getFrame()].QueueCommandBuffer(cmd);
+}
+
+void VulkanRenderer::AddRenderer(GfxRenderpass* pass)
+{
+	auto renderTask = [this,pass = pass](void*) {		
+			//generally works until we need to perform better frustrum culling....
+			const VkCommandBuffer cmd = this->GetCommandBuffer();
+			pass->Draw(cmd);		
+		};
+	m_taskList.push(Task(renderTask, nullptr, &drawCallRecrodingCompleted));
+
+	auto sequencer = [this, pass = pass](void*) {	
+		OO_ASSERT(pass->lastCmd);
+		this->QueueCommandBuffer(pass->lastCmd);
+	};
+	m_sequentialTasks.emplace_back(sequencer);
 }
 
 void VulkanRenderer::SetWorld(GraphicsWorld* world)
@@ -1262,7 +1287,7 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	
 	auto& target = attachments.gbuffer[GBufferAttachmentIndex::ENTITY_ID];
 
-	VkCommandBuffer copyCmd = GetCommandBuffer(0);
+	VkCommandBuffer copyCmd = GetCommandBuffer();
 	VK_NAME(device, "COPY_DST_EDITOR_ID_CMD_LIST", copyCmd);
 
 	// Source for the copy is the last rendered swapchain image
@@ -1305,7 +1330,7 @@ int32_t VulkanRenderer::GetPixelValue(uint32_t fbID, glm::vec2 uv)
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &copyCmd; 
 
-	SubmitSingleCommandAndWait(copyCmd, 0);
+	SubmitSingleCommandAndWait(copyCmd);
 
 	// Get layout of the image (including row pitch)
 	VkImageSubresource subResource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
@@ -1928,7 +1953,7 @@ void VulkanRenderer::InitializeRenderBuffers()
 	// In this function, all global rendering related buffers should be initialized, ONCE.
 
 	// Note: Moved here from VulkanRenderer::UpdateIndirectCommands
-	VkCommandBuffer cmd = GetCommandBuffer(0);
+	VkCommandBuffer cmd = GetCommandBuffer();
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
 	{
 
@@ -2463,46 +2488,45 @@ void VulkanRenderer::RenderFrame()
 		// Manually schedule the order of the render pass execution. (single threaded)
 		if(currWorld)
 		{
-			if (getFrame())
-			{
-				std::string str("CommandListEven " + std::to_string(getFrame()));
-				PROFILE_GPU_EVENT( "CommandListEven");
-				RenderFunc(shouldRunDebugDraw);
-			}
-			else
-			{
-				std::string str("CommandListOdd " + std::to_string(getFrame()));
-				PROFILE_GPU_EVENT( "CommandListOdd");
-				RenderFunc(shouldRunDebugDraw);
-				//std::this_thread::sleep_for(std::chrono::milliseconds(16));
-			}		
-			
+			PROFILE_GPU_EVENT( "CommandListRecording");
+			RenderFunc(shouldRunDebugDraw);		
 		}
+		
+		AddRenderer(g_ImguiRenderpass);
+
+		std::condition_variable cv;
+		std::mutex waitMut;
+		bool waitingForTasks = true;
+		auto tasksDone = [&w = waitingForTasks, &mut = waitMut, &cond = cv](void*) {
+			std::scoped_lock l(mut);
+			w = false;
+			cond.notify_all();
+			};
+		drawCallRecrodingCompleted.CompletionTask = Task(tasksDone);
+		drawCallRecrodingCompleted.TaskCount = m_taskList.size();
+
+		g_taskManager.AddTaskList(m_taskList);
 		{
-			// RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
-			const VkCommandBuffer cmd = GetCommandBuffer(99);
-			g_ImguiRenderpass->Draw(cmd);
+			// wait for task to complete
+			std::unique_lock l(waitMut);
+			cv.wait(l, [&wait = waitingForTasks]() { return wait == false; });
 		}
+
+		//once done execute sequential task
+		for (size_t i = 0; i < m_sequentialTasks.size(); i++)
+		{
+			m_sequentialTasks[i].pTaskFunction(m_sequentialTasks[i].pTaskParam);
+		}
+		m_sequentialTasks.clear();
     }
 }
 
 void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 {
 	renderIteration = 0;
-	uint32_t count = 0;
-	std::queue<Task>taskList;
-	
-	std::condition_variable cv;
-	std::mutex waitMut;
-	bool waitingForTasks = true;
-	auto tasksDone = [&w = waitingForTasks,&mut = waitMut, &cond = cv](void*) {
-		//printf("[WAIT TASK] waitTasks signaled\n");
-		std::scoped_lock l(mut);
-		w = false;
-		cond.notify_all();
-		};
-	TaskCompletionCallback cb(Task(tasksDone),1);
+	m_taskList = {}; // clear tasklist
 
+	
 	//for (size_t i = 0; i < currWorld->numCameras; i++)
 	{		
 		//if (currWorld->shouldRenderCamera[i] == false)
@@ -2528,150 +2552,62 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		
 		 // only render shadowpass once per frame...  // this is for multi-viewport
 		
-
-		auto shadowTask = [this,c= count++](void*){
-			if (shadowsRendered == false) 
-			{
-				//generally works until we need to perform better frustrum culling....
-				const VkCommandBuffer cmd = this->GetCommandBuffer(c);
-				g_ShadowPass->Draw(cmd);
-				shadowsRendered = true;
-				//printf("Thread [%llu] finished cmd [%x]\n", std::this_thread::get_id(), cmd);
-			}
-		};
-		taskList.push(Task(shadowTask,nullptr, &cb));
+		if (shadowsRendered == false)
+		{
+			AddRenderer(g_ShadowPass);
+			shadowsRendered = true;
+		}
+		AddRenderer(g_ZPrePass);
+		AddRenderer(g_GBufferRenderPass);
+		AddRenderer(g_SSAORenderPass);
+		AddRenderer(g_LightingPass);
+		AddRenderer(g_SkyRenderPass);
+		AddRenderer(g_LightingHistogram);
+		AddRenderer(g_BloomPass);
+		AddRenderer(g_ForwardParticlePass);
+		AddRenderer(g_ForwardUIPass);
+		AddRenderer(g_DebugDrawRenderpass);
 		
-		auto zprepass = [this, c = count++](void*)
-		{
-			const VkCommandBuffer cmd = GetCommandBuffer(c);
-			g_ZPrePass->Draw(cmd);
-			//printf("Thread [%llu] finished cmd [%x]\n", std::this_thread::get_id(), cmd);
-		};
-		taskList.push(Task(zprepass, nullptr, &cb));
-		
-		auto gbufferT = [this, c = count++](void*){
-			const VkCommandBuffer cmd = GetCommandBuffer(c);
-			g_GBufferRenderPass->Draw(cmd);
-			//printf("Thread [%llu] finished cmd [%x]\n", std::this_thread::get_id(), cmd);
-		};
-		taskList.push(Task(gbufferT, nullptr, &cb));
-		
-		auto ssaoT = [this, c = count++](void*)
-		{
-			const VkCommandBuffer cmd = GetCommandBuffer(c);
-			VK_NAME(m_device.logicalDevice, "SSAO_CMD", cmd);
-			g_SSAORenderPass->Draw(cmd);
-			//printf("Thread [%llu] finished cmd [%x]\n", std::this_thread::get_id(), cmd);
-		};
-		taskList.push(Task(ssaoT, nullptr, &cb));
-
-		auto lightingT = [this, c = count++](void*)
-		{
-			const VkCommandBuffer cmd = GetCommandBuffer(c);
-			g_LightingPass->Draw(cmd);
-			//printf("Thread [%llu] finished cmd [%x]\n", std::this_thread::get_id(), cmd);
-		};
-		taskList.push(Task(lightingT, nullptr, &cb));
-
-		auto skyT = [this, c = count++](void*)
-		{
-			if(g_cubeMap.image.image != VK_NULL_HANDLE)
-			{
-				const VkCommandBuffer cmd = GetCommandBuffer(c);
-				g_SkyRenderPass->Draw(cmd);
-				//printf("Thread [%llu] finished cmd [%x]\n", std::this_thread::get_id(), cmd);
-			}
-		};
-		taskList.push(Task(skyT, nullptr, &cb));
-
-		auto histoT = [this, c = count++](void*)
-		{
-			const VkCommandBuffer cmd = GetCommandBuffer(c);
-			g_LightingHistogram->Draw(cmd);
+		auto updateHistogram = [this](void*) {
+			const VkCommandBuffer cmd = GetCommandBuffer();
 			VkBufferCopy region{};
 			region.size = sizeof(LuminenceData);
 			vkCmdCopyBuffer(cmd, LuminanceBuffer.buffer, LuminanceMonitor.buffer, 1, &region);
 			vmaFlushAllocation(m_device.m_allocator, LuminanceMonitor.alloc, 0, sizeof(LuminenceData));
-			//printf("Thread [%llu] finished cmd [%x]\n", std::this_thread::get_id(), cmd);
 		};
-		taskList.push(Task(histoT, nullptr, &cb));
+		m_taskList.push(Task(updateHistogram, 0, &drawCallRecrodingCompleted));
 
-
-		auto bloomT = [this, c = count++](void*)
-		{
-			const VkCommandBuffer cmd = GetCommandBuffer(c);
-			g_BloomPass->Draw(cmd);
-			//printf("Thread [%llu] finished cmd [%x]\n", std::this_thread::get_id(), cmd);
-		};
-		taskList.push(Task(bloomT, nullptr, &cb));
-
-		auto particleT = [this, c = count++](void*)
-		{
-			const VkCommandBuffer cmd = GetCommandBuffer(c);
-			g_ForwardParticlePass->Draw(cmd);
-			//printf("Thread [%llu] finished cmd [%x]\n", std::this_thread::get_id(), cmd);
-		};
-		taskList.push(Task(particleT, nullptr, &cb));
-
-		auto uiT = [this, c = count++](void*)
-		{
-			const VkCommandBuffer cmd = GetCommandBuffer(c);
-			g_ForwardUIPass->Draw(cmd);
-			//printf("Thread [%llu] finished cmd [%x]\n", std::this_thread::get_id(), cmd);
-		};
-		taskList.push(Task(uiT, nullptr, &cb));
 #if defined		(ENABLE_DECAL_IMPLEMENTATION)
 		RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
-#endif		
-		auto debugT = [this, c = count++, runDebug = shouldRunDebugDraw](void*) 
-		{
-			if (runDebug) // for now need to run regardless because of transition.. TODO: FIX IT ONE DAY
-			{
-				// RenderPassDatabase::GetRenderPass<DebugDrawRenderpass>()->dodebugRendering = shouldRunDebugDraw;
-				const VkCommandBuffer cmd = GetCommandBuffer(c);
-				g_DebugDrawRenderpass->Draw(cmd);
-				//printf("Thread [%llu] finished cmd [%x]\n", std::this_thread::get_id(), cmd);
-			}
-		};
-		taskList.push(Task(debugT, nullptr, &cb));
-
-		//++renderIteration; // next viewport
+#endif				
 	}	
 
-	cb.TaskCount = count;
-	//printf("tasks submit\n");
-	g_taskManager.AddTaskList(taskList);
-
-	{
-		std::unique_lock l(waitMut);
-		cv.wait(l, [&wait = waitingForTasks]() { return wait == false; });
-	}
-	
-	//printf("tasks finished\n");
-
-	auto& dst = m_swapchain.swapChainImages[swapchainIdx];
 	//std::cout << currentFrame << " Func " << std::to_string(swapchainIdx) <<" " << oGFX::vkutils::tools::VkImageLayoutString(dst.currentLayout) << std::endl;
-	if (currWorld->numCameras > 1)
-	{
-		// TODO: Very bad pls fix
-		auto thisID = currWorld->targetIDs[1];
-		auto& texture = renderTargets[thisID].texture;		
+	auto blitT = [this](void*) {
+		auto& dst = m_swapchain.swapChainImages[swapchainIdx];
+		VkCommandBuffer cmd = GetCommandBuffer();
+		this->m_finalBlitCmd = cmd;
+		if (currWorld->numCameras > 1)
+		{
+			// TODO: Very bad pls fix
+			auto thisID = currWorld->targetIDs[1];
+			auto& texture = renderTargets[thisID].texture;
 
-		auto nextID = currWorld->targetIDs[0];
-		auto& nextTexture = renderTargets[nextID].texture;
-		FullscreenBlit(GetCommandBuffer(count++), nextTexture, nextTexture.referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			auto nextID = currWorld->targetIDs[0];
+			auto& nextTexture = renderTargets[nextID].texture;
+			FullscreenBlit(cmd, nextTexture, nextTexture.referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-	}
-	else
-	{
-		auto thisID = currWorld->targetIDs[0];
-		auto& texture = renderTargets[thisID].texture;
-		FullscreenBlit(GetCommandBuffer(count++), texture, texture.referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	}
+		}
+		else
+		{
+			auto thisID = currWorld->targetIDs[0];
+			auto& texture = renderTargets[thisID].texture;
+			FullscreenBlit(cmd, texture, texture.referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		}
+	};
+	m_taskList.push(Task(blitT, 0, &drawCallRecrodingCompleted));
+	m_sequentialTasks.push_back(Task([this](void*) { QueueCommandBuffer(this->m_finalBlitCmd); }));
 	// only blit main framebuffer
-
-	//if (shouldRunDebugDraw) // for now need to run regardless because of transition.. TODO: FIX IT ONE DAY
-	
 }
 
 void VulkanRenderer::Present()
@@ -2902,8 +2838,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 		.Build(dstsets[0], SetLayoutDB::compute_AMDSPD);
 
 	
-	auto cmd = GetCommandBuffer(0);
-
+	auto cmd = GetCommandBuffer();
 	{
 		rhi::CommandList cmdlist{ cmd, "Mipmap generation" };
 		vkutils::ComputeImageBarrier(cmd, generatedTexture,VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -2978,7 +2913,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 	}
 
 	//m_device.commandPoolManagers[getFrame()].SubmitCommandBuffer(m_device.graphicsQueue, cmd);
-	SubmitSingleCommandAndWait(cmd, 0);
+	SubmitSingleCommandAndWait(cmd);
 
 	generatedTexture.updateDescriptor();
 

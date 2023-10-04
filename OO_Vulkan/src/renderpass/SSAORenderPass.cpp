@@ -112,7 +112,7 @@ void SSAORenderPass::Draw(const VkCommandBuffer cmdlist)
 	auto currFrame = vr.getFrame();
 	auto* windowPtr = vr.windowPtr;
 
-
+	lastCmd = cmdlist;
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("SSAO");
 
