@@ -70,7 +70,7 @@ void GraphicsBatch::GenerateBatches()
 		//});
 	}
 
-	m_uiVertices.clear();
+	
 	ProcessUI();
 
 	ProcessLights();
@@ -284,7 +284,9 @@ void GraphicsBatch::ProcessUI()
 	auto& allUI = m_world->m_UIcopy;
 
 	PROFILE_SCOPED();
-
+	m_uiVertices.clear();
+	
+	std::queue<Task> tasks;
 
 	for (auto& ui: allUI)
 	{
@@ -301,13 +303,16 @@ void GraphicsBatch::ProcessUI()
 
 		if (static_cast<bool>(ui.flags & Flags::TEXT_INSTANCE))
 		{
-			GenerateTextGeometry(ui);
+			auto lam = [this, &ui = ui](void*) {GenerateTextGeometry(ui); };
+			tasks.emplace(lam);
+			
 		}
 		else
 		{
 			GenerateSpriteGeometry(ui);
 		}
 	}
+	VulkanRenderer::get()->g_taskManager.AddTaskListAndWait(tasks);
 
 	// dirty way of doing screenspace
 	m_SSVertOffset = m_uiVertices.size();
@@ -479,6 +484,7 @@ void GraphicsBatch::GenerateSpriteGeometry(const UIInstance& ui)
 
 void GraphicsBatch::GenerateTextGeometry(const UIInstance& ui)
 {
+	PROFILE_SCOPED();
 	using FontFormatting = oGFX::FontFormatting;
 	using FontAlignment = oGFX::FontAlignment;
 
@@ -717,7 +723,10 @@ void GraphicsBatch::GenerateTextGeometry(const UIInstance& ui)
 		startY = /*ui.position.y*/ -halfFontSize + halfLines * fullFontSize * ui.format.verticalLineSpace;
 	}
 
-
+	std::vector<oGFX::UIVertex> vertexBuffer;
+	
+	// arbitrary size
+	vertexBuffer.reserve(tokens.size() * 4 * 10);
 	glm::vec2 cursorPos{ startX, startY };
 	for (const auto& token : tokens)
 	{
@@ -779,11 +788,18 @@ void GraphicsBatch::GenerateTextGeometry(const UIInstance& ui)
 				vert.pos.w = -1.0; // neagtive is font
 				vert.col = ui.colour;
 				vert.tex = glm::vec4(textureCoords[i], fontAtlas->m_atlasID, ui.entityID);
-				m_uiVertices.push_back(vert);
+				vertexBuffer.push_back(vert);
 			}
 
 		}
 	}
-
-
+	
+	// transfer to global buffer
+	std::scoped_lock lock{ m_uiVertMutex };
+	auto sz = m_uiVertices.size();
+	m_uiVertices.resize(m_uiVertices.size() + vertexBuffer.size());
+	for (size_t i = 0; i < vertexBuffer.size(); i++)
+	{
+		m_uiVertices[sz + i] = vertexBuffer[i];
+	}
 }

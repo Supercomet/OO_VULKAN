@@ -59,6 +59,36 @@ void TaskManager::AddTaskList(std::queue<Task>& newTaskList)
     m_QueueCondition.notify_all();
 }
 
+void TaskManager::AddTaskListAndWait(std::queue<Task>& newTaskList)
+{
+    if (newTaskList.empty()) return;
+
+    std::condition_variable cv;
+    std::mutex waitMut;
+    bool waitingForTasks = true;
+    auto tasksDone = [&w = waitingForTasks, &mut = waitMut, &cond = cv](void*) {
+        std::scoped_lock l(mut);
+        w = false;
+        cond.notify_all();
+        };
+    TaskCompletionCallback cb(Task(tasksDone), newTaskList.size());
+    std::queue<Task> tasks;
+    while (newTaskList.size()) 
+    {
+        newTaskList.front().pTaskCompletionCallback = &cb;
+        tasks.emplace(newTaskList.front());
+        newTaskList.pop();
+    }
+
+    AddTaskList(tasks);
+    {
+        PROFILE_SCOPED("AddTaskListAndWait");
+        // wait for task to complete
+        std::unique_lock l(waitMut);
+        cv.wait(l, [&wait = waitingForTasks]() { return wait == false; });
+    }
+}
+
 
 void TaskManager::TaskExecutor()
 {

@@ -70,6 +70,8 @@ public:
      */
     void AddTaskList(std::queue<Task>& newTaskList);
 
+    void AddTaskListAndWait(std::queue<Task>& newTaskList);
+
 private:
     TaskManager(const TaskManager&) = delete;
     TaskManager& operator=(const TaskManager&) = delete;

@@ -2303,10 +2303,12 @@ void VulkanRenderer::UploadInstanceData()
 
 void VulkanRenderer::UploadUIData()
 {
+	PROFILE_SCOPED();
 	const auto& verts = batches.GetUIVertices();
 
 	std::vector<uint32_t> idx;
 	const auto numQuads = verts.size()/4;
+	idx.reserve(numQuads * 6);
 	uint32_t currVert = 0;
 	// hardcode indices
 	for (size_t i = 0; i < numQuads; i++)
@@ -2331,6 +2333,7 @@ void VulkanRenderer::UploadUIData()
 bool VulkanRenderer::PrepareFrame()
 {
 	{
+		PROFILE_SCOPED("Work queue");
 		std::scoped_lock s{ g_mut_workQueue };
 		for (size_t i = 0; i < g_workQueue.size(); i++)
 		{
@@ -2411,8 +2414,10 @@ void VulkanRenderer::BeginDraw()
 		}
 		
 		//std::cout << currentFrame << " Setting " << std::to_string(swapchainIdx) <<" " << oGFX::vkutils::tools::VkImageLayoutString(m_swapchain.swapChainImages[swapchainIdx].currentLayout) << std::endl;
-
-		DelayedDeleter::get()->Update();
+		{
+			
+			DelayedDeleter::get()->Update();
+		}
 
 		descAllocs[getFrame()].ResetPools();
 
@@ -2420,6 +2425,7 @@ void VulkanRenderer::BeginDraw()
 
 		if (currWorld)
 		{
+			PROFILE_SCOPED("Init batches");
 			batches.Init(currWorld, this, MAX_OBJECTS);
 			currWorld->BeginFrame();
 			batches.GenerateBatches();
@@ -2427,20 +2433,22 @@ void VulkanRenderer::BeginDraw()
 
 		{
 			PROFILE_SCOPED("Transfer data");
-			{
+			{				
+				auto cmd = GetCommandBuffer();
+				{
+					PROFILE_SCOPED("Mesh buffers");
+					if (g_GlobalMeshBuffers.IdxBuffer.m_mustUpdate) g_GlobalMeshBuffers.IdxBuffer.flushToGPU(cmd);
+					if (g_GlobalMeshBuffers.VtxBuffer.m_mustUpdate) g_GlobalMeshBuffers.VtxBuffer.flushToGPU(cmd);
+					if (gpuSkinningBoneWeightsBuffer.m_mustUpdate) gpuSkinningBoneWeightsBuffer.flushToGPU(cmd);
+				}
 				
-			}
-			auto cmd = GetCommandBuffer();
-			if (g_GlobalMeshBuffers.IdxBuffer.m_mustUpdate) g_GlobalMeshBuffers.IdxBuffer.flushToGPU(cmd);
-			if (g_GlobalMeshBuffers.VtxBuffer.m_mustUpdate) g_GlobalMeshBuffers.VtxBuffer.flushToGPU(cmd);
-			if (gpuSkinningBoneWeightsBuffer.m_mustUpdate) gpuSkinningBoneWeightsBuffer.flushToGPU(cmd);
-			
-			UpdateUniformBuffers();
-			UploadInstanceData();
-			UploadUIData();
-			UploadLights();
+				UpdateUniformBuffers();
+				UploadInstanceData();
+				UploadUIData();
+				UploadLights();
 
-			GenerateCPUIndirectDrawCommands();
+				GenerateCPUIndirectDrawCommands();
+			}
 	
 			VkDescriptorImageInfo basicSampler = oGFX::vkutils::inits::descriptorImageInfo(
 				GfxSamplerManager::GetDefaultSampler(),
@@ -2484,15 +2492,17 @@ void VulkanRenderer::RenderFrame()
 		// Command list has already started inside VulkanRenderer::Draw
         PROFILE_GPU_CONTEXT(GetCommandBuffer());
 
+		PROFILE_GPU_EVENT("CommandListRecording");
         //this->SimplePass(); // Unsued
 		// Manually schedule the order of the render pass execution. (single threaded)
-		if(currWorld)
 		{
-			PROFILE_GPU_EVENT( "CommandListRecording");
-			RenderFunc(shouldRunDebugDraw);		
+			PROFILE_SCOPED("Renderer Task allocation");
+			if(currWorld)
+			{		
+				RenderFunc(shouldRunDebugDraw);		
+			}		
+			AddRenderer(g_ImguiRenderpass);
 		}
-		
-		AddRenderer(g_ImguiRenderpass);
 
 		std::condition_variable cv;
 		std::mutex waitMut;
@@ -2507,6 +2517,7 @@ void VulkanRenderer::RenderFrame()
 
 		g_taskManager.AddTaskList(m_taskList);
 		{
+			PROFILE_GPU_EVENT("Wait for workers");
 			// wait for task to complete
 			std::unique_lock l(waitMut);
 			cv.wait(l, [&wait = waitingForTasks]() { return wait == false; });
