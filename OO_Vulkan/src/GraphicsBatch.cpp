@@ -116,8 +116,7 @@ void GraphicsBatch::ProcessLights()
 	}
 
 		
-	m_numShadowcastLights = 0;
-	int32_t gridIdx = 0;
+	m_numShadowCastGrids = 0;
 
 	m_culledLights.clear();
 	auto& lights = m_world->m_OmniLightCopy;
@@ -137,7 +136,6 @@ void GraphicsBatch::ProcessLights()
 		oGFX::Sphere s;
 		s.center = e.position;
 		s.radius = e.radius.x;
-		//oGFX::DebugDraw::AddSphere(s,e.color);
 
 		auto existing = GetLightEnabled(e);
 		auto renderLight = GetLightEnabled(e);
@@ -157,38 +155,84 @@ void GraphicsBatch::ProcessLights()
 		{
 			continue;
 		}
-		LocalLightInstance si;
-		if (GetCastsShadows(e))
-		{
-
-			e.info.y = gridIdx;			
-			if (e.info.x == 1) // type one is omnilight
-			{
-				// loop through all faces
-				for (size_t i = 0; i < 6; i++)
-				{
-					++m_numShadowcastLights;
-					si.view[i] = e.view[i];
-					++gridIdx;
-				}
-			}
-			else // else spotlight?
-			{
-				++m_numShadowcastLights;
-				si.view[0] = e.view[++viewIter%6];		
-				++gridIdx;
-			}
-		}
-
+		LocalLightInstance si;		
 		SetLightEnabled(si, true);
 		si.info = e.info;
 		si.position = e.position;
 		si.color = e.color;
 		si.radius = e.radius;
 		si.projection = e.projection;
-
+		//if (GetCastsShadows(e))
+		//{
+		//	e.info.y = gridIdx;
+		//	if (e.info.x == 1) // type one is omnilight
+		//	{
+		//		// loop through all faces
+		for (size_t i = 0; i < 6; i++)
+		{
+			// setup views
+			si.view[i] = e.view[i];
+		}
+		//	}
+		//	else // else spotlight?
+		//	{
+		//		++m_numShadowcastLights;
+		//		si.view[0] = e.view[++viewIter % 6];
+		//		++gridIdx;
+		//	}
+		//}
 		m_culledLights.emplace_back(si);
 	}
+
+	// process shadows
+	int32_t gridIdx = 0;
+	//front camera culling
+	auto& camera = m_world->cameras[0];
+	std::vector<LocalLightInstance*> shadowLights;
+	for (size_t i = 0; i < m_culledLights.size(); i++)
+	{
+		if (GetCastsShadows(m_culledLights[i])) {
+			shadowLights.emplace_back(&m_culledLights[i]);
+		}
+		SetCastsShadows(m_culledLights[i], false);
+	}
+	// sort lights by distance
+	std::sort(shadowLights.begin(), shadowLights.end(), [camPos = camera.m_position](const LocalLightInstance* l, const LocalLightInstance* r) {
+		glm::vec3 dirL = glm::vec3(l->position) - camPos;
+		float distL = glm::dot(dirL,dirL);
+		glm::vec3 dirR = glm::vec3(r->position) - camPos;
+		float distR = glm::dot(dirR,dirR);
+		
+		return distL < distR;
+	});
+
+	int32_t numLights{};
+	for (auto ePtr : shadowLights)
+	{
+		auto& e = *ePtr;
+		SetCastsShadows(e,true);
+		{
+			e.info.y = gridIdx;
+			if (e.info.x == 1) // type one is omnilight
+			{
+				// loop through all faces
+				for (size_t i = 0; i < 6; i++)
+				{
+					++m_numShadowCastGrids;
+					++gridIdx;
+				}
+			}
+			else // else spotlight?
+			{
+				++m_numShadowCastGrids;
+				++gridIdx;
+			}
+
+			numLights++;
+		}
+		if (numLights > 2) break;
+	}
+
 
 }
 
@@ -286,6 +330,9 @@ void GraphicsBatch::ProcessUI()
 	PROFILE_SCOPED();
 	m_uiVertices.clear();
 	
+	std::vector<UIInstance*> instances;
+	instances.reserve(128);
+
 	std::queue<Task> tasks;
 
 	for (auto& ui: allUI)
@@ -303,8 +350,10 @@ void GraphicsBatch::ProcessUI()
 
 		if (static_cast<bool>(ui.flags & Flags::TEXT_INSTANCE))
 		{
+			instances.emplace_back(&ui);
 			auto lam = [this, &ui = ui](void*) {GenerateTextGeometry(ui); };
-			tasks.emplace(lam);
+			lam(nullptr);
+			// tasks.emplace(lam);
 			
 		}
 		else
@@ -312,7 +361,29 @@ void GraphicsBatch::ProcessUI()
 			GenerateSpriteGeometry(ui);
 		}
 	}
-	VulkanRenderer::get()->g_taskManager.AddTaskListAndWait(tasks);
+
+	size_t i = 0;
+	for (; i < instances.size()/4; i++)
+	{
+		 auto lam = [this, ui = instances.data()+i*4](void*) {
+			 for (size_t x = 0; x < 4; x++)
+			 {
+				 UIInstance* uiPtr= *(ui + x);
+				 GenerateTextGeometry(*uiPtr); 
+			 }			 
+		 };
+		 tasks.emplace(lam);
+	}
+	i *= 4;
+	auto lam = [this, ui = instances.data()+i, i = i, instancesSz = instances.size()](void*) {
+		for (size_t x = i; x < instancesSz; x++)
+		{
+			GenerateTextGeometry(**(ui+x)); 
+		}		 
+	};
+	//tasks.emplace(lam);
+
+	//VulkanRenderer::get()->g_taskManager.AddTaskListAndWait(tasks);
 
 	// dirty way of doing screenspace
 	m_SSVertOffset = m_uiVertices.size();
