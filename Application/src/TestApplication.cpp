@@ -71,6 +71,11 @@ static BindlessTextureIndex gs_RedTexture= INVALID_BINDLESS_TEXTURE_INDEX;
 
 static uint32_t globalDionaID{ 0 };
 
+std::array<BindlessTextureIndex, 10> roughness{};
+std::array<BindlessTextureIndex, 10> metalic{};
+uint32_t beginSpheres;
+uint32_t endSpheres;
+
 struct DummyTestMaterial
 {
     BindlessTextureIndex albedo;
@@ -98,6 +103,7 @@ static uint32_t gs_ModelID_Box = 0;
 bool resetBones = false;
 
 bool s_freezeLight = true;
+bool s_freezeSphere = true;
 bool s_boolCamera = 0;
 
 // this is to pretend we have an ECS system
@@ -228,6 +234,26 @@ static GizmoContext gs_GizmoContext{};
 std::unique_ptr<ModelFileResource> gs_test_scene;
 std::unique_ptr<ModelFileResource> character_diona;
 
+void ResetSpheres() 
+{
+    const float gridSize = 1.3f;
+    const float halfGrid = roughness.size() * gridSize / 2.0f;
+    for (size_t i = 0; i < roughness.size(); i++)
+    {
+        for (size_t y = 0; y < roughness.size(); y++)
+        {
+            auto idx = beginSpheres +y + i * roughness.size();
+            auto& ed = entities[idx];
+            ed.position = { gridSize * i - halfGrid,gridSize * y - halfGrid + 3.5f,-5.0f };
+            ed.scale = glm::vec3(1.0f);
+            ed.SyncToGraphicsWorld();
+            
+        }
+    }
+   
+   
+}
+
 void TestApplication::Run()
 {
     gs_RenderEngine = VulkanRenderer::get();
@@ -341,8 +367,7 @@ void TestApplication::Run()
 
     const BindlessTextureIndex cubeTexture = gs_RenderEngine->CreateCubeMapTexture("Textures/viking");
     
-    std::array<BindlessTextureIndex,10> roughness{};
-    std::array<BindlessTextureIndex,10> metalic{};
+
     for (size_t i = 0; i < roughness.size(); i++)
     {
         float val = 1.0f / (roughness.size()-1);
@@ -463,14 +488,16 @@ void TestApplication::Run()
 
     uint32_t uiID = CreateTextHelper(glm::mat4(1.0f), std::string("123 Test\nNew Line"), testFont.get());
 
-	const float gridSize = 1.3f;
-	const float halfGrid = roughness.size() * gridSize / 2.0f;
+	
+    const float gridSize = 1.3f;
+    const float halfGrid = roughness.size() * gridSize / 2.0f;
+   beginSpheres = entities.size();
 	for (size_t i = 0; i < roughness.size(); i++)
-	{
-        
+	{        
 		for (size_t y = 0; y < metalic.size(); y++)
 		{
-			auto& ed = entities.emplace_back(EntityInfo{});
+            auto& ed = entities.emplace_back(EntityInfo{});
+
 			std::stringstream ss;
 			ss << "Sphere_M[" << y << "]R[" << i << "]";
 			ed.name = std::string("Sphere_M") + std::to_string(i * metalic.size() + y);
@@ -479,8 +506,7 @@ void TestApplication::Run()
 			ed.modelID = model_sphere->meshResource;
 			//ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
 
-			ed.position = { gridSize * i - halfGrid,gridSize * y - halfGrid + 3.5f,-5.0f };
-			ed.scale = { 1.0f,1.0f,1.0f };
+            ed.scale = { 1.0f,1.0f,1.0f };
 
 			ed.bindlessGlobalTextureIndex_Albedo = gs_RedTexture;
 			ed.bindlessGlobalTextureIndex_Metallic = metalic[y];
@@ -494,7 +520,13 @@ void TestApplication::Run()
 
 		}
 	}
+    endSpheres = entities.size();
 
+    ResetSpheres();
+
+   
+
+    
 
 	if (gs_test_scene)
     {
@@ -510,13 +542,30 @@ void TestApplication::Run()
         //ed.instanceData = 0;
     }
 
+    uint32_t LSphere;
     {
+        LSphere = entities.size();
         auto& ed = entities.emplace_back(EntityInfo{});
         ed.name = "Box";
         ed.entityID = FastRandomMagic();
         ed.modelID = model_sphere->meshResource;
         ed.position = { 0.0f,0.0f,0.0f };
-        ed.scale = { 1.0f,1.0f,1.0f };
+        ed.scale = glm::vec3{ 0.5f };
+
+        ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
+        ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
+        ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
+    }
+
+    uint32_t bigSphere;
+    {
+        bigSphere = entities.size();
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.name = "Rsphere";
+        ed.entityID = FastRandomMagic();
+        ed.modelID = model_sphere->meshResource;
+        ed.position = { 0.0f,0.0f,0.0f };
+        ed.scale = glm::vec3{ 1.0f };
 
         ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
         ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
@@ -823,12 +872,12 @@ void TestApplication::Run()
 
             {
                 PROFILE_SCOPED("ImGui::Update");
-                ImGui::Begin("Problems");            
+                ImGui::Begin("Problems");
                 if (ImGui::Button("Cause problems"))
                 {
                     uint32_t col = 0x00FFFF00;
                     gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&col);
-                
+
                 }
                 {
                     ImGui::PushID("uiID");
@@ -837,14 +886,14 @@ void TestApplication::Run()
                     if (ImGui::Checkbox("isText", &lolthisistext))
                     {
                         ent.SetText(lolthisistext);
-                    }        
+                    }
                     ImGui::InputText("Text", &ent.textData);
                     float fontsize = ent.format.fontSize;
                     if (ImGui::DragFloat("FontSize", &fontsize))
                     {
                         ent.format.fontSize = fontsize;
                     }
-                    ImGui::ColorPicker4("Colour",glm::value_ptr(ent.colour ));
+                    ImGui::ColorPicker4("Colour", glm::value_ptr(ent.colour));
                     ImGui::DragFloat2("Bmin", glm::value_ptr(ent.format.box.min));
                     ImGui::DragFloat2("Bmax", glm::value_ptr(ent.format.box.max));
                     ImGui::PopID();
@@ -854,7 +903,22 @@ void TestApplication::Run()
                 }
                 ImGui::End();
 
-               
+                oGFX::AABB smlBox;
+                smlBox.center = entities[LSphere].position;
+                smlBox.halfExt = entities[LSphere].scale/2.0f;
+                oGFX::AABB bigBox;
+                bigBox.center = entities[bigSphere].position;
+                bigBox.halfExt = entities[bigSphere].scale / 2.0f;
+
+                oGFX::DebugDraw::AddAABB(bigBox);
+                if (oGFX::coll::AabbContains(bigBox, smlBox)) 
+                {
+                    oGFX::DebugDraw::AddAABB(smlBox, oGFX::Colors::GREEN);
+                }
+                else 
+                {
+                    oGFX::DebugDraw::AddAABB(smlBox, oGFX::Colors::RED);
+                }
 
                 if (Input::GetKeyTriggered(KEY_P))
                 {
@@ -901,35 +965,82 @@ void TestApplication::Run()
             // {
             //     PROFILE_SCOPED("gs_RenderEngine->PrepareFrame() == true");
             // 
-            //     if (s_freezeLight == false)
-            //     {
-			// 		OmniLightInstance* lights[hardCodedLights];
-            //         for (size_t i = 0; i < hardCodedLights; i++)
-            //         {
-            //             lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
-            //         }
-            // 
-            // 
-			// 		static float lightTimer = 0.0f;
-			// 		lightTimer += deltaTime * 0.25f;
-            // 
-            //                  
-			// 		lights[0]->position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
-			// 		lights[0]->position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
-            //                  
-			// 		lights[1]->position.x = -4.0f + sin(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
-			// 		lights[1]->position.z = 0.0f + cos(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
-            //                  
-			// 		lights[2]->position.x = 4.0f + sin(glm::radians(360.0f * lightTimer)) * 2.0f;
-			// 		lights[2]->position.z = 0.0f + cos(glm::radians(360.0f * lightTimer)) * 2.0f;
-            //                  
-			// 		lights[4]->position.x = 0.0f + sin(glm::radians(360.0f * lightTimer + 90.0f)) * 5.0f;
-			// 		lights[4]->position.z = 0.0f - cos(glm::radians(360.0f * lightTimer + 45.0f)) * 5.0f;
-            //                  
-			// 		lights[5]->position.x = 0.0f + sin(glm::radians(-360.0f * lightTimer + 135.0f)) * 10.0f;
-			// 		lights[5]->position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
-            // 
-            //     }
+			if (s_freezeLight == false)
+			{
+				OmniLightInstance* lights[hardCodedLights];
+				for (size_t i = 0; i < hardCodedLights; i++)
+				{
+					lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
+				}
+
+
+				static float lightTimer = 0.0f;
+				lightTimer += deltaTime * 0.25f;
+
+
+				lights[0]->position.x = sin(glm::radians(360.0f * lightTimer)) * 5.0f;
+				lights[0]->position.z = cos(glm::radians(360.0f * lightTimer)) * 5.0f;
+
+				lights[1]->position.x = -4.0f + sin(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
+				lights[1]->position.z = 0.0f + cos(glm::radians(360.0f * lightTimer) + 45.0f) * 2.0f;
+
+				lights[2]->position.x = 4.0f + sin(glm::radians(360.0f * lightTimer)) * 2.0f;
+				lights[2]->position.z = 0.0f + cos(glm::radians(360.0f * lightTimer)) * 2.0f;
+
+				lights[4]->position.x = 0.0f + sin(glm::radians(360.0f * lightTimer + 90.0f)) * 5.0f;
+				lights[4]->position.z = 0.0f - cos(glm::radians(360.0f * lightTimer + 45.0f)) * 5.0f;
+
+				lights[5]->position.x = 0.0f + sin(glm::radians(-360.0f * lightTimer + 135.0f)) * 10.0f;
+				lights[5]->position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
+
+			}
+            const float M_PI = glm::pi<float>();
+            static std::vector<glm::vec4> angles = [sz = endSpheres-beginSpheres, M_PI= M_PI]() {
+                std::vector<glm::vec4> a;
+                a.resize(sz);
+                for (size_t i = 0; i < a.size(); i++)
+                {
+                    a[i].x = float(FastRandomMagic()) / UINT32_MAX * M_PI;
+                    a[i].y = float(FastRandomMagic()) / UINT32_MAX * M_PI;
+                    a[i].z = float(FastRandomMagic()) / UINT32_MAX * M_PI;
+                    a[i].w =float(i)/a.size()*2.0f;
+                }
+                return a;
+            }();
+            if (s_freezeSphere == false) 
+            {
+                static float ballsTimer = 0.0f;
+                ballsTimer += deltaTime * 0.25f;
+              
+                size_t posIter = 0;
+                for (size_t i = beginSpheres; i < endSpheres; i++)
+                {
+                    angles[i].x += angles[i].w * deltaTime;
+                    angles[i].y += angles[i].w * deltaTime;
+                    angles[i].z += angles[i].w * deltaTime;
+                   
+                    if (angles[i].x > 2 * M_PI) {
+                        angles[i].x -= 2 * M_PI;
+                    }
+                    if (angles[i].y > 2 * M_PI) {
+                        angles[i].y -= 2 * M_PI;
+                    }
+                    if (angles[i].z > 2 * M_PI) {
+                        angles[i].z -= 2 * M_PI;
+                    }
+                    float r = 10.0f;
+                    std::function<float(float)> funs[] = {
+                        [](float x) { return cos(x); }
+                    ,[](float x) { return sin(x); } };
+
+                    entities[i].position[(posIter+0)%3] = funs[(posIter+posIter)%2](angles[i].x) * r;
+                    entities[i].position[(posIter+1)%3] = sin(angles[i].y) * r;
+                    entities[i].position[(posIter+2)%3] = funs[(posIter+2+posIter)%2](angles[i].z) * r;
+                    entities[i].scale = glm::vec3(0.2f);
+                    entities[i].SyncToGraphicsWorld();
+                    ++posIter;
+                }
+            }
             // 
             //     // We need to test debug draw...
                    RunTest_DebugDraw();
@@ -1529,11 +1640,10 @@ void TestApplication::Tool_HandleGizmoManipulation()
 void TestApplication::Tool_HandleUI()
 {
 	if (ImGui::Begin("Scene Helper"))
-	{
-        
+	{        
         resetBones = ImGui::Button("ResetBones");
 		if (ImGui::BeginTabBar("SceneHelperTabBar"))
-		{
+		{          
 			if (ImGui::BeginTabItem("Entity"))
 			{
 				if (ImGui::SmallButton("Create Cube"))
@@ -1569,7 +1679,7 @@ void TestApplication::Tool_HandleUI()
 						entities.emplace_back(EntityInfo{});
 						auto& entity = entities[x];
 						entity.position = { pos.x, glm::abs(pos.y), pos.z };
-						entity.scale = { 1.0f,1.0f,1.0f };
+                        entity.scale = glm::vec3{ 1.0f };
 						entity.modelID = gs_ModelID_Box;
 						entity.entityID = FastRandomMagic();
 
@@ -1578,17 +1688,27 @@ void TestApplication::Tool_HandleUI()
 				}
 
 				ImGui::Text("Total Entities: %u", entities.size());
-
+                if (ImGui::Checkbox("Freeze Spheres", &s_freezeSphere)) {
+                    if (s_freezeSphere == true) {
+                        ResetSpheres();
+                    }
+                };
 				if (ImGui::TreeNode("Entity"))
 				{
                     for (auto& entity : entities)
                     {
+                        if (&entity == gs_GizmoContext.GetSelectedEntityInfo()) {
+                            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 0, 255));
+                        }
                         bool valuesModified = false;
                         ImGui::PushID(entity.entityID);
 
                         ImGui::BulletText("[ID:%u] ", entity.entityID);
                         ImGui::SameLine();
                         ImGui::Text(entity.name.c_str());
+                        if (&entity == gs_GizmoContext.GetSelectedEntityInfo()) {
+                            ImGui::PopStyleColor();
+                        }
                         auto& msh = gs_RenderEngine->g_globalModels[entity.modelID];
                         ImGui::Text("Submesh");
                         ImGui::Dummy({1, 1});

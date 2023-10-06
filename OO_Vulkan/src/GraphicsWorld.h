@@ -22,6 +22,7 @@ Technology is prohibited.
 #include "VulkanTexture.h"
 #include "VulkanUtils.h"
 #include "Font.h"
+#include "OctTree.h"
 
 #include "imgui/imgui.h"
 #include <vector>
@@ -297,6 +298,8 @@ private:
     std::vector<UIInstance> m_UIcopy;
     std::vector<OmniLightInstance> m_OmniLightCopy;
     std::vector<EmitterInstance> m_EmitterCopy;
+
+    oGFX::OctTree m_octTree{ [](uint32_t) { return oGFX::AABB{}; } };
     // + Spatial Acceleration Structures
     // + Culling object BV against frustum
 };

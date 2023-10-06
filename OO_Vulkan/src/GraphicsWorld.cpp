@@ -41,6 +41,29 @@ void GraphicsWorld::BeginFrame()
 		m_objectsCopy.emplace_back(src);
 	}
 
+	auto getBoxFun = [&ents = m_objectsCopy, &models = vr.g_globalModels](uint32_t entity)->oGFX::AABB {
+		oGFX::AABB box;
+		ObjectInstance& oi = ents[entity];
+		auto& mdl = models[oi.modelID];
+		oGFX::Sphere bs = mdl.m_subMeshes.front().boundingSphere;
+
+		float sx = glm::length(glm::vec3(oi.localToWorld[0][0], oi.localToWorld[1][0], oi.localToWorld[2][0]));
+		float sy = glm::length(glm::vec3(oi.localToWorld[0][1], oi.localToWorld[1][1], oi.localToWorld[2][1]));
+		float sz = glm::length(glm::vec3(oi.localToWorld[0][2], oi.localToWorld[1][2], oi.localToWorld[2][2]));
+
+		box.center = vec3(oi.localToWorld * vec4(bs.center, 1.0));
+		float maxSize = std::max(sx, std::max(sy, sz));
+		maxSize *= bs.radius / 2.0f;
+		box.halfExt = vec3{ maxSize };
+		return box;
+		};
+
+	m_octTree = oGFX::OctTree{ getBoxFun, oGFX::AABB{vec3{-25.0f},vec3{25.0f}} };
+	for (size_t i = 0; i < m_objectsCopy.size(); i++)
+	{
+		m_octTree.Insert(i);
+	}
+
 	m_EmitterCopy.clear();
 	m_EmitterCopy.reserve(m_EmitterInstances.size());
 	for (const EmitterInstance& src: m_EmitterInstances)
@@ -61,6 +84,8 @@ void GraphicsWorld::BeginFrame()
 	{
 		m_OmniLightCopy.emplace_back(src);
 	}
+
+	
 }
 
 void GraphicsWorld::EndFrame()

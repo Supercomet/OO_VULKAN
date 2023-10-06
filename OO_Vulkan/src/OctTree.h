@@ -13,9 +13,11 @@ Technology is prohibited.
 *//*************************************************************************************/
 #include "MathCommon.h"
 #include "Geometry.h"
+#include "VulkanUtils.h"
 
 #include <vector>
 #include <tuple>
+#include <functional>
 #include <memory>
 
 namespace oGFX {
@@ -27,41 +29,36 @@ class OctTree
 public:
 	inline static constexpr uint32_t s_num_children = 8;
 	inline static constexpr uint32_t s_stop_depth = 8;
-	inline static constexpr uint32_t s_stop_triangles = 50;
 public:
-	OctTree(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTrangles = s_stop_triangles);
+	OctTree(std::function<AABB(uint32_t)> getBox, const AABB rootBox = { Point3D{-500.0f},Point3D{500.0f} } ,int stopDepth = s_stop_depth);
+	void Insert(uint32_t entity);
+	void Remove(uint32_t entity);
 
-	std::tuple< std::vector<Point3D>, std::vector<uint32_t>,std::vector<uint32_t> > GetTriangleList();
+	std::vector<uint32_t> GetEntitiesInFrustum(const Frustum& frust);
 	std::tuple< std::vector<AABB>,std::vector<uint32_t> > GetActiveBoxList();
 
-	void Rebuild();
-	void SetTriangles(int maxTrianges);
-	int GetTriangles();
-	float progress();
-
+	void ClearTree();
 	uint32_t size() const;
 
 private:
+	std::function<AABB(uint32_t)> m_GetBoxFunction;
 	std::unique_ptr<OctNode> m_root{};
-	uint32_t m_trianglesSaved{};
-	uint32_t m_trianglesRemaining{};
-	uint32_t m_nodes{};
-	uint32_t m_TrianglesSliced{};
-	std::vector<Point3D> m_vertices; std::vector<uint32_t> m_indices;
-	uint32_t m_maxNodesTriangles{ s_stop_triangles };
+
+	uint32_t m_entitiesCnt{};
+	std::vector<uint32_t> m_entities;
 	uint32_t m_maxDepth{ s_stop_depth };
 
+	uint32_t m_nodes{};
 	uint32_t m_boxesInsertCnt[s_num_children];
 
-	void SplitNode(OctNode* node,const AABB& box,const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices);
-	void PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices,const Plane& plane,
-		std::vector<Point3D>& positiveVerts, std::vector<uint32_t>& positiveIndices,
-		std::vector<Point3D>& negativeVerts, std::vector<uint32_t>& negativeIndices
-	);
-
-
-	void GatherTriangles(OctNode* node,std::vector<Point3D>& vertices, std::vector<uint32_t>& indices,std::vector<uint32_t>& depth);
 	void GatherBox(OctNode* node,std::vector<AABB>& boxes, std::vector<uint32_t>& depth);
+	void GatherEntities(OctNode* node,std::vector<uint32_t>& entities, std::vector<uint32_t>& depth);
+
+	void PerformInsert(OctNode* node, uint32_t entity, const AABB& objBox);
+	bool PerformRemove(OctNode* node, uint32_t entity);
+	void SplitNode(OctNode* node);
+	void PerformClear(OctNode* node);
+
 };
 
 struct OctNode
@@ -76,8 +73,7 @@ struct OctNode
 	uint32_t depth{};
 	uint32_t nodeID{};
 
-	std::vector<Point3D> vertices;
-	std::vector<uint32_t> indices;
+	std::vector<uint32_t> entities;
 	std::unique_ptr<OctNode> children[OctTree::s_num_children];
 };
 

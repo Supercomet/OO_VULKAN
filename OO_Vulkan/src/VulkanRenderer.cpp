@@ -2428,6 +2428,12 @@ void VulkanRenderer::BeginDraw()
 			PROFILE_SCOPED("Init batches");
 			batches.Init(currWorld, this, MAX_OBJECTS);
 			currWorld->BeginFrame();
+			auto [boxes, depth] = currWorld->m_octTree.GetActiveBoxList();
+			size_t colsSz = oGFX::Colors::c.size();
+			for (size_t i = 0; i < boxes.size(); i++)
+			{
+				oGFX::DebugDraw::AddAABB(boxes[i], oGFX::Colors::c[depth[i] % colsSz]);
+			}
 			batches.GenerateBatches();
 		}
 

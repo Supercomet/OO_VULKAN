@@ -89,6 +89,25 @@ bool AabbAabb(const AABB& a, const AABB& b)
 	return true;
 }
 
+bool AabbContains(const AABB& a, const AABB& b)
+{
+	// for each axis { X, Y, Z }
+	const auto aMax = a.max();
+	const auto aMin = a.min();
+
+	const auto bMax = b.max();
+	const auto bMin = b.min();
+
+	for (unsigned int i = 0; i < 3; ++i)
+	{
+		// if any greater does not contain
+		if (aMax[i] < bMax[i] || bMin[i] < aMin[i])
+			return false;
+	}
+
+	return true;
+}
+
 bool SphereAabb(const Sphere& s, const AABB& a)
 {
 	float sqrDist = SqDistPointAabb(s.center, a);

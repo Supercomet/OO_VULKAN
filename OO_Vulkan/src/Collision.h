@@ -41,6 +41,7 @@ bool BaryCentricTriangle(const Point3D& p, const Triangle& tri,float& u, float& 
 bool SphereSphere(const Sphere& a, const Sphere& b);
 
 bool AabbAabb(const AABB& a, const AABB& b);
+bool AabbContains(const AABB& source, const AABB& contain);
 
 bool SphereAabb(const Sphere& s, const AABB& a);
 bool SphereAabb(const AABB& a, const Sphere& s);
