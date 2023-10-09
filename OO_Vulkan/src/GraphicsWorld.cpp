@@ -21,10 +21,12 @@ void GraphicsWorld::BeginFrame()
 	PROFILE_SCOPED();
 	auto& vr = *VulkanRenderer::get();
 	// TODO: What do you do at the beginning of the frame?
-	m_objectsCopy.clear();
-	m_objectsCopy.reserve(m_ObjectInstances.size());
-	for ( ObjectInstance& src: m_ObjectInstances)
+	m_ObjectInstancesCopy = m_ObjectInstances;
+	m_denseObjectsCopy.clear();
+	m_denseObjectsCopy.reserve(m_ObjectInstances.size());
+	for (auto iter = m_ObjectInstances.begin(); iter != m_ObjectInstances.end(); iter++)
 	{
+		ObjectInstance& src = *iter;	
 		if (src.isSkinned()) 
 		{
 			auto& mdl = vr.g_globalModels[src.modelID];
@@ -38,30 +40,26 @@ void GraphicsWorld::BeginFrame()
 				}
 			}
 		}
-		m_objectsCopy.emplace_back(src);
+		m_denseObjectsCopy.emplace_back(src);
+		src.isDirty = false;
+		src.newObject = false;
 	}
 
-	auto getBoxFun = [&ents = m_objectsCopy, &models = vr.g_globalModels](uint32_t entity)->oGFX::AABB {
-		oGFX::AABB box;
-		ObjectInstance& oi = ents[entity];
-		auto& mdl = models[oi.modelID];
-		oGFX::Sphere bs = mdl.m_subMeshes.front().boundingSphere;
-
-		float sx = glm::length(glm::vec3(oi.localToWorld[0][0], oi.localToWorld[1][0], oi.localToWorld[2][0]));
-		float sy = glm::length(glm::vec3(oi.localToWorld[0][1], oi.localToWorld[1][1], oi.localToWorld[2][1]));
-		float sz = glm::length(glm::vec3(oi.localToWorld[0][2], oi.localToWorld[1][2], oi.localToWorld[2][2]));
-
-		box.center = vec3(oi.localToWorld * vec4(bs.center, 1.0));
-		float maxSize = std::max(sx, std::max(sy, sz));
-		maxSize *= bs.radius / 2.0f;
-		box.halfExt = vec3{ maxSize };
-		return box;
-		};
-
-	m_octTree = oGFX::OctTree{ getBoxFun, oGFX::AABB{vec3{-25.0f},vec3{25.0f}} };
-	for (size_t i = 0; i < m_objectsCopy.size(); i++)
+	//for now assume entities # dont change
+	m_octTree.ClearTree(); 
 	{
-		m_octTree.Insert(i);
+		PROFILE_SCOPED("Build Octtree");
+		for (auto iter = m_ObjectInstancesCopy.begin(); iter != m_ObjectInstancesCopy.end(); iter++)
+		{
+			ObjectInstance& cpy = *iter;
+			//if (cpy.isDirty == true) 
+			{
+				size_t idx = iter.index();
+				//if (cpy.newObject == false)
+				//	m_octTree.Remove(idx);
+				m_octTree.Insert(idx);
+			}
+		}
 	}
 
 	m_EmitterCopy.clear();
@@ -101,7 +99,8 @@ int32_t GraphicsWorld::CreateObjectInstance()
 int32_t GraphicsWorld::CreateObjectInstance(ObjectInstance obj)
 {
 	++m_entityCount;
-	return m_ObjectInstances.Add(obj);
+	auto id = m_ObjectInstances.Add(obj);
+	return id;
 }
 
 ObjectInstance& GraphicsWorld::GetObjectInstance(int32_t id)
@@ -112,12 +111,14 @@ ObjectInstance& GraphicsWorld::GetObjectInstance(int32_t id)
 void GraphicsWorld::DestroyObjectInstance(int32_t id)
 {
 	m_ObjectInstances.Remove(id);
+	m_octTree.Remove(id); // remove from tree special
 	--m_entityCount;
 }
 
 void GraphicsWorld::ClearObjectInstances()
 {
 	m_ObjectInstances.Clear();
+	m_octTree.ClearTree();
 	m_entityCount = 0;
 }
 
@@ -277,6 +278,11 @@ void ObjectInstance::SetRenderEnabled(bool s)
 	{
 		flags = flags& (~ObjectInstanceFlags::RENDER_ENABLED);
 	}
+}
+
+void ObjectInstance::SetDirty()
+{
+	isDirty = true;
 }
 
 bool ObjectInstance::isSkinned()

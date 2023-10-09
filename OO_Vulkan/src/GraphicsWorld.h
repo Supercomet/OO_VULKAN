@@ -77,12 +77,17 @@ struct ObjectInstance
         | ObjectInstanceFlags::SHADOW_RECEIVER 
         | ObjectInstanceFlags::SHADOW_CASTER)};
 
+    bool isDirty = true;
+    bool newObject = true;
+
     // helper functions
     void SetShadowCaster(bool s);
     void SetShadowReciever(bool s);
     void SetSkinned(bool s);
     void SetShadowEnabled(bool s);
     void SetRenderEnabled(bool s);
+
+    void SetDirty();
 
     bool isSkinned();
     bool isShadowEnabled();
@@ -294,7 +299,9 @@ private:
     bool initialized = false;
 
     //etc
-    std::vector<ObjectInstance> m_objectsCopy;
+    BitContainer<ObjectInstance> m_ObjectInstancesCopy;
+    std::vector<ObjectInstance> m_denseObjectsCopy;
+    std::vector<uint32_t> m_objectsIndex;
     std::vector<UIInstance> m_UIcopy;
     std::vector<OmniLightInstance> m_OmniLightCopy;
     std::vector<EmitterInstance> m_EmitterCopy;

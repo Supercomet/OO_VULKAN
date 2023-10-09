@@ -1247,6 +1247,25 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 			}		
 		}	
 	};
+	
+
+	auto getBoxFun = [&ents = world->m_ObjectInstancesCopy.buffer(), &models = g_globalModels](uint32_t entity)->oGFX::AABB {
+		oGFX::AABB box;
+		ObjectInstance& oi = ents[entity];
+		auto& mdl = models[oi.modelID];
+		oGFX::Sphere bs = mdl.m_subMeshes.front().boundingSphere;
+
+		float sx = glm::length(glm::vec3(oi.localToWorld[0][0], oi.localToWorld[1][0], oi.localToWorld[2][0]));
+		float sy = glm::length(glm::vec3(oi.localToWorld[0][1], oi.localToWorld[1][1], oi.localToWorld[2][1]));
+		float sz = glm::length(glm::vec3(oi.localToWorld[0][2], oi.localToWorld[1][2], oi.localToWorld[2][2]));
+
+		box.center = vec3(oi.localToWorld * vec4(bs.center, 1.0));
+		float maxSize = std::max(sx, std::max(sy, sz));
+		maxSize *= bs.radius / 2.0f;
+		box.halfExt = vec3{ maxSize };
+		return box;
+	};
+	world->m_octTree = oGFX::OctTree{ getBoxFun, oGFX::AABB{vec3{-25.0f},vec3{25.0f}} };
 	world->initialized = true;
 	std::scoped_lock l{g_mut_workQueue};
 	g_workQueue.emplace_back(lam);

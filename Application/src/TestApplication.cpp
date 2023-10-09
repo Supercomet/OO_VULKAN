@@ -157,6 +157,7 @@ struct EntityInfo
         auto& gfxWorldObjectInstance = gs_GraphicsWorld.GetObjectInstance(gfxID);
         gfxWorldObjectInstance.localToWorld = getLocalToWorld();
         gfxWorldObjectInstance.flags = flags;
+        gfxWorldObjectInstance.SetDirty();
     }
 };
 

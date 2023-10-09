@@ -32,7 +32,6 @@ namespace oGFX {
 void OctTree::Insert(uint32_t entity)
 {
 	AABB obj = m_GetBoxFunction(entity);
-
 	PerformInsert(m_root.get(), entity, obj);
 }
 

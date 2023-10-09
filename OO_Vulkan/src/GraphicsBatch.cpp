@@ -240,7 +240,7 @@ void GraphicsBatch::ProcessGeometry()
 {
 	using Batch = GraphicsBatch::DrawBatch;
 	using Flags = ObjectInstanceFlags;
-	auto& entities = m_world->m_objectsCopy;
+	auto& entities = m_world->m_denseObjectsCopy;
 	int32_t currModelID{ -1 };
 	int32_t cnt{ 0 };
 	for (auto& ent : entities)
