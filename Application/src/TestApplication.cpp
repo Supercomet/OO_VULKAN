@@ -489,59 +489,25 @@ void TestApplication::Run()
 
     uint32_t uiID = CreateTextHelper(glm::mat4(1.0f), std::string("123 Test\nNew Line"), testFont.get());
 
-	
-    const float gridSize = 1.3f;
-    const float halfGrid = roughness.size() * gridSize / 2.0f;
-   beginSpheres = entities.size();
-	for (size_t i = 0; i < roughness.size(); i++)
-	{        
-		for (size_t y = 0; y < metalic.size(); y++)
-		{
-            auto& ed = entities.emplace_back(EntityInfo{});
-
-			std::stringstream ss;
-			ss << "Sphere_M[" << y << "]R[" << i << "]";
-			ed.name = std::string("Sphere_M") + std::to_string(i * metalic.size() + y);
-			ed.name = ss.str();
-			ed.entityID = FastRandomMagic();
-			ed.modelID = model_sphere->meshResource;
-			//ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
-
-            ed.scale = { 1.0f,1.0f,1.0f };
-
-			ed.bindlessGlobalTextureIndex_Albedo = gs_RedTexture;
-			ed.bindlessGlobalTextureIndex_Metallic = metalic[y];
-			ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
-
-            std::stringstream name;
-            name << "Roughness " << std::setprecision(2) << ((float)i / (roughness.size()-1))
-                << "\nMetallic " << std::setprecision(2) << ((float)y / (roughness.size()-1));
-            auto strpos = glm::vec3{ gridSize * i - halfGrid, gridSize * y - halfGrid + 3.5f - 0.6f, -5.0f };
-            CreateTextHelper(glm::translate(strpos), name.str(), testFont.get());
-
-		}
-	}
-    endSpheres = entities.size();
-
-    ResetSpheres();
-
    
-
-    
-
-	if (gs_test_scene)
-    {
-        //auto& ed = entities.emplace_back(EntityInfo{});
-        //ed.name = "TestSceneObject";
-        //ed.entityID = FastRandomMagic();
-        //ed.modelID = gs_test_scene->meshResource;
-        //ed.position = {  };
-        //ed.scale = { 0.1f,0.1f,0.1f };
-        //ed.rot = 0.0f;
-        //ed.rotVec = { 1.0f,0.0f,0.0f };
-        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        //ed.instanceData = 0;
+    if (character_diona)
+    {        
+        globalDionaID = (uint32_t)entities.size();
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.modelID = character_diona->meshResource;
+        ed.name = "diona";
+        ed.entityID = FastRandomMagic();
+        ed.position = { 3.0f,0.0f,0.0f };
+        ed.scale = { 0.1f,0.1f,0.1f };
+        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        ed.flags = ObjectInstanceFlags((uint32_t)ed.flags|(uint32_t)ObjectInstanceFlags::SKINNED);
+        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_CASTER;
+        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_ENABLED;
+        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_RECEIVER;
+        
     }
+    std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
+    entities[globalDionaID].localSkeleton = scopedPtr.get();
 
     uint32_t LSphere;
     {
@@ -573,98 +539,41 @@ void TestApplication::Run()
         ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
     }
 
-    // // Create 8 more surrounding planes
-    // {
-    //     for (int i = 0; i < 8; ++i)
-    //     {
-    //         constexpr float offset = 16.0f;
-    //         static std::array<glm::vec3, 8> positions =
-    //         {
-    //             glm::vec3{  offset, 0.0f,   0.0f },
-    //             glm::vec3{ -offset, 0.0f,   0.0f },
-    //             glm::vec3{    0.0f, 0.0f,  offset },
-    //             glm::vec3{    0.0f, 0.0f, -offset },
-    //             glm::vec3{  offset, 0.0f,  offset },
-    //             glm::vec3{ -offset, 0.0f,  offset },
-    //             glm::vec3{  offset, 0.0f, -offset },
-    //             glm::vec3{ -offset, 0.0f, -offset },
-    //         };
-    // 
-    //         auto& ed = entities.emplace_back(EntityInfo{});
-    //         ed.name = "Ground_Plane_" + std::to_string(i);
-    //         ed.entityID = FastRandomMagic();
-    //         ed.modelID = model_plane->meshResource;
-    //         ed.position = positions[i];
-    //         ed.scale = { 15.0f,1.0f,15.0f };
-    //         ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[i / 2];
-    //         ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[i / 2];
-    //     }
-    // }
 
-    //std::function<void(ModelFileResource*,Node*,bool)> EntityHelper = [&](ModelFileResource* model,Node* node, bool rotateYup) {
-    //    if (node->meshRef != static_cast<uint32_t>(-1))
-    //    {
-    //        auto& ed = entities.emplace_back(EntityInfo{});
-    //        ed.modelID = model->meshResource;
-    //        ed.name = node->name;
-    //        ed.entityID = FastRandomMagic();
-    //        glm::quat qt;
-    //        glm::vec3 skew;
-    //        glm::vec4 persp;
-    //        glm::decompose(node->transform, ed.scale, qt, ed.position, skew, persp);
-    //        qt = glm::conjugate(qt);
-    //        auto angles = glm::eulerAngles(qt);
-    //        if (rotateYup) angles.x -= glm::radians(90.0f);
-    //        ed.rotVec = angles;
-    //        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-    //        ed.instanceData = 0;
-    //    }
-    //    for (auto& child : node->children)
-    //    {
-    //        EntityHelper(model,child,rotateYup);
-    //    }            
-    //
-    //};
-    if (character_diona)
-    {        
-        globalDionaID = (uint32_t)entities.size();
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.modelID = character_diona->meshResource;
-        ed.name = "diona";
-        ed.entityID = FastRandomMagic();
-        ed.position = { 3.0f,0.0f,0.0f };
-        ed.scale = { 0.1f,0.1f,0.1f };
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        ed.flags = ObjectInstanceFlags((uint32_t)ed.flags|(uint32_t)ObjectInstanceFlags::SKINNED);
-        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_CASTER;
-        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_ENABLED;
-        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_RECEIVER;
-        
-    }
-    std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
-    entities[globalDionaID].localSkeleton = scopedPtr.get();
-
-    if (character_qiqi)
+    const float gridSize = 1.3f;
+    const float halfGrid = roughness.size() * gridSize / 2.0f;
+    beginSpheres = entities.size();
+    for (size_t i = 0; i < roughness.size(); i++)
     {
-        //auto& ed = entities.emplace_back(EntityInfo{});
-        //ed.modelID = character_qiqi->meshResource;
-        //ed.name = "qiqi";
-        //ed.entityID = FastRandomMagic();
-        //ed.position = { 0.0f,0.0f,0.0f };
-        //ed.scale = { 1.0f,1.0f,1.0f };
-        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-    }
+        for (size_t y = 0; y < metalic.size(); y++)
+        {
+            auto& ed = entities.emplace_back(EntityInfo{});
 
-    if (gs_test_scene)
-    {
-        //auto& ed = entities.emplace_back(EntityInfo{});
-        //ed.modelID = gs_test_scene->meshResource;
-        //ed.name = "frog";
-        //ed.entityID = FastRandomMagic();
-        //ed.position = { 0.0f,0.0f,0.0f };
-        //ed.scale = glm::vec3{ 0.01f };
-        //ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+            std::stringstream ss;
+            ss << "Sphere_M[" << y << "]R[" << i << "]";
+            ed.name = std::string("Sphere_M") + std::to_string(i * metalic.size() + y);
+            ed.name = ss.str();
+            ed.entityID = FastRandomMagic();
+            ed.modelID = model_sphere->meshResource;
+            //ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
+
+            ed.scale = { 1.0f,1.0f,1.0f };
+
+            ed.bindlessGlobalTextureIndex_Albedo = gs_RedTexture;
+            ed.bindlessGlobalTextureIndex_Metallic = metalic[y];
+            ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
+
+            std::stringstream name;
+            name << "Roughness " << std::setprecision(2) << ((float)i / (roughness.size() - 1))
+                << "\nMetallic " << std::setprecision(2) << ((float)y / (roughness.size() - 1));
+            auto strpos = glm::vec3{ gridSize * i - halfGrid, gridSize * y - halfGrid + 3.5f - 0.6f, -5.0f };
+            CreateTextHelper(glm::translate(strpos), name.str(), testFont.get());
+
+        }
     }
+    endSpheres = entities.size();
+
+    ResetSpheres();
 
     /* // WIP
     if (alibaba)
@@ -911,15 +820,58 @@ void TestApplication::Run()
                 bigBox.center = entities[bigSphere].position;
                 bigBox.halfExt = entities[bigSphere].scale / 2.0f;
 
-                oGFX::DebugDraw::AddAABB(bigBox);
-                if (oGFX::coll::AabbContains(bigBox, smlBox)) 
+               
+                oGFX::Frustum f = gs_GraphicsWorld.cameras[1].GetFrustum();
+                oGFX::DebugDraw::DrawCameraFrustrum(gs_GraphicsWorld.cameras[1], oGFX::Colors::ORANGE);
+                
+              
+                oGFX::coll::Collision result = oGFX::coll::AABBInFrustum(f, bigBox);
+                switch (result) 
                 {
-                    oGFX::DebugDraw::AddAABB(smlBox, oGFX::Colors::GREEN);
+                case oGFX::coll::INTERSECTS: oGFX::DebugDraw::AddAABB(bigBox,oGFX::Colors::YELLOW);break;
+                case oGFX::coll::CONTAINS:   oGFX::DebugDraw::AddAABB(bigBox,oGFX::Colors::GREEN);break;
+                case oGFX::coll::OUTSIDE:    oGFX::DebugDraw::AddAABB(bigBox);
+                default:break;                        
                 }
-                else 
+               
+                bigBox.halfExt += vec3(0.1f);
+                auto getplane = [&f = f](int i) {
+                    switch (i)
+                    {
+                    case 0:return f.left;
+                    case 1:return f.right;
+                    case 2:return f.bottom;
+                    case 3:return f.top;
+                    case 4:return f.planeNear;
+                    case 5:return f.planeFar;
+                    default: OO_ASSERT(false);
+                    }};
+
+                auto getppt = [&f = f](int i) {
+                    switch (i)
+                    {
+                    case 0:return f.pt_left;
+                    case 1:return f.pt_right;
+                    case 2:return f.pt_bottom;
+                    case 3:return f.pt_top;
+                    case 4:return f.pt_planeNear;
+                    case 5:return f.pt_planeFar;
+                    default: OO_ASSERT(false);
+                    }
+                    };
+                for (size_t i = 0; i < 6; i++)
                 {
-                    oGFX::DebugDraw::AddAABB(smlBox, oGFX::Colors::RED);
+                    auto dist = oGFX::coll::DistanceToPoint(getplane(i), bigBox.max());
+                    auto dirr = normalize(bigBox.max() - getppt(i));
+                    if (dist < 0) {
+                        oGFX::DebugDraw::AddLine(getppt(i) + dirr * dist, getppt(i), oGFX::Colors::RED);
+                    }
+                    else {
+                        oGFX::DebugDraw::AddLine(getppt(i) + dirr * dist, getppt(i), oGFX::Colors::GREEN);
+                    }
                 }
+
+
 
                 if (Input::GetKeyTriggered(KEY_P))
                 {

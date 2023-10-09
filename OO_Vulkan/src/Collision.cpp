@@ -178,6 +178,10 @@ float DistPointPlane(const Point3D& q, const Plane& p)
 	auto n = glm::vec3(p.normal);// can skip dot if normalized
 	return (glm::dot(n,q)-p.normal.w)/ glm::dot(n,n);
 }
+float DistanceToPoint(const Plane& p, const Point3D& point)
+{
+	return glm::dot(glm::vec3(p.normal), point) - p.normal.w;
+}
 
 float ScalarTriple(const Point3D& u, const Point3D& v, const Point3D& w)
 {
@@ -398,6 +402,13 @@ bool SphereOnOrForwardPlane(const Plane& p, const Sphere& s)
 	return t < s.radius;
 }
 
+bool PointOnOrForwardPlane(const Plane& p, const Point3D& q)
+{
+	float t = 0;
+	t = DistanceToPoint(p, q);
+	return t >= 0.0f;
+}
+
 bool PlaneAabb(const Plane& p, const AABB& a)
 {
 	float t;
@@ -415,26 +426,93 @@ bool PlaneAabb(const Plane& p, const AABB& a, float& t)
 
 	float s = glm::dot(glm::vec3{ p.normal }, a.center);
 
-	auto result = std::abs(s) <= r;
-	if (result != true)
-	{
-		glm::vec3 planePt(glm::vec3{p.normal} * p.normal.w);
-		t = -glm::dot(planePt-c, glm::vec3{ p.normal });
-	}
-	return result;
-}
+	float d = s - p.normal.w;
 
+	if (std::abs(d) <= r)
+	{
+		t = d;
+		return true;
+	}
+	else
+	{
+		// The AABB is entirely on one side of the plane.
+		// If d < -r, the AABB is behind the plane.
+		// If d > r, the AABB is in front of the plane.
+		return false;
+	}
+}
 
 bool SphereInFrustum(const Frustum& f, const Sphere& s)
 {
 	return (true
 		&& SphereOnOrForwardPlane(f.left,s) 
 		&& SphereOnOrForwardPlane(f.right,s) 
-		&&SphereOnOrForwardPlane(f.planeFar,s)
-		&&SphereOnOrForwardPlane(f.planeNear,s) 
-		&&SphereOnOrForwardPlane(f.top,s) 
-		&&SphereOnOrForwardPlane(f.bottom,s)
+		&& SphereOnOrForwardPlane(f.planeFar,s)
+		&& SphereOnOrForwardPlane(f.planeNear,s) 
+		&& SphereOnOrForwardPlane(f.top,s) 
+		&& SphereOnOrForwardPlane(f.bottom,s)
 		);
+}
+
+Collision AABBInFrustum(const Frustum& frustum, const AABB& a)
+{	
+	Point3D corners[8]{};
+	for (int i = 0; i < 8; ++i)
+	{
+		corners[i] = a.min(); // Start with the minimum corner of the AABB
+
+		if (i & 1) corners[i][0] = a.max()[0];
+		if (i & 2) corners[i][1] = a.max()[1];
+		if (i & 4) corners[i][2] = a.max()[2];
+	}
+
+	auto getPlane =  [&frustum](int j) -> const Plane&
+		{
+			switch (j)
+			{
+			case 0: return frustum.left;
+			case 1: return frustum.right;
+			case 2: return frustum.top;
+			case 3: return frustum.bottom;
+			case 4: return frustum.planeFar;
+			case 5: return frustum.planeNear;
+			default: throw std::out_of_range("Invalid plane index");
+			}
+		};
+
+	int intersections{};
+	for (int i = 0; i < 6; ++i)
+	{
+		const Plane& plane = getPlane(i);
+
+		int numInside = 0;
+
+		for (int j = 0; j < 8; ++j)
+		{
+			if(PointOnOrForwardPlane(plane, corners[j]) == false)
+				numInside++;
+		}
+
+		if (numInside == 0)
+		{
+			// AABB is completely outside this plane; it is not in the frustum.
+			return Collision::OUTSIDE;
+		}
+		else if (numInside == 8)
+		{
+			// All corners are inside this plane; continue checking other planes.
+			continue;
+		}
+		else
+		{
+			// The AABB intersects this plane; continue checking other planes.
+			intersections++;
+		}
+	}
+	if (intersections)
+		return Collision::INTERSECTS;
+	// If the AABB is inside all six planes, it's completely inside the frustum.
+	return Collision::CONTAINS;
 }
 
 }// end namespace oGFX::coll

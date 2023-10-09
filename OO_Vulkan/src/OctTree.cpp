@@ -19,7 +19,10 @@ Technology is prohibited.
 
 namespace oGFX {
 
-	OctTree::OctTree(std::function<AABB(uint32_t)> getBox, const AABB rootBox, int stopDepth)
+	OctTree::OctTree(std::function<AABB(uint32_t)> getBox
+		, std::function<OctNode*(uint32_t)> getNode
+		, std::function<void(uint32_t, OctNode* node)> setNode
+		, const AABB rootBox, int stopDepth)
 {
 	m_maxDepth = stopDepth;
 	m_root.reset(nullptr);
@@ -27,6 +30,8 @@ namespace oGFX {
 	m_root->box = rootBox;
 
 	m_GetBoxFunction = getBox;
+	m_GetNodeFunction= getNode;
+	m_SetNodeFunction= setNode;
 }
 
 void OctTree::Insert(uint32_t entity)
@@ -35,10 +40,28 @@ void OctTree::Insert(uint32_t entity)
 	PerformInsert(m_root.get(), entity, obj);
 }
 
-void OctTree::Remove(uint32_t entity)
+void OctTree::TraverseRemove(uint32_t entity)
 {
 	bool result = PerformRemove(m_root.get(), entity);
 	OO_ASSERT(result == true && "Tried to remove entity that does not exist in tree");
+}
+
+void OctTree::Remove(uint32_t entity)
+{
+	OctNode* node = m_GetNodeFunction(entity);
+	OO_ASSERT(node && "Entity did not record the node");
+
+	auto it = std::find(node->entities.begin(), node->entities.end(), entity);
+	if (it != node->entities.end()) 
+	{
+		std::swap(*it, node->entities.back());
+		node->entities.pop_back();
+		m_SetNodeFunction(entity, nullptr);
+		--m_nodes;
+		return;
+	}
+
+	OO_ASSERT(false && "Entity does not exist in node it points to");
 }
 
 std::vector<uint32_t> OctTree::GetEntitiesInFrustum(const Frustum& frust)
@@ -55,9 +78,19 @@ std::tuple<std::vector<AABB>, std::vector<uint32_t>> OctTree::GetActiveBoxList()
 
 	boxes.push_back(m_root->box);
 	depth.push_back(0);
-	GatherBox(m_root.get(), boxes, depth);
+	GatherBoxWithDepth(m_root.get(), boxes, depth);
 
 	return std::tuple< std::vector<AABB>, std::vector<uint32_t> >(boxes,depth);
+}
+
+std::tuple< std::vector<AABB>, std::vector<AABB> > OctTree::GetBoxesInFrustum(const Frustum& frust)
+{
+	std::vector<AABB> boxes;
+	std::vector<AABB> testing;
+	
+	GatherFrustBoxes(m_root.get(), frust, boxes,testing);
+
+	return std::tuple(boxes,testing);
 }
 
 void OctTree::ClearTree()
@@ -72,7 +105,7 @@ uint32_t OctTree::size() const
 	return m_nodes;
 }
 
-void OctTree::GatherBox(OctNode* node, std::vector<AABB>& boxes, std::vector<uint32_t>& depth)
+void OctTree::GatherBoxWithDepth(OctNode* node, std::vector<AABB>& boxes, std::vector<uint32_t>& depth)
 {
 	if (node == nullptr) return;
 
@@ -84,7 +117,18 @@ void OctTree::GatherBox(OctNode* node, std::vector<AABB>& boxes, std::vector<uin
 	}
 	for (size_t i = 0; i < s_num_children; i++)
 	{
-		GatherBox(node->children[i].get(), boxes, depth);
+		GatherBoxWithDepth(node->children[i].get(), boxes, depth);
+	}
+}
+
+void OctTree::GatherBox(OctNode* node, std::vector<AABB>& boxes)
+{
+	if (node == nullptr) return;
+
+	boxes.push_back(node->box);
+	for (size_t i = 0; i < s_num_children; i++)
+	{
+		GatherBox(node->children[i].get(), boxes);
 	}
 }
 
@@ -103,6 +147,31 @@ void OctTree::GatherEntities(OctNode* node, std::vector<uint32_t>& entities, std
 	for (size_t i = 0; i < s_num_children; i++)
 	{
 		GatherEntities(node->children[i].get(), entities, depth);
+	}
+}
+
+void OctTree::GatherFrustBoxes(OctNode* node, const Frustum& frust, std::vector<AABB>& boxes, std::vector<AABB>& testingBox)
+{	
+	if (node == nullptr) return;
+
+	oGFX::coll::Collision result = oGFX::coll::AABBInFrustum(frust, node->box);
+	switch (result)
+	{
+	case oGFX::coll::INTERSECTS:
+		// add to testing list
+		testingBox.push_back(node->box);
+		// check each child
+		for (size_t i = 0; i < s_num_children; i++)
+		{
+			GatherFrustBoxes(node->children[i].get(), frust, boxes, testingBox);
+		}
+		break;
+	case oGFX::coll::CONTAINS:
+		// quickly gather all children
+		GatherBox(node, boxes);
+		break;
+	case oGFX::coll::OUTSIDE:// no action needed
+		break;
 	}
 }
 
@@ -146,6 +215,7 @@ void OctTree::PerformInsert(OctNode* node, uint32_t entity, const AABB& objBox)
 		node->type = OctNode::LEAF;
 		node->nodeID = ++m_nodes;
 		node->entities.push_back(entity);
+		m_SetNodeFunction(entity, node);
 		return;
 	}
 
@@ -165,6 +235,7 @@ void OctTree::PerformInsert(OctNode* node, uint32_t entity, const AABB& objBox)
 	// not contained in any child
 	node->nodeID = ++m_nodes;
 	node->entities.push_back(entity);	
+	m_SetNodeFunction(entity, node);
 }
 
 void OctTree::PerformClear(OctNode* node)
@@ -176,6 +247,10 @@ void OctTree::PerformClear(OctNode* node)
 		PerformClear(node->children[i].get());
 	}
 
+	for (size_t i = 0; i < node->entities.size(); i++)
+	{
+		m_SetNodeFunction(node->entities[i], nullptr);
+	}
 	node->entities.clear();
 }
 

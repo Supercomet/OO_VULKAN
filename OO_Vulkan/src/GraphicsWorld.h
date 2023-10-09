@@ -79,6 +79,7 @@ struct ObjectInstance
 
     bool isDirty = true;
     bool newObject = true;
+    oGFX::OctNode* treeNode{ nullptr };
 
     // helper functions
     void SetShadowCaster(bool s);
@@ -306,7 +307,9 @@ private:
     std::vector<OmniLightInstance> m_OmniLightCopy;
     std::vector<EmitterInstance> m_EmitterCopy;
 
-    oGFX::OctTree m_octTree{ [](uint32_t) { return oGFX::AABB{}; } };
+    oGFX::OctTree m_octTree{ [](uint32_t) { return oGFX::AABB{}; },
+    [](uint32_t)->oGFX::OctNode* { return nullptr; } ,
+    [](uint32_t,oGFX::OctNode*) { return oGFX::AABB{}; } };
     // + Spatial Acceleration Structures
     // + Culling object BV against frustum
 };

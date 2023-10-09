@@ -1265,7 +1265,19 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 		box.halfExt = vec3{ maxSize };
 		return box;
 	};
-	world->m_octTree = oGFX::OctTree{ getBoxFun, oGFX::AABB{vec3{-25.0f},vec3{25.0f}} };
+	auto getNodeFun = [&ents = world->m_ObjectInstancesCopy.buffer()](uint32_t entity)->oGFX::OctNode* {
+		ObjectInstance& oi = ents[entity];
+		return oi.treeNode;
+	};
+
+	// modify actual object instances
+	auto setNodeFun = [&ents = world->m_ObjectInstances.buffer()](uint32_t entity, oGFX::OctNode* inNode){
+		ObjectInstance& oi = ents[entity];
+		oi.treeNode = inNode;
+	};
+
+
+	world->m_octTree = oGFX::OctTree{ getBoxFun,getNodeFun,setNodeFun, oGFX::AABB{vec3{-25.0f},vec3{25.0f}} };
 	world->initialized = true;
 	std::scoped_lock l{g_mut_workQueue};
 	g_workQueue.emplace_back(lam);
@@ -2447,11 +2459,21 @@ void VulkanRenderer::BeginDraw()
 			PROFILE_SCOPED("Init batches");
 			batches.Init(currWorld, this, MAX_OBJECTS);
 			currWorld->BeginFrame();
+			auto f = currWorld->cameras[1].GetFrustum();
 			auto [boxes, depth] = currWorld->m_octTree.GetActiveBoxList();
-			size_t colsSz = oGFX::Colors::c.size();
-			for (size_t i = 0; i < boxes.size(); i++)
+			auto [visible, intersecting] = currWorld->m_octTree.GetBoxesInFrustum(f);
+			//size_t colsSz = oGFX::Colors::c.size();
+			//for (size_t i = 0; i < boxes.size(); i++)
+			//{
+			//	oGFX::DebugDraw::AddAABB(boxes[i], oGFX::Colors::c[depth[i] % colsSz]);
+			//}
+			for (size_t i = 0; i < visible.size(); i++)
 			{
-				oGFX::DebugDraw::AddAABB(boxes[i], oGFX::Colors::c[depth[i] % colsSz]);
+				oGFX::DebugDraw::AddAABB(visible[i], oGFX::Colors::GREEN);
+			}
+			for (size_t i = 0; i < intersecting.size(); i++)
+			{
+				oGFX::DebugDraw::AddAABB(intersecting[i], oGFX::Colors::YELLOW);
 			}
 			batches.GenerateBatches();
 		}

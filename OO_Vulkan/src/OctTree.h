@@ -30,18 +30,26 @@ public:
 	inline static constexpr uint32_t s_num_children = 8;
 	inline static constexpr uint32_t s_stop_depth = 8;
 public:
-	OctTree(std::function<AABB(uint32_t)> getBox, const AABB rootBox = { Point3D{-500.0f},Point3D{500.0f} } ,int stopDepth = s_stop_depth);
+	OctTree(std::function<AABB(uint32_t)> getBox
+		, std::function<OctNode* (uint32_t)> getNode
+		, std::function<void(uint32_t, OctNode* node)> setNode
+		, const AABB rootBox = { Point3D{-500.0f},Point3D{500.0f} } ,int stopDepth = s_stop_depth);
+
 	void Insert(uint32_t entity);
+	void TraverseRemove(uint32_t entity);
 	void Remove(uint32_t entity);
 
 	std::vector<uint32_t> GetEntitiesInFrustum(const Frustum& frust);
-	std::tuple< std::vector<AABB>,std::vector<uint32_t> > GetActiveBoxList();
+	std::tuple<std::vector<AABB>,std::vector<uint32_t> > GetActiveBoxList();
+	std::tuple< std::vector<AABB>,std::vector<AABB> > GetBoxesInFrustum(const Frustum& frust);
 
 	void ClearTree();
 	uint32_t size() const;
 
 private:
 	std::function<AABB(uint32_t)> m_GetBoxFunction;
+	std::function<OctNode*(uint32_t)> m_GetNodeFunction;
+	std::function<void(uint32_t, OctNode*)> m_SetNodeFunction;
 	std::unique_ptr<OctNode> m_root{};
 
 	uint32_t m_entitiesCnt{};
@@ -51,8 +59,10 @@ private:
 	uint32_t m_nodes{};
 	uint32_t m_boxesInsertCnt[s_num_children];
 
-	void GatherBox(OctNode* node,std::vector<AABB>& boxes, std::vector<uint32_t>& depth);
+	void GatherBoxWithDepth(OctNode* node,std::vector<AABB>& boxes, std::vector<uint32_t>& depth);
+	void GatherBox(OctNode* node,std::vector<AABB>& boxes);
 	void GatherEntities(OctNode* node,std::vector<uint32_t>& entities, std::vector<uint32_t>& depth);
+	void GatherFrustBoxes(OctNode* node, const Frustum& frust,std::vector<AABB>& boxes, std::vector<AABB>& testingBox);
 
 	void PerformInsert(OctNode* node, uint32_t entity, const AABB& objBox);
 	bool PerformRemove(OctNode* node, uint32_t entity);
