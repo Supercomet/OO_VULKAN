@@ -1407,6 +1407,9 @@ void VulkanRenderer::UploadLights()
 	const auto& spotLights = batches.GetLocalLights();
 	m_numShadowcastLights = batches.m_numShadowCastGrids;
 	auto cmd = GetCommandBuffer();
+	PROFILE_GPU_CONTEXT(cmd);
+	PROFILE_GPU_EVENT("Upload Light");
+	VK_NAME(m_device.logicalDevice, "Upload Light", cmd);
 	globalLightBuffer[getFrame()].writeToCmd(spotLights.size(), spotLights.data(), cmd);
 
 }
@@ -2110,8 +2113,20 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		}
 
 		auto cmd = GetCommandBuffer();
+		PROFILE_GPU_CONTEXT(cmd);
+		PROFILE_GPU_EVENT("Upload Indirect");
+		VK_NAME(m_device.logicalDevice, "Upload Indirect", cmd);
 		indirectCommandsBuffer[getFrame()].writeToCmd(allObjectsCommands.size(), allObjectsCommands.data(),cmd);
+		VkAccessFlags srcAccess = VK_ACCESS_MEMORY_WRITE_BIT;
+		VkAccessFlags dstAccess = VK_ACCESS_MEMORY_READ_BIT;
 
+		VkPipelineStageFlags prevStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		VkPipelineStageFlags nextStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+		// Make sure next stage can read this values once transfer is done
+		oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
+			indirectCommandsBuffer[getFrame()].getBuffer(), srcAccess, dstAccess,
+			prevStage, nextStage);
 	}
 
 	// shadow commands
@@ -2139,6 +2154,7 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		
 	}
 
+	
 }
 
 void VulkanRenderer::UploadInstanceData()
@@ -2180,6 +2196,7 @@ void VulkanRenderer::UploadInstanceData()
 			{
 				if (ent.submesh[i] == true)
 				{
+				OO_ASSERT(i == 0);
 					oGFX::InstanceData instData;
 					//size_t sz = instanceData.size();
 					//for (size_t x = 0; x < g_globalModels[ent.modelID].meshCount; x++)
@@ -2237,6 +2254,7 @@ void VulkanRenderer::UploadInstanceData()
 			{
 				// creates a single transform reference for each entity in the scene
 				size_t x = gpuTransform.size();
+				OO_ASSERT(indexCounter == x);
 				mat4 xform = ent.localToWorld;
 				GPUTransform gpt;
 				gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
@@ -2256,15 +2274,7 @@ void VulkanRenderer::UploadInstanceData()
 			if ((ent.flags & ObjectInstanceFlags::SKINNED) == ObjectInstanceFlags::SKINNED)
 			{
 				auto& mdl = g_globalModels[ent.modelID];
-
-				if (ent.bones.empty())
-				{
-					ent.bones.resize(mdl.skeleton->inverseBindPose.size());
-					for (auto& b:ent.bones )
-					{
-						b = mat4(1.0f);
-					}
-				}
+				
 				oi.boneWeightsOffset = mdl.skinningWeightsOffset;
 				oi.boneStartIdx = static_cast<uint32_t>(boneMatrices.size());
 				//oi.boneCnt = static_cast<uint32_t>(ent.bones.size());
@@ -2287,7 +2297,11 @@ void VulkanRenderer::UploadInstanceData()
 	{
 		return;
 	}
+
 	auto cmd = GetCommandBuffer();
+	PROFILE_GPU_CONTEXT(cmd);
+	PROFILE_GPU_EVENT("Upload OI");
+	VK_NAME(m_device.logicalDevice, "Upload OI", cmd);
 	gpuTransformBuffer[getFrame()].writeToCmd(gpuTransform.size(), gpuTransform.data(),cmd);
 	gpuBoneMatrixBuffer[getFrame()].writeToCmd(boneMatrices.size(), boneMatrices.data(),cmd);
 
@@ -2300,7 +2314,25 @@ void VulkanRenderer::UploadInstanceData()
 		MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of instance buffer.", L"BAD ERROR");
     }
 
+	VkAccessFlags srcAccess = VK_ACCESS_MEMORY_WRITE_BIT;
+	VkAccessFlags dstAccess = VK_ACCESS_MEMORY_READ_BIT;
+
+	VkPipelineStageFlags prevStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+	VkPipelineStageFlags nextStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
 	instanceBuffer[getFrame()].writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd);	
+	
+	oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
+		instanceBuffer[getFrame()].getBuffer(), srcAccess, dstAccess,
+		prevStage, nextStage);
+	oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
+		objectInformationBuffer[getFrame()].getBuffer(), srcAccess, dstAccess,
+		prevStage, nextStage);
+	oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
+		gpuTransformBuffer[getFrame()].getBuffer(), srcAccess, dstAccess,
+		prevStage, nextStage);
+
+
 }
 
 void VulkanRenderer::UploadUIData()
@@ -2326,6 +2358,9 @@ void VulkanRenderer::UploadUIData()
 	}
 
 	auto cmd = GetCommandBuffer();
+	PROFILE_GPU_CONTEXT(cmd);
+	PROFILE_GPU_EVENT("Upload UI");
+	VK_NAME(m_device.logicalDevice, "Upload UI", cmd);
 	g_UIVertexBufferGPU[getFrame()].writeToCmd(verts.size(), verts.data(),cmd);
 	g_UIIndexBufferGPU[getFrame()].writeToCmd(idx.size(), idx.data(),cmd);
 
@@ -2457,6 +2492,7 @@ void VulkanRenderer::BeginDraw()
 			PROFILE_SCOPED("Transfer data");
 			{				
 				auto cmd = GetCommandBuffer();
+				VK_NAME(m_device.logicalDevice, "TransferMesh", cmd);
 				{
 					PROFILE_SCOPED("Mesh buffers");
 					if (g_GlobalMeshBuffers.IdxBuffer.m_mustUpdate) g_GlobalMeshBuffers.IdxBuffer.flushToGPU(cmd);
@@ -2587,7 +2623,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		
 		if (shadowsRendered == false)
 		{
-			AddRenderer(g_ShadowPass);
+			//AddRenderer(g_ShadowPass);
 			shadowsRendered = true;
 		}
 		AddRenderer(g_ZPrePass);
