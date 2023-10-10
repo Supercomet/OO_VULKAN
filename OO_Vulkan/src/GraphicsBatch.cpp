@@ -243,18 +243,11 @@ void GraphicsBatch::ProcessGeometry()
 	auto& entities = m_world->m_DenseObjectsCopy;
 	int32_t currModelID{ -1 };
 	int32_t cnt{ 0 };
-	for (auto& ent : entities)
+	for (size_t y = 0; y < entities.size(); y++)
 	{
+		auto& ent = entities[y];
 		auto& model = m_renderer->g_globalModels[ent.modelID];
-
-		// skip entities dont want to render
-		//if (ent.isRenderable() == false)
-		//{
-		//	// still increment instance
-		//	++cnt;
-		//	continue;
-		//}
-
+			
 		if (ent.modelID != currModelID) // check if we are using the same model
 		{
 			s_scratchBuffer.clear();
@@ -269,6 +262,7 @@ void GraphicsBatch::ProcessGeometry()
 
 					// this is the number invoked by the graphics pipeline as the instance id (location = 15) etc..
 					// the number represents the index into the InstanceData array see VulkanRenderer::UploadInstanceData();
+					// OO_ASSERT(cnt == y);
 					indirectCmd.firstInstance = cnt++; 
 
 					indirectCmd.firstIndex = model.baseIndices + subMesh.baseIndices;
@@ -300,16 +294,6 @@ void GraphicsBatch::ProcessGeometry()
 			}
 		}
 
-		//if (ent.flags & Flags::ENABLE_ZPREPASS)
-		//{
-		//	AppendBatch(m_batches[Batch::ZPREPASS], s_scratchBuffer);
-		//}
-		//
-		//if (ent.flags & Flags::EMITTER)
-		//{
-		//	AppendBatch(m_batches[Batch::LIGHT_SPOT], s_scratchBuffer);
-		//}
-
 		if (ent.isShadowEnabled())
 		{
 			// get shadow enabled lights
@@ -318,7 +302,6 @@ void GraphicsBatch::ProcessGeometry()
 
 		// append to the batches
 		AppendBatch(m_batches[Batch::ALL_OBJECTS], s_scratchBuffer);
-
 	}
 }
 

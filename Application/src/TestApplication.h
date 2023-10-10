@@ -42,4 +42,6 @@ private:
 
     void ToolUI_Camera();
     void ToolUI_Settings();
+
+    void TestFrustumCull(oGFX::Frustum f, oGFX::AABB box);
 };

@@ -127,7 +127,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 
 		cmd.SetPushConstant(PSOLayoutDB::singleSSBOlayout, pcr, &pc);
 		
-		cmd.Dispatch((vr.indirectCommandsBuffer[currFrame].size() - 1) / 128 + 128);
+		//cmd.Dispatch((vr.indirectCommandsBuffer[currFrame].size() - 1) / 128 + 1);
 
 	} // end culling stage
 
@@ -573,9 +573,9 @@ void GBufferRenderPass::CreatePSOLayout()
 	auto& m_device = vr.m_device;
 
 	DescriptorBuilder::Begin()
-		.BindBuffer(1, vr.indirectCommandsBuffer[0].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) 
-		.BindBuffer(2, vr.instanceBuffer[0].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) 
-		.BindBuffer(3, vr.gpuTransformBuffer[0].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) 
+		.BindBuffer(1, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) 
+		.BindBuffer(2, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) 
+		.BindBuffer(3, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) 
 		.BuildLayout(SetLayoutDB::compute_singleSSBO);
 
 	{

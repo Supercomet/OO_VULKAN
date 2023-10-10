@@ -34,11 +34,11 @@ layout(std430, set = 0, binding = 5) readonly buffer GPUobject
 
 void main()
 {
-	const uint localToWorldMatrixIndex = inInstanceData.x;
+    const uint localToWorldMatrixIndex = gl_InstanceIndex;
 
 	//decode the matrix into transform matrix
 	const mat4 dInsMatrix = GPUTransformToMatrix4x4(GPUScene_SSBO[localToWorldMatrixIndex]);
-	GPUObjectInformation objectInfo = GPUobjectInfo[inInstanceData.x];
+    GPUObjectInformation objectInfo = GPUobjectInfo[gl_InstanceIndex];
 	// inefficient
 
 	vec4 outPosition;

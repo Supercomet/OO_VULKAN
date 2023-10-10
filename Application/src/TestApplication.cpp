@@ -823,8 +823,7 @@ void TestApplication::Run()
                
                 oGFX::Frustum f = gs_GraphicsWorld.cameras[1].GetFrustum();
                 oGFX::DebugDraw::DrawCameraFrustrum(gs_GraphicsWorld.cameras[1], oGFX::Colors::ORANGE);
-                
-              
+               
                 oGFX::coll::Collision result = oGFX::coll::AABBInFrustum(f, bigBox);
                 switch (result) 
                 {
@@ -832,46 +831,11 @@ void TestApplication::Run()
                 case oGFX::coll::CONTAINS:   oGFX::DebugDraw::AddAABB(bigBox,oGFX::Colors::GREEN);break;
                 case oGFX::coll::OUTSIDE:    oGFX::DebugDraw::AddAABB(bigBox);
                 default:break;                        
+                }             
+
+                if (0) {
+					TestFrustumCull(f, bigBox);
                 }
-               
-                bigBox.halfExt += vec3(0.1f);
-                auto getplane = [&f = f](int i) {
-                    switch (i)
-                    {
-                    case 0:return f.left;
-                    case 1:return f.right;
-                    case 2:return f.bottom;
-                    case 3:return f.top;
-                    case 4:return f.planeNear;
-                    case 5:return f.planeFar;
-                    default: OO_ASSERT(false);
-                    }};
-
-                auto getppt = [&f = f](int i) {
-                    switch (i)
-                    {
-                    case 0:return f.pt_left;
-                    case 1:return f.pt_right;
-                    case 2:return f.pt_bottom;
-                    case 3:return f.pt_top;
-                    case 4:return f.pt_planeNear;
-                    case 5:return f.pt_planeFar;
-                    default: OO_ASSERT(false);
-                    }
-                    };
-                for (size_t i = 0; i < 6; i++)
-                {
-                    auto dist = oGFX::coll::DistanceToPoint(getplane(i), bigBox.max());
-                    auto dirr = normalize(bigBox.max() - getppt(i));
-                    if (dist < 0) {
-                        oGFX::DebugDraw::AddLine(getppt(i) + dirr * dist, getppt(i), oGFX::Colors::RED);
-                    }
-                    else {
-                        oGFX::DebugDraw::AddLine(getppt(i) + dirr * dist, getppt(i), oGFX::Colors::GREEN);
-                    }
-                }
-
-
 
                 if (Input::GetKeyTriggered(KEY_P))
                 {
@@ -1506,6 +1470,65 @@ void TestApplication::ToolUI_Settings()
 		ImGui::DragFloat3("direction", glm::value_ptr(gs_GraphicsWorld.m_HardcodedDecalInstance.direction), 0.01f);
 		ImGui::DragFloat("rotation", &gs_GraphicsWorld.m_HardcodedDecalInstance.rotation, 0.5f);
 		ImGui::PopID();
+    }
+}
+
+void TestApplication::TestFrustumCull(oGFX::Frustum f, oGFX::AABB box)
+{
+    oGFX::Point3D corners[8]{};
+    for (int i = 0; i < 8; ++i)
+    {
+        corners[i] = box.min(); // Start with the minimum corner of the AABB
+
+        if (i & 1) corners[i][0] = box.max()[0];
+        if (i & 2) corners[i][1] = box.max()[1];
+        if (i & 4) corners[i][2] = box.max()[2];
+    }
+    auto getplane = [&f = f](int i) {
+        switch (i)
+        {
+        case 0:return f.left;
+        case 1:return f.right;
+        case 2:return f.bottom;
+        case 3:return f.top;
+        case 4:return f.planeNear;
+        case 5:return f.planeFar;
+        default: OO_ASSERT(false);
+        }};
+
+    auto getppt = [&f = f](int i) {
+        switch (i)
+        {
+        case 0:return f.pt_left;
+        case 1:return f.pt_right;
+        case 2:return f.pt_bottom;
+        case 3:return f.pt_top;
+        case 4:return f.pt_planeNear;
+        case 5:return f.pt_planeFar;
+        default: OO_ASSERT(false);
+        }
+        };
+    for (size_t c = 0; c < 8; c++)
+    {
+        size_t closest{};
+        float maxDist = FLT_MAX;
+        for (size_t i = 0; i < 6; i++)
+        {
+            float t;
+            t = oGFX::coll::DistanceToPoint(getplane(i), corners[c]);
+            if (std::abs(t) < maxDist) {
+                maxDist = std::abs(t);
+                closest = i;
+            }
+        }
+        float t;
+        t = oGFX::coll::DistanceToPoint(getplane(closest), corners[c]);
+        if (t >= 0) {
+            oGFX::DebugDraw::AddLine(getppt(closest), corners[c], oGFX::Colors::RED);
+        }
+        else {
+            oGFX::DebugDraw::AddLine(getppt(closest), corners[c], oGFX::Colors::GREEN);
+        }
     }
 }
 

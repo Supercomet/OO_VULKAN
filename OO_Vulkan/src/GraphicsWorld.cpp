@@ -40,7 +40,7 @@ void GraphicsWorld::BeginFrame()
 
 		box.center = vec3(oi.localToWorld * vec4(bs.center, 1.0));
 		float maxSize = std::max(sx, std::max(sy, sz));
-		maxSize *= bs.radius / 2.0f;
+		maxSize *= bs.radius;
 		box.halfExt = vec3{ maxSize };
 		return box;
 	};
@@ -63,7 +63,7 @@ void GraphicsWorld::BeginFrame()
 		}
 	}
 
-	oGFX::Frustum f = cameras[1].GetFrustum();
+	oGFX::Frustum f = cameras[0].GetFrustum();
 	std::vector<oGFX::AABB> containedBox;
 	std::vector<oGFX::AABB> intersectBox;
 	m_OctTree->GetBoxesInFrustum(f, containedBox, intersectBox);
@@ -110,7 +110,7 @@ void GraphicsWorld::BeginFrame()
 			intersectAccepted++;
 		}
 	}
-	printf("Accepted Entities-%3llu/%3llu Intersect-%3llu/%3llu\n", m_DenseObjectsCopy.size(), m_ObjectInstances.size(), intersectAccepted, intersectEnt.size());
+	// printf("Accepted Entities-%3llu/%3llu Intersect-%3llu/%3llu\n", m_DenseObjectsCopy.size(), m_ObjectInstances.size(), intersectAccepted, intersectEnt.size());
 
 	m_EmitterCopy.clear();
 	m_EmitterCopy.reserve(m_EmitterInstances.size());

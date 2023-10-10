@@ -51,9 +51,9 @@ layout(std430, set = 0, binding = 5) readonly buffer GPUobject
 void main()
 {
 
-	const uint instanceIndex = inInstanceData.x;
+    const uint instanceIndex = gl_InstanceIndex;
 
-	GPUObjectInformation objectInfo = GPUobjectInfo[inInstanceData.x];
+    GPUObjectInformation objectInfo = GPUobjectInfo[instanceIndex];
 	outEntityID = objectInfo.entityID;
 	outEmissive = objectInfo.emissiveColour;
 	//decode the matrix into transform matrix
