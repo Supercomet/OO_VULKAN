@@ -15,6 +15,12 @@ Technology is prohibited.
 #include "GraphicsWorld.h"
 #include "Font.h"
 #include "VulkanRenderer.h"
+#include "OctTree.h"
+
+GraphicsWorld::GraphicsWorld() :
+	m_OctTree{ std::make_shared<oGFX::OctTree>() }
+{
+}
 
 void GraphicsWorld::BeginFrame()
 {
@@ -22,12 +28,53 @@ void GraphicsWorld::BeginFrame()
 	auto& vr = *VulkanRenderer::get();
 	// TODO: What do you do at the beginning of the frame?
 	m_ObjectInstancesCopy = m_ObjectInstances;
-	m_denseObjectsCopy.clear();
-	m_denseObjectsCopy.reserve(m_ObjectInstances.size());
+	
+	auto getBoxFun = [&ents = m_ObjectInstancesCopy.buffer(), &models = vr.g_globalModels](ObjectInstance& oi)->oGFX::AABB {
+		oGFX::AABB box;
+		auto& mdl = models[oi.modelID];
+		oGFX::Sphere bs = mdl.m_subMeshes.front().boundingSphere;
+
+		float sx = glm::length(glm::vec3(oi.localToWorld[0][0], oi.localToWorld[1][0], oi.localToWorld[2][0]));
+		float sy = glm::length(glm::vec3(oi.localToWorld[0][1], oi.localToWorld[1][1], oi.localToWorld[2][1]));
+		float sz = glm::length(glm::vec3(oi.localToWorld[0][2], oi.localToWorld[1][2], oi.localToWorld[2][2]));
+
+		box.center = vec3(oi.localToWorld * vec4(bs.center, 1.0));
+		float maxSize = std::max(sx, std::max(sy, sz));
+		maxSize *= bs.radius / 2.0f;
+		box.halfExt = vec3{ maxSize };
+		return box;
+	};
+
+	//for now assume entities # dont change
+	m_OctTree->ClearTree(); 
+	{
+		PROFILE_SCOPED("Build Octtree");
+		for (auto iter = m_ObjectInstancesCopy.begin(); iter != m_ObjectInstancesCopy.end(); iter++)
+		{
+			ObjectInstance& cpy = *iter;
+			//if (cpy.isDirty == true) 
+			{
+				size_t idx = iter.index();
+				oGFX::AABB box = getBoxFun(cpy);
+				//if (cpy.newObject == false)
+				//	m_octTree.Remove(idx);
+				m_OctTree->Insert(&cpy, box);
+			}
+		}
+	}
+
+	oGFX::Frustum f = cameras[1].GetFrustum();
+	std::vector<oGFX::AABB> containedBox;
+	std::vector<oGFX::AABB> intersectBox;
+	m_OctTree->GetBoxesInFrustum(f, containedBox, intersectBox);
+
+	
+
+	
 	for (auto iter = m_ObjectInstances.begin(); iter != m_ObjectInstances.end(); iter++)
 	{
-		ObjectInstance& src = *iter;	
-		if (src.isSkinned()) 
+		ObjectInstance& src = *iter;
+		if (src.isSkinned())
 		{
 			auto& mdl = vr.g_globalModels[src.modelID];
 			if (src.bones.empty())
@@ -39,28 +86,31 @@ void GraphicsWorld::BeginFrame()
 					b = mat4(1.0f);
 				}
 			}
-		}
-		m_denseObjectsCopy.emplace_back(src);
+		}		
 		src.isDirty = false;
 		src.newObject = false;
 	}
 
-	//for now assume entities # dont change
-	m_octTree.ClearTree(); 
+	std::vector<ObjectInstance*> containedEnt;
+	std::vector<ObjectInstance*> intersectEnt;
+	m_DenseObjectsCopy.clear();
+	m_DenseObjectsCopy.reserve(m_ObjectInstances.size());
+	m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
+	for (size_t i = 0; i < containedEnt.size(); i++)
 	{
-		PROFILE_SCOPED("Build Octtree");
-		for (auto iter = m_ObjectInstancesCopy.begin(); iter != m_ObjectInstancesCopy.end(); iter++)
-		{
-			ObjectInstance& cpy = *iter;
-			//if (cpy.isDirty == true) 
-			{
-				size_t idx = iter.index();
-				//if (cpy.newObject == false)
-				//	m_octTree.Remove(idx);
-				m_octTree.Insert(idx);
-			}
+		ObjectInstance& src = *containedEnt[i];
+		m_DenseObjectsCopy.emplace_back(src);
+	}
+	size_t intersectAccepted{};
+	for (size_t i = 0; i < intersectEnt.size(); i++)
+	{
+		ObjectInstance& src = *intersectEnt[i];
+		if (oGFX::coll::AABBInFrustum(f, getBoxFun(src))!= oGFX::coll::OUTSIDE) {
+			m_DenseObjectsCopy.emplace_back(src);
+			intersectAccepted++;
 		}
 	}
+	printf("Accepted Entities-%3llu/%3llu Intersect-%3llu/%3llu\n", m_DenseObjectsCopy.size(), m_ObjectInstances.size(), intersectAccepted, intersectEnt.size());
 
 	m_EmitterCopy.clear();
 	m_EmitterCopy.reserve(m_EmitterInstances.size());
@@ -98,7 +148,7 @@ int32_t GraphicsWorld::CreateObjectInstance()
 
 int32_t GraphicsWorld::CreateObjectInstance(ObjectInstance obj)
 {
-	++m_entityCount;
+	++m_EntityCount;
 	auto id = m_ObjectInstances.Add(obj);
 	return id;
 }
@@ -111,15 +161,15 @@ ObjectInstance& GraphicsWorld::GetObjectInstance(int32_t id)
 void GraphicsWorld::DestroyObjectInstance(int32_t id)
 {
 	m_ObjectInstances.Remove(id);
-	m_octTree.Remove(id); // remove from tree special
-	--m_entityCount;
+	m_OctTree->Remove(&m_ObjectInstances.buffer()[id]); // remove from tree special
+	--m_EntityCount;
 }
 
 void GraphicsWorld::ClearObjectInstances()
 {
 	m_ObjectInstances.Clear();
-	m_octTree.ClearTree();
-	m_entityCount = 0;
+	m_OctTree->ClearTree();
+	m_EntityCount = 0;
 }
 
 int32_t GraphicsWorld::CreateUIInstance()
@@ -129,7 +179,7 @@ int32_t GraphicsWorld::CreateUIInstance()
 
 int32_t GraphicsWorld::CreateUIInstance(UIInstance obj)
 {
-	++m_entityCount;
+	++m_EntityCount;
 	return m_UIInstances.Add(obj);
 }
 
@@ -141,13 +191,13 @@ UIInstance & GraphicsWorld::GetUIInstance(int32_t id)
 void GraphicsWorld::DestroyUIInstance(int32_t id)
 {
 	m_UIInstances.Remove(id);
-	--m_entityCount;
+	--m_EntityCount;
 }
 
 void GraphicsWorld::ClearUIInstances()
 {
 	m_UIInstances.Clear();
-	m_uiCount = 0;
+	m_UiCount = 0;
 }
 
 int32_t GraphicsWorld::CreateLightInstance()
@@ -159,7 +209,7 @@ int32_t GraphicsWorld::CreateLightInstance()
 
 int32_t GraphicsWorld::CreateLightInstance(OmniLightInstance obj)
 {
-	++m_lightCount;
+	++m_LightCount;
 	return m_OmniLightInstances.Add(obj);
 }
 
@@ -171,13 +221,13 @@ OmniLightInstance& GraphicsWorld::GetLightInstance(int32_t id)
 void GraphicsWorld::DestroyLightInstance(int32_t id)
 {
 	m_OmniLightInstances.Remove(id);
-	--m_lightCount;
+	--m_LightCount;
 }
 
 void GraphicsWorld::ClearLightInstances()
 {
 	m_OmniLightInstances.Clear();
-	m_lightCount = 0;
+	m_LightCount = 0;
 }
 
 int32_t GraphicsWorld::CreateEmitterInstance()
@@ -187,7 +237,7 @@ int32_t GraphicsWorld::CreateEmitterInstance()
 
 int32_t GraphicsWorld::CreateEmitterInstance(EmitterInstance obj)
 {
-	++m_emitterCount;
+	++m_EmitterCount;
 	return m_EmitterInstances.Add(obj);
 }
 
@@ -199,13 +249,13 @@ EmitterInstance& GraphicsWorld::GetEmitterInstance(int32_t id)
 void GraphicsWorld::DestroyEmitterInstance(int32_t id)
 {
 	m_EmitterInstances.Remove(id);
-	--m_emitterCount;
+	--m_EmitterCount;
 }
 
 void GraphicsWorld::ClearEmitterInstances()
 {
 	m_EmitterInstances.Clear();
-	m_emitterCount = 0;
+	m_EmitterCount = 0;
 }
 
 void GraphicsWorld::SubmitParticles(std::vector<ParticleData>& particleData, uint32_t cnt, int32_t eID)

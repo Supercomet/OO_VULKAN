@@ -60,6 +60,7 @@ Technology is prohibited.
 #include <mutex>
 #include <deque>
 #include <functional>
+#include <memory>
 
 struct Window;
 

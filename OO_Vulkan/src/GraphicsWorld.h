@@ -22,11 +22,16 @@ Technology is prohibited.
 #include "VulkanTexture.h"
 #include "VulkanUtils.h"
 #include "Font.h"
-#include "OctTree.h"
 
 #include "imgui/imgui.h"
 #include <vector>
 #include <array>
+#include <memory>
+
+namespace oGFX {
+    struct OctTree;
+    struct OctNode;
+};
 
 // pos windows
 #undef TRANSPARENT 
@@ -57,8 +62,6 @@ enum class UIInstanceFlags : uint32_t
 };
 ENUM_OPERATORS_GEN(UIInstanceFlags, uint32_t)
 
-
-//CHAR_BIT * sizeof(uint64_t)
 struct ObjectInstance
 {
     std::string name;
@@ -197,6 +200,7 @@ class GraphicsWorld
 {
 public:
     
+    GraphicsWorld();
     // Call this at the beginning of the frame
     void BeginFrame();
     // Call this at the end of the frame
@@ -289,27 +293,25 @@ public:
     friend class VulkanRenderer;
     friend class GraphicsBatch;
 private:
-    int32_t m_entityCount{};
+    int32_t m_EntityCount{};
     BitContainer<ObjectInstance> m_ObjectInstances;
-    int32_t m_uiCount{};
+    int32_t m_UiCount{};
     BitContainer<UIInstance> m_UIInstances;
-    int32_t m_lightCount{};
+    int32_t m_LightCount{};
     BitContainer<OmniLightInstance> m_OmniLightInstances;
-    int32_t m_emitterCount{};
+    int32_t m_EmitterCount{};
     BitContainer<EmitterInstance> m_EmitterInstances;
     bool initialized = false;
 
     //etc
     BitContainer<ObjectInstance> m_ObjectInstancesCopy;
-    std::vector<ObjectInstance> m_denseObjectsCopy;
-    std::vector<uint32_t> m_objectsIndex;
+    std::vector<ObjectInstance> m_DenseObjectsCopy;
+    std::vector<uint32_t> m_ObjectsIndex;
     std::vector<UIInstance> m_UIcopy;
     std::vector<OmniLightInstance> m_OmniLightCopy;
     std::vector<EmitterInstance> m_EmitterCopy;
 
-    oGFX::OctTree m_octTree{ [](uint32_t) { return oGFX::AABB{}; },
-    [](uint32_t)->oGFX::OctNode* { return nullptr; } ,
-    [](uint32_t,oGFX::OctNode*) { return oGFX::AABB{}; } };
+    std::shared_ptr<oGFX::OctTree> m_OctTree;
     // + Spatial Acceleration Structures
     // + Culling object BV against frustum
 };

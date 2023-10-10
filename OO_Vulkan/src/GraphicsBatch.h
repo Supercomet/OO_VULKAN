@@ -14,13 +14,15 @@ Technology is prohibited.
 #pragma once
 
 #include "gpuCommon.h"
+#include "GraphicsWorld.h"
 #include <vector>
 #include <array>
 #include <mutex>
-#include "GraphicsWorld.h"
 #include "Font.h"
 
 class VulkanRenderer;
+
+class GraphicsWorld;
 
 class GraphicsBatch
 {

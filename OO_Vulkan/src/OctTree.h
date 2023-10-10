@@ -16,44 +16,37 @@ Technology is prohibited.
 #include "VulkanUtils.h"
 
 #include <vector>
-#include <tuple>
-#include <functional>
 #include <memory>
 
+struct ObjectInstance;
 namespace oGFX {
 
 struct OctNode;
+struct NodeEntry;
 
 class OctTree
 {
 public:
 	inline static constexpr uint32_t s_num_children = 8;
-	inline static constexpr uint32_t s_stop_depth = 8;
+	inline static constexpr uint32_t s_stop_depth = 5;
 public:
-	OctTree(std::function<AABB(uint32_t)> getBox
-		, std::function<OctNode* (uint32_t)> getNode
-		, std::function<void(uint32_t, OctNode* node)> setNode
-		, const AABB rootBox = { Point3D{-500.0f},Point3D{500.0f} } ,int stopDepth = s_stop_depth);
+	OctTree(const AABB rootBox = { Point3D{-500.0f},Point3D{500.0f} } ,int stopDepth = s_stop_depth);
 
-	void Insert(uint32_t entity);
-	void TraverseRemove(uint32_t entity);
-	void Remove(uint32_t entity);
+	void Insert(ObjectInstance* entity, AABB box);
 
-	std::vector<uint32_t> GetEntitiesInFrustum(const Frustum& frust);
-	std::tuple<std::vector<AABB>,std::vector<uint32_t> > GetActiveBoxList();
-	std::tuple< std::vector<AABB>,std::vector<AABB> > GetBoxesInFrustum(const Frustum& frust);
+	void Remove(ObjectInstance* entity);
+
+	void GetActiveBoxList(std::vector<AABB>& boxes, std::vector<uint32_t>& depth);
+	void GetEntitiesInFrustum(const Frustum& frust, std::vector<ObjectInstance*>& contains, std::vector<ObjectInstance*>& intersect);
+	void GetBoxesInFrustum(const Frustum& frust, std::vector<AABB>& contains, std::vector<AABB>& intersect);
 
 	void ClearTree();
 	uint32_t size() const;
 
 private:
-	std::function<AABB(uint32_t)> m_GetBoxFunction;
-	std::function<OctNode*(uint32_t)> m_GetNodeFunction;
-	std::function<void(uint32_t, OctNode*)> m_SetNodeFunction;
 	std::unique_ptr<OctNode> m_root{};
 
 	uint32_t m_entitiesCnt{};
-	std::vector<uint32_t> m_entities;
 	uint32_t m_maxDepth{ s_stop_depth };
 
 	uint32_t m_nodes{};
@@ -61,11 +54,12 @@ private:
 
 	void GatherBoxWithDepth(OctNode* node,std::vector<AABB>& boxes, std::vector<uint32_t>& depth);
 	void GatherBox(OctNode* node,std::vector<AABB>& boxes);
-	void GatherEntities(OctNode* node,std::vector<uint32_t>& entities, std::vector<uint32_t>& depth);
-	void GatherFrustBoxes(OctNode* node, const Frustum& frust,std::vector<AABB>& boxes, std::vector<AABB>& testingBox);
-
-	void PerformInsert(OctNode* node, uint32_t entity, const AABB& objBox);
-	bool PerformRemove(OctNode* node, uint32_t entity);
+	void GatherEntities(OctNode* node,std::vector<ObjectInstance*>& entities, std::vector<uint32_t>& depth);
+	void GatherFrustBoxes(OctNode* node, const Frustum& frust,std::vector<AABB>& contained, std::vector<AABB>& intersect);
+	void GatherFrustEntities(OctNode* node, const Frustum& frust,std::vector<ObjectInstance*>& contained, std::vector<ObjectInstance*>& intersect);
+	
+	void PerformInsert(OctNode* node, const NodeEntry& entry);
+	bool PerformRemove(OctNode* node, const NodeEntry& entry);
 	void SplitNode(OctNode* node);
 	void PerformClear(OctNode* node);
 
@@ -73,18 +67,18 @@ private:
 
 struct OctNode
 {
-	enum Type
-	{
-		INTERNAL,
-		LEAF,
-	}type{ Type::INTERNAL };
-
 	AABB box{};
 	uint32_t depth{};
 	uint32_t nodeID{};
 
-	std::vector<uint32_t> entities;
+	std::vector<NodeEntry> entities;
 	std::unique_ptr<OctNode> children[OctTree::s_num_children];
+};
+
+struct NodeEntry 
+{
+	ObjectInstance* obj;
+	AABB box{};
 };
 
 }// end namespace oGFX

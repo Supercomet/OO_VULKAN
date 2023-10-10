@@ -13,9 +13,9 @@ Technology is prohibited.
 *//*************************************************************************************/
 #include "GraphicsBatch.h"
 
+#include "GraphicsWorld.h"
 #include "VulkanRenderer.h"
 #include "MathCommon.h"
-#include "GraphicsWorld.h"
 #include "gpuCommon.h"
 #include <cassert>
 #include "Profiling.h"
@@ -240,7 +240,7 @@ void GraphicsBatch::ProcessGeometry()
 {
 	using Batch = GraphicsBatch::DrawBatch;
 	using Flags = ObjectInstanceFlags;
-	auto& entities = m_world->m_denseObjectsCopy;
+	auto& entities = m_world->m_DenseObjectsCopy;
 	int32_t currModelID{ -1 };
 	int32_t cnt{ 0 };
 	for (auto& ent : entities)

@@ -72,6 +72,7 @@ extern GfxRenderpass* g_ZPrePass;
 
 #include "Profiling.h"
 #include "DebugDraw.h"
+#include "OctTree.h"
 
 #include <vector>
 #include <set>
@@ -1247,37 +1248,8 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 			}		
 		}	
 	};
-	
 
-	auto getBoxFun = [&ents = world->m_ObjectInstancesCopy.buffer(), &models = g_globalModels](uint32_t entity)->oGFX::AABB {
-		oGFX::AABB box;
-		ObjectInstance& oi = ents[entity];
-		auto& mdl = models[oi.modelID];
-		oGFX::Sphere bs = mdl.m_subMeshes.front().boundingSphere;
-
-		float sx = glm::length(glm::vec3(oi.localToWorld[0][0], oi.localToWorld[1][0], oi.localToWorld[2][0]));
-		float sy = glm::length(glm::vec3(oi.localToWorld[0][1], oi.localToWorld[1][1], oi.localToWorld[2][1]));
-		float sz = glm::length(glm::vec3(oi.localToWorld[0][2], oi.localToWorld[1][2], oi.localToWorld[2][2]));
-
-		box.center = vec3(oi.localToWorld * vec4(bs.center, 1.0));
-		float maxSize = std::max(sx, std::max(sy, sz));
-		maxSize *= bs.radius / 2.0f;
-		box.halfExt = vec3{ maxSize };
-		return box;
-	};
-	auto getNodeFun = [&ents = world->m_ObjectInstancesCopy.buffer()](uint32_t entity)->oGFX::OctNode* {
-		ObjectInstance& oi = ents[entity];
-		return oi.treeNode;
-	};
-
-	// modify actual object instances
-	auto setNodeFun = [&ents = world->m_ObjectInstances.buffer()](uint32_t entity, oGFX::OctNode* inNode){
-		ObjectInstance& oi = ents[entity];
-		oi.treeNode = inNode;
-	};
-
-
-	world->m_octTree = oGFX::OctTree{ getBoxFun,getNodeFun,setNodeFun, oGFX::AABB{vec3{-25.0f},vec3{25.0f}} };
+	world->m_OctTree = std::make_shared<oGFX::OctTree>(oGFX::OctTree{ oGFX::AABB{vec3{-25.0f},vec3{25.0f}} });
 	world->initialized = true;
 	std::scoped_lock l{g_mut_workQueue};
 	g_workQueue.emplace_back(lam);
@@ -2200,7 +2172,7 @@ void VulkanRenderer::UploadInstanceData()
 	if (currWorld)
 	{
 		uint32_t matCnt = 0;
-		for (auto& ent : currWorld->GetAllObjectInstances())
+		for (auto& ent : currWorld->m_DenseObjectsCopy)
 		{
 			
 			auto& mdl = g_globalModels[ent.modelID];
@@ -2328,8 +2300,7 @@ void VulkanRenderer::UploadInstanceData()
 		MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of instance buffer.", L"BAD ERROR");
     }
 
-	instanceBuffer[getFrame()].writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd);
-
+	instanceBuffer[getFrame()].writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd);	
 }
 
 void VulkanRenderer::UploadUIData()
@@ -2459,9 +2430,13 @@ void VulkanRenderer::BeginDraw()
 			PROFILE_SCOPED("Init batches");
 			batches.Init(currWorld, this, MAX_OBJECTS);
 			currWorld->BeginFrame();
-			auto f = currWorld->cameras[1].GetFrustum();
-			auto [boxes, depth] = currWorld->m_octTree.GetActiveBoxList();
-			auto [visible, intersecting] = currWorld->m_octTree.GetBoxesInFrustum(f);
+			auto f = currWorld->cameras[0].GetFrustum();
+			std::vector<oGFX::AABB> boxes;
+			std::vector<uint32_t> depth;
+			currWorld->m_OctTree->GetActiveBoxList(boxes, depth);
+			std::vector<oGFX::AABB> visible;
+			std::vector<oGFX::AABB> intersecting;
+			currWorld->m_OctTree->GetBoxesInFrustum(f, visible, intersecting);
 			//size_t colsSz = oGFX::Colors::c.size();
 			//for (size_t i = 0; i < boxes.size(); i++)
 			//{
