@@ -464,7 +464,7 @@ namespace vkutils
 			stagingBuffer.buffer,
 			image.image,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			bufferCopyRegion.size(), // copy over as many mips as have
+			(uint32_t)bufferCopyRegion.size(), // copy over as many mips as have
 			bufferCopyRegion.data()
 		);
 
@@ -503,7 +503,7 @@ namespace vkutils
 		{
 			viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 			viewCreateInfo.subresourceRange.levelCount = 1;
-			viewCreateInfo.subresourceRange.baseMipLevel = i;
+			viewCreateInfo.subresourceRange.baseMipLevel = (uint32_t)i;
 			viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 
 			//vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &mipChainViews[i]);
@@ -817,7 +817,7 @@ namespace vkutils
 			stagingBuffer.buffer,
 			image.image,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			bufferCopyRegion.size(), // copy over as many mips as have
+			(uint32_t)bufferCopyRegion.size(), // copy over as many mips as have
 			bufferCopyRegion.data()
 		);
 

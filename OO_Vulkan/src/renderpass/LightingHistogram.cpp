@@ -123,8 +123,8 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 	float histogramParams[4] = {
 		minLogLum,
 		1.0f / (maxLogLum - minLogLum),
-		target.width,
-		target.height
+		(float)target.width,
+		(float)target.height
 	};
 	cmd.SetPushConstant(PSOLayoutDB::histogramPSOLayout, pcr, &histogramParams);
 	cmd.DescriptorSetBegin(0)

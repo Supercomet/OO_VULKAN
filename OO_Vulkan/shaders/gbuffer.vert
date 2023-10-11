@@ -104,4 +104,5 @@ void main()
 	outUV = inUV;
 	outColor = inColor;
 	outInstanceData = inInstanceData;
+    outInstanceData.x = gl_InstanceIndex;
 }

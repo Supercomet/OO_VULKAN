@@ -70,39 +70,39 @@ int Win32SurfaceCreator(ImGuiViewport* vp, ImU64 device, const void* allocator, 
 struct SetLayoutDB // Think of a better name? Very short and sweet for easy typing productivity?
 {
     // For GPU Scene
-    inline static VkDescriptorSetLayout gpuscene;
+    inline static VkDescriptorSetLayout gpuscene{VK_NULL_HANDLE};
     // For UBO with the corresponding swap chain image
-    inline static VkDescriptorSetLayout FrameUniform;
+    inline static VkDescriptorSetLayout FrameUniform{VK_NULL_HANDLE};
     // For unbounded array of texture descriptors, used in bindless approach
-    inline static VkDescriptorSetLayout bindless;
+    inline static VkDescriptorSetLayout bindless{VK_NULL_HANDLE};
 	// For lighting
-	inline static VkDescriptorSetLayout Lighting;
-	inline static VkDescriptorSetLayout skypass;
+	inline static VkDescriptorSetLayout Lighting{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout skypass{VK_NULL_HANDLE};
 
-	inline static VkDescriptorSetLayout imguiCB;
-	inline static VkDescriptorSetLayout imguiTexture;
+	inline static VkDescriptorSetLayout imguiCB{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout imguiTexture{VK_NULL_HANDLE};
 
-	inline static VkDescriptorSetLayout lights;
+	inline static VkDescriptorSetLayout lights{VK_NULL_HANDLE};
 	// 
-	inline static VkDescriptorSetLayout ForwardDecal;
+	inline static VkDescriptorSetLayout ForwardDecal{VK_NULL_HANDLE};
 
-	inline static VkDescriptorSetLayout SSAO;
-	inline static VkDescriptorSetLayout SSAOBlur;
+	inline static VkDescriptorSetLayout SSAO{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout SSAOBlur{VK_NULL_HANDLE};
 
-	inline static VkDescriptorSetLayout util_fullscreenBlit;
+	inline static VkDescriptorSetLayout util_fullscreenBlit{VK_NULL_HANDLE};
 
-	inline static VkDescriptorSetLayout compute_singleTexture;
-	inline static VkDescriptorSetLayout compute_doubleImageStore;
-	inline static VkDescriptorSetLayout compute_shadowPrepass;
-	inline static VkDescriptorSetLayout compute_singleSSBO;
-	inline static VkDescriptorSetLayout compute_AMDSPD;
-	inline static VkDescriptorSetLayout compute_Radiance;
-	inline static VkDescriptorSetLayout compute_prefilter;
-	inline static VkDescriptorSetLayout compute_brdfLUT;
-	inline static VkDescriptorSetLayout compute_histogram;
-	inline static VkDescriptorSetLayout compute_luminance;
-	inline static VkDescriptorSetLayout compute_brightPixels;
-	inline static VkDescriptorSetLayout compute_tonemap;
+	inline static VkDescriptorSetLayout compute_singleTexture{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_doubleImageStore{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_shadowPrepass{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_singleSSBO{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_AMDSPD{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_Radiance{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_prefilter{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_brdfLUT{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_histogram{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_luminance{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_brightPixels{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_tonemap{VK_NULL_HANDLE};
 
 };
 
@@ -116,26 +116,26 @@ struct Attachments_imguiBinding {
 // Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...
 struct PSOLayoutDB
 {
-	inline static VkPipelineLayout defaultPSOLayout;
-	inline static VkPipelineLayout imguiPSOLayout;
-	inline static VkPipelineLayout fullscreenBlitPSOLayout;
-	inline static VkPipelineLayout lightingPSOLayout;
-	inline static VkPipelineLayout forwardDecalPSOLayout;
-	inline static VkPipelineLayout SSAOPSOLayout;
-	inline static VkPipelineLayout SSAOBlurPSOLayout;
-	inline static VkPipelineLayout BloomPSOLayout; 
-	inline static VkPipelineLayout tonemapPSOLayout; 
-	inline static VkPipelineLayout doubleImageStoreLayout; 
-	inline static VkPipelineLayout brightPixelsLayout; 
-	inline static VkPipelineLayout singleSSBOlayout; 
-	inline static VkPipelineLayout shadowPrepassPSOLayout; 
-	inline static VkPipelineLayout AMDSPDPSOLayout; 
-	inline static VkPipelineLayout RadiancePSOLayout; 
-	inline static VkPipelineLayout prefilterPSOLayout; 
-	inline static VkPipelineLayout BRDFLUTPSOLayout; 
-	inline static VkPipelineLayout skypassPSOLayout; 
-	inline static VkPipelineLayout histogramPSOLayout; 
-	inline static VkPipelineLayout luminancePSOLayout; 
+	inline static VkPipelineLayout defaultPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout imguiPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout fullscreenBlitPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout lightingPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout forwardDecalPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout SSAOPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout SSAOBlurPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout BloomPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout tonemapPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout doubleImageStoreLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout brightPixelsLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout singleSSBOlayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout shadowPrepassPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout AMDSPDPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout RadiancePSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout prefilterPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout BRDFLUTPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout skypassPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout histogramPSOLayout{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout luminancePSOLayout{ VK_NULL_HANDLE };
 };
 
 // Moving all constant buffer structures into this CB namespace.
@@ -226,7 +226,6 @@ public:
 	 PFN_vkCmdDebugMarkerBeginEXT pfnDebugMarkerRegionBegin{ nullptr };
 	 PFN_vkCmdDebugMarkerEndEXT pfnDebugMarkerRegionEnd{ nullptr };
 
-	 VulkanRenderer();
 	~VulkanRenderer();
 
 	static VulkanRenderer* get();
@@ -266,7 +265,7 @@ public:
 	TaskCompletionCallback drawCallRecrodingCompleted{ Task([](void*) {}) };
 	void AddRenderer(GfxRenderpass* pass);
 	
-	ImTextureID myImg;
+	ImTextureID myImg{};
 
 	bool useSSAO = true;
     bool m_imguiInitialized = false;
@@ -284,22 +283,22 @@ public:
 	//---------- DescriptorSet ----------
 
 	// For Deferred Lighting onwards
-	VkDescriptorSet descriptorSet_DeferredComposition;
+	VkDescriptorSet descriptorSet_DeferredComposition{VK_NULL_HANDLE};
 	// For unbounded array of texture descriptors, used in bindless approach
-	VkDescriptorSet descriptorSet_bindless;
+	VkDescriptorSet descriptorSet_bindless{VK_NULL_HANDLE};
 	// For GPU Scene
-	VkDescriptorSet descriptorSet_gpuscene;
+	VkDescriptorSet descriptorSet_gpuscene{VK_NULL_HANDLE};
 
-	VkDescriptorSet descriptorSet_lights;
+	VkDescriptorSet descriptorSet_lights{VK_NULL_HANDLE};
 
-	VkDescriptorSet descriptorSet_bones;
+	VkDescriptorSet descriptorSet_bones{VK_NULL_HANDLE};
 
-	VkDescriptorSet descriptorSet_objInfos;
+	VkDescriptorSet descriptorSet_objInfos{VK_NULL_HANDLE};
 
-	VkDescriptorSet descriptorSet_SSAO;
-	VkDescriptorSet descriptorSet_SSAOBlur;
+	VkDescriptorSet descriptorSet_SSAO{VK_NULL_HANDLE};
+	VkDescriptorSet descriptorSet_SSAOBlur{VK_NULL_HANDLE};
 
-	VkDescriptorSet descriptorSet_fullscreenBlit;
+	VkDescriptorSet descriptorSet_fullscreenBlit{VK_NULL_HANDLE};
 	// For UBO with the corresponding swap chain image
 	std::vector<VkDescriptorSet> descriptorSets_uniform;
 
@@ -355,7 +354,7 @@ public:
 	void GenerateCPUIndirectDrawCommands();
 	void UploadInstanceData();
 	void UploadUIData();
-	uint32_t objectCount{};
+	uint32_t commandCount{};
 	// Contains the instanced data
 	GpuVector<oGFX::InstanceData> instanceBuffer[MAX_FRAME_DRAWS];
 
@@ -466,14 +465,14 @@ public:
 	std::vector<VkSemaphore> presentSemaphore;
 	std::vector<VkSemaphore> renderSemaphore;
 	std::vector<VkFence> drawFences;
-	VkSemaphore frameCountSemaphore;
+	VkSemaphore frameCountSemaphore{VK_NULL_HANDLE};
 
 	// - Pipeline
-	VkPipeline pso_utilFullscreenBlit;
-	VkPipeline pso_utilAMDSPD;
-	VkPipeline pso_radiance;
-	VkPipeline pso_prefilter;
-	VkPipeline pso_brdfLUT;
+	VkPipeline pso_utilFullscreenBlit{ VK_NULL_HANDLE };
+	VkPipeline pso_utilAMDSPD{ VK_NULL_HANDLE };
+	VkPipeline pso_radiance{ VK_NULL_HANDLE };
+	VkPipeline pso_prefilter{ VK_NULL_HANDLE };
+	VkPipeline pso_brdfLUT{ VK_NULL_HANDLE };
 
 	VulkanRenderpass renderPass_default{};
 	VulkanRenderpass renderPass_default_noDepth{};
@@ -522,7 +521,7 @@ public:
 	oGFX::AllocatedBuffer lightingHistogram;
 	oGFX::AllocatedBuffer LuminanceBuffer;
 	oGFX::AllocatedBuffer LuminanceMonitor;
-	void* monitorData;
+	void* monitorData{ nullptr };
 
 	std::vector<DescriptorAllocator> descAllocs;
 	DescriptorLayoutCache DescLayoutCache;
@@ -536,6 +535,7 @@ public:
 	//Scene objects
 	std::mutex g_mut_globalModels;
 	std::vector<gfxModel> g_globalModels;
+	std::vector<SubMesh> g_globalSubmesh;
 
 	std::mutex g_mut_workQueue;
 	std::vector<std::function<void()>> g_workQueue;
@@ -544,9 +544,9 @@ public:
 	uint32_t currentFrame = 0;
 	uint32_t getFrame() const;
 
-	uint64_t uboDynamicAlignment;
+	uint64_t uboDynamicAlignment{};
 	static constexpr uint32_t numCameras = 2;
-	uint32_t numAllocatedCameras;
+	uint32_t numAllocatedCameras{};
 
 	struct RenderTarget
 	{
@@ -564,7 +564,7 @@ public:
 
 	TaskManager g_taskManager;
 	std::mutex g_mut_taskMap;
-	std::unordered_map<std::thread::id,size_t> g_taskManagerMapping;
+	std::unordered_map<std::thread::id, uint32_t> g_taskManagerMapping;
 	uint32_t mappedThreadCnt{};
 	uint32_t RegisterThreadMapping();
 

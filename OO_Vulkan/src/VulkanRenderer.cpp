@@ -155,10 +155,6 @@ int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU
 		
 }
 
-VulkanRenderer::VulkanRenderer()
-{
-}
-
 VulkanRenderer::~VulkanRenderer()
 { 
 	//wait until no actions being run on device before destorying
@@ -363,7 +359,6 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 	// Calls "Init()" on all registered render passes. Order is not guarunteed.
 	auto rpd = RenderPassDatabase::Get();
-	GfxRenderpass* ptr;
 	rpd->RegisterRenderPass(g_ShadowPass);
 	rpd->RegisterRenderPass(g_GBufferRenderPass);
 	rpd->RegisterRenderPass(g_ZPrePass);
@@ -389,6 +384,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 	g_Textures.reserve(2048);
 	g_globalModels.reserve(2048);
+	g_globalSubmesh.reserve(2048);
 	g_imguiIDs.reserve(2048);
 
 	uint32_t whiteTexture = 0xFFFFFFFF; // ABGR
@@ -1141,7 +1137,7 @@ void VulkanRenderer::CreateCommandBuffers()
 
 VkCommandBuffer VulkanRenderer::GetCommandBuffer()
 {
-	uint32_t thread_id = g_taskManagerMapping[std::this_thread::get_id()];
+	uint32_t thread_id = (uint32_t)g_taskManagerMapping[std::this_thread::get_id()];
 	constexpr bool beginBuffer = true;
 	VkCommandBuffer result = m_device.commandPoolManagers[getFrame()].GetNextCommandBuffer(thread_id,beginBuffer);
 	VK_NAME(m_device.logicalDevice, "DEFAULTCMD", result);
@@ -1405,7 +1401,7 @@ void VulkanRenderer::UploadLights()
 	//memcpy(lightsBuffer.mapped, &lightUBO, sizeof(CB::LightUBO));
 
 	const auto& spotLights = batches.GetLocalLights();
-	m_numShadowcastLights = batches.m_numShadowCastGrids;
+	m_numShadowcastLights = (uint32_t)batches.m_numShadowCastGrids;
 	auto cmd = GetCommandBuffer();
 	PROFILE_GPU_CONTEXT(cmd);
 	PROFILE_GPU_EVENT("Upload Light");
@@ -2094,14 +2090,15 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 	{
 		auto& allObjectsCommands = batches.GetBatch(GraphicsBatch::ALL_OBJECTS);
 
-		objectCount = 0;
+		commandCount = 0;
 		for (auto& indirectCmd : allObjectsCommands)
 		{
-			objectCount += indirectCmd.instanceCount ?  indirectCmd.instanceCount:1;
+			commandCount += indirectCmd.instanceCount ?  indirectCmd.instanceCount:1;
 		}
+		//printf("Objects %d\n", commandCount);
+		commandCount = (uint32_t)allObjectsCommands.size();
 
-
-		if (objectCount == 0)
+		if (commandCount == 0)
 			return;
 
 
@@ -2131,7 +2128,7 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 
 	// shadow commands
 	{
-		auto& shadowObjects = batches.GetBatch(GraphicsBatch::SHADOW_CAST);
+		auto& shadowObjects = batches.GetBatch(GraphicsBatch::SHADOW_OCCLUDER);
 		if (shadowObjects.size() > MAX_OBJECTS)
 		{
 			MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of indirect command buffer.", L"BAD ERROR");
@@ -2184,73 +2181,60 @@ void VulkanRenderer::UploadInstanceData()
 
 	uint32_t indexCounter = 0;
 	std::vector<oGFX::InstanceData> instanceDataBuff;
-	instanceDataBuff.reserve(objectCount);
+
+	std::unordered_map<uint32_t, uint32_t>entitiyToBoneBufferOffset;
+
+	instanceDataBuff.reserve(commandCount);
 	if (currWorld)
 	{
 		uint32_t matCnt = 0;
-		for (auto& ent : currWorld->m_DenseObjectsCopy)
-		{
-			
-			auto& mdl = g_globalModels[ent.modelID];
-			for (size_t i = 0; i < mdl.m_subMeshes.size(); i++)
-			{
-				if (ent.submesh[i] == true)
-				{
-				OO_ASSERT(i == 0);
-					oGFX::InstanceData instData;
-					//size_t sz = instanceData.size();
-					//for (size_t x = 0; x < g_globalModels[ent.modelID].meshCount; x++)
-					{
-						// This is per entity. Should be per material.
-						constexpr uint32_t invalidIndex = 0xFFFFFFFF;
+		for (DrawData& ent : currWorld->m_DenseObjectsCopy)
+		{							
+			oGFX::InstanceData instData;
 
-						uint32_t albedo = ent.bindlessGlobalTextureIndex_Albedo;
-						uint32_t normal = ent.bindlessGlobalTextureIndex_Normal;
-						uint32_t roughness = ent.bindlessGlobalTextureIndex_Roughness;
-						uint32_t metallic = ent.bindlessGlobalTextureIndex_Metallic;
-						uint32_t emissive = ent.bindlessGlobalTextureIndex_Emissive;
-						const uint8_t perInstanceData = ent.instanceData;
+			// This is per entity. Should be per material.
+			constexpr uint32_t invalidIndex = 0xFFFFFFFF;
 
-						if (albedo == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Albedo].isValid == false)
-							albedo = whiteTextureID; // TODO: Dont hardcode this bindless texture index
-						if (normal == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Normal].isValid == false)
-							normal = blackTextureID; // TODO: Dont hardcode this bindless texture index
-						if (roughness == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Roughness].isValid == false)
-							roughness = whiteTextureID; // TODO: Dont hardcode this bindless texture index
-						if (metallic == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Metallic].isValid == false)
-							metallic = blackTextureID; // TODO: Dont hardcode this bindless texture index
-						if (emissive == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Emissive].isValid == false)
-							emissive = blackTextureID; // TODO: Dont hardcode this bindless texture index
+			uint32_t albedo = ent.bindlessGlobalTextureIndex_Albedo;
+			uint32_t normal = ent.bindlessGlobalTextureIndex_Normal;
+			uint32_t roughness = ent.bindlessGlobalTextureIndex_Roughness;
+			uint32_t metallic = ent.bindlessGlobalTextureIndex_Metallic;
+			uint32_t emissive = ent.bindlessGlobalTextureIndex_Emissive;
+			const uint8_t perInstanceData = ent.instanceData;
 
-						// Important: Make sure this index packing matches the unpacking in the shader
-						const uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF);
-						const uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
-						const uint32_t instanceID = uint32_t(indexCounter); // the instance id should point to the entity
-						auto res = ent.flags & ObjectInstanceFlags::SKINNED; 
-						auto isSkin = (res== ObjectInstanceFlags::SKINNED);
-						const uint32_t emissive_skinned = emissive << 16 | (uint32_t)perInstanceData | isSkin << 8; //matCnt;
+			if (albedo == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Albedo].isValid == false)
+				albedo = whiteTextureID; // TODO: Dont hardcode this bindless texture index
+			if (normal == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Normal].isValid == false)
+				normal = blackTextureID; // TODO: Dont hardcode this bindless texture index
+			if (roughness == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Roughness].isValid == false)
+				roughness = whiteTextureID; // TODO: Dont hardcode this bindless texture index
+			if (metallic == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Metallic].isValid == false)
+				metallic = blackTextureID; // TODO: Dont hardcode this bindless texture index
+			if (emissive == invalidIndex || g_Textures[ent.bindlessGlobalTextureIndex_Emissive].isValid == false)
+				emissive = blackTextureID; // TODO: Dont hardcode this bindless texture index
 
-																						 // Putting these ranges here for easy reference:
-																						 // 9-bit:  [0 to 511]
-																						 // 10-bit: [0 to 1023]
-																						 // 11-bit: [0 to 2047]
-																						 // 12-bit: [0 to 4095]
-																						 // 13-bit: [0 to 8191]
-																						 // 14-bit: [0 to 16383]
-																						 // 15-bit: [0 to 32767]
-																						 // 16-bit: [0 to 65535]
+			// Important: Make sure this index packing matches the unpacking in the shader
+			const uint32_t albedo_normal = albedo << 16 | (normal & 0xFFFF);
+			const uint32_t roughness_metallic = roughness << 16 | (metallic & 0xFFFF);
+			const uint32_t instanceID = uint32_t(indexCounter); // the instance id should point to the entity
+			auto res = ent.flags & ObjectInstanceFlags::SKINNED;
+			auto isSkin = (res == ObjectInstanceFlags::SKINNED);
+			const uint32_t emissive_skinned = emissive << 16 | (uint32_t)perInstanceData | isSkin << 8; //matCnt;
 
-																						 // TODO: This is the solution for now.
-																						 // In the future, we can just use an index for all the materials (indirection) to fetch from another buffer.
-						instData.instanceAttributes = uvec4(instanceID, emissive_skinned, albedo_normal, roughness_metallic);
-						
-						instanceDataBuff.emplace_back(instData);
-					}
-				}				
+			// Putting these ranges here for easy reference:
+			// 9-bit:  [0 to 511]
+			// 10-bit: [0 to 1023]
+			// 11-bit: [0 to 2047]
+			// 12-bit: [0 to 4095]
+			// 13-bit: [0 to 8191]
+			// 14-bit: [0 to 16383]
+			// 15-bit: [0 to 32767]
+			// 16-bit: [0 to 65535]
 
-			} // end m_subMeshes loop
+			instData.instanceAttributes = uvec4(instanceID, emissive_skinned, albedo_normal, roughness_metallic);
 
-			//for (size_t i = 0; i < mdl.m_subMeshes.size(); i++)
+			instanceDataBuff.emplace_back(instData);
+
 			{
 				// creates a single transform reference for each entity in the scene
 				size_t x = gpuTransform.size();
@@ -2273,17 +2257,24 @@ void VulkanRenderer::UploadInstanceData()
 			oi.emissiveColour = ent.emissiveColour;
 			if ((ent.flags & ObjectInstanceFlags::SKINNED) == ObjectInstanceFlags::SKINNED)
 			{
-				auto& mdl = g_globalModels[ent.modelID];
+				auto& mdl = g_globalModels[ent.modelID];				
+				oi.boneWeightsOffset = mdl.skinningWeightsOffset;				
 				
-				oi.boneWeightsOffset = mdl.skinningWeightsOffset;
-				oi.boneStartIdx = static_cast<uint32_t>(boneMatrices.size());
-				//oi.boneCnt = static_cast<uint32_t>(ent.bones.size());
-
-				for (size_t i = 0; i < ent.bones.size(); i++)
+				auto it = entitiyToBoneBufferOffset.find(ent.entityID);
+				if (it == entitiyToBoneBufferOffset.end()) // doesnt exist, add bones
 				{
-					boneMatrices.push_back(ent.bones[i]);
+					uint32_t bonesOffset = static_cast<uint32_t>(boneMatrices.size());
+					for (size_t i = 0; i < ent.ptrToBoneBuffer->size(); i++)
+					{
+						boneMatrices.push_back((*ent.ptrToBoneBuffer)[i]);
+					}
+					// save offset
+					entitiyToBoneBufferOffset[ent.entityID] = bonesOffset;
 				}
+
+				oi.boneStartIdx = entitiyToBoneBufferOffset[ent.entityID];				
 			}
+			boneMatrices.push_back(mat4(1.0f));
 
 			objectInformation.push_back(oi);
 
@@ -2479,11 +2470,11 @@ void VulkanRenderer::BeginDraw()
 			//}
 			for (size_t i = 0; i < visible.size(); i++)
 			{
-				oGFX::DebugDraw::AddAABB(visible[i], oGFX::Colors::GREEN);
+				//oGFX::DebugDraw::AddAABB(visible[i], oGFX::Colors::GREEN);
 			}
 			for (size_t i = 0; i < intersecting.size(); i++)
 			{
-				oGFX::DebugDraw::AddAABB(intersecting[i], oGFX::Colors::YELLOW);
+				//oGFX::DebugDraw::AddAABB(intersecting[i], oGFX::Colors::YELLOW);
 			}
 			batches.GenerateBatches();
 		}
@@ -2571,7 +2562,7 @@ void VulkanRenderer::RenderFrame()
 			cond.notify_all();
 			};
 		drawCallRecrodingCompleted.CompletionTask = Task(tasksDone);
-		drawCallRecrodingCompleted.TaskCount = m_taskList.size();
+		drawCallRecrodingCompleted.TaskCount = (uint32_t)m_taskList.size();
 
 		g_taskManager.AddTaskList(m_taskList);
 		{
@@ -3068,7 +3059,7 @@ void VulkanRenderer::GeneratePrefilterMap(VkCommandBuffer cmdlist, vkutils::Cube
 
 	for (size_t i = 0; i < g_prefilterMap.mipLevels; i++)
 	{
-		VkImageView view = g_prefilterMap.GenerateMipView(i);
+		VkImageView view = g_prefilterMap.GenerateMipView((uint32_t)i);
 		float roughness = float(i) / (g_prefilterMap.mipLevels - 1);
 
 		cmd.SetPushConstant(PSOLayoutDB::prefilterPSOLayout, range, &roughness);
@@ -3081,7 +3072,7 @@ void VulkanRenderer::GeneratePrefilterMap(VkCommandBuffer cmdlist, vkutils::Cube
 			.BindImage(1, &cubemap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 			.BindImage(2, &g_prefilterMap, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, view);
 
-		cmd.Dispatch(dims.x/ 16 + 1, dims.y / 16 + 1, CUBE_FACES);
+		cmd.Dispatch((uint32_t)(dims.x/ 16 + 1), (uint32_t)(dims.y / 16 + 1), CUBE_FACES);
 		auto delFun = [imgView = view, dev = m_device.logicalDevice]
 			{
 				vkDestroyImageView(dev, imgView, nullptr);
@@ -3193,7 +3184,8 @@ uint32_t VulkanRenderer::RegisterThreadMapping()
 {
 	std::scoped_lock l{ g_mut_taskMap };
 	auto threadID = mappedThreadCnt++;
-	printf("Thread %llu mapped to %llu\n", std::this_thread::get_id(), threadID);
+	auto thread = std::this_thread::get_id();
+	printf("Thread %llu mapped to %d\n", *reinterpret_cast<size_t*>(&thread), threadID);
 	g_taskManagerMapping[std::this_thread::get_id()] = threadID;
 	return threadID;
 }
@@ -3370,14 +3362,7 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 
 
 	ModelFileResource* modelFile = new ModelFileResource(file);
-	//modelFile->fileName = file;
 
-	//auto& mdl = [&]()-> gfxModel& {
-	//	std::scoped_lock(g_mut_globalModels);
-	//	auto mdlResourceIdx = g_globalModels.size();
-	//	modelFile->meshResource = static_cast<uint32_t>(mdlResourceIdx);
-	//	return  g_globalModels.emplace_back(gfxModel{});		 
-	//}();
 	uint32_t indx{};
 	{
 		std::scoped_lock s(g_mut_globalModels);
@@ -3387,17 +3372,25 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		indx = (uint32_t)mdlResourceIdx;
 	}
 	auto& mdl = g_globalModels[indx];
-
-
 	mdl.name = std::filesystem::path(file).stem().string();
 
 	mdl.m_subMeshes.resize(scene->mNumMeshes);
-	modelFile->numSubmesh =scene->mNumMeshes;
+	modelFile->numSubmesh = scene->mNumMeshes;
 	mdl.cpuModel = modelFile;
 
 	uint32_t totalBones{ 0 };
 	for (size_t i = 0; i < scene->mNumMeshes; i++)
 	{
+		auto& aimesh = scene->mMeshes[i];
+		uint32_t submeshIdx{};
+		{
+			std::scoped_lock s(g_mut_globalModels);
+			submeshIdx = (uint32_t)g_globalSubmesh.size();
+			g_globalSubmesh.push_back(SubMesh{});
+		}
+		SubMesh& submesh = g_globalSubmesh[submeshIdx];
+		mdl.m_subMeshes[i] = submeshIdx;
+		LoadSubmesh(mdl, submesh, aimesh, modelFile);
 		totalBones += scene->mMeshes[i]->mNumBones;
 	}
 	bool hasBone = totalBones > 0;
@@ -3406,16 +3399,6 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 	{
 		mdl.skeleton = new oGFX::Skeleton();
 		modelFile->skeleton = mdl.skeleton;
-	}
-
-	for (size_t i = 0; i < scene->mNumMeshes; i++)
-	{
-		auto& aimesh = scene->mMeshes[i];
-		LoadSubmesh(mdl, mdl.m_subMeshes[i], aimesh, modelFile);
-	}
-	
-	if (hasBone)
-	{
 		mdl.skeleton->boneWeights.resize(modelFile->vertices.size());
 		uint32_t verticesCnt = 0;
 		for (size_t i = 0; i < scene->mNumMeshes; i++)
@@ -3428,10 +3411,12 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		BuildSkeletonRecursive(*modelFile, scene->mRootNode, mdl.skeleton->m_boneNodes);
 	}
 	
-	for (auto& sm : mdl.m_subMeshes)
+	for (auto smID : mdl.m_subMeshes)
 	{
+		auto& sm = g_globalSubmesh[smID];
 		mdl.vertexCount += sm.vertexCount;
 		mdl.indicesCount += sm.indicesCount;
+
 	}
 
 	//always has one transform, root
@@ -3819,12 +3804,10 @@ void VulkanRenderer::LoadSubmesh(gfxModel& mdl,
 	{
 		plainVertices[i] = vertices[cacheVoffset+i].pos; 
 	}
+
+	//generate BV
 	oGFX::BV::LarsonSphere(submesh.boundingSphere, plainVertices);
-	//submesh.boundingSphere.radius *= 1.5f;
-	//std::cout << "Sphere generated :" << submesh.name << " [" 
-	//	<< submesh.boundingSphere.center.x << ", "
-	//	<< submesh.boundingSphere.center.y << ", "
-	//	<< submesh.boundingSphere.center.z << "] r: " << submesh.boundingSphere.radius << "\n";
+
 }
 
 ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
@@ -3846,22 +3829,22 @@ ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
 
 		model->indicesCount = static_cast<uint32_t>(indices.size());
 		model->vertexCount = static_cast<uint32_t>(vertex.size());
-
-		SubMesh sm;
+		
+		uint32_t smID = (uint32_t)g_globalSubmesh.size();
+		g_globalSubmesh.push_back(SubMesh{});
+		model->m_subMeshes.push_back(smID);
+		SubMesh& sm = g_globalSubmesh[smID];
 		sm.baseIndices = static_cast<uint32_t>(0);
 		sm.baseVertex = static_cast<uint32_t>(0);
 		sm.indicesCount = static_cast<uint32_t>(indices.size());
 		sm.vertexCount = static_cast<uint32_t>(vertex.size());
-
 		std::vector<glm::vec3> plainVertices;
 		plainVertices.resize(vertex.size());
 		for (size_t i = 0; i < plainVertices.size(); i++)
 		{
 			plainVertices[i] = vertex[i].pos;
 		}
-		oGFX::BV::RitterSphere(sm.boundingSphere, plainVertices);
-
-		model->m_subMeshes.push_back(sm);
+		oGFX::BV::RitterSphere(sm.boundingSphere, plainVertices);		
 
 		m = new ModelFileResource();
 		Node* n = new Node{};
@@ -3896,13 +3879,20 @@ ModelFileResource* VulkanRenderer::LoadMeshFromBuffers(
 		model->baseIndices = g_GlobalMeshBuffers.IdxOffset;
 		model->baseVertex = g_GlobalMeshBuffers.VtxOffset;
 
+		for (size_t i = 0; i < model->m_subMeshes.size(); i++)
+		{
+			SubMesh& sm = g_globalSubmesh[model->m_subMeshes[i]];
+			sm.baseVertex += model->baseVertex;		
+			sm.baseIndices += model->baseIndices;
+		}
+
 		g_GlobalMeshBuffers.IdxOffset += model->indicesCount;
 		g_GlobalMeshBuffers.VtxOffset += model->vertexCount;
 
 		if (model->skeleton)
 		{
 			auto& sk = model->skeleton;
-			model->skinningWeightsOffset = this->g_skinningBoneWeights.size();
+			model->skinningWeightsOffset = (uint32_t)this->g_skinningBoneWeights.size();
 			this->g_skinningBoneWeights.resize(model->skinningWeightsOffset + sk->boneWeights.size());
 			memcpy(this->g_skinningBoneWeights.data() + model->skinningWeightsOffset
 				, sk->boneWeights.data()

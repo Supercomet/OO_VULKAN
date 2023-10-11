@@ -22,17 +22,36 @@ GraphicsWorld::GraphicsWorld() :
 {
 }
 
+DrawData ObjectInsToDrawData(const ObjectInstance& obj) 
+{
+	DrawData dd;
+	dd.bindlessGlobalTextureIndex_Albedo = obj.bindlessGlobalTextureIndex_Albedo;
+	dd.bindlessGlobalTextureIndex_Normal = obj.bindlessGlobalTextureIndex_Normal;
+	dd.bindlessGlobalTextureIndex_Roughness = obj.bindlessGlobalTextureIndex_Roughness;
+	dd.bindlessGlobalTextureIndex_Metallic = obj.bindlessGlobalTextureIndex_Metallic;
+	dd.bindlessGlobalTextureIndex_Emissive = obj.bindlessGlobalTextureIndex_Emissive;
+	dd.emissiveColour = obj.emissiveColour;
+	dd.localToWorld = obj.localToWorld;
+	dd.entityID = obj.entityID; // Unique ID for this entity instance
+	dd.flags = obj.flags;
+	dd.instanceData = obj.instanceData;
+	dd.ptrToBoneBuffer = &obj.bones;
+	dd.modelID = obj.modelID;
+	return dd;
+}
+
 void GraphicsWorld::BeginFrame()
 {
 	PROFILE_SCOPED();
 	auto& vr = *VulkanRenderer::get();
-	// TODO: What do you do at the beginning of the frame?
 	m_ObjectInstancesCopy = m_ObjectInstances;
 	
-	auto getBoxFun = [&ents = m_ObjectInstancesCopy.buffer(), &models = vr.g_globalModels](ObjectInstance& oi)->oGFX::AABB {
+	// this doesnt work with all submesh
+	auto getBoxFun = [&ents = m_ObjectInstancesCopy.buffer(), &models = vr.g_globalModels,&submeshes = vr.g_globalSubmesh](ObjectInstance& oi)->oGFX::AABB {
 		oGFX::AABB box;
 		auto& mdl = models[oi.modelID];
-		oGFX::Sphere bs = mdl.m_subMeshes.front().boundingSphere;
+
+		oGFX::Sphere bs = submeshes[mdl.m_subMeshes.front()].boundingSphere;
 
 		float sx = glm::length(glm::vec3(oi.localToWorld[0][0], oi.localToWorld[1][0], oi.localToWorld[2][0]));
 		float sy = glm::length(glm::vec3(oi.localToWorld[0][1], oi.localToWorld[1][1], oi.localToWorld[2][1]));
@@ -45,7 +64,6 @@ void GraphicsWorld::BeginFrame()
 		return box;
 	};
 
-	//for now assume entities # dont change
 	m_OctTree->ClearTree(); 
 	{
 		PROFILE_SCOPED("Build Octtree");
@@ -63,14 +81,6 @@ void GraphicsWorld::BeginFrame()
 		}
 	}
 
-	oGFX::Frustum f = cameras[0].GetFrustum();
-	std::vector<oGFX::AABB> containedBox;
-	std::vector<oGFX::AABB> intersectBox;
-	m_OctTree->GetBoxesInFrustum(f, containedBox, intersectBox);
-
-	
-
-	
 	for (auto iter = m_ObjectInstances.begin(); iter != m_ObjectInstances.end(); iter++)
 	{
 		ObjectInstance& src = *iter;
@@ -90,27 +100,60 @@ void GraphicsWorld::BeginFrame()
 		src.isDirty = false;
 		src.newObject = false;
 	}
+	
+	m_DenseObjectsCopy.clear();
+	m_DenseObjectsCopy.reserve(m_ObjectInstancesCopy.size());
 
+	oGFX::Frustum f = cameras[0].GetFrustum();
 	std::vector<ObjectInstance*> containedEnt;
 	std::vector<ObjectInstance*> intersectEnt;
-	m_DenseObjectsCopy.clear();
-	m_DenseObjectsCopy.reserve(m_ObjectInstances.size());
 	m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
+
 	for (size_t i = 0; i < containedEnt.size(); i++)
 	{
 		ObjectInstance& src = *containedEnt[i];
-		m_DenseObjectsCopy.emplace_back(src);
+
+		if (src.isRenderable() == false) continue;
+
+		DrawData dd = ObjectInsToDrawData(src);
+		gfxModel& mdl = vr.g_globalModels[src.modelID];
+		for (size_t s = 0; s < mdl.m_subMeshes.size(); s++)
+		{			
+			// add draw call for each submesh
+			if (src.submesh[s] == true) 
+			{
+				dd.submeshID = mdl.m_subMeshes[s];
+				m_DenseObjectsCopy.push_back(dd);
+			}
+		}
+		
 	}
 	size_t intersectAccepted{};
 	for (size_t i = 0; i < intersectEnt.size(); i++)
 	{
 		ObjectInstance& src = *intersectEnt[i];
+
+		if (src.isRenderable() == false) continue;
+		
 		if (oGFX::coll::AABBInFrustum(f, getBoxFun(src))!= oGFX::coll::OUTSIDE) {
-			m_DenseObjectsCopy.emplace_back(src);
+			DrawData dd = ObjectInsToDrawData(src);
+			gfxModel& mdl = vr.g_globalModels[src.modelID];
+
+			for (size_t s = 0; s < mdl.m_subMeshes.size(); s++)
+			{
+				// add draw call for each submesh
+				if (src.submesh[s] == true)
+				{
+					dd.submeshID = mdl.m_subMeshes[s];
+					m_DenseObjectsCopy.push_back(dd);
+				}
+			}
 			intersectAccepted++;
 		}
 	}
-	// printf("Accepted Entities-%3llu/%3llu Intersect-%3llu/%3llu\n", m_DenseObjectsCopy.size(), m_ObjectInstances.size(), intersectAccepted, intersectEnt.size());
+	//printf("Accepted Entities-%3llu/%3llu Intersect-%3llu/%3llu\n", m_DenseObjectsCopy.size(), m_ObjectInstances.size(), intersectAccepted, intersectEnt.size());
+	std::sort(m_DenseObjectsCopy.begin(), m_DenseObjectsCopy.end(),
+		[](const DrawData& L, const DrawData& R) {return L.submeshID < R.submeshID; });
 
 	m_EmitterCopy.clear();
 	m_EmitterCopy.reserve(m_EmitterInstances.size());

@@ -784,7 +784,7 @@ namespace oGFX
 				VkBufferImageCopy bufferCopyRegion = {};
 				bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 				bufferCopyRegion.imageSubresource.mipLevel = 0;
-				bufferCopyRegion.imageSubresource.baseArrayLayer = i;
+				bufferCopyRegion.imageSubresource.baseArrayLayer = (uint32_t)i;
 				bufferCopyRegion.imageSubresource.layerCount = 1;
 				bufferCopyRegion.imageExtent.width = this->w;
 				bufferCopyRegion.imageExtent.height = this->h;

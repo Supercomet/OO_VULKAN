@@ -44,9 +44,13 @@ void GraphicsBatch::Init(GraphicsWorld* gw, VulkanRenderer* renderer, size_t max
 
 }
 
-void AppendBatch(std::vector<oGFX::IndirectCommand>& dest, std::vector<oGFX::IndirectCommand>& src)
+void AppendBatch(std::vector<oGFX::IndirectCommand>& dest, oGFX::IndirectCommand cmd, uint32_t cnt)
 {
-	dest.insert(dest.end(), src.begin(), src.end());
+	if (cnt > 0) 
+	{
+		cmd.instanceCount = cnt;
+		dest.emplace_back(cmd);
+	}
 }
 
 void GraphicsBatch::GenerateBatches()
@@ -240,69 +244,63 @@ void GraphicsBatch::ProcessGeometry()
 {
 	using Batch = GraphicsBatch::DrawBatch;
 	using Flags = ObjectInstanceFlags;
-	auto& entities = m_world->m_DenseObjectsCopy;
+	auto& entities = m_world->m_DenseObjectsCopy;	
 	int32_t currModelID{ -1 };
 	int32_t cnt{ 0 };
+	oGFX::IndirectCommand indirectCmd{};
+
+	int32_t dynamicCnt = 0;
+	int32_t shadowCasterCnt = 0;
+
 	for (size_t y = 0; y < entities.size(); y++)
 	{
 		auto& ent = entities[y];
-		auto& model = m_renderer->g_globalModels[ent.modelID];
+		auto& subMesh = m_renderer->g_globalSubmesh[ent.submeshID];
 			
-		if (ent.modelID != currModelID) // check if we are using the same model
-		{
-			s_scratchBuffer.clear();
-			for (size_t i = 0; i < model.m_subMeshes.size(); i++)
-			{
-				if (ent.submesh[i] == true)
-				{
-					const auto& subMesh = model.m_subMeshes[i];
-					// clear the buffer to prepare for this model
-					oGFX::IndirectCommand indirectCmd{};
-					indirectCmd.instanceCount = ent.isRenderable();
+		if (ent.submeshID != currModelID) // check if we are using the same model
+		{			
+			currModelID = ent.submeshID;		
 
-					// this is the number invoked by the graphics pipeline as the instance id (location = 15) etc..
-					// the number represents the index into the InstanceData array see VulkanRenderer::UploadInstanceData();
-					// OO_ASSERT(cnt == y);
-					indirectCmd.firstInstance = cnt++; 
+			AppendBatch(m_batches[Batch::ALL_OBJECTS], indirectCmd, indirectCmd.instanceCount);
+			AppendBatch(m_batches[Batch::SHADOW_OCCLUDER], indirectCmd, shadowCasterCnt);
+			AppendBatch(m_batches[Batch::FORWARD_DYNAMIC], indirectCmd, dynamicCnt);
 
-					indirectCmd.firstIndex = model.baseIndices + subMesh.baseIndices;
-					indirectCmd.indexCount = subMesh.indicesCount;
-					indirectCmd.vertexOffset = model.baseVertex + subMesh.baseVertex;
+			dynamicCnt = 0;
+			shadowCasterCnt = 0;
 
-					auto& s = model.m_subMeshes[i].boundingSphere;
-					indirectCmd.sphere = glm::vec4(s.center,s.radius);
+			// append to the batches
+			// the number represents the index into the InstanceData array see VulkanRenderer::UploadInstanceData();
+			indirectCmd.firstInstance += indirectCmd.instanceCount;
 
-					s_scratchBuffer.emplace_back(indirectCmd);
-				}
-			}
+			// reset indirect command				
+			indirectCmd.instanceCount = 0;
+			indirectCmd.firstIndex = subMesh.baseIndices;
+			indirectCmd.indexCount = subMesh.indicesCount;
+			indirectCmd.vertexOffset = subMesh.baseVertex;
+
+			auto& s = subMesh.boundingSphere;
+			indirectCmd.sphere = glm::vec4(s.center, s.radius);
+
 		}
 
-		if (ent.isShadowEnabled())
+		// increment base
+		indirectCmd.instanceCount++;
+
+		if (ent.flags == ObjectInstanceFlags::SHADOW_CASTER)
 		{
-			AppendBatch(m_batches[Batch::SHADOW_CAST], s_scratchBuffer);
+			shadowCasterCnt++;
 		}
 
-		if (ent.isDynamic())
+		if (ent.flags == ObjectInstanceFlags::DYNAMIC_INSTANCE)
 		{
-			if (ent.isTransparent())
-			{
-				AppendBatch(m_batches[Batch::FORWARD_DYNAMIC], s_scratchBuffer);
-			}
-			else
-			{
-				AppendBatch(m_batches[Batch::GBUFFER_DYNAMIC], s_scratchBuffer);
-			}
+			dynamicCnt++;
 		}
-
-		if (ent.isShadowEnabled())
-		{
-			// get shadow enabled lights
-			AppendBatch(m_batches[Batch::SHADOW_LIGHT], s_scratchBuffer);
-		}
-
-		// append to the batches
-		AppendBatch(m_batches[Batch::ALL_OBJECTS], s_scratchBuffer);
 	}
+
+	// append last batch if any
+	AppendBatch(m_batches[Batch::ALL_OBJECTS], indirectCmd, indirectCmd.instanceCount);
+	AppendBatch(m_batches[Batch::SHADOW_OCCLUDER], indirectCmd, shadowCasterCnt);
+	AppendBatch(m_batches[Batch::FORWARD_DYNAMIC], indirectCmd, dynamicCnt);
 }
 
 void GraphicsBatch::ProcessUI()
@@ -448,10 +446,10 @@ void GraphicsBatch::ProcessParticleEmitters()
 			// create a draw call for each submesh using the same instance data
 			if (emitter.submesh[i] == true)
 			{
-				const auto& subMesh = model.m_subMeshes[i];
-				cmd.firstIndex = model.baseIndices + subMesh.baseIndices;
+				const auto& subMesh = m_renderer->g_globalSubmesh[model.m_subMeshes[i]];
+				cmd.firstIndex = subMesh.baseIndices;
 				cmd.indexCount = subMesh.indicesCount;
-				cmd.vertexOffset = model.baseVertex + subMesh.baseVertex;
+				cmd.vertexOffset = subMesh.baseVertex;
 				m_particleCommands.push_back(cmd);
 			}
 		}

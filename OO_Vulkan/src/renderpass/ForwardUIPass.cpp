@@ -147,7 +147,7 @@ void ForwardUIPass::Draw(const VkCommandBuffer cmdlist)
 	const auto WorldSpaceCnt = instanceCnt - ScreenSpaceCnt;
 	const auto WorldSpaceIndices = WorldSpaceCnt * 6;
 	const auto ScreenSpaceIdxOffset = WorldSpaceIndices;
-	const auto instanceOffset = instanceCnt - WorldSpaceCnt;
+
 	// do draw command here
 	// batch draw from the big buffer
 	cmd.DrawIndexed(static_cast<uint32_t>(WorldSpaceIndices), 1);// draw worldspace
@@ -155,7 +155,7 @@ void ForwardUIPass::Draw(const VkCommandBuffer cmdlist)
 	// bind depth ignore pass
 	cmd.BindPSO(pso_Forward_UI_NO_DEPTH, PSOLayoutDB::defaultPSOLayout);
 	cmd.DrawIndexed(static_cast<uint32_t>(ScreenSpaceIndices), 1
-					,ScreenSpaceIdxOffset, 0, 0);  // draw screenspace
+					,(uint32_t)ScreenSpaceIdxOffset, 0, 0);  // draw screenspace
 
 }
 

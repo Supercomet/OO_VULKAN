@@ -100,10 +100,10 @@ bool DescriptorBuilder::Build(VkDescriptorSet& set, VkDescriptorSetLayout& layou
 			|| w.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
 			|| w.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC)
 		{
-			w.pBufferInfo = &bufferinfos[(uint32_t)w.pBufferInfo];
+			w.pBufferInfo = &bufferinfos[(size_t)w.pBufferInfo];
 		}
 		else {
-			w.pImageInfo = &imageinfos[(uint32_t)w.pImageInfo];
+			w.pImageInfo = &imageinfos[(size_t)w.pImageInfo];
 		}
 
 		w.dstSet = set;

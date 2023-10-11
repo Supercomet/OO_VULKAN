@@ -84,7 +84,7 @@ void VulkanDevice::InitPhysicalDevice(const oGFX::SetupInfo& si, VulkanInstance&
 		vkGetPhysicalDeviceProperties(device, &props);
 		if (props.limits.sparseAddressSpaceSize > memory)
 		{
-			memory = props.limits.sparseAddressSpaceSize;
+			memory = (uint32_t)props.limits.sparseAddressSpaceSize;
 			std::swap(deviceList[i], deviceList[best]);
             best = static_cast<uint32_t>(i);
 		}

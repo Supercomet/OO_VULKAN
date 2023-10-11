@@ -372,7 +372,7 @@ void TestApplication::Run()
     for (size_t i = 0; i < roughness.size(); i++)
     {
         float val = 1.0f / (roughness.size()-1);
-        uint32_t byteVal = val*i * 0xFF;
+        uint32_t byteVal = (uint32_t)(val * i * 0xFF);
         uint32_t colVal = byteVal << 24 | byteVal << 16 | byteVal << 8 | byteVal;
 
         printf("Generating %llu/%llu [%x]\n", i, roughness.size(), colVal);
@@ -511,7 +511,7 @@ void TestApplication::Run()
 
     uint32_t LSphere;
     {
-        LSphere = entities.size();
+        LSphere = (uint32_t)entities.size();
         auto& ed = entities.emplace_back(EntityInfo{});
         ed.name = "Box";
         ed.entityID = FastRandomMagic();
@@ -526,7 +526,7 @@ void TestApplication::Run()
 
     uint32_t bigSphere;
     {
-        bigSphere = entities.size();
+        bigSphere = (uint32_t)entities.size();
         auto& ed = entities.emplace_back(EntityInfo{});
         ed.name = "Rsphere";
         ed.entityID = FastRandomMagic();
@@ -542,7 +542,7 @@ void TestApplication::Run()
 
     const float gridSize = 1.3f;
     const float halfGrid = roughness.size() * gridSize / 2.0f;
-    beginSpheres = entities.size();
+    beginSpheres = (uint32_t)entities.size();
     for (size_t i = 0; i < roughness.size(); i++)
     {
         for (size_t y = 0; y < metalic.size(); y++)
@@ -571,7 +571,7 @@ void TestApplication::Run()
 
         }
     }
-    endSpheres = entities.size();
+    endSpheres = (uint32_t)entities.size();
 
     ResetSpheres();
 
@@ -720,11 +720,11 @@ void TestApplication::Run()
             }
            
             {
-                PROFILE_SCOPED("wait cpu");
+                PROFILE_SCOPED("wait cpu_1");
                 barrier.arrive_and_wait();
             }
             {
-                PROFILE_SCOPED("wait cpu");
+                PROFILE_SCOPED("wait cpu_2");
                 barrier.arrive_and_wait();
             }
         }
@@ -911,7 +911,7 @@ void TestApplication::Run()
 				lights[5]->position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
 
 			}
-            const float M_PI = glm::pi<float>();
+            constexpr float M_PI = glm::pi<float>();
             static std::vector<glm::vec4> angles = [sz = endSpheres-beginSpheres, M_PI= M_PI]() {
                 std::vector<glm::vec4> a;
                 a.resize(sz);
@@ -1005,7 +1005,7 @@ void TestApplication::Run()
             //finish for all windows  
 
             {
-                PROFILE_SCOPED("wait gpu"); 
+                PROFILE_SCOPED("wait gpu_1"); 
                 g_barrier.arrive_and_wait();        
             }
             ImGui::EndFrame();
@@ -1016,7 +1016,7 @@ void TestApplication::Run()
             }
            
             {
-                PROFILE_SCOPED("wait gpu");
+                PROFILE_SCOPED("wait gpu_2");
                 g_barrier.arrive_and_wait();
             }
 
@@ -1484,7 +1484,7 @@ void TestApplication::TestFrustumCull(oGFX::Frustum f, oGFX::AABB box)
         if (i & 2) corners[i][1] = box.max()[1];
         if (i & 4) corners[i][2] = box.max()[2];
     }
-    auto getplane = [&f = f](int i) {
+    auto getplane = [&f = f](size_t i) {
         switch (i)
         {
         case 0:return f.left;
@@ -1494,9 +1494,10 @@ void TestApplication::TestFrustumCull(oGFX::Frustum f, oGFX::AABB box)
         case 4:return f.planeNear;
         case 5:return f.planeFar;
         default: OO_ASSERT(false);
+            return oGFX::Plane();
         }};
 
-    auto getppt = [&f = f](int i) {
+    auto getppt = [&f = f](size_t i) {
         switch (i)
         {
         case 0:return f.pt_left;
@@ -1506,6 +1507,7 @@ void TestApplication::TestFrustumCull(oGFX::Frustum f, oGFX::AABB box)
         case 4:return f.pt_planeNear;
         case 5:return f.pt_planeFar;
         default: OO_ASSERT(false);
+            return oGFX::Point3D();
         }
         };
     for (size_t c = 0; c < 8; c++)

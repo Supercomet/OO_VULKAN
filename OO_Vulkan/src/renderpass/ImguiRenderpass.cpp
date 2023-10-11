@@ -83,8 +83,8 @@ void ImguiRenderpass::Draw(const VkCommandBuffer cmdlist)
 	clearValues[1].depthStencil.depth = {1.0f };
 
 	auto& depthAtt = vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH];
-	float width = vr.m_swapchain.swapChainImages[vr.swapchainIdx].width;
-	float height = vr.m_swapchain.swapChainImages[vr.swapchainIdx].height;
+	float width = (float)vr.m_swapchain.swapChainImages[vr.swapchainIdx].width;
+	float height = (float)vr.m_swapchain.swapChainImages[vr.swapchainIdx].height;
 
 	PROFILE_GPU_CONTEXT(cmdlist);
 	PROFILE_GPU_EVENT("ImguiPass");
@@ -111,20 +111,20 @@ void ImguiRenderpass::Draw(const VkCommandBuffer cmdlist)
 		.BindBuffer(0, vr.imguiConstantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 		//.BindSampler(1, GfxSamplerManager::GetDefaultSampler());
 
-	size_t vertex_size = draw_data->TotalVtxCount * sizeof(ImDrawVert);
-	size_t index_size = draw_data->TotalIdxCount * sizeof(ImDrawIdx);
+	uint32_t vertex_size = draw_data->TotalVtxCount * sizeof(ImDrawVert);
+	uint32_t index_size = draw_data->TotalIdxCount * sizeof(ImDrawIdx);
 	oGFX::CreateOrResizeBuffer(vr.m_device.m_allocator, vertex_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, vertexBuffer);
 	oGFX::CreateOrResizeBuffer(vr.m_device.m_allocator, index_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, indexBuffer);
 
 
-	size_t idxOffset{};
-	size_t vtxOffset{};
+	uint32_t idxOffset{};
+	uint32_t vtxOffset{};
 
 	for (int n = 0; n < draw_data->CmdListsCount; n++) {
 		const ImDrawList* cmd_list = draw_data->CmdLists[n];
 
-		size_t vtxSize = cmd_list->VtxBuffer.Size;
-		size_t idxSize = cmd_list->IdxBuffer.Size;
+		uint32_t vtxSize = cmd_list->VtxBuffer.Size;
+		uint32_t idxSize = cmd_list->IdxBuffer.Size;
 		// copy data over
 		// beware offsets
 		memcpy(reinterpret_cast<ImDrawVert*>(vertexBuffer.allocInfo.pMappedData) + vtxOffset, cmd_list->VtxBuffer.Data, vtxSize * sizeof(ImDrawVert));
@@ -148,8 +148,8 @@ void ImguiRenderpass::Draw(const VkCommandBuffer cmdlist)
 	for (int n = 0; n < draw_data->CmdListsCount; n++) {
 		const ImDrawList* cmd_list = draw_data->CmdLists[n];
 
-		size_t vtxSize = cmd_list->VtxBuffer.Size;
-		size_t idxSize = cmd_list->IdxBuffer.Size;
+		uint32_t vtxSize = cmd_list->VtxBuffer.Size;
+		uint32_t idxSize = cmd_list->IdxBuffer.Size;
 		// copy data over
 		// beware offsets	
 

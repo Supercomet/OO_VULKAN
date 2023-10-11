@@ -119,7 +119,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		pc. left = frust.left.normal;
 		pc. pFar = frust.planeFar.normal;
 		pc. pNear = frust.planeNear.normal;
-		pc.numItems = vr.indirectCommandsBuffer[currFrame].size();
+		pc.numItems = (uint32_t)vr.indirectCommandsBuffer[currFrame].size();
 
 		VkPushConstantRange pcr{};
 		pcr.size = sizeof(CullingPC);
@@ -127,6 +127,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 
 		cmd.SetPushConstant(PSOLayoutDB::singleSSBOlayout, pcr, &pc);
 		
+		// no more compute cull
 		//cmd.Dispatch((vr.indirectCommandsBuffer[currFrame].size() - 1) / 128 + 1);
 
 	} // end culling stage
@@ -160,11 +161,11 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 	{
 		if (i == GBufferAttachmentIndex::NORMAL) 
 		{
-			cmd.BindAttachment(i, &attachments[i],clearOnDraw);
+			cmd.BindAttachment((uint32_t)i, &attachments[i],clearOnDraw);
 		}
 		else 
 		{
-			cmd.BindAttachment(i, &attachments[i]);
+			cmd.BindAttachment((uint32_t)i, &attachments[i]);
 		}
 		
 	}
@@ -198,8 +199,15 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
 	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer[currFrame].getBufferPtr());
 	cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
-	cmd.DrawIndexedIndirect(vr.indirectCommandsBuffer[currFrame].getBuffer(), 0, vr.objectCount);
+	
+	auto& allObjectsCommands = vr.batches.GetBatch(GraphicsBatch::ALL_OBJECTS);
+	for (size_t i = 0; i < allObjectsCommands.size(); i++)
+	{
+		auto& g = allObjectsCommands[i];
+		cmd.DrawIndexed(g.indexCount, g.instanceCount, g.firstIndex, g.vertexOffset, g.firstInstance);
+	}
+	
+	//cmd.DrawIndexedIndirect(vr.indirectCommandsBuffer[currFrame].getBuffer(), 0, vr.commandCount);
 
 	
 
@@ -624,7 +632,6 @@ void GBufferRenderPass::CreatePSOLayout()
 			VK_NULL_HANDLE,
 			VK_IMAGE_LAYOUT_GENERAL);
 		
-		VkDescriptorSet dummy;	
 		const auto& dbi = vr.globalLightBuffer[0].GetDescriptorBufferInfo();
 		DescriptorBuilder::Begin()
 			.BindImage(0, &sampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)

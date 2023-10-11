@@ -31,12 +31,7 @@ Graphic Features:
 
 ///////////////////////////////////////////////////////////////////////////////
 Engineering Tasks:
-• Move IMGUI rendering to its own GfxRenderer
-
 • Convert all Shaders to HLSL syntax & use ShaderMake :)
-
-• Proper Frame Fencing
-    • Should only stall CPU before the FIRST command buffer submission
 
 • GPU-driven renderer
     • Implement this Step-by-Step. This is a huge & complex undertaking with multiple chained indirect dispatches
@@ -54,9 +49,6 @@ Engineering Tasks:
         • If done properly, 1 DispatchIndirect for whole scene
             • Only because everything uses the same uber GBuffer Shader, else its 1 DispatchIndirect per Shader
 
-• Skinning buffer should be accessed using structured buffers not vertex input
-	• same for instance data
-	• same for bone information	
 
 • Separate GBuffer draw call specifically for skinned meshes
     • Can (should) be run in parallel in another thread & Renderer
@@ -70,10 +62,6 @@ Engineering Tasks:
     • Pass buffer offset to VS
 
 • Encapsulate as many Vulkan API calls as possible inside your "CommandList" class
-
-• Multi-thread all Graphic Tasks & Renderers
-	• Must be pooled per-thread
-    • Implement free-list of command buffers. They must all be properly fenced before re-used
 
 • Render Graph
     • Scheduling of asynchronous compute fences
@@ -90,6 +78,19 @@ Engineering Tasks:
 
 ///////////////////////////////////////////////////////////////////////////////
 Done:
+• Proper Frame Fencing
+    • Should only stall CPU before the FIRST command buffer submission
+
+• Move IMGUI rendering to its own GfxRenderer
+
+• Skinning buffer should be accessed using structured buffers not vertex input
+	• same for instance data
+	• same for bone information	
+	
+• Multi-thread all Graphic Tasks & Renderers
+	• Must be pooled per-thread
+    • Implement free-list of command buffers. They must all be properly fenced before re-used
+
 • Shadows PCF and hardware filtering
 
 • GBuffer Render Targets:

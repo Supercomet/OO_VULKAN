@@ -29,7 +29,7 @@ Technology is prohibited.
 #include <memory>
 
 namespace oGFX {
-    struct OctTree;
+    class OctTree;
     struct OctNode;
 };
 
@@ -107,6 +107,26 @@ struct ObjectInstance
     uint32_t entityID{}; // Unique ID for this entity instance
 };
 
+struct DrawData {
+    uint32_t bindlessGlobalTextureIndex_Albedo{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Normal{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Roughness{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Metallic{ 0xFFFFFFFF };
+    uint32_t bindlessGlobalTextureIndex_Emissive{ 0xFFFFFFFF };
+    glm::vec4 emissiveColour{};
+
+    glm::mat4x4 localToWorld{ 1.0f };
+
+    uint32_t submeshID{}; // Index for the mesh
+    uint32_t entityID{}; // Unique ID for this entity instance
+    ObjectInstanceFlags flags{};
+    uint8_t instanceData{};
+    uint32_t objectInstanceID{};
+
+    uint32_t modelID{};
+    const std::vector<glm::mat4>* ptrToBoneBuffer{nullptr};
+};
+
 struct UIInstance
 {
     std::string name;
@@ -141,7 +161,7 @@ struct ParticleData
 {
     glm::mat4 transform{1.0f};
     glm::vec4 colour{1.0f};
-    glm::ivec4 instanceData; // EntityID, flags  ,abledo norm, roughness metal
+    glm::ivec4 instanceData{0}; // EntityID, flags  ,abledo norm, roughness metal
 };
 
 struct UIData
@@ -305,7 +325,7 @@ private:
 
     //etc
     BitContainer<ObjectInstance> m_ObjectInstancesCopy;
-    std::vector<ObjectInstance> m_DenseObjectsCopy;
+    std::vector<DrawData> m_DenseObjectsCopy;
     std::vector<uint32_t> m_ObjectsIndex;
     std::vector<UIInstance> m_UIcopy;
     std::vector<OmniLightInstance> m_OmniLightCopy;
