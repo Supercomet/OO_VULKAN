@@ -49,6 +49,7 @@ enum class ObjectInstanceFlags : uint32_t
     SKINNED          = 0x200, // Object can project shadows
     SHADOW_ENABLED   = 0x400, // Object is rendered
                                 // etc
+    ALL_FLAGS        = UINT32_MAX,
 };
 ENUM_OPERATORS_GEN(ObjectInstanceFlags, uint32_t)
 
@@ -325,7 +326,6 @@ private:
 
     //etc
     BitContainer<ObjectInstance> m_ObjectInstancesCopy;
-    std::vector<DrawData> m_DenseObjectsCopy;
     std::vector<uint32_t> m_ObjectsIndex;
     std::vector<UIInstance> m_UIcopy;
     std::vector<OmniLightInstance> m_OmniLightCopy;

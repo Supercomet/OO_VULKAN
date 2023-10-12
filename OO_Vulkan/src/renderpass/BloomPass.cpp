@@ -201,10 +201,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 		pc.midCol.a /= 1000.0f;
 		pc.highCol.a /= 1000.0f;
 
-		VkPushConstantRange pcr{};
-		pcr.offset = 0;
-		pcr.size = sizeof(ColourCorrectPC);
-		cmd.SetPushConstant(PSOLayoutDB::BloomPSOLayout, pcr, &pc);
+		cmd.SetPushConstant(PSOLayoutDB::BloomPSOLayout, sizeof(ColourCorrectPC), &pc);
 
 		cmd.Dispatch((outputBuffer->width - 1) / 16 + 1, (outputBuffer->height - 1) / 16 + 1);
 
@@ -267,10 +264,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 			pc.colour = vignette.colour;
 			pc.vignetteValues = glm::vec4{vignette.innerRadius, vignette.outerRadius,0.0,0.0};
 
-			VkPushConstantRange pcr{};
-			pcr.offset = 0;
-			pcr.size = sizeof(VignettePC);
-			cmd.SetPushConstant(PSOLayoutDB::BloomPSOLayout, pcr, &pc);
+			cmd.SetPushConstant(PSOLayoutDB::BloomPSOLayout, sizeof(VignettePC), &pc);
 
 			cmd.Dispatch((outputBuffer->width - 1) / 16 + 1, (outputBuffer->height - 1) / 16 + 1);
 
@@ -446,11 +440,7 @@ vkutils::Texture2D* BloomPass::PerformBloom(rhi::CommandList& cmd)
 		pc.threshold.w = 0.25f / (knee + 0.00001f);
 		//pc.threshold = vr.m_ShaderDebugValues.vector4_values0;
 
-		VkPushConstantRange pcr{};
-		pcr.offset = 0;
-		pcr.size = sizeof(BloomPC);
-		pcr.stageFlags = VK_SHADER_STAGE_ALL;
-		cmd.SetPushConstant(PSOLayoutDB::brightPixelsLayout, pcr, &pc);
+		cmd.SetPushConstant(PSOLayoutDB::brightPixelsLayout, sizeof(BloomPC), &pc);
 
 		cmd.Dispatch((vr.attachments.Bloom_brightTarget.width - 1) / 16 + 1, (vr.attachments.Bloom_brightTarget.height - 1) / 16 + 1);
 		if (regionEnd)
@@ -479,12 +469,8 @@ vkutils::Texture2D* BloomPass::PerformBloom(rhi::CommandList& cmd)
 				//std::cout << "HOW?\n"; 
 			}
 			float mipLevel = float(i);
-			VkPushConstantRange pcr{};
-			pcr.offset = 0;
-			pcr.size = sizeof(float);
-			pcr.stageFlags = VK_SHADER_STAGE_ALL;
 
-			cmd.SetPushConstant(PSOLayoutDB::BloomPSOLayout, pcr, &mipLevel);
+			cmd.SetPushConstant(PSOLayoutDB::BloomPSOLayout, sizeof(float), &mipLevel);
 
 			cmd.DescriptorSetBegin(0)
 				.BindSampler(0, GfxSamplerManager::GetSampler_BlackBorder())

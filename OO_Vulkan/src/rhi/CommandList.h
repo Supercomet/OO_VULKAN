@@ -117,10 +117,9 @@ public:
 
 	void BindPSO(const VkPipeline& pso, VkPipelineLayout pipelay, const VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
 
-	void SetPushConstant(VkPipelineLayout layout,
-		const VkPushConstantRange& pcr,
-		const void* data
-	);
+	void SetPushConstant(VkPipelineLayout layout
+		, VkDeviceSize size, const void* data
+		, VkDeviceSize offset = 0);
 
 	DescriptorSetInfo& DescriptorSetBegin(uint32_t set);
 

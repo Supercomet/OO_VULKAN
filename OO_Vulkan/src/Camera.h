@@ -18,7 +18,7 @@ Technology is prohibited.
 
 class Camera
 {
-private:
+public:
 	static constexpr float EPSILON{ 0.001f };
 
 	glm::vec3 m_forward{ 0.0f, 0.0f, 1.0f };

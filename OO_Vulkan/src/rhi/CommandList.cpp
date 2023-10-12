@@ -32,11 +32,11 @@ namespace rhi
 		vkCmdBindPipeline(m_VkCommandBuffer, bindPoint, pso);
 	}
 
-	void CommandList::SetPushConstant(VkPipelineLayout layout, const VkPushConstantRange& pcr, const void* data)
+	void CommandList::SetPushConstant(VkPipelineLayout layout, VkDeviceSize size, const void* data, VkDeviceSize offset)
 	{
 		memset(m_push_constant, 0, 128);
-		memcpy(m_push_constant, data, pcr.size);
-		vkCmdPushConstants(m_VkCommandBuffer, layout, VK_SHADER_STAGE_ALL, pcr.offset, pcr.size, data);
+		memcpy(m_push_constant, data, size);
+		vkCmdPushConstants(m_VkCommandBuffer, layout, VK_SHADER_STAGE_ALL, offset, size, data);
 	}
 
 	DescriptorSetInfo& CommandList::DescriptorSetBegin(uint32_t set)

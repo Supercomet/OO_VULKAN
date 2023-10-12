@@ -209,6 +209,8 @@ VulkanRenderer::~VulkanRenderer()
 
 	gpuTransformBuffer.destroy();
 
+	gpuShadorCasterTransformBuffer.destroy();
+
 	g_GlobalMeshBuffers.IdxBuffer.destroy();
 	g_GlobalMeshBuffers.VtxBuffer.destroy();
 
@@ -332,6 +334,8 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 	fbCache.Init(m_device.logicalDevice);
 	gpuTransformBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+
+	gpuShadorCasterTransformBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
 	CreateDescriptorSets_GPUScene();
 	CreateDescriptorSets_Lights();
@@ -711,11 +715,8 @@ void VulkanRenderer::FullscreenBlit(VkCommandBuffer inCmd, vkutils::Texture& src
 
 
 	SSAOPC pc{};
-	VkPushConstantRange range;
-	range.offset = 0;
-	range.size = sizeof(SSAOPC);
 
-	cmd.SetPushConstant(PSOLayoutDB::fullscreenBlitPSOLayout, range, &pc);
+	cmd.SetPushConstant(PSOLayoutDB::fullscreenBlitPSOLayout, sizeof(SSAOPC), &pc);
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO),
 		m_device.properties.limits.minUniformBufferOffsetAlignment));
@@ -1546,11 +1547,11 @@ void VulkanRenderer::CreateDescriptorSets_GPUScene()
 		VK_IMAGE_LAYOUT_UNDEFINED);
 
 	DescriptorBuilder::Begin()
-		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.BindBuffer(3, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-		.BindBuffer(4, gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-		.BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-		.BindBuffer(6, gpuSkinningBoneWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.BindBuffer(3, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.BindBuffer(4, gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.BindBuffer(6, gpuSkinningBoneWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
 		.Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
 }
 
@@ -1957,7 +1958,9 @@ void VulkanRenderer::InitializeRenderBuffers()
 
 	// Note: Moved here from VulkanRenderer::UpdateInstanceData
 	instanceBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	shadowCasterInstanceBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	VK_NAME(m_device.logicalDevice, "Instance Buffer", instanceBuffer.getBuffer());
+	VK_NAME(m_device.logicalDevice, "shadowCasterInstanceBuffer", shadowCasterInstanceBuffer.getBuffer());
 
 	objectInformationBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	//objectInformationBuffer.reserve(MAX_OBJECTS);  
@@ -2029,6 +2032,7 @@ void VulkanRenderer::DestroyRenderBuffers()
 	indirectCommandsBuffer.destroy();
 	shadowCasterCommandsBuffer.destroy();
 	instanceBuffer.destroy();
+	shadowCasterInstanceBuffer.destroy();
 	objectInformationBuffer.destroy();
 	globalLightBuffer.destroy();
 	gpuBoneMatrixBuffer.destroy();
@@ -2164,6 +2168,7 @@ void VulkanRenderer::UploadInstanceData()
 	gpuTransform.clear();
 	gpuTransform.reserve(MAX_OBJECTS);
 
+
 	objectInformation.clear();
 	objectInformation.reserve(MAX_OBJECTS);
 
@@ -2181,7 +2186,7 @@ void VulkanRenderer::UploadInstanceData()
 	if (currWorld)
 	{
 		uint32_t matCnt = 0;
-		for (DrawData& ent : currWorld->m_DenseObjectsCopy)
+		for (DrawData& ent : batches.m_culledCameraObjects)
 		{							
 			oGFX::InstanceData instData;
 
@@ -2275,7 +2280,53 @@ void VulkanRenderer::UploadInstanceData()
 			++matCnt;
 		}// end of entity instance loop
 	}
-	
+
+	gpuShadowCasterTransform.clear();
+	gpuShadowCasterTransform.reserve(MAX_OBJECTS);
+	std::vector<oGFX::InstanceData> casterInstanceData;
+	casterInstanceData.reserve(MAX_OBJECTS);
+	auto& shadowCasters = batches.m_casterData;
+	// for each light
+	for (GraphicsBatch::CastersData& caster : shadowCasters)
+	{		
+		// for each face
+		for (size_t face = 0; face < 6; face++)
+		{
+			
+			std::vector<oGFX::IndirectCommand>& commands = caster.m_commands[face];
+			std::vector<DrawData>& entities = caster.m_culledObjects[face];
+
+			// store previous size
+			size_t offset = gpuShadowCasterTransform.size();
+			// for each mesh
+			for (size_t i = 0; i < entities.size(); i++)
+			{
+				// creates a single transform reference for each entity in the scene
+				mat4 xform = entities[i].localToWorld;
+				GPUTransform gpt;
+				gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
+				gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
+				gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
+				mat4 inverseXform = glm::inverse(xform);
+				gpt.invRow0 = vec4(inverseXform[0][0], inverseXform[1][0], inverseXform[2][0], inverseXform[3][0]);
+				gpt.invRow1 = vec4(inverseXform[0][1], inverseXform[1][1], inverseXform[2][1], inverseXform[3][1]);
+				gpt.invRow2 = vec4(inverseXform[0][2], inverseXform[1][2], inverseXform[2][2], inverseXform[3][2]);
+				gpuShadowCasterTransform.emplace_back(gpt);
+
+				oGFX::InstanceData instData;
+				instData.instanceAttributes = uvec4(0, 0, 0, 0);
+				
+				casterInstanceData.emplace_back(instData);
+			}
+
+			for (oGFX::IndirectCommand& cmd : commands)
+			{
+				// the offset to the transform will be based off the big buffer
+				cmd.firstInstance += offset;
+			}
+		}			
+	}
+
 
 	if (instanceDataBuff.empty())
 	{
@@ -2288,6 +2339,8 @@ void VulkanRenderer::UploadInstanceData()
 	VK_NAME(m_device.logicalDevice, "Upload OI", cmd);
 	gpuTransformBuffer.writeToCmd(gpuTransform.size(), gpuTransform.data(),cmd);
 	gpuBoneMatrixBuffer.writeToCmd(boneMatrices.size(), boneMatrices.data(),cmd);
+
+	gpuShadorCasterTransformBuffer.writeToCmd(gpuShadowCasterTransform.size(), gpuShadowCasterTransform.data(), cmd);
 
 	objectInformationBuffer.writeToCmd(objectInformation.size(), objectInformation.data(),cmd);
 
@@ -2304,11 +2357,19 @@ void VulkanRenderer::UploadInstanceData()
 	VkPipelineStageFlags prevStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 	VkPipelineStageFlags nextStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 
-	instanceBuffer.writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd);	
+	instanceBuffer.writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd);
+
+	shadowCasterInstanceBuffer.writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd);
 	
+	oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
+		shadowCasterInstanceBuffer.getBuffer(), srcAccess, dstAccess,
+		prevStage, nextStage);
+
 	oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
 		instanceBuffer.getBuffer(), srcAccess, dstAccess,
 		prevStage, nextStage);
+	
+	
 	oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
 		objectInformationBuffer.getBuffer(), srcAccess, dstAccess,
 		prevStage, nextStage);
@@ -2316,6 +2377,9 @@ void VulkanRenderer::UploadInstanceData()
 		gpuTransformBuffer.getBuffer(), srcAccess, dstAccess,
 		prevStage, nextStage);
 
+	oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
+		gpuShadorCasterTransformBuffer.getBuffer(), srcAccess, dstAccess,
+		prevStage, nextStage);
 
 }
 
@@ -2498,11 +2562,11 @@ void VulkanRenderer::BeginDraw()
 				VK_IMAGE_LAYOUT_UNDEFINED);
 
 			DescriptorBuilder::Begin()
-				.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-				.BindBuffer(3, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-				.BindBuffer(4, gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-				.BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-				.BindBuffer(6, gpuSkinningBoneWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+				.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS)
+				.BindBuffer(3, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+				.BindBuffer(4, gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+				.BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+				.BindBuffer(6, gpuSkinningBoneWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
 				.Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
 	
 			auto uniformMinAlignment = m_device.properties.limits.minUniformBufferOffsetAlignment;
@@ -3001,11 +3065,7 @@ void VulkanRenderer::GenerateRadianceMap(VkCommandBuffer cmdlist, vkutils::CubeT
 	const float MAX_LIGHT_CONTRIBUTION = 100.0f;
 	values.x = MAX_LIGHT_CONTRIBUTION;
 
-	VkPushConstantRange pcr{};
-	pcr.size = sizeof(glm::vec4);
-	pcr.stageFlags = VK_SHADER_STAGE_ALL;
-
-	cmd.SetPushConstant(PSOLayoutDB::RadiancePSOLayout, pcr, &values.x);
+	cmd.SetPushConstant(PSOLayoutDB::RadiancePSOLayout, sizeof(glm::vec4), &values.x);
 
 	// use source to create radiance map for 6 faces using compute
 	cmd.BindPSO(pso_radiance, PSOLayoutDB::RadiancePSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
@@ -3046,16 +3106,13 @@ void VulkanRenderer::GeneratePrefilterMap(VkCommandBuffer cmdlist, vkutils::Cube
 	//	.BindImage(1, &cubemap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 	//	.BindImage(2, &g_prefilterMap, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
-	VkPushConstantRange range{};
-	range.size = sizeof(float);
-	range.stageFlags = VK_SHADER_STAGE_ALL;
 
 	for (size_t i = 0; i < g_prefilterMap.mipLevels; i++)
 	{
 		VkImageView view = g_prefilterMap.GenerateMipView((uint32_t)i);
 		float roughness = float(i) / (g_prefilterMap.mipLevels - 1);
 
-		cmd.SetPushConstant(PSOLayoutDB::prefilterPSOLayout, range, &roughness);
+		cmd.SetPushConstant(PSOLayoutDB::prefilterPSOLayout, sizeof(float), &roughness);
 
 		glm::vec2 dims = glm::vec2{ g_prefilterMap.width>>i,g_prefilterMap.height>>i };
 

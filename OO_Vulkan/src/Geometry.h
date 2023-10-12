@@ -62,6 +62,8 @@ struct Frustum
 	Point3D pt_left;
 	Point3D pt_planeFar;
 	Point3D pt_planeNear;
+
+	static Frustum CreateFromViewProj(glm::mat4 mat);
 };
 
 struct Triangle

@@ -121,11 +121,8 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		pc. pNear = frust.planeNear.normal;
 		pc.numItems = (uint32_t)vr.indirectCommandsBuffer.size();
 
-		VkPushConstantRange pcr{};
-		pcr.size = sizeof(CullingPC);
-		pcr.stageFlags = VK_SHADER_STAGE_ALL;
 
-		cmd.SetPushConstant(PSOLayoutDB::singleSSBOlayout, pcr, &pc);
+		cmd.SetPushConstant(PSOLayoutDB::singleSSBOlayout, sizeof(CullingPC), &pc);
 		
 		// no more compute cull
 		//cmd.Dispatch((vr.indirectCommandsBuffer.size() - 1) / 128 + 1);

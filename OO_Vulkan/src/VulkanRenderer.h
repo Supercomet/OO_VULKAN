@@ -357,6 +357,7 @@ public:
 	uint32_t commandCount{};
 	// Contains the instanced data
 	GpuVector<oGFX::InstanceData> instanceBuffer;
+	GpuVector<oGFX::InstanceData> shadowCasterInstanceBuffer;
 
 	bool PrepareFrame();
 	void BeginDraw();
@@ -504,6 +505,10 @@ public:
 	// SSBO
 	std::vector<GPUTransform> gpuTransform{};
 	GpuVector<GPUTransform> gpuTransformBuffer;
+	
+	// SSBO
+	std::vector<GPUTransform> gpuShadowCasterTransform{};
+	GpuVector<GPUTransform> gpuShadorCasterTransformBuffer;
 
 	// SSBO
 	std::vector<GPUObjectInformation> objectInformation;

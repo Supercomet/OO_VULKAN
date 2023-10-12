@@ -176,10 +176,7 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	pc.maxBias = vr.currWorld->lightSettings.maxBias;
 	pc.mulBias = vr.currWorld->lightSettings.biasMultiplier;
 	
-	VkPushConstantRange range;
-	range.offset = 0;
-	range.size = sizeof(LightPC);
-	cmd.SetPushConstant(PSOLayoutDB::lightingPSOLayout,range,&pc);
+	cmd.SetPushConstant(PSOLayoutDB::lightingPSOLayout, sizeof(LightPC), &pc);
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 		vr.m_device.properties.limits.minUniformBufferOffsetAlignment));

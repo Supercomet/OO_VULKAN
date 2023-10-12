@@ -109,4 +109,47 @@ Triangle::Triangle(const Point3D& a, const Point3D& b, const Point3D& c)
 {
 }
 
+Frustum Frustum::CreateFromViewProj(glm::mat4 m)
+{
+	oGFX::Frustum f;
+
+	// Right clipping plane
+	f.right.normal.x = m[0][3] + m[0][0];
+	f.right.normal.y = m[1][3] + m[1][0];
+	f.right.normal.z = m[2][3] + m[2][0];
+	f.right.normal.w = m[3][3] + m[3][0];
+
+	// Left clipping plane
+	f.left.normal.x = m[0][3] - m[0][0];
+	f.left.normal.y = m[1][3] - m[1][0];
+	f.left.normal.z = m[2][3] - m[2][0];
+	f.left.normal.w = m[3][3] - m[3][0];
+
+	// Top clipping plane
+	f.top.normal.x = m[0][3] - m[0][1];
+	f.top.normal.y = m[1][3] - m[1][1];
+	f.top.normal.z = m[2][3] - m[2][1];
+	f.top.normal.w = m[3][3] - m[3][1];
+
+	// Bottom clipping plane
+	f.bottom.normal.x = m[0][3] + m[0][1];
+	f.bottom.normal.y = m[1][3] + m[1][1];
+	f.bottom.normal.z = m[2][3] + m[2][1];
+	f.bottom.normal.w = m[3][3] + m[3][1];
+
+	// Far clipping plane
+	f.planeFar.normal.x = m[0][2];
+	f.planeFar.normal.y = m[1][2];
+	f.planeFar.normal.z = m[2][2];
+	f.planeFar.normal.w = m[3][2];
+
+	// Near clipping plane
+	f.planeNear.normal.x = m[0][3] - m[0][2];
+	f.planeNear.normal.y = m[1][3] - m[1][2];
+	f.planeNear.normal.z = m[2][3] - m[2][2];
+	f.planeNear.normal.w = m[3][3] - m[3][2];
+
+	return f;
+}
+
 }// end namespace oGFX
