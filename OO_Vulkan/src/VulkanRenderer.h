@@ -356,7 +356,7 @@ public:
 	void UploadUIData();
 	uint32_t commandCount{};
 	// Contains the instanced data
-	GpuVector<oGFX::InstanceData> instanceBuffer[MAX_FRAME_DRAWS];
+	GpuVector<oGFX::InstanceData> instanceBuffer;
 
 	bool PrepareFrame();
 	void BeginDraw();
@@ -410,17 +410,17 @@ public:
 	std::mutex g_mut_globalMeshBuffers;
 	IndexedVertexBuffer g_GlobalMeshBuffers;
 
-	std::array<GpuVector<ParticleData>,3> g_particleDatas;
-	GpuVector<oGFX::IndirectCommand> g_particleCommandsBuffer[MAX_FRAME_DRAWS];
+	GpuVector<ParticleData> g_particleDatas;
+	GpuVector<oGFX::IndirectCommand> g_particleCommandsBuffer;
 
-	GpuVector<oGFX::DebugVertex>g_DebugDrawVertexBufferGPU[MAX_FRAME_DRAWS];
-	GpuVector<uint32_t> g_DebugDrawIndexBufferGPU[MAX_FRAME_DRAWS];
+	GpuVector<oGFX::DebugVertex>g_DebugDrawVertexBufferGPU;
+	GpuVector<uint32_t> g_DebugDrawIndexBufferGPU;
 	std::vector<oGFX::DebugVertex> g_DebugDrawVertexBufferCPU;
 	std::vector<uint32_t> g_DebugDrawIndexBufferCPU;
 
 	// ui pass
-	GpuVector<oGFX::UIVertex> g_UIVertexBufferGPU[MAX_FRAME_DRAWS];
-	GpuVector<uint32_t> g_UIIndexBufferGPU[MAX_FRAME_DRAWS];
+	GpuVector<oGFX::UIVertex> g_UIVertexBufferGPU;
+	GpuVector<uint32_t> g_UIIndexBufferGPU;
 	std::array<GpuVector<UIData>,3> g_UIDatas;
 
 	ModelFileResource* GetDefaultCube();
@@ -480,11 +480,11 @@ public:
 	VulkanRenderpass renderPass_HDR_noDepth{};
 	VulkanRenderpass renderPass_blit{};
 
-	GpuVector<oGFX::IndirectCommand> indirectCommandsBuffer[MAX_FRAME_DRAWS];
-	GpuVector<oGFX::IndirectCommand> shadowCasterCommandsBuffer[MAX_FRAME_DRAWS];
+	GpuVector<oGFX::IndirectCommand> indirectCommandsBuffer;
+	GpuVector<oGFX::IndirectCommand> shadowCasterCommandsBuffer;
 	uint32_t indirectDrawCount{};
 
-	GpuVector<LocalLightInstance> globalLightBuffer[MAX_FRAME_DRAWS];
+	GpuVector<LocalLightInstance> globalLightBuffer;
 
 	// - Descriptors
 
@@ -496,18 +496,18 @@ public:
 
 	// SSBO
 	std::vector<glm::mat4> boneMatrices{};
-	GpuVector<glm::mat4> gpuBoneMatrixBuffer[MAX_FRAME_DRAWS];
+	GpuVector<glm::mat4> gpuBoneMatrixBuffer;
 
 	std::vector<BoneWeight> g_skinningBoneWeights;
 	GpuVector<BoneWeight> gpuSkinningBoneWeightsBuffer;
 
 	// SSBO
 	std::vector<GPUTransform> gpuTransform{};
-	GpuVector<GPUTransform> gpuTransformBuffer[MAX_FRAME_DRAWS];
+	GpuVector<GPUTransform> gpuTransformBuffer;
 
 	// SSBO
 	std::vector<GPUObjectInformation> objectInformation;
-	GpuVector<GPUObjectInformation> objectInformationBuffer[MAX_FRAME_DRAWS];
+	GpuVector<GPUObjectInformation> objectInformationBuffer;
 	
 	// SSBO
 	std::vector<oGFX::AllocatedBuffer> vpUniformBuffer{};

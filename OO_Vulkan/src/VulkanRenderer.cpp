@@ -207,11 +207,7 @@ VulkanRenderer::~VulkanRenderer()
 
 	samplerManager.Shutdown();
 
-	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
-	{
-
-		gpuTransformBuffer[i].destroy();
-	}
+	gpuTransformBuffer.destroy();
 
 	g_GlobalMeshBuffers.IdxBuffer.destroy();
 	g_GlobalMeshBuffers.VtxBuffer.destroy();
@@ -335,13 +331,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	CreateDefaultDescriptorSetLayout();
 
 	fbCache.Init(m_device.logicalDevice);
-	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
-	{
-	gpuTransformBuffer[i].Init(&m_device,VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-
-	}
-	//gpuTransformBuffer.reserve(MAX_OBJECTS);
-
+	gpuTransformBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
 	CreateDescriptorSets_GPUScene();
 	CreateDescriptorSets_Lights();
@@ -891,10 +881,10 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	
 	DescriptorBuilder::Begin()
 		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindBuffer(3000, gpuTransformBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(3000, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2002, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT,13)
 		.BindImage(2001, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindBuffer(2000, objectInformationBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(2000, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BuildLayout(SetLayoutDB::compute_AMDSPD);
 
 	// create compute here
@@ -1406,7 +1396,7 @@ void VulkanRenderer::UploadLights()
 	PROFILE_GPU_CONTEXT(cmd);
 	PROFILE_GPU_EVENT("Upload Light");
 	VK_NAME(m_device.logicalDevice, "Upload Light", cmd);
-	globalLightBuffer[getFrame()].writeToCmd(spotLights.size(), spotLights.data(), cmd);
+	globalLightBuffer.writeToCmd(spotLights.size(), spotLights.data(), cmd);
 
 }
 
@@ -1546,7 +1536,7 @@ void VulkanRenderer::CreateDescriptorPool()
 void VulkanRenderer::CreateDescriptorSets_GPUScene()
 {
 	VkDescriptorBufferInfo info{};
-	info.buffer = gpuTransformBuffer[getFrame()].getBuffer();
+	info.buffer = gpuTransformBuffer.getBuffer();
 	info.offset = 0;
 	info.range = VK_WHOLE_SIZE;
 
@@ -1557,9 +1547,9 @@ void VulkanRenderer::CreateDescriptorSets_GPUScene()
 
 	DescriptorBuilder::Begin()
 		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.BindBuffer(3, gpuTransformBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-		.BindBuffer(4, gpuBoneMatrixBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-		.BindBuffer(5, objectInformationBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		.BindBuffer(3, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		.BindBuffer(4, gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		.BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.BindBuffer(6, gpuSkinningBoneWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
 }
@@ -1567,7 +1557,7 @@ void VulkanRenderer::CreateDescriptorSets_GPUScene()
 void VulkanRenderer::CreateDescriptorSets_Lights()
 {
 	VkDescriptorBufferInfo info{};
-	info.buffer = globalLightBuffer[getFrame()].getBuffer();
+	info.buffer = globalLightBuffer.getBuffer();
 	info.offset = 0;
 	info.range = VK_WHOLE_SIZE;
 
@@ -1956,47 +1946,46 @@ void VulkanRenderer::InitializeRenderBuffers()
 
 	// Note: Moved here from VulkanRenderer::UpdateIndirectCommands
 	VkCommandBuffer cmd = GetCommandBuffer();
-	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
-	{
 
-		indirectCommandsBuffer[i].Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT );
-		VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer[i].getBuffer()); 
 
-		shadowCasterCommandsBuffer[i].Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT );
-		shadowCasterCommandsBuffer[i].reserve(cmd,MAX_OBJECTS);
-		VK_NAME(m_device.logicalDevice, "Shadow Command Buffer", shadowCasterCommandsBuffer[i].getBuffer());
+	indirectCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer.getBuffer());
 
-		// Note: Moved here from VulkanRenderer::UpdateInstanceData
-		instanceBuffer[i].Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT| VK_BUFFER_USAGE_STORAGE_BUFFER_BIT );
-		VK_NAME(m_device.logicalDevice, "Instance Buffer", instanceBuffer[i].getBuffer());
+	shadowCasterCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+	shadowCasterCommandsBuffer.reserve(cmd, MAX_OBJECTS);
+	VK_NAME(m_device.logicalDevice, "Shadow Command Buffer", shadowCasterCommandsBuffer.getBuffer());
 
-		objectInformationBuffer[i].Init(&m_device,  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		//objectInformationBuffer.reserve(MAX_OBJECTS);  
-		VK_NAME(m_device.logicalDevice, "Object inforBuffer", objectInformationBuffer[i].getBuffer());
+	// Note: Moved here from VulkanRenderer::UpdateInstanceData
+	instanceBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	VK_NAME(m_device.logicalDevice, "Instance Buffer", instanceBuffer.getBuffer());
 
-		constexpr uint32_t MAX_LIGHTS = 512;
-		// TODO: Currently this is only for OmniLightInstance.
-		// You should also support various light types such as spot lights, etc...
+	objectInformationBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	//objectInformationBuffer.reserve(MAX_OBJECTS);  
+	VK_NAME(m_device.logicalDevice, "Object inforBuffer", objectInformationBuffer.getBuffer());
 
-		globalLightBuffer[i].Init(&m_device,  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		//globalLightBuffer.reserve(MAX_LIGHTS);
-		VK_NAME(m_device.logicalDevice, "Light Buffer", globalLightBuffer[i].getBuffer());
+	constexpr uint32_t MAX_LIGHTS = 512;
+	// TODO: Currently this is only for OmniLightInstance.
+	// You should also support various light types such as spot lights, etc...
 
-		constexpr uint32_t MAX_GLOBAL_BONES = 2048;
-		constexpr uint32_t MAX_SKINNING_VERTEX_BUFFER_SIZE = 4 * 1024 * 1024; // 4MB
+	globalLightBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	//globalLightBuffer.reserve(MAX_LIGHTS);
+	VK_NAME(m_device.logicalDevice, "Light Buffer", globalLightBuffer.getBuffer());
 
-		gpuBoneMatrixBuffer[i].Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		//gpuBoneMatrixBuffer.reserve(MAX_GLOBAL_BONES * sizeof(glm::mat4x4));
-		VK_NAME(m_device.logicalDevice, "Bone Matrix Buffer", gpuBoneMatrixBuffer[i].getBuffer());
+	constexpr uint32_t MAX_GLOBAL_BONES = 2048;
+	constexpr uint32_t MAX_SKINNING_VERTEX_BUFFER_SIZE = 4 * 1024 * 1024; // 4MB
+
+	gpuBoneMatrixBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	//gpuBoneMatrixBuffer.reserve(MAX_GLOBAL_BONES * sizeof(glm::mat4x4));
+	VK_NAME(m_device.logicalDevice, "Bone Matrix Buffer", gpuBoneMatrixBuffer.getBuffer());
 
 		
 
-		g_particleCommandsBuffer[i].Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
-		//g_particleCommandsBuffer.reserve(1024); // commands are generally per emitter. shouldnt have so many..
+	g_particleCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+	//g_particleCommandsBuffer.reserve(1024); // commands are generally per emitter. shouldnt have so many..
 
-		g_UIVertexBufferGPU[i].Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		g_UIIndexBufferGPU[i].Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-	}
+	g_UIVertexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	g_UIIndexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	
 
 	g_GlobalMeshBuffers.IdxBuffer.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 	g_GlobalMeshBuffers.VtxBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -2008,11 +1997,7 @@ void VulkanRenderer::InitializeRenderBuffers()
 	VK_NAME(m_device.logicalDevice, "Skinning Weights Buffer", gpuSkinningBoneWeightsBuffer.getBuffer());
 	
 
-	for (size_t i = 0; i < g_particleDatas.size(); i++)
-	{
-		g_particleDatas[i].Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		//g_particleDatas[i].reserve(100000*10); // 10 max particle systems
-	}
+	g_particleDatas.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	
 
 	oGFX::CreateBuffer(m_device.m_allocator, sizeof(CB::AMDSPD_ATOMIC), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, SPDatomicBuffer);
@@ -2040,18 +2025,16 @@ void VulkanRenderer::InitializeRenderBuffers()
 
 void VulkanRenderer::DestroyRenderBuffers()
 {
-	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
-	{
-		indirectCommandsBuffer[i].destroy();
-		shadowCasterCommandsBuffer[i].destroy();
-		instanceBuffer[i].destroy();
-		objectInformationBuffer[i].destroy();
-		globalLightBuffer[i].destroy();
-		gpuBoneMatrixBuffer[i].destroy();
-		g_UIVertexBufferGPU[i].destroy();
-		g_UIIndexBufferGPU[i].destroy();
-		g_particleCommandsBuffer[i].destroy();
-	}
+	
+	indirectCommandsBuffer.destroy();
+	shadowCasterCommandsBuffer.destroy();
+	instanceBuffer.destroy();
+	objectInformationBuffer.destroy();
+	globalLightBuffer.destroy();
+	gpuBoneMatrixBuffer.destroy();
+	g_UIVertexBufferGPU.destroy();
+	g_UIIndexBufferGPU.destroy();
+	g_particleCommandsBuffer.destroy();
 
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
 	{
@@ -2067,10 +2050,9 @@ void VulkanRenderer::DestroyRenderBuffers()
 	
 	gpuSkinningBoneWeightsBuffer.destroy();
 
-	for (size_t i = 0; i < g_particleDatas.size(); i++)
-	{
-		g_particleDatas[i].destroy();
-	}
+	
+	g_particleDatas.destroy();
+	
 
 	vmaDestroyBuffer(m_device.m_allocator, SPDconstantBuffer.buffer, SPDconstantBuffer.alloc);
 	vmaDestroyBuffer(m_device.m_allocator, SPDatomicBuffer.buffer, SPDatomicBuffer.alloc);
@@ -2113,7 +2095,7 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		PROFILE_GPU_CONTEXT(cmd);
 		PROFILE_GPU_EVENT("Upload Indirect");
 		VK_NAME(m_device.logicalDevice, "Upload Indirect", cmd);
-		indirectCommandsBuffer[getFrame()].writeToCmd(allObjectsCommands.size(), allObjectsCommands.data(),cmd);
+		indirectCommandsBuffer.writeToCmd(allObjectsCommands.size(), allObjectsCommands.data(),cmd);
 		VkAccessFlags srcAccess = VK_ACCESS_MEMORY_WRITE_BIT;
 		VkAccessFlags dstAccess = VK_ACCESS_MEMORY_READ_BIT;
 
@@ -2122,7 +2104,7 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 
 		// Make sure next stage can read this values once transfer is done
 		oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
-			indirectCommandsBuffer[getFrame()].getBuffer(), srcAccess, dstAccess,
+			indirectCommandsBuffer.getBuffer(), srcAccess, dstAccess,
 			prevStage, nextStage);
 	}
 
@@ -2133,21 +2115,32 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 		{
 			MESSAGE_BOX_ONCE(windowPtr->GetRawHandle(), L"You just busted the max size of indirect command buffer.", L"BAD ERROR");
 		}
-		shadowCasterCommandsBuffer[getFrame()].clear();
+		shadowCasterCommandsBuffer.clear();
 		auto cmd = GetCommandBuffer();
-		shadowCasterCommandsBuffer[getFrame()].writeToCmd(shadowObjects.size(), (void*)shadowObjects.data(),cmd);
+		shadowCasterCommandsBuffer.writeToCmd(shadowObjects.size(), (void*)shadowObjects.data(),cmd);
+
+		VkAccessFlags srcAccess = VK_ACCESS_MEMORY_WRITE_BIT;
+		VkAccessFlags dstAccess = VK_ACCESS_MEMORY_READ_BIT;
+
+		VkPipelineStageFlags prevStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		VkPipelineStageFlags nextStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+		// Make sure next stage can read this values once transfer is done
+		oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
+			shadowCasterCommandsBuffer.getBuffer(), srcAccess, dstAccess,
+			prevStage, nextStage);
 	}
 
 	{
 		auto& particleCommands = batches.GetParticlesBatch();
 		auto& particleData = batches.GetParticlesData();
 
-		g_particleCommandsBuffer[getFrame()].clear();
-		g_particleDatas[getFrame()].clear();
+		g_particleCommandsBuffer.clear();
+		g_particleDatas.clear();
 
 		auto cmd = GetCommandBuffer();
-		g_particleCommandsBuffer[getFrame()].writeToCmd(particleCommands.size(), particleCommands.data(),cmd);		
-		g_particleDatas[getFrame()].writeToCmd(particleData.size(), particleData.data(),cmd);
+		g_particleCommandsBuffer.writeToCmd(particleCommands.size(), particleCommands.data(),cmd);		
+		g_particleDatas.writeToCmd(particleData.size(), particleData.data(),cmd);
 		
 	}
 
@@ -2293,10 +2286,10 @@ void VulkanRenderer::UploadInstanceData()
 	PROFILE_GPU_CONTEXT(cmd);
 	PROFILE_GPU_EVENT("Upload OI");
 	VK_NAME(m_device.logicalDevice, "Upload OI", cmd);
-	gpuTransformBuffer[getFrame()].writeToCmd(gpuTransform.size(), gpuTransform.data(),cmd);
-	gpuBoneMatrixBuffer[getFrame()].writeToCmd(boneMatrices.size(), boneMatrices.data(),cmd);
+	gpuTransformBuffer.writeToCmd(gpuTransform.size(), gpuTransform.data(),cmd);
+	gpuBoneMatrixBuffer.writeToCmd(boneMatrices.size(), boneMatrices.data(),cmd);
 
-	objectInformationBuffer[getFrame()].writeToCmd(objectInformation.size(), objectInformation.data(),cmd);
+	objectInformationBuffer.writeToCmd(objectInformation.size(), objectInformation.data(),cmd);
 
     // Better to catch this on the software side early than the Vulkan validation layer
 	// TODO: Fix this gracefully
@@ -2311,16 +2304,16 @@ void VulkanRenderer::UploadInstanceData()
 	VkPipelineStageFlags prevStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 	VkPipelineStageFlags nextStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 
-	instanceBuffer[getFrame()].writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd);	
+	instanceBuffer.writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd);	
 	
 	oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
-		instanceBuffer[getFrame()].getBuffer(), srcAccess, dstAccess,
+		instanceBuffer.getBuffer(), srcAccess, dstAccess,
 		prevStage, nextStage);
 	oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
-		objectInformationBuffer[getFrame()].getBuffer(), srcAccess, dstAccess,
+		objectInformationBuffer.getBuffer(), srcAccess, dstAccess,
 		prevStage, nextStage);
 	oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
-		gpuTransformBuffer[getFrame()].getBuffer(), srcAccess, dstAccess,
+		gpuTransformBuffer.getBuffer(), srcAccess, dstAccess,
 		prevStage, nextStage);
 
 
@@ -2352,8 +2345,8 @@ void VulkanRenderer::UploadUIData()
 	PROFILE_GPU_CONTEXT(cmd);
 	PROFILE_GPU_EVENT("Upload UI");
 	VK_NAME(m_device.logicalDevice, "Upload UI", cmd);
-	g_UIVertexBufferGPU[getFrame()].writeToCmd(verts.size(), verts.data(),cmd);
-	g_UIIndexBufferGPU[getFrame()].writeToCmd(idx.size(), idx.data(),cmd);
+	g_UIVertexBufferGPU.writeToCmd(verts.size(), verts.data(),cmd);
+	g_UIIndexBufferGPU.writeToCmd(idx.size(), idx.data(),cmd);
 
 
 }
@@ -2506,9 +2499,9 @@ void VulkanRenderer::BeginDraw()
 
 			DescriptorBuilder::Begin()
 				.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-				.BindBuffer(3, gpuTransformBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-				.BindBuffer(4, gpuBoneMatrixBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-				.BindBuffer(5, objectInformationBuffer[getFrame()].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+				.BindBuffer(3, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+				.BindBuffer(4, gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+				.BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 				.BindBuffer(6, gpuSkinningBoneWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 				.Build(descriptorSet_gpuscene,SetLayoutDB::gpuscene);
 	
@@ -2614,7 +2607,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		
 		if (shadowsRendered == false)
 		{
-			//AddRenderer(g_ShadowPass);
+			AddRenderer(g_ShadowPass);
 			shadowsRendered = true;
 		}
 		AddRenderer(g_ZPrePass);
@@ -4256,12 +4249,8 @@ VulkanRenderer::TextureInfo VulkanRenderer::GetTextureInfo(uint32_t handle)
 
 void VulkanRenderer::InitDebugBuffers()
 {
-	// TODO remove this
-	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
-	{
-		g_DebugDrawVertexBufferGPU[i].Init(&m_device,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		g_DebugDrawIndexBufferGPU[i].Init(&m_device,VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-	}
+	g_DebugDrawVertexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	g_DebugDrawIndexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
 
 bool VulkanRenderer::UploadDebugDrawBuffers()
@@ -4278,13 +4267,13 @@ bool VulkanRenderer::UploadDebugDrawBuffers()
 	}
 	auto cmd = GetCommandBuffer();
 
-	g_DebugDrawVertexBufferGPU[getFrame()].reserve(cmd, g_DebugDrawVertexBufferCPU.size());
-	g_DebugDrawIndexBufferGPU[getFrame()].reserve(cmd, g_DebugDrawIndexBufferCPU.size());
+	g_DebugDrawVertexBufferGPU.reserve(cmd, g_DebugDrawVertexBufferCPU.size());
+	g_DebugDrawIndexBufferGPU.reserve(cmd, g_DebugDrawIndexBufferCPU.size());
 
 	// Copy CPU debug draw buffers to the GPU
 	
-	g_DebugDrawVertexBufferGPU[getFrame()].writeToCmd(g_DebugDrawVertexBufferCPU.size() , g_DebugDrawVertexBufferCPU.data(),cmd);
-	g_DebugDrawIndexBufferGPU[getFrame()].writeToCmd(g_DebugDrawIndexBufferCPU.size() , g_DebugDrawIndexBufferCPU.data(),cmd);
+	g_DebugDrawVertexBufferGPU.writeToCmd(g_DebugDrawVertexBufferCPU.size() , g_DebugDrawVertexBufferCPU.data(),cmd);
+	g_DebugDrawIndexBufferGPU.writeToCmd(g_DebugDrawIndexBufferCPU.size() , g_DebugDrawIndexBufferCPU.data(),cmd);
 
 	// Clear the CPU debug draw buffers for this frame
 	g_DebugDrawVertexBufferCPU.clear();

@@ -107,9 +107,9 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		cmd.BindPSO(pso_ComputeCull, PSOLayoutDB::singleSSBOlayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 
 		cmd.DescriptorSetBegin(0)
-			.BindBuffer(1, vr.indirectCommandsBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rhi::UAV)
-			.BindBuffer(2, vr.instanceBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-			.BindBuffer(3, vr.gpuTransformBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+			.BindBuffer(1, vr.indirectCommandsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rhi::UAV)
+			.BindBuffer(2, vr.instanceBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+			.BindBuffer(3, vr.gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		
 		oGFX::Frustum frust = vr.currWorld->cameras[vr.renderIteration].GetFrustum();
 		struct CullingPC pc;
@@ -119,7 +119,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		pc. left = frust.left.normal;
 		pc. pFar = frust.planeFar.normal;
 		pc. pNear = frust.planeNear.normal;
-		pc.numItems = (uint32_t)vr.indirectCommandsBuffer[currFrame].size();
+		pc.numItems = (uint32_t)vr.indirectCommandsBuffer.size();
 
 		VkPushConstantRange pcr{};
 		pcr.size = sizeof(CullingPC);
@@ -128,7 +128,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		cmd.SetPushConstant(PSOLayoutDB::singleSSBOlayout, pcr, &pc);
 		
 		// no more compute cull
-		//cmd.Dispatch((vr.indirectCommandsBuffer[currFrame].size() - 1) / 128 + 1);
+		//cmd.Dispatch((vr.indirectCommandsBuffer.size() - 1) / 128 + 1);
 
 	} // end culling stage
 
@@ -197,7 +197,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		0
 	};
 	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
-	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer[currFrame].getBufferPtr());
+	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer.getBufferPtr());
 	cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	
 	auto& allObjectsCommands = vr.batches.GetBatch(GraphicsBatch::ALL_OBJECTS);
@@ -207,7 +207,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		cmd.DrawIndexed(g.indexCount, g.instanceCount, g.firstIndex, g.vertexOffset, g.firstInstance);
 	}
 	
-	//cmd.DrawIndexedIndirect(vr.indirectCommandsBuffer[currFrame].getBuffer(), 0, vr.commandCount);
+	//cmd.DrawIndexedIndirect(vr.indirectCommandsBuffer.getBuffer(), 0, vr.commandCount);
 
 	
 
@@ -248,7 +248,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		// 	VK_IMAGE_LAYOUT_GENERAL);
 		// 
 		// vkutils::TransitionImage(cmdlist, vr.attachments.shadowMask, VK_IMAGE_LAYOUT_GENERAL);
-		// const auto& dbi = vr.globalLightBuffer[currFrame].GetBufferInfoPtr();
+		// const auto& dbi = vr.globalLightBuffer.GetBufferInfoPtr();
 		// 
 		// cmd.BindPSO(pso_ComputeShadowPrepass, PSOLayoutDB::shadowPrepassPSOLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 		// 
@@ -259,14 +259,14 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		// 	.BindImage(3, &attachments[GBufferAttachmentIndex::NORMAL], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		// 
 		// 	.BindImage(6, &vr.attachments.shadowMask, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-		// 	.BindBuffer(8, vr.globalLightBuffer[currFrame].GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		// 	.BindBuffer(8, vr.globalLightBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		// 	//.Build(shadowprepassDS, SetLayoutDB::compute_shadowPrepass);
 		// 
 		// uint32_t offset = 1;
 		// cmd.BindDescriptorSet(PSOLayoutDB::shadowPrepassPSOLayout, offset,
 		// 	std::array<VkDescriptorSet, 2>{
 		// 		//shadowprepassDS,
-		// 		vr.descriptorSets_uniform[currFrame],
+		// 		vr.descriptorSets_uniform,
 		// 		vr.descriptorSet_bindless,
 		// },
 		// 	VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -632,7 +632,7 @@ void GBufferRenderPass::CreatePSOLayout()
 			VK_NULL_HANDLE,
 			VK_IMAGE_LAYOUT_GENERAL);
 		
-		const auto& dbi = vr.globalLightBuffer[0].GetDescriptorBufferInfo();
+		const auto& dbi = vr.globalLightBuffer.GetDescriptorBufferInfo();
 		DescriptorBuilder::Begin()
 			.BindImage(0, &sampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
 			.BindImage(1, &depthInput, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)

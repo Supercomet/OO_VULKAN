@@ -124,17 +124,17 @@ void ForwardUIPass::Draw(const VkCommandBuffer cmdlist)
 
 	// Bind merged mesh vertex & index buffers, instancing buffers.
 	std::vector<VkBuffer> vtxBuffers{
-		vr.g_UIVertexBufferGPU[currFrame].getBuffer(),
+		vr.g_UIVertexBufferGPU.getBuffer(),
 	};
 
 	VkDeviceSize offsets[2]{
 		0,
 		0
 	};
-	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_UIVertexBufferGPU[currFrame].getBufferPtr());
-	cmd.BindIndexBuffer(vr.g_UIIndexBufferGPU[currFrame].getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_UIVertexBufferGPU.getBufferPtr());
+	cmd.BindIndexBuffer(vr.g_UIIndexBufferGPU.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	
-	//cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.g_particleDatas[currFrame].getBufferPtr());
+	//cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.g_particleDatas.getBufferPtr());
 	
 	auto &uivert = vr.batches.GetUIVertices();
 	const auto ScreenSpaceVtxOffset = vr.batches.GetScreenSpaceUIOffset();
