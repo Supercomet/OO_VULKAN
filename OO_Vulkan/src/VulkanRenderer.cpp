@@ -334,8 +334,10 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 	fbCache.Init(m_device.logicalDevice);
 	gpuTransformBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	VK_NAME(m_device.logicalDevice, "gpuTransformBuffer", gpuTransformBuffer.m_buffer.buffer);
 
 	gpuShadorCasterTransformBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	VK_NAME(m_device.logicalDevice, "gpuTransformBuffer", gpuShadorCasterTransformBuffer.m_buffer.buffer);
 
 	CreateDescriptorSets_GPUScene();
 	CreateDescriptorSets_Lights();
@@ -1548,6 +1550,7 @@ void VulkanRenderer::CreateDescriptorSets_GPUScene()
 
 	DescriptorBuilder::Begin()
 		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.BindBuffer(1, instanceBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
 		.BindBuffer(3, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
 		.BindBuffer(4, gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
 		.BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
@@ -1949,62 +1952,57 @@ void VulkanRenderer::InitializeRenderBuffers()
 	VkCommandBuffer cmd = GetCommandBuffer();
 
 
-	indirectCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	VK_NAME(m_device.logicalDevice, "Indirect Command Buffer", indirectCommandsBuffer.getBuffer());
+	indirectCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Indirect Command Buffer");
 
-	shadowCasterCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+	shadowCasterCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, "Shadow Command Buffer");
 	shadowCasterCommandsBuffer.reserve(cmd, MAX_OBJECTS);
-	VK_NAME(m_device.logicalDevice, "Shadow Command Buffer", shadowCasterCommandsBuffer.getBuffer());
 
 	// Note: Moved here from VulkanRenderer::UpdateInstanceData
-	instanceBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	shadowCasterInstanceBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	VK_NAME(m_device.logicalDevice, "Instance Buffer", instanceBuffer.getBuffer());
-	VK_NAME(m_device.logicalDevice, "shadowCasterInstanceBuffer", shadowCasterInstanceBuffer.getBuffer());
+	instanceBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Instance Buffer");
 
-	objectInformationBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	shadowCasterInstanceBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "shadowCasterInstanceBuffer");
+
+	objectInformationBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Object inforBuffer");
 	//objectInformationBuffer.reserve(MAX_OBJECTS);  
-	VK_NAME(m_device.logicalDevice, "Object inforBuffer", objectInformationBuffer.getBuffer());
 
 	constexpr uint32_t MAX_LIGHTS = 512;
 	// TODO: Currently this is only for OmniLightInstance.
 	// You should also support various light types such as spot lights, etc...
 
-	globalLightBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	globalLightBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Light Buffer");
 	//globalLightBuffer.reserve(MAX_LIGHTS);
-	VK_NAME(m_device.logicalDevice, "Light Buffer", globalLightBuffer.getBuffer());
 
 	constexpr uint32_t MAX_GLOBAL_BONES = 2048;
 	constexpr uint32_t MAX_SKINNING_VERTEX_BUFFER_SIZE = 4 * 1024 * 1024; // 4MB
 
-	gpuBoneMatrixBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	gpuBoneMatrixBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "Bone Matrix Buffer");
 	//gpuBoneMatrixBuffer.reserve(MAX_GLOBAL_BONES * sizeof(glm::mat4x4));
-	VK_NAME(m_device.logicalDevice, "Bone Matrix Buffer", gpuBoneMatrixBuffer.getBuffer());
 
 		
 
-	g_particleCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+	g_particleCommandsBuffer.Init(&m_device, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,"particle commands");
 	//g_particleCommandsBuffer.reserve(1024); // commands are generally per emitter. shouldnt have so many..
 
-	g_UIVertexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-	g_UIIndexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	g_UIVertexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,"g_UIVertexBufferGPU");
+	g_UIIndexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,"g_UIIndexBufferGPU");
 	
 
-	g_GlobalMeshBuffers.IdxBuffer.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-	g_GlobalMeshBuffers.VtxBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	g_GlobalMeshBuffers.IdxBuffer.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,"IdxBuffer");
+	g_GlobalMeshBuffers.VtxBuffer.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,"VtxBuffer");
 	//g_GlobalMeshBuffers.IdxBuffer.reserve(8 * 1000 * 1000);
 	//g_GlobalMeshBuffers.VtxBuffer.reserve(1 * 1000 * 1000);
 
-	gpuSkinningBoneWeightsBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	gpuSkinningBoneWeightsBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,"Skinning Weights Buffer");
 	//skinningVertexBuffer.reserve(MAX_SKINNING_VERTEX_BUFFER_SIZE);  
-	VK_NAME(m_device.logicalDevice, "Skinning Weights Buffer", gpuSkinningBoneWeightsBuffer.getBuffer());
 	
 
-	g_particleDatas.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	g_particleDatas.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,"g_particleDatas");
 	
 
 	oGFX::CreateBuffer(m_device.m_allocator, sizeof(CB::AMDSPD_ATOMIC), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, SPDatomicBuffer);
+	VK_NAME(m_device.logicalDevice, "SPDatomicBuffer", SPDatomicBuffer.buffer);
 	oGFX::CreateBuffer(m_device.m_allocator, sizeof(CB::AMDSPD_UBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, SPDconstantBuffer);
+	VK_NAME(m_device.logicalDevice, "SPDconstantBuffer", SPDconstantBuffer.buffer);
 	
 	const size_t STARTING_VERTEX_CNT = 5000;
 	size_t vertex_size = STARTING_VERTEX_CNT * sizeof(ImDrawVert);
@@ -2182,7 +2180,7 @@ void VulkanRenderer::UploadInstanceData()
 
 	std::unordered_map<uint32_t, uint32_t>entitiyToBoneBufferOffset;
 
-	instanceDataBuff.reserve(commandCount);
+	instanceDataBuff.reserve(batches.m_culledCameraObjects.size());
 	if (currWorld)
 	{
 		uint32_t matCnt = 0;
@@ -2272,7 +2270,7 @@ void VulkanRenderer::UploadInstanceData()
 
 				oi.boneStartIdx = entitiyToBoneBufferOffset[ent.entityID];				
 			}
-			boneMatrices.push_back(mat4(1.0f));
+			//boneMatrices.push_back(mat4(1.0f));
 
 			objectInformation.push_back(oi);
 
@@ -2286,37 +2284,49 @@ void VulkanRenderer::UploadInstanceData()
 	std::vector<oGFX::InstanceData> casterInstanceData;
 	casterInstanceData.reserve(MAX_OBJECTS);
 	auto& shadowCasters = batches.m_casterData;
+	size_t casterCounter{};
 	// for each light
 	for (GraphicsBatch::CastersData& caster : shadowCasters)
 	{		
 		// for each face
 		for (size_t face = 0; face < 6; face++)
 		{
-			
+
 			std::vector<oGFX::IndirectCommand>& commands = caster.m_commands[face];
 			std::vector<DrawData>& entities = caster.m_culledObjects[face];
 
 			// store previous size
 			size_t offset = gpuShadowCasterTransform.size();
 			// for each mesh
-			for (size_t i = 0; i < entities.size(); i++)
+			for (size_t indir = 0; indir < commands.size(); indir++)
 			{
-				// creates a single transform reference for each entity in the scene
-				mat4 xform = entities[i].localToWorld;
-				GPUTransform gpt;
-				gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
-				gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
-				gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
-				mat4 inverseXform = glm::inverse(xform);
-				gpt.invRow0 = vec4(inverseXform[0][0], inverseXform[1][0], inverseXform[2][0], inverseXform[3][0]);
-				gpt.invRow1 = vec4(inverseXform[0][1], inverseXform[1][1], inverseXform[2][1], inverseXform[3][1]);
-				gpt.invRow2 = vec4(inverseXform[0][2], inverseXform[1][2], inverseXform[2][2], inverseXform[3][2]);
-				gpuShadowCasterTransform.emplace_back(gpt);
+				oGFX::IndirectCommand icmd = commands[indir];
 
-				oGFX::InstanceData instData;
-				instData.instanceAttributes = uvec4(0, 0, 0, 0);
-				
-				casterInstanceData.emplace_back(instData);
+				for (size_t i = icmd.firstInstance; i < icmd.instanceCount; i++)
+				{
+					auto& ent = entities[i];
+					// creates a single transform reference for each entity in the scene
+					mat4 xform = ent.localToWorld;
+					GPUTransform gpt;
+					gpt.row0 = vec4(xform[0][0], xform[1][0], xform[2][0], xform[3][0]);
+					gpt.row1 = vec4(xform[0][1], xform[1][1], xform[2][1], xform[3][1]);
+					gpt.row2 = vec4(xform[0][2], xform[1][2], xform[2][2], xform[3][2]);
+					mat4 inverseXform = glm::inverse(xform);
+					gpt.invRow0 = vec4(inverseXform[0][0], inverseXform[1][0], inverseXform[2][0], inverseXform[3][0]);
+					gpt.invRow1 = vec4(inverseXform[0][1], inverseXform[1][1], inverseXform[2][1], inverseXform[3][1]);
+					gpt.invRow2 = vec4(inverseXform[0][2], inverseXform[1][2], inverseXform[2][2], inverseXform[3][2]);
+					gpuShadowCasterTransform.emplace_back(gpt);
+
+					bool isSkin = (bool)(ent.flags & ObjectInstanceFlags::SKINNED);
+					const uint8_t perInstanceData = ent.instanceData;
+					const uint32_t emissive_skinned = ent.bindlessGlobalTextureIndex_Emissive << 16 | (uint32_t)perInstanceData | isSkin << 8; //matCnt;
+					oGFX::InstanceData instData;
+					instData.instanceAttributes = uvec4(casterCounter, emissive_skinned, 0, 0);
+					casterInstanceData.emplace_back(instData);
+
+					casterCounter++;
+				}
+
 			}
 
 			for (oGFX::IndirectCommand& cmd : commands)
@@ -2324,7 +2334,8 @@ void VulkanRenderer::UploadInstanceData()
 				// the offset to the transform will be based off the big buffer
 				cmd.firstInstance += offset;
 			}
-		}			
+
+		} // end for face	
 	}
 
 
@@ -2359,7 +2370,7 @@ void VulkanRenderer::UploadInstanceData()
 
 	instanceBuffer.writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd);
 
-	shadowCasterInstanceBuffer.writeToCmd(instanceDataBuff.size(), instanceDataBuff.data(),cmd);
+	shadowCasterInstanceBuffer.writeToCmd(casterInstanceData.size(), casterInstanceData.data(),cmd);
 	
 	oGFX::vkutils::tools::insertBufferMemoryBarrier(cmd, m_device.queueIndices.graphicsFamily,
 		shadowCasterInstanceBuffer.getBuffer(), srcAccess, dstAccess,
@@ -2563,6 +2574,7 @@ void VulkanRenderer::BeginDraw()
 
 			DescriptorBuilder::Begin()
 				.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS)
+				.BindBuffer(1, instanceBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
 				.BindBuffer(3, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
 				.BindBuffer(4, gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
 				.BindBuffer(5, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)

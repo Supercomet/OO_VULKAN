@@ -71,8 +71,8 @@ static BindlessTextureIndex gs_RedTexture= INVALID_BINDLESS_TEXTURE_INDEX;
 
 static uint32_t globalDionaID{ 0 };
 
-std::array<BindlessTextureIndex, 10> roughness{};
-std::array<BindlessTextureIndex, 10> metalic{};
+std::array<BindlessTextureIndex, 2> roughness{};
+std::array<BindlessTextureIndex, 2> metalic{};
 uint32_t beginSpheres;
 uint32_t endSpheres;
 

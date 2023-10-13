@@ -94,7 +94,7 @@ void main()
     const bool useRoughnessTexture = true;
     const bool useMetallicTexture = true;
     const bool useAmbientOcclusionTexture = true;
-
+    
     // Unpack per instance data
     const uint textureIndex_Albedo    = inInstanceData.z >> 16;
     const uint textureIndex_Normal    = inInstanceData.z & 0xFFFF;
