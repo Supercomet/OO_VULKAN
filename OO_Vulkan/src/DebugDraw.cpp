@@ -299,9 +299,8 @@ void DebugDraw::DrawCameraFrustrum(const glm::vec3& position, const glm::mat4& v
 void DebugDraw::DrawCameraFrustrumFromViewProj(const glm::mat4& viewProj, const oGFX::Color& col)
 {
 
-
-    glm::mat4 invVP = glm::inverse(viewProj);
-    oGFX::AABB a({ -1, -1, 0 }, { 1,1,1 });
+    glm::mat4 invVP =glm::inverse(viewProj);
+    oGFX::AABB a({ -1, -1, 0 }, { 1, 1, 1 });
     oGFX::Point3D corners[8]{};
     for (int i = 0; i < 8; ++i)
     {

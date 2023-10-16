@@ -229,7 +229,7 @@ oGFX::Frustum Camera::GetFrustum() const
 	frustum.pt_top = act_centre + centre_half_height * m_up;
 	frustum.pt_bottom = act_centre - centre_half_height * m_up;
 	frustum.pt_planeNear = near_center;
-	frustum.pt_planeFar = act_centre;
+	frustum.pt_planeFar = far_center;
 
 	return frustum;
 }

@@ -508,38 +508,41 @@ void TestApplication::Run()
     //}
     //std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
     //entities[globalDionaID].localSkeleton = scopedPtr.get();
+    
+    uint32_t LSphere;
+    uint32_t bigSphere;
+    if (m_TestDebugFrustum) {
+       
+        {
+            LSphere = (uint32_t)entities.size();
+            auto& ed = entities.emplace_back(EntityInfo{});
+            ed.name = "Box";
+            ed.entityID = FastRandomMagic();
+            ed.modelID = model_sphere->meshResource;
+            ed.position = { 0.0f,0.0f,0.0f };
+            ed.scale = glm::vec3{ 0.5f };
 
-    //uint32_t LSphere;
-    //if(0)
-    //{
-    //    LSphere = (uint32_t)entities.size();
-    //    auto& ed = entities.emplace_back(EntityInfo{});
-    //    ed.name = "Box";
-    //    ed.entityID = FastRandomMagic();
-    //    ed.modelID = model_sphere->meshResource;
-    //    ed.position = { 0.0f,0.0f,0.0f };
-    //    ed.scale = glm::vec3{ 0.5f };
+            ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
+            ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
+            ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
+        }
 
-    //    ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
-    //    ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
-    //    ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
-    //}
+      
+        {
+            bigSphere = (uint32_t)entities.size();
+            auto& ed = entities.emplace_back(EntityInfo{});
+            ed.name = "Rsphere";
+            ed.entityID = FastRandomMagic();
+            ed.modelID = model_sphere->meshResource;
+            ed.position = { 0.0f,0.0f,0.0f };
+            ed.scale = glm::vec3{ 1.0f };
 
-    //uint32_t bigSphere;
-    //if(0)
-    //{
-    //    bigSphere = (uint32_t)entities.size();
-    //    auto& ed = entities.emplace_back(EntityInfo{});
-    //    ed.name = "Rsphere";
-    //    ed.entityID = FastRandomMagic();
-    //    ed.modelID = model_sphere->meshResource;
-    //    ed.position = { 0.0f,0.0f,0.0f };
-    //    ed.scale = glm::vec3{ 1.0f };
-
-    //    ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
-    //    ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
-    //    ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
-    //}
+            ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
+            ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
+            ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
+        }
+    }
+    
 
 
     //const float gridSize = 1.3f;
@@ -815,26 +818,58 @@ void TestApplication::Run()
                 }
                 ImGui::End();
 
-                /*oGFX::AABB bigBox;
-                bigBox.center = entities[bigSphere].position;
-                bigBox.halfExt = entities[bigSphere].scale / 2.0f;
-
-               
-                oGFX::Frustum f = gs_GraphicsWorld.cameras[1].GetFrustum();
-                oGFX::DebugDraw::DrawCameraFrustrum(gs_GraphicsWorld.cameras[1], oGFX::Colors::ORANGE);
-               
-                oGFX::coll::Collision result = oGFX::coll::AABBInFrustum(f, bigBox);
-                switch (result) 
+                if (m_TestDebugFrustum) 
                 {
-                case oGFX::coll::INTERSECTS: oGFX::DebugDraw::AddAABB(bigBox,oGFX::Colors::YELLOW);break;
-                case oGFX::coll::CONTAINS:   oGFX::DebugDraw::AddAABB(bigBox,oGFX::Colors::GREEN);break;
-                case oGFX::coll::OUTSIDE:    oGFX::DebugDraw::AddAABB(bigBox);
-                default:break;                        
-                }             
+                    oGFX::AABB bigBox;
+                    bigBox.center = entities[bigSphere].position;
+                    bigBox.halfExt = entities[bigSphere].scale / 2.0f;
 
-                if (0) {
-					TestFrustumCull(f, bigBox);
-                }*/
+                    auto inversed_perspectiveRH_ZO = [](float fovRad, float aspect, float n, float f)->glm::mat4 {
+                        glm::mat4 result(0.0f);
+                        assert(abs(aspect - std::numeric_limits<float>::epsilon()) > 0.0f);
+                        float const tanHalfFovy = tan(fovRad / 2.0f);
+
+                        float h = 1.0f / std::tan(fovRad * 0.5f);
+                        float w = h / aspect;
+                        float a = -n / (f - n);
+                        float b = (n * f) / (f - n);
+                        result[0][0] = w;
+                        result[1][1] = h;
+                        result[2][2] = a;
+                        result[2][3] = -1.0f;
+                        result[3][2] = b;
+
+                        return result;
+                        };
+
+               
+                    gs_GraphicsWorld.cameras[1].SetFarClip(20.0f);
+                    Camera& targetCam = gs_GraphicsWorld.cameras[1];
+                    mat4 persp = inversed_perspectiveRH_ZO(glm::radians(targetCam.m_fovDegrees), targetCam.m_aspectRatio, targetCam.m_znear, targetCam.m_zfar);
+                    mat4 vp = persp * targetCam.matrices.view;
+                    oGFX::Frustum forig = gs_GraphicsWorld.cameras[1].GetFrustum();
+                    oGFX::Frustum f = oGFX::Frustum::CreateFromViewProj(vp);
+                    f.pt_top= forig.pt_top;
+                    f.pt_bottom= forig.pt_bottom;
+                    f.pt_right= forig.pt_right;
+                    f.pt_left= forig.pt_left;
+                    f.pt_planeFar= forig.pt_planeFar;
+                    f.pt_planeNear = forig.pt_planeNear;
+                    //oGFX::DebugDraw::DrawCameraFrustrumFromViewProj(vp);
+                    oGFX::DebugDraw::DrawCameraFrustrumFromViewProj(targetCam.GetNonInvProjectionMatrix() * targetCam.matrices.view);
+               
+                    oGFX::coll::Collision result = oGFX::coll::AABBInFrustum(f, bigBox);
+                    switch (result) 
+                    {
+                    case oGFX::coll::INTERSECTS: oGFX::DebugDraw::AddAABB(bigBox,oGFX::Colors::YELLOW);break;
+                    case oGFX::coll::CONTAINS:   oGFX::DebugDraw::AddAABB(bigBox,oGFX::Colors::GREEN);break;
+                    case oGFX::coll::OUTSIDE:    oGFX::DebugDraw::AddAABB(bigBox);
+                    default:break;                        
+                    }             
+
+				    TestFrustumCull(f, bigBox);
+                }
+
 
                 if (Input::GetKeyTriggered(KEY_P))
                 {

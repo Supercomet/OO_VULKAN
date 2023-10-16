@@ -75,10 +75,6 @@ inline TYPE operator&(TYPE a, TYPE b)\
 inline TYPE operator~(TYPE a)\
 {\
     return static_cast<TYPE>(~static_cast<CAST>(a));\
-}\
-inline bool operator==(TYPE a, TYPE b)\
-{\
-return static_cast<bool>(a&b); \
 }
 
 VkDebugReportObjectTypeEXT GetDebugNameExtTypeByID(std::type_index id);

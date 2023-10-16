@@ -2262,7 +2262,7 @@ void VulkanRenderer::UploadInstanceData()
 					{
 						boneMatrices.push_back((*ent.ptrToBoneBuffer)[i]);
 					}
-					// save offset
+					// save offsert
 					entitiyToBoneBufferOffset[ent.entityID] = bonesOffset;
 				}
 
@@ -2300,7 +2300,7 @@ void VulkanRenderer::UploadInstanceData()
 			{
 				oGFX::IndirectCommand icmd = commands[indir];
 
-				for (size_t i = icmd.firstInstance; i < icmd.instanceCount; i++)
+				for (size_t i = 0 ; i < icmd.instanceCount; i++)
 				{
 					auto& ent = entities[i];
 					// creates a single transform reference for each entity in the scene
