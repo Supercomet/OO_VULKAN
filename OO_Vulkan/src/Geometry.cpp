@@ -189,11 +189,15 @@ Frustum Frustum::CreateFromViewProj(glm::mat4 m)
 	f.bottom.normal.w = -f.bottom.normal.w;
 	f.right.normal.w = -f.right.normal.w;
 	f.left.normal.w = -f.left.normal.w;
+	f.planeFar.normal.w = -f.planeFar.normal.w;
+	f.planeNear.normal.w = -f.planeNear.normal.w;
 
 	f.top.normal = -f.top.normal;
 	f.bottom.normal = -f.bottom.normal;
 	f.right.normal = -f.right.normal;
 	f.left.normal = -f.left.normal;
+	f.planeFar.normal = -f.planeFar.normal;
+	f.planeNear.normal = -f.planeNear.normal;
 
 	return f;
 }

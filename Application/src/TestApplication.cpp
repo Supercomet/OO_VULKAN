@@ -476,7 +476,7 @@ void TestApplication::Run()
         ed.name = "Ground_Plane";
         ed.entityID = FastRandomMagic();
         ed.modelID = model_plane->meshResource;
-        ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
+        ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags));
         ed.position = { 0.0f,-0.5f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
 
@@ -490,24 +490,23 @@ void TestApplication::Run()
     uint32_t uiID = CreateTextHelper(glm::mat4(1.0f), std::string("123 Test\nNew Line"), testFont.get());
 
    
-    //if (0)
-    //{        
-    //    globalDionaID = (uint32_t)entities.size();
-    //    auto& ed = entities.emplace_back(EntityInfo{});
-    //    ed.modelID = character_diona->meshResource;
-    //    ed.name = "diona";
-    //    ed.entityID = FastRandomMagic();
-    //    ed.position = { 3.0f,0.0f,0.0f };
-    //    ed.scale = { 0.1f,0.1f,0.1f };
-    //    ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-    //    ed.flags = ObjectInstanceFlags((uint32_t)ed.flags|(uint32_t)ObjectInstanceFlags::SKINNED);
-    //    ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_CASTER;
-    //    ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_ENABLED;
-    //    ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_RECEIVER;
-    //    
-    //}
-    //std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
-    //entities[globalDionaID].localSkeleton = scopedPtr.get();
+    {        
+        globalDionaID = (uint32_t)entities.size();
+        auto& ed = entities.emplace_back(EntityInfo{});
+        ed.modelID = character_diona->meshResource;
+        ed.name = "diona";
+        ed.entityID = FastRandomMagic();
+        ed.position = { 3.0f,0.0f,0.0f };
+        ed.scale = { 0.1f,0.1f,0.1f };
+        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+        ed.flags = ObjectInstanceFlags((uint32_t)ed.flags|(uint32_t)ObjectInstanceFlags::SKINNED);
+        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_CASTER;
+        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_ENABLED;
+        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_RECEIVER;
+        
+    }
+    std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
+    entities[globalDionaID].localSkeleton = scopedPtr.get();
     
     uint32_t LSphere;
     uint32_t bigSphere;
@@ -847,8 +846,9 @@ void TestApplication::Run()
                     Camera& targetCam = gs_GraphicsWorld.cameras[1];
                     mat4 persp = inversed_perspectiveRH_ZO(glm::radians(targetCam.m_fovDegrees), targetCam.m_aspectRatio, targetCam.m_znear, targetCam.m_zfar);
                     mat4 vp = persp * targetCam.matrices.view;
+                    mat4 normalVP = targetCam.GetNonInvProjectionMatrix() * targetCam.matrices.view;
                     oGFX::Frustum forig = gs_GraphicsWorld.cameras[1].GetFrustum();
-                    oGFX::Frustum f = oGFX::Frustum::CreateFromViewProj(vp);
+                    oGFX::Frustum f = oGFX::Frustum::CreateFromViewProj(normalVP);
                     f.pt_top= forig.pt_top;
                     f.pt_bottom= forig.pt_bottom;
                     f.pt_right= forig.pt_right;
@@ -856,7 +856,7 @@ void TestApplication::Run()
                     f.pt_planeFar= forig.pt_planeFar;
                     f.pt_planeNear = forig.pt_planeNear;
                     //oGFX::DebugDraw::DrawCameraFrustrumFromViewProj(vp);
-                    oGFX::DebugDraw::DrawCameraFrustrumFromViewProj(targetCam.GetNonInvProjectionMatrix() * targetCam.matrices.view);
+                    oGFX::DebugDraw::DrawCameraFrustrumFromViewProj(normalVP);
                
                     oGFX::coll::Collision result = oGFX::coll::AABBInFrustum(f, bigBox);
                     switch (result) 

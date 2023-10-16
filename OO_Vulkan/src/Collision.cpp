@@ -507,11 +507,11 @@ Collision AABBInFrustum(const Frustum& frustum, const AABB& a, bool draw)
 		{
 			float t = 0.0f;
 			bool result = PointOnOrForwardPlane(plane, corners[j], &t);
-			oGFX::Color col = oGFX::Colors::RED;
+			//oGFX::Color col = oGFX::Colors::RED;
 
 			if (result == false) {
 				numInside++;
-				col = oGFX::Colors::GREEN;
+				//col = oGFX::Colors::GREEN;
 			}
 
 			if (std::abs(t) < nearest) 
@@ -529,7 +529,7 @@ Collision AABBInFrustum(const Frustum& frustum, const AABB& a, bool draw)
 			{
 				col = oGFX::Colors::RED; 
 			}
-			DebugDraw::AddLine(glm::vec3(plane.normal) * t + corners[n], corners[n], col);
+			//DebugDraw::AddLine(glm::vec3(plane.normal) * t + corners[n], corners[n], col);
 		}
 
 		if (numInside == 0)

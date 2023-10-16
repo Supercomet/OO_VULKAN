@@ -34,7 +34,7 @@ private:
     bool m_TestDebugDrawDisc{ false };
     bool m_TestDebugDrawDecal{ false };
     bool m_TestDebugDrawGrid{ true };
-    bool m_TestDebugFrustum{ true };
+    bool m_TestDebugFrustum{ false };
 
     bool m_debugDrawLightPosition{ false };
 

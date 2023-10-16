@@ -2302,7 +2302,7 @@ void VulkanRenderer::UploadInstanceData()
 
 				for (size_t i = 0 ; i < icmd.instanceCount; i++)
 				{
-					auto& ent = entities[i];
+					auto& ent = entities[icmd.firstInstance+i];
 					// creates a single transform reference for each entity in the scene
 					mat4 xform = ent.localToWorld;
 					GPUTransform gpt;

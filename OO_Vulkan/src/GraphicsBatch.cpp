@@ -105,7 +105,7 @@ void CullDrawData(const oGFX::Frustum& f, std::vector<DrawData>& outData, const 
 
 		if (src.isRenderable() == false) continue;
 		if (draw)
-			oGFX::DebugDraw::AddAABB(getBoxFun(src), oGFX::Colors::BLUE);
+			oGFX::DebugDraw::AddAABB(getBoxFun(src), oGFX::Colors::RED);
 		if (oGFX::coll::AABBInFrustum(f, getBoxFun(src), draw) != oGFX::coll::OUTSIDE) {
 			DrawData dd = ObjectInsToDrawData(src);
 			gfxModel& mdl = vr.g_globalModels[src.modelID];
@@ -118,6 +118,8 @@ void CullDrawData(const oGFX::Frustum& f, std::vector<DrawData>& outData, const 
 					outData.push_back(dd);
 				}
 			}
+			if (draw)
+				oGFX::DebugDraw::AddAABB(getBoxFun(src), oGFX::Colors::YELLOW);
 			intersectAccepted++;
 		}
 	}
@@ -174,7 +176,7 @@ void GenerateCommands(const std::vector<DrawData>& entities, std::vector<oGFX::I
 		}
 
 		// increment based on filter
-		if ((ent.flags&filter) == filter)
+		//if ((ent.flags&filter) == filter)
 		{
 			indirectCmd.instanceCount++;
 		}
@@ -377,10 +379,11 @@ void GraphicsBatch::ProcessLights()
 
 			
 			CastersData& caster = m_casterData[numLights];			
+			glm::mat4 lightProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, e.radius.x);
 
 			for (size_t face = 0; face < 6; face++)
 			{
-				glm::mat4 vp = e.projection * e.view[face];// *glm::translate(vec3(e.position));
+				glm::mat4 vp = lightProj * e.view[face];// *glm::translate(vec3(e.position));
 				oGFX::Frustum f = oGFX::Frustum::CreateFromViewProj(vp);	
 				
 				size_t debug = vr.m_ShaderDebugValues.vector4_values0.x;
@@ -391,9 +394,9 @@ void GraphicsBatch::ProcessLights()
 				intersectEnt.clear();
 				for (auto& t : m_world->m_ObjectInstancesCopy)
 				{
-				//	containedEnt.push_back(&t);
+					//intersectEnt.push_back(&t);
 				}
-				 m_world->m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
+				m_world->m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
 
 				if (face == debug && draw) {
 					oGFX::DebugDraw::DrawCameraFrustrumFromViewProj(vp, oGFX::Colors::c[face]);
@@ -402,7 +405,7 @@ void GraphicsBatch::ProcessLights()
 					m_world->m_OctTree->GetBoxesInFrustum(f, inbox, halfbox);
 					for (size_t i = 0; i < inbox.size(); i++)
 					{
-						oGFX::DebugDraw::AddAABB(inbox[i], oGFX::Colors::INDIGO);
+						oGFX::DebugDraw::AddAABB(inbox[i], oGFX::Colors::GREEN);
 					}
 					for (size_t i = 0; i < halfbox.size(); i++)
 					{
