@@ -145,10 +145,10 @@ struct EntityInfo
     mat4 getLocalToWorld()
     {
         glm::mat4 xform{ 1.0f };
-        xform = glm::translate(xform, position);
-        xform =  glm::orientate4(rotVec) * xform;
-        //xform = glm::rotate(xform, glm::radians(rot), rotVec);
         xform = glm::scale(xform, scale);
+        xform =  glm::orientate4(rotVec) * xform;
+        xform = glm::translate(xform, position);
+        //xform = glm::rotate(xform, glm::radians(rot), rotVec);
         return xform;
     }
 
@@ -490,90 +490,92 @@ void TestApplication::Run()
     uint32_t uiID = CreateTextHelper(glm::mat4(1.0f), std::string("123 Test\nNew Line"), testFont.get());
 
    
-    if (character_diona)
-    {        
-        globalDionaID = (uint32_t)entities.size();
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.modelID = character_diona->meshResource;
-        ed.name = "diona";
-        ed.entityID = FastRandomMagic();
-        ed.position = { 3.0f,0.0f,0.0f };
-        ed.scale = { 0.1f,0.1f,0.1f };
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
-        ed.flags = ObjectInstanceFlags((uint32_t)ed.flags|(uint32_t)ObjectInstanceFlags::SKINNED);
-        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_CASTER;
-        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_ENABLED;
-        ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_RECEIVER;
-        
-    }
-    std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
-    entities[globalDionaID].localSkeleton = scopedPtr.get();
+    //if (0)
+    //{        
+    //    globalDionaID = (uint32_t)entities.size();
+    //    auto& ed = entities.emplace_back(EntityInfo{});
+    //    ed.modelID = character_diona->meshResource;
+    //    ed.name = "diona";
+    //    ed.entityID = FastRandomMagic();
+    //    ed.position = { 3.0f,0.0f,0.0f };
+    //    ed.scale = { 0.1f,0.1f,0.1f };
+    //    ed.bindlessGlobalTextureIndex_Albedo = diffuseTexture3;
+    //    ed.flags = ObjectInstanceFlags((uint32_t)ed.flags|(uint32_t)ObjectInstanceFlags::SKINNED);
+    //    ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_CASTER;
+    //    ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_ENABLED;
+    //    ed.flags = ed.flags | ObjectInstanceFlags::SHADOW_RECEIVER;
+    //    
+    //}
+    //std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
+    //entities[globalDionaID].localSkeleton = scopedPtr.get();
 
-    uint32_t LSphere;
-    {
-        LSphere = (uint32_t)entities.size();
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.name = "Box";
-        ed.entityID = FastRandomMagic();
-        ed.modelID = model_sphere->meshResource;
-        ed.position = { 0.0f,0.0f,0.0f };
-        ed.scale = glm::vec3{ 0.5f };
+    //uint32_t LSphere;
+    //if(0)
+    //{
+    //    LSphere = (uint32_t)entities.size();
+    //    auto& ed = entities.emplace_back(EntityInfo{});
+    //    ed.name = "Box";
+    //    ed.entityID = FastRandomMagic();
+    //    ed.modelID = model_sphere->meshResource;
+    //    ed.position = { 0.0f,0.0f,0.0f };
+    //    ed.scale = glm::vec3{ 0.5f };
 
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
-        ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
-        ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
-    }
+    //    ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
+    //    ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
+    //    ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
+    //}
 
-    uint32_t bigSphere;
-    {
-        bigSphere = (uint32_t)entities.size();
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.name = "Rsphere";
-        ed.entityID = FastRandomMagic();
-        ed.modelID = model_sphere->meshResource;
-        ed.position = { 0.0f,0.0f,0.0f };
-        ed.scale = glm::vec3{ 1.0f };
+    //uint32_t bigSphere;
+    //if(0)
+    //{
+    //    bigSphere = (uint32_t)entities.size();
+    //    auto& ed = entities.emplace_back(EntityInfo{});
+    //    ed.name = "Rsphere";
+    //    ed.entityID = FastRandomMagic();
+    //    ed.modelID = model_sphere->meshResource;
+    //    ed.position = { 0.0f,0.0f,0.0f };
+    //    ed.scale = glm::vec3{ 1.0f };
 
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
-        ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
-        ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
-    }
+    //    ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
+    //    ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
+    //    ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
+    //}
 
 
-    const float gridSize = 1.3f;
-    const float halfGrid = roughness.size() * gridSize / 2.0f;
-    beginSpheres = (uint32_t)entities.size();
-    for (size_t i = 0; i < roughness.size(); i++)
-    {
-        for (size_t y = 0; y < metalic.size(); y++)
-        {
-            auto& ed = entities.emplace_back(EntityInfo{});
+    //const float gridSize = 1.3f;
+    //const float halfGrid = roughness.size() * gridSize / 2.0f;
+    //beginSpheres = (uint32_t)entities.size();
+    //for (size_t i = 0; i < roughness.size(); i++)
+    //{
+    //    for (size_t y = 0; y < metalic.size(); y++)
+    //    {
+    //        auto& ed = entities.emplace_back(EntityInfo{});
 
-            std::stringstream ss;
-            ss << "Sphere_M[" << y << "]R[" << i << "]";
-            ed.name = std::string("Sphere_M") + std::to_string(i * metalic.size() + y);
-            ed.name = ss.str();
-            ed.entityID = FastRandomMagic();
-            ed.modelID = model_sphere->meshResource;
-            //ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
+    //        std::stringstream ss;
+    //        ss << "Sphere_M[" << y << "]R[" << i << "]";
+    //        ed.name = std::string("Sphere_M") + std::to_string(i * metalic.size() + y);
+    //        ed.name = ss.str();
+    //        ed.entityID = FastRandomMagic();
+    //        ed.modelID = model_sphere->meshResource;
+    //        //ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
 
-            ed.scale = { 1.0f,1.0f,1.0f };
+    //        ed.scale = { 1.0f,1.0f,1.0f };
 
-            ed.bindlessGlobalTextureIndex_Albedo = gs_RedTexture;
-            ed.bindlessGlobalTextureIndex_Metallic = metalic[y];
-            ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
+    //        ed.bindlessGlobalTextureIndex_Albedo = gs_RedTexture;
+    //        ed.bindlessGlobalTextureIndex_Metallic = metalic[y];
+    //        ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
 
-            std::stringstream name;
-            name << "Roughness " << std::setprecision(2) << ((float)i / (roughness.size() - 1))
-                << "\nMetallic " << std::setprecision(2) << ((float)y / (roughness.size() - 1));
-            auto strpos = glm::vec3{ gridSize * i - halfGrid, gridSize * y - halfGrid + 3.5f - 0.6f, -5.0f };
-            CreateTextHelper(glm::translate(strpos), name.str(), testFont.get());
+    //        std::stringstream name;
+    //        name << "Roughness " << std::setprecision(2) << ((float)i / (roughness.size() - 1))
+    //            << "\nMetallic " << std::setprecision(2) << ((float)y / (roughness.size() - 1));
+    //        auto strpos = glm::vec3{ gridSize * i - halfGrid, gridSize * y - halfGrid + 3.5f - 0.6f, -5.0f };
+    //        CreateTextHelper(glm::translate(strpos), name.str(), testFont.get());
 
-        }
-    }
-    endSpheres = (uint32_t)entities.size();
+    //    }
+    //}
+    //endSpheres = (uint32_t)entities.size();
 
-    ResetSpheres();
+    // ResetSpheres();
 
     /* // WIP
     if (alibaba)
@@ -813,10 +815,7 @@ void TestApplication::Run()
                 }
                 ImGui::End();
 
-                oGFX::AABB smlBox;
-                smlBox.center = entities[LSphere].position;
-                smlBox.halfExt = entities[LSphere].scale/2.0f;
-                oGFX::AABB bigBox;
+                /*oGFX::AABB bigBox;
                 bigBox.center = entities[bigSphere].position;
                 bigBox.halfExt = entities[bigSphere].scale / 2.0f;
 
@@ -835,7 +834,7 @@ void TestApplication::Run()
 
                 if (0) {
 					TestFrustumCull(f, bigBox);
-                }
+                }*/
 
                 if (Input::GetKeyTriggered(KEY_P))
                 {

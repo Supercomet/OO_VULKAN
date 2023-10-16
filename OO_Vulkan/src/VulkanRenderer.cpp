@@ -333,11 +333,9 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	CreateDefaultDescriptorSetLayout();
 
 	fbCache.Init(m_device.logicalDevice);
-	gpuTransformBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	VK_NAME(m_device.logicalDevice, "gpuTransformBuffer", gpuTransformBuffer.m_buffer.buffer);
+	gpuTransformBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "gpuTransformBuffer");
 
-	gpuShadorCasterTransformBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	VK_NAME(m_device.logicalDevice, "gpuTransformBuffer", gpuShadorCasterTransformBuffer.m_buffer.buffer);
+	gpuShadorCasterTransformBuffer.Init(&m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,"gpuShadowTransformBuffer");
 
 	CreateDescriptorSets_GPUScene();
 	CreateDescriptorSets_Lights();
@@ -2148,7 +2146,7 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 
 	
 }
-
+#pragma optimize("" , off);
 void VulkanRenderer::UploadInstanceData()
 {
 	PROFILE_SCOPED();

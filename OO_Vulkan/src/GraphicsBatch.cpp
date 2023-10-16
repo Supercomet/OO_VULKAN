@@ -20,6 +20,7 @@ Technology is prohibited.
 #include "gpuCommon.h"
 #include <cassert>
 #include "Profiling.h"
+#include "DebugDraw.h"
 
 //#define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 //#define _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
@@ -194,7 +195,8 @@ void GraphicsBatch::Init(GraphicsWorld* gw, VulkanRenderer* renderer, size_t max
 	m_casterData.resize(MAX_LIGHTS);
 	for (auto& cd :m_casterData)
 	{
-		for (size_t face = 0; face < 6; face++)
+		const size_t cubeFaces = 6;
+		for (size_t face = 0; face < cubeFaces; face++)
 		{
 			cd.m_commands[face].clear();
 			cd.m_culledObjects[face].clear();
@@ -371,16 +373,38 @@ void GraphicsBatch::ProcessLights()
 
 			for (size_t face = 0; face < 6; face++)
 			{
-				glm::mat4 vp = e.projection * e.view[face] * glm::translate(vec3(e.position));				
-				oGFX::Frustum f = oGFX::Frustum::CreateFromViewProj(vp);
+				glm::mat4 vp = e.projection * e.view[face];// *glm::translate(vec3(e.position));
+				oGFX::Frustum f = oGFX::Frustum::CreateFromViewProj(vp);				
+
+				oGFX::DebugDraw::DrawCameraFrustrumFromViewProj(vp,oGFX::Colors::c[face]);
+
+				//oGFX::DebugDraw::DrawCameraFrustrumDebugArrows(f,oGFX::Colors::c[face]);
+				
+				
+				
+
 
 				containedEnt.clear();
 				intersectEnt.clear();
 				m_world->m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
-				CullDrawData(f, caster.m_culledObjects[face], containedEnt, intersectEnt);
+				size_t tree = containedEnt.size() + intersectEnt.size();
+				//CullDrawData(f, caster.m_culledObjects[face], containedEnt, intersectEnt);
+				caster.m_culledObjects[face].clear();
+				caster.m_culledObjects[face].resize(tree);
+				for (size_t i = 0; i < containedEnt.size(); i++)
+				{
+					caster.m_culledObjects[face][i] = ObjectInsToDrawData(*containedEnt[i]);
+				}
+				for (size_t i = 0; i < intersectEnt.size(); i++)
+				{
+					caster.m_culledObjects[face][containedEnt.size() + i] = ObjectInsToDrawData(*intersectEnt[i]);
+				}
+				size_t culled = caster.m_culledObjects[face].size();
 				SortDrawDataByMesh(caster.m_culledObjects[face]);
 				GenerateCommands(caster.m_culledObjects[face], caster.m_commands[face]
 					, ObjectInstanceFlags::SHADOW_CASTER | ObjectInstanceFlags::RENDER_ENABLED);
+				size_t commands = caster.m_commands[face].size();
+				printf("F[%1llu] total[%3llu] cull[%3llu] cmd[%3llu]\n", face, tree, culled, commands);
 			}
 
 			numLights++;
