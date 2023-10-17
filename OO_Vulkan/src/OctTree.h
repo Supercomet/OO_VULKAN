@@ -41,6 +41,7 @@ public:
 	void GetBoxesInFrustum(const Frustum& frust, std::vector<AABB>& contains, std::vector<AABB>& intersect);
 
 	void ClearTree();
+	void ResizeTree(const AABB& box);
 	uint32_t size() const;
 
 private:
@@ -63,6 +64,7 @@ private:
 	void SplitNode(OctNode* node);
 	void PerformClear(OctNode* node);
 
+	void ResizeTreeBounds(OctNode* node, const AABB& box);
 };
 
 struct OctNode

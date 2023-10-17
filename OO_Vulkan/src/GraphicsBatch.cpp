@@ -72,6 +72,7 @@ oGFX::AABB getBoxFun(ObjectInstance& oi)
 
 void CullDrawData(const oGFX::Frustum& f, std::vector<DrawData>& outData, const std::vector<ObjectInstance*>& contained, const std::vector<ObjectInstance*>& intersecting, bool draw = false)
 {
+	PROFILE_SCOPED();
 	auto& vr = *VulkanRenderer::get();
 
 	outData.clear();
@@ -236,6 +237,7 @@ void GraphicsBatch::GenerateBatches()
 
 void GraphicsBatch::ProcessLights()
 {
+	PROFILE_SCOPED();
 	VulkanRenderer& vr = *VulkanRenderer::get();
 
 	for (auto& light : m_world->m_OmniLightCopy)

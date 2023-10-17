@@ -207,6 +207,8 @@ public:
 	VkCommandBuffer getCommandBuffer();
 private:
 	void CommitDescriptors();
+	void DenoteStateChanged();
+	void EndIfRendering();
 
 	VkCommandBuffer m_VkCommandBuffer{};
 
@@ -226,6 +228,8 @@ private:
 	bool m_regionNamed = false;
 
 	VkRect2D m_renderArea{};
+	bool m_attachmentReady{ false };
+	bool m_currentlyRendering{ false };
 
 	std::unordered_map<vkutils::Texture*, ImageStateTracking> m_trackedTextures;
 	std::unordered_map<VkBuffer, BufferStateTracking> m_trackedBuffers;

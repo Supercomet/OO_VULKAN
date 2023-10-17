@@ -15,8 +15,12 @@ Technology is prohibited.
 #include "BoudingVolume.h"
 #include "Collision.h"
 #include "GraphicsWorld.h"
+#include "Profiling.h"
 #include <algorithm>
 #include <iostream>
+
+glm::vec3 g_max{-1e10};
+glm::vec3 g_min{ 1e10 };
 
 namespace oGFX {
 
@@ -31,16 +35,30 @@ namespace oGFX {
 
 void OctTree::Insert(ObjectInstance* entity, AABB objBox)
 {
+	PROFILE_SCOPED();
 	NodeEntry entry;
 	entry.box = objBox;
 	entry.obj = entity;
 	PerformInsert(m_root.get(), entry);
+
+	auto bmax = entry.box.max();
+	auto bmin = entry.box.min();
+
+	g_max.x = std::max(g_max.x, bmax.x);
+	g_max.y = std::max(g_max.y, bmax.y);
+	g_max.z = std::max(g_max.z, bmax.z);
+
+	g_min.x = std::min(g_min.x, bmin.x);
+	g_min.y = std::min(g_min.y, bmin.y);
+	g_min.z = std::min(g_min.z, bmin.z);
 }
 
 void OctTree::Remove(ObjectInstance* entity)
 {
+	PROFILE_SCOPED();
 	OctNode* node = entity->treeNode;
-	OO_ASSERT(node && "Entity did not record the node");
+	//OO_ASSERT(node && "Entity did not record the node");
+	if (node == nullptr) return; // what could go wrong
 
 	auto it = std::find_if(node->entities.begin(), node->entities.end(), [chk = entity](const NodeEntry& e) { return e.obj == chk; });
 	if (it != node->entities.end()) 
@@ -57,6 +75,7 @@ void OctTree::Remove(ObjectInstance* entity)
 
 void OctTree::GetEntitiesInFrustum(const Frustum& frust, std::vector<ObjectInstance*>& contained, std::vector<ObjectInstance*>& intersecting)
 {
+	PROFILE_SCOPED();
 	GatherFrustEntities(m_root.get(), frust, contained, intersecting);	
 }
 
@@ -75,6 +94,18 @@ void OctTree::GetBoxesInFrustum(const Frustum& frust, std::vector<AABB>& contain
 void OctTree::ClearTree()
 {
 	PerformClear(m_root.get());
+	if (m_root->box.max() != g_max || m_root->box.min() != g_min) {
+		ResizeTree(AABB{g_min,g_max});
+		g_max = glm::vec3{ FLT_MIN };
+		g_min = glm::vec3{ FLT_MAX };
+	}
+	m_nodes = 0;
+}
+
+void OctTree::ResizeTree(const AABB& box)
+{
+	PROFILE_SCOPED();
+	ResizeTreeBounds(m_root.get(), box);
 }
 
 uint32_t OctTree::size() const
@@ -288,6 +319,27 @@ void OctTree::PerformClear(OctNode* node)
 		node->entities[i].obj->treeNode = nullptr;
 	}
 	node->entities.clear();
+}
+
+void OctTree::ResizeTreeBounds(OctNode* node, const AABB& box)
+{
+	if (node == nullptr) return;
+
+	node->box = box;
+
+	Point3D position{};
+	float step = node->box.halfExt.x * 0.5f;
+	for (size_t i = 0; i < s_num_children; i++)
+	{
+		position.x = ((i & 1) ? step : -step);
+		position.y = ((i & 2) ? step : -step);
+		position.z = ((i & 4) ? step : -step);
+		AABB childBox;
+		childBox.center = node->box.center + position;
+		childBox.halfExt = Point3D{ step,step,step };
+		ResizeTreeBounds(node->children[i].get(), childBox);
+	}
+
 }
 
 }// end namespace oGFX
