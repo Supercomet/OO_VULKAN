@@ -500,7 +500,7 @@ public:
 	GpuVector<glm::mat4> gpuBoneMatrixBuffer;
 
 	std::vector<BoneWeight> g_skinningBoneWeights;
-	GpuVector<BoneWeight> gpuSkinningBoneWeightsBuffer;
+	GpuVector<BoneWeight> gpuSkinningWeightsBuffer;
 
 	// SSBO
 	std::vector<GPUTransform> gpuTransform{};
@@ -508,11 +508,12 @@ public:
 	
 	// SSBO
 	std::vector<GPUTransform> gpuShadowCasterTransform{};
-	GpuVector<GPUTransform> gpuShadorCasterTransformBuffer;
+	GpuVector<GPUTransform> gpuShadowCasterTransformBuffer;
 
 	// SSBO
 	std::vector<GPUObjectInformation> objectInformation;
 	GpuVector<GPUObjectInformation> objectInformationBuffer;
+	GpuVector<GPUObjectInformation> casterObjectInformationBuffer;
 	
 	// SSBO
 	std::vector<oGFX::AllocatedBuffer> vpUniformBuffer{};

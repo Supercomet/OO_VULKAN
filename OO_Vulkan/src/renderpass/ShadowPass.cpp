@@ -119,10 +119,10 @@ void ShadowPass::Draw(const VkCommandBuffer cmdlist)
 	cmd.DescriptorSetBegin(0)
 		.BindSampler(0, GfxSamplerManager::GetDefaultSampler())
 		.BindBuffer(1, vr.shadowCasterInstanceBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-		.BindBuffer(3, vr.gpuShadorCasterTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+		.BindBuffer(3, vr.gpuShadowCasterTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 		.BindBuffer(4, vr.gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-		.BindBuffer(5, vr.objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-		.BindBuffer(6, vr.gpuSkinningBoneWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		.BindBuffer(5, vr.casterObjectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+		.BindBuffer(6, vr.gpuSkinningWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
 	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 1, 
 		std::array<VkDescriptorSet, 2>
