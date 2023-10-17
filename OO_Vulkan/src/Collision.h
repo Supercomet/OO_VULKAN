@@ -77,11 +77,12 @@ bool PlaneSphere(const Plane& p, const Sphere& s);
 bool PlaneSphere(const Plane& p, const Sphere& s, float& t);
 bool SphereOnOrForwardPlane(const Plane& p, const Sphere& s);
 bool PointOnOrForwardPlane(const Plane& p, const Point3D& q);
+bool PointOnOrForwardPlane(const Plane& p, const Point3D& q, float* t);
 
 bool PlaneAabb(const Plane& p, const AABB& a);
 bool PlaneAabb(const Plane& p, const AABB& a, float& t);
 
 bool SphereInFrustum(const Frustum& f, const Sphere& s);
-Collision AABBInFrustum(const Frustum& f, const AABB& a);
+Collision AABBInFrustum(const Frustum& f, const AABB& a, bool draw = false);
 
 }// end namespace oGFX::coll

@@ -12,6 +12,7 @@ without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
 #include "Collision.h"
+#include "DebugDraw.h"
 #include <algorithm>
 #include <iostream>
 
@@ -409,6 +410,19 @@ bool PointOnOrForwardPlane(const Plane& p, const Point3D& q)
 	return t >= 0.0f;
 }
 
+bool PointOnOrForwardPlane(const Plane& p, const Point3D& q, float* t)
+{
+	if (t) 	
+	{
+		*t = DistanceToPoint(p, q);
+		return *t >= 0.0f;
+	}
+	else 
+	{
+		return DistanceToPoint(p, q);
+	}
+}
+
 bool PlaneAabb(const Plane& p, const AABB& a)
 {
 	float t;
@@ -454,7 +468,7 @@ bool SphereInFrustum(const Frustum& f, const Sphere& s)
 		);
 }
 
-Collision AABBInFrustum(const Frustum& frustum, const AABB& a)
+Collision AABBInFrustum(const Frustum& frustum, const AABB& a, bool draw)
 {	
 	Point3D corners[8]{};
 	for (int i = 0; i < 8; ++i)
@@ -483,14 +497,39 @@ Collision AABBInFrustum(const Frustum& frustum, const AABB& a)
 	int intersections{};
 	for (int i = 0; i < 6; ++i)
 	{
-		const Plane& plane = getPlane(i);
+		Plane plane = getPlane(i);
 
 		int numInside = 0;
 
+		float nearest = FLT_MAX;
+		size_t n{};
 		for (int j = 0; j < 8; ++j)
 		{
-			if(PointOnOrForwardPlane(plane, corners[j]) == false)
+			float t = 0.0f;
+			bool result = PointOnOrForwardPlane(plane, corners[j], &t);
+			//oGFX::Color col = oGFX::Colors::RED;
+
+			if (result == false) {
 				numInside++;
+				//col = oGFX::Colors::GREEN;
+			}
+
+			if (std::abs(t) < nearest) 
+			{
+				nearest = std::abs(t);
+				n = j;
+			}
+		}
+
+		if (draw) 
+		{
+			float t = 0.0f;
+			oGFX::Color col = oGFX::Colors::GREEN;
+			if (PointOnOrForwardPlane(plane, corners[n], &t)) 
+			{
+				col = oGFX::Colors::RED; 
+			}
+			//DebugDraw::AddLine(glm::vec3(plane.normal) * t + corners[n], corners[n], col);
 		}
 
 		if (numInside == 0)

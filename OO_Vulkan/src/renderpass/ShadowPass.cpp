@@ -118,10 +118,11 @@ void ShadowPass::Draw(const VkCommandBuffer cmdlist)
 
 	cmd.DescriptorSetBegin(0)
 		.BindSampler(0, GfxSamplerManager::GetDefaultSampler())
-		.BindBuffer(3, vr.gpuShadorCasterTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+		.BindBuffer(1, vr.shadowCasterInstanceBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+		.BindBuffer(3, vr.gpuShadowCasterTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 		.BindBuffer(4, vr.gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-		.BindBuffer(5, vr.objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-		.BindBuffer(6, vr.gpuSkinningBoneWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+		.BindBuffer(5, vr.casterObjectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+		.BindBuffer(6, vr.gpuSkinningWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
 	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 1, 
 		std::array<VkDescriptorSet, 2>
@@ -136,7 +137,7 @@ void ShadowPass::Draw(const VkCommandBuffer cmdlist)
 
 	// Bind merged mesh vertex & index buffers, instancing buffers.
 	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
-	cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer.getBufferPtr());
+	//cmd.BindVertexBuffer(BIND_POINT_INSTANCE_BUFFER_ID, 1, vr.instanceBuffer.getBufferPtr());
 	cmd.BindIndexBuffer(vr.g_GlobalMeshBuffers.IdxBuffer.getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
 	// calculate shadowmap grid dim

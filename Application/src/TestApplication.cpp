@@ -71,8 +71,8 @@ static BindlessTextureIndex gs_RedTexture= INVALID_BINDLESS_TEXTURE_INDEX;
 
 static uint32_t globalDionaID{ 0 };
 
-std::array<BindlessTextureIndex, 10> roughness{};
-std::array<BindlessTextureIndex, 10> metalic{};
+std::array<BindlessTextureIndex, 2> roughness{};
+std::array<BindlessTextureIndex, 2> metalic{};
 uint32_t beginSpheres;
 uint32_t endSpheres;
 
@@ -145,10 +145,10 @@ struct EntityInfo
     mat4 getLocalToWorld()
     {
         glm::mat4 xform{ 1.0f };
-        xform = glm::translate(xform, position);
-        xform =  glm::orientate4(rotVec) * xform;
-        //xform = glm::rotate(xform, glm::radians(rot), rotVec);
         xform = glm::scale(xform, scale);
+        xform =  glm::orientate4(rotVec) * xform;
+        xform = glm::translate(xform, position);
+        //xform = glm::rotate(xform, glm::radians(rot), rotVec);
         return xform;
     }
 
@@ -476,7 +476,7 @@ void TestApplication::Run()
         ed.name = "Ground_Plane";
         ed.entityID = FastRandomMagic();
         ed.modelID = model_plane->meshResource;
-        ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
+        ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags));
         ed.position = { 0.0f,-0.5f,0.0f };
         ed.scale = { 15.0f,1.0f,15.0f };
 
@@ -490,7 +490,6 @@ void TestApplication::Run()
     uint32_t uiID = CreateTextHelper(glm::mat4(1.0f), std::string("123 Test\nNew Line"), testFont.get());
 
    
-    if (character_diona)
     {        
         globalDionaID = (uint32_t)entities.size();
         auto& ed = entities.emplace_back(EntityInfo{});
@@ -508,72 +507,77 @@ void TestApplication::Run()
     }
     std::unique_ptr<oGFX::CPUSkeletonInstance> scopedPtr{ gs_RenderEngine->CreateSkeletonInstance(entities[globalDionaID].modelID) };
     entities[globalDionaID].localSkeleton = scopedPtr.get();
-
+    
     uint32_t LSphere;
-    {
-        LSphere = (uint32_t)entities.size();
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.name = "Box";
-        ed.entityID = FastRandomMagic();
-        ed.modelID = model_sphere->meshResource;
-        ed.position = { 0.0f,0.0f,0.0f };
-        ed.scale = glm::vec3{ 0.5f };
-
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
-        ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
-        ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
-    }
-
     uint32_t bigSphere;
-    {
-        bigSphere = (uint32_t)entities.size();
-        auto& ed = entities.emplace_back(EntityInfo{});
-        ed.name = "Rsphere";
-        ed.entityID = FastRandomMagic();
-        ed.modelID = model_sphere->meshResource;
-        ed.position = { 0.0f,0.0f,0.0f };
-        ed.scale = glm::vec3{ 1.0f };
-
-        ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
-        ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
-        ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
-    }
-
-
-    const float gridSize = 1.3f;
-    const float halfGrid = roughness.size() * gridSize / 2.0f;
-    beginSpheres = (uint32_t)entities.size();
-    for (size_t i = 0; i < roughness.size(); i++)
-    {
-        for (size_t y = 0; y < metalic.size(); y++)
+    if (m_TestDebugFrustum) {
+       
         {
+            LSphere = (uint32_t)entities.size();
             auto& ed = entities.emplace_back(EntityInfo{});
-
-            std::stringstream ss;
-            ss << "Sphere_M[" << y << "]R[" << i << "]";
-            ed.name = std::string("Sphere_M") + std::to_string(i * metalic.size() + y);
-            ed.name = ss.str();
+            ed.name = "Box";
             ed.entityID = FastRandomMagic();
             ed.modelID = model_sphere->meshResource;
-            //ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
+            ed.position = { 0.0f,0.0f,0.0f };
+            ed.scale = glm::vec3{ 0.5f };
 
-            ed.scale = { 1.0f,1.0f,1.0f };
+            ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
+            ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
+            ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
+        }
 
-            ed.bindlessGlobalTextureIndex_Albedo = gs_RedTexture;
-            ed.bindlessGlobalTextureIndex_Metallic = metalic[y];
-            ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
+      
+        {
+            bigSphere = (uint32_t)entities.size();
+            auto& ed = entities.emplace_back(EntityInfo{});
+            ed.name = "Rsphere";
+            ed.entityID = FastRandomMagic();
+            ed.modelID = model_sphere->meshResource;
+            ed.position = { 0.0f,0.0f,0.0f };
+            ed.scale = glm::vec3{ 1.0f };
 
-            std::stringstream name;
-            name << "Roughness " << std::setprecision(2) << ((float)i / (roughness.size() - 1))
-                << "\nMetallic " << std::setprecision(2) << ((float)y / (roughness.size() - 1));
-            auto strpos = glm::vec3{ gridSize * i - halfGrid, gridSize * y - halfGrid + 3.5f - 0.6f, -5.0f };
-            CreateTextHelper(glm::translate(strpos), name.str(), testFont.get());
-
+            ed.bindlessGlobalTextureIndex_Albedo = diffuseBindlessTextureIndexes[0];
+            ed.bindlessGlobalTextureIndex_Roughness = roughnessBindlessTextureIndexes[0];
+            ed.bindlessGlobalTextureIndex_Normal = normalTexture0;
         }
     }
-    endSpheres = (uint32_t)entities.size();
+    
 
-    ResetSpheres();
+
+    //const float gridSize = 1.3f;
+    //const float halfGrid = roughness.size() * gridSize / 2.0f;
+    //beginSpheres = (uint32_t)entities.size();
+    //for (size_t i = 0; i < roughness.size(); i++)
+    //{
+    //    for (size_t y = 0; y < metalic.size(); y++)
+    //    {
+    //        auto& ed = entities.emplace_back(EntityInfo{});
+
+    //        std::stringstream ss;
+    //        ss << "Sphere_M[" << y << "]R[" << i << "]";
+    //        ed.name = std::string("Sphere_M") + std::to_string(i * metalic.size() + y);
+    //        ed.name = ss.str();
+    //        ed.entityID = FastRandomMagic();
+    //        ed.modelID = model_sphere->meshResource;
+    //        //ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
+
+    //        ed.scale = { 1.0f,1.0f,1.0f };
+
+    //        ed.bindlessGlobalTextureIndex_Albedo = gs_RedTexture;
+    //        ed.bindlessGlobalTextureIndex_Metallic = metalic[y];
+    //        ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
+
+    //        std::stringstream name;
+    //        name << "Roughness " << std::setprecision(2) << ((float)i / (roughness.size() - 1))
+    //            << "\nMetallic " << std::setprecision(2) << ((float)y / (roughness.size() - 1));
+    //        auto strpos = glm::vec3{ gridSize * i - halfGrid, gridSize * y - halfGrid + 3.5f - 0.6f, -5.0f };
+    //        CreateTextHelper(glm::translate(strpos), name.str(), testFont.get());
+
+    //    }
+    //}
+    //endSpheres = (uint32_t)entities.size();
+
+    // ResetSpheres();
 
     /* // WIP
     if (alibaba)
@@ -813,29 +817,59 @@ void TestApplication::Run()
                 }
                 ImGui::End();
 
-                oGFX::AABB smlBox;
-                smlBox.center = entities[LSphere].position;
-                smlBox.halfExt = entities[LSphere].scale/2.0f;
-                oGFX::AABB bigBox;
-                bigBox.center = entities[bigSphere].position;
-                bigBox.halfExt = entities[bigSphere].scale / 2.0f;
-
-               
-                oGFX::Frustum f = gs_GraphicsWorld.cameras[1].GetFrustum();
-                oGFX::DebugDraw::DrawCameraFrustrum(gs_GraphicsWorld.cameras[1], oGFX::Colors::ORANGE);
-               
-                oGFX::coll::Collision result = oGFX::coll::AABBInFrustum(f, bigBox);
-                switch (result) 
+                if (m_TestDebugFrustum) 
                 {
-                case oGFX::coll::INTERSECTS: oGFX::DebugDraw::AddAABB(bigBox,oGFX::Colors::YELLOW);break;
-                case oGFX::coll::CONTAINS:   oGFX::DebugDraw::AddAABB(bigBox,oGFX::Colors::GREEN);break;
-                case oGFX::coll::OUTSIDE:    oGFX::DebugDraw::AddAABB(bigBox);
-                default:break;                        
-                }             
+                    oGFX::AABB bigBox;
+                    bigBox.center = entities[bigSphere].position;
+                    bigBox.halfExt = entities[bigSphere].scale / 2.0f;
 
-                if (0) {
-					TestFrustumCull(f, bigBox);
+                    auto inversed_perspectiveRH_ZO = [](float fovRad, float aspect, float n, float f)->glm::mat4 {
+                        glm::mat4 result(0.0f);
+                        assert(abs(aspect - std::numeric_limits<float>::epsilon()) > 0.0f);
+                        float const tanHalfFovy = tan(fovRad / 2.0f);
+
+                        float h = 1.0f / std::tan(fovRad * 0.5f);
+                        float w = h / aspect;
+                        float a = -n / (f - n);
+                        float b = (n * f) / (f - n);
+                        result[0][0] = w;
+                        result[1][1] = h;
+                        result[2][2] = a;
+                        result[2][3] = -1.0f;
+                        result[3][2] = b;
+
+                        return result;
+                        };
+
+               
+                    gs_GraphicsWorld.cameras[1].SetFarClip(20.0f);
+                    Camera& targetCam = gs_GraphicsWorld.cameras[1];
+                    mat4 persp = inversed_perspectiveRH_ZO(glm::radians(targetCam.m_fovDegrees), targetCam.m_aspectRatio, targetCam.m_znear, targetCam.m_zfar);
+                    mat4 vp = persp * targetCam.matrices.view;
+                    mat4 normalVP = targetCam.GetNonInvProjectionMatrix() * targetCam.matrices.view;
+                    oGFX::Frustum forig = gs_GraphicsWorld.cameras[1].GetFrustum();
+                    oGFX::Frustum f = oGFX::Frustum::CreateFromViewProj(normalVP);
+                    f.pt_top= forig.pt_top;
+                    f.pt_bottom= forig.pt_bottom;
+                    f.pt_right= forig.pt_right;
+                    f.pt_left= forig.pt_left;
+                    f.pt_planeFar= forig.pt_planeFar;
+                    f.pt_planeNear = forig.pt_planeNear;
+                    //oGFX::DebugDraw::DrawCameraFrustrumFromViewProj(vp);
+                    oGFX::DebugDraw::DrawCameraFrustrumFromViewProj(normalVP);
+               
+                    oGFX::coll::Collision result = oGFX::coll::AABBInFrustum(f, bigBox);
+                    switch (result) 
+                    {
+                    case oGFX::coll::INTERSECTS: oGFX::DebugDraw::AddAABB(bigBox,oGFX::Colors::YELLOW);break;
+                    case oGFX::coll::CONTAINS:   oGFX::DebugDraw::AddAABB(bigBox,oGFX::Colors::GREEN);break;
+                    case oGFX::coll::OUTSIDE:    oGFX::DebugDraw::AddAABB(bigBox);
+                    default:break;                        
+                    }             
+
+				    TestFrustumCull(f, bigBox);
                 }
+
 
                 if (Input::GetKeyTriggered(KEY_P))
                 {

@@ -10,10 +10,6 @@ layout(location = 2) in vec3 inColor;
 layout(location = 3) in vec3 inTangent;
 layout(location = 4) in vec2 inUV;
 
-
-
-layout(location = 15) in uvec4 inInstanceData;
-
 // Note: Sending too much stuff from VS to FS can result in bottleneck...
 layout(location = 0) out vec4 outPosition;
 layout(location = 1) out vec2 outUV;
@@ -26,6 +22,13 @@ layout(location = 7) out struct
 	vec3 t;
 	vec3 n;
 }outLightData;
+
+
+layout(std430, set = 0, binding = 1) readonly buffer instanceBuffer
+{
+    uvec4 InstanceDatas[];
+};
+
 layout(location = 15) flat out uvec4 outInstanceData;
 
 #include "frame.shader"
@@ -77,7 +80,7 @@ void main()
 	outLightData.t = T;
 	outLightData.n = N;
 
-
+    uvec4 inInstanceData = InstanceDatas[instanceIndex];
 	bool skinned = UnpackSkinned(inInstanceData.y);
     if(skinned)
 	{

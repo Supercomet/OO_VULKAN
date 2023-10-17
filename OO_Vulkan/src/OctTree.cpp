@@ -134,17 +134,16 @@ void OctTree::GatherFrustBoxes(OctNode* node, const Frustum& frust, std::vector<
 	{
 	case oGFX::coll::INTERSECTS:
 		// add to testing list
-		if(node->entities.size())
+		//if(node->entities.size())
 			intersect.push_back(node->box);		
 		break;
 	case oGFX::coll::CONTAINS:
 		// add to contained list
-		if (node->entities.size())
+		//if (node->entities.size())
 			contained.push_back(node->box);
 		break;
 	case oGFX::coll::OUTSIDE:
 		// no action needed
-		return; // return out of function
 		break;
 	}
 	// check each child
@@ -177,7 +176,6 @@ void OctTree::GatherFrustEntities(OctNode* node, const Frustum& frust, std::vect
 		break;
 	case oGFX::coll::OUTSIDE:
 		// no action needed
-		return; // return out of function
 		break;
 	}
 	// check each child

@@ -166,7 +166,7 @@ namespace oGFX
 	
 		static std::vector<VkVertexInputBindingDescription> bindingDescription {	
 			oGFX::vkutils::inits::vertexInputBindingDescription(BIND_POINT_VERTEX_BUFFER_ID,sizeof(Vertex),VK_VERTEX_INPUT_RATE_VERTEX),
-			oGFX::vkutils::inits::vertexInputBindingDescription(BIND_POINT_INSTANCE_BUFFER_ID,sizeof(oGFX::InstanceData),VK_VERTEX_INPUT_RATE_INSTANCE),
+			//oGFX::vkutils::inits::vertexInputBindingDescription(BIND_POINT_INSTANCE_BUFFER_ID,sizeof(oGFX::InstanceData),VK_VERTEX_INPUT_RATE_INSTANCE),
 		};
 		return bindingDescription;
 	
@@ -182,7 +182,7 @@ namespace oGFX
 		oGFX::vkutils::inits::vertexInputAttributeDescription(BIND_POINT_VERTEX_BUFFER_ID,4,VK_FORMAT_R32G32_SFLOAT	  ,offsetof(Vertex, tex)),    //Texture attribute
 	
 		// instance data attributes
-		oGFX::vkutils::inits::vertexInputAttributeDescription(BIND_POINT_INSTANCE_BUFFER_ID,15,VK_FORMAT_R32G32B32A32_UINT,offsetof(InstanceData, InstanceData::instanceAttributes)),
+		//oGFX::vkutils::inits::vertexInputAttributeDescription(BIND_POINT_INSTANCE_BUFFER_ID,15,VK_FORMAT_R32G32B32A32_UINT,offsetof(InstanceData, InstanceData::instanceAttributes)),
 		};
 		return attributeDescriptions;
 	}
@@ -1482,4 +1482,24 @@ VkDebugReportObjectTypeEXT GetDebugNameExtTypeByID(std::type_index id)
 	if (ret == 0) return VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT;	
 
 	return ret;	
+}
+
+GPUTransform ConstructGPUTransform(const glm::mat4& m, const glm::mat4& inv)
+{
+	GPUTransform g;
+
+	g.row0 = vec4(m[0][0], m[1][0], m[2][0], m[3][0]);
+	g.row1 = vec4(m[0][1], m[1][1], m[2][1], m[3][1]);
+	g.row2 = vec4(m[0][2], m[1][2], m[2][2], m[3][2]);
+
+	g.invRow0 = vec4(inv[0][0], inv[1][0], inv[2][0], inv[3][0]);
+	g.invRow1 = vec4(inv[0][1], inv[1][1], inv[2][1], inv[3][1]);
+	g.invRow2 = vec4(inv[0][2], inv[1][2], inv[2][2], inv[3][2]);
+
+	return g;
+}
+
+GPUTransform ConstructGPUTransform(glm::mat4 m, glm::mat4 inv)
+{
+	
 }
