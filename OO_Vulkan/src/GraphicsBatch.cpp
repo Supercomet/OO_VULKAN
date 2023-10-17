@@ -383,82 +383,25 @@ void GraphicsBatch::ProcessLights()
 
 			for (size_t face = 0; face < 6; face++)
 			{
-				glm::mat4 vp = lightProj * e.view[face];// *glm::translate(vec3(e.position));
-				oGFX::Frustum f = oGFX::Frustum::CreateFromViewProj(vp);	
+				glm::mat4 vp = lightProj * e.view[face];
+				oGFX::Frustum f = oGFX::Frustum::CreateFromViewProj(vp);					
 				
-				size_t debug = vr.m_ShaderDebugValues.vector4_values0.x;
-				
-				bool draw = face == debug;
+				bool draw = false;
 
 				containedEnt.clear();
 				intersectEnt.clear();
-				for (auto& t : m_world->m_ObjectInstancesCopy)
-				{
-					//intersectEnt.push_back(&t);
-				}
 				m_world->m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
+				
 
-				if (face == debug && draw) {
-					oGFX::DebugDraw::DrawCameraFrustrumFromViewProj(vp, oGFX::Colors::c[face]);
-					std::vector<oGFX::AABB> inbox;
-					std::vector<oGFX::AABB> halfbox;
-					m_world->m_OctTree->GetBoxesInFrustum(f, inbox, halfbox);
-					for (size_t i = 0; i < inbox.size(); i++)
-					{
-						oGFX::DebugDraw::AddAABB(inbox[i], oGFX::Colors::GREEN);
-					}
-					for (size_t i = 0; i < halfbox.size(); i++)
-					{
-						oGFX::DebugDraw::AddAABB(halfbox[i], oGFX::Colors::YELLOW);
-					}
-				}
-				
-				
-				size_t tree = containedEnt.size() + intersectEnt.size();
-				//caster.m_culledObjects[face].clear();
-				//caster.m_culledObjects[face].resize(tree);
-				//for (size_t i = 0; i < containedEnt.size(); i++)
-				//{
-				//	ObjectInstance& oi = *containedEnt[i];
-				//	oGFX::AABB b = getBoxFun(oi);	
-				//	oGFX::Sphere s;
-				//	s.center = b.center;
-				//	s.radius = std::max(std::max(b.halfExt.x, b.halfExt.y), b.halfExt.z);
-				//	
-				//	if(oi.isRenderable()&& draw)
-				//	oGFX::DebugDraw::AddSphere(s,oGFX::Colors::ORANGE);
-				//	caster.m_culledObjects[face][i] = ObjectInsToDrawData(oi);
-				//	gfxModel& mdl = vr.g_globalModels[oi.modelID];
-				//	for (size_t s = 0; s < mdl.m_subMeshes.size(); s++)
-				//	{
-				//		// add draw call for each submesh
-				//		//if (oi.submesh[s] == true)
-				//		//{
-				//		//	dd.submeshID = mdl.m_subMeshes[s];
-				//		//	outData.push_back(dd);
-				//		//}
-				//	}
-				//}
-				//for (size_t i = 0; i < intersectEnt.size(); i++)
-				//{
-				//	ObjectInstance& oi = *intersectEnt[i];
-				//	oGFX::AABB b = getBoxFun(oi);
-				//	oGFX::Sphere s;
-				//	s.center = b.center;
-				//	s.radius = std::max(std::max(b.halfExt.x, b.halfExt.y), b.halfExt.z);
-				//	if (oi.isRenderable() && draw)
-				//	oGFX::DebugDraw::AddSphere(s, oGFX::Colors::ORANGE);
-				//
-				//	caster.m_culledObjects[face][containedEnt.size() + i] = ObjectInsToDrawData(*intersectEnt[i]);
-				//}
 				CullDrawData(f, caster.m_culledObjects[face], containedEnt, intersectEnt, draw);
-				size_t culled = caster.m_culledObjects[face].size();
 				SortDrawDataByMesh(caster.m_culledObjects[face]);
 				GenerateCommands(caster.m_culledObjects[face], caster.m_commands[face]
 					, ObjectInstanceFlags::SHADOW_CASTER | ObjectInstanceFlags::RENDER_ENABLED);
-				size_t commands = caster.m_commands[face].size();
-				if(face == 0)
-				printf("F[%1llu] total[%3llu] cull[%3llu] cmd[%3llu]\n", face, tree, culled, commands);
+
+				// size_t tree = containedEnt.size() + intersectEnt.size();
+				// size_t culled = caster.m_culledObjects[face].size();
+				// size_t commands = caster.m_commands[face].size();
+				//printf("F[%1llu] total[%3llu] cull[%3llu] cmd[%3llu]\n", face, tree, culled, commands);
 			}
 
 			numLights++;

@@ -107,6 +107,7 @@
     <ClCompile Include="src\renderpass\ZPrePass.cpp" />
     <ClCompile Include="src\rhi\CommandList.cpp" />
     <ClCompile Include="src\Tests_Assignment1.cpp" />
+    <ClCompile Include="src\TriOctTree.cpp" />
     <ClCompile Include="src\VmaUsage.cpp" />
     <ClCompile Include="src\VulkanInstance.cpp" />
     <ClCompile Include="src\VulkanRenderer.cpp" />
@@ -175,6 +176,7 @@
     <ClInclude Include="src\gpuCommon.h" />
     <ClInclude Include="src\loader\stb_image.h" />
     <ClInclude Include="src\Tests_Assignment1.h" />
+    <ClInclude Include="src\TriOctTree.h" />
     <ClInclude Include="src\VmaUsage.h" />
     <ClInclude Include="src\VulkanInstance.h" />
     <ClInclude Include="src\VulkanRenderer.h" />

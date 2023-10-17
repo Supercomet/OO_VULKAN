@@ -1498,8 +1498,3 @@ GPUTransform ConstructGPUTransform(const glm::mat4& m, const glm::mat4& inv)
 
 	return g;
 }
-
-GPUTransform ConstructGPUTransform(glm::mat4 m, glm::mat4 inv)
-{
-	
-}

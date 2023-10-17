@@ -1,5 +1,5 @@
 /************************************************************************************//*!
-\file           OctTree.cpp
+\file           TriOctTree.cpp
 \project        Ouroboros
 \author         Jamie Kong, j.kong, 390004720 | code contribution (100%)
 \par            email: j.kong\@digipen.edu
@@ -11,14 +11,14 @@ Reproduction or disclosure of this file or its contents
 without the prior written consent of DigiPen Institute of
 Technology is prohibited.
 *//*************************************************************************************/
-#include "OctTree.h"
+#include "TriOctTree.h"
 #include "BoudingVolume.h"
 #include <algorithm>
 #include <iostream>
 
 namespace oGFX {
 
-OctTree::OctTree(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTriangles)
+TriOctTree::TriOctTree(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, int maxTriangles)
 {
 	m_vertices = vertices;
 	m_indices = indices;
@@ -27,7 +27,7 @@ OctTree::OctTree(const std::vector<Point3D>& vertices, const std::vector<uint32_
 }
 
 
-std::tuple< std::vector<Point3D>, std::vector<uint32_t>,std::vector<uint32_t> > OctTree::GetTriangleList()
+std::tuple< std::vector<Point3D>, std::vector<uint32_t>,std::vector<uint32_t> > TriOctTree::GetTriangleList()
 {
 	std::vector<Point3D> vertices;
 	std::vector<uint32_t> indices;
@@ -38,7 +38,7 @@ std::tuple< std::vector<Point3D>, std::vector<uint32_t>,std::vector<uint32_t> > 
 	return std::tuple< std::vector<Point3D>, std::vector<uint32_t>,std::vector<uint32_t> >(vertices,indices,depth);
 }
 
-std::tuple<std::vector<AABB>, std::vector<uint32_t>> OctTree::GetActiveBoxList()
+std::tuple<std::vector<AABB>, std::vector<uint32_t>> TriOctTree::GetActiveBoxList()
 {
 	std::vector<AABB> boxes; std::vector<uint32_t> depth;
 
@@ -49,7 +49,7 @@ std::tuple<std::vector<AABB>, std::vector<uint32_t>> OctTree::GetActiveBoxList()
 	return std::tuple< std::vector<AABB>, std::vector<uint32_t> >(boxes,depth);
 }
 
-void OctTree::Rebuild()
+void TriOctTree::Rebuild()
 {
 	for (size_t i = 0; i < s_num_children; i++) m_boxesInsertCnt[i] = 0;
 	
@@ -57,7 +57,7 @@ void OctTree::Rebuild()
 	m_trianglesSaved = 0;
 	m_trianglesRemaining = uint32_t(m_indices.size() / 3);
 
-	m_root = std::make_unique<OctNode>();
+	m_root = std::make_unique<TriOctNode>();
 
 	oGFX::BV::BoundingAABB(m_root->box, m_vertices);
 	AABB& box = m_root->box;
@@ -70,28 +70,28 @@ void OctTree::Rebuild()
 	//	std::cout << "Inserted into box [" << i << "] - " << m_boxesInsertCnt[i] << " times\n";
 }
 
-void OctTree::SetTriangles(int maxTrianges)
+void TriOctTree::SetTriangles(int maxTrianges)
 {
 	m_maxNodesTriangles = maxTrianges;
 	m_maxNodesTriangles = std::max(static_cast<uint32_t>(m_maxNodesTriangles) , s_stop_triangles);
 }
 
-int OctTree::GetTriangles()
+int TriOctTree::GetTriangles()
 {
 	return m_maxNodesTriangles;
 }
 
-float OctTree::progress()
+float TriOctTree::progress()
 {
 	return static_cast<float>(m_trianglesSaved)/m_trianglesRemaining;
 }
 
-uint32_t OctTree::size() const
+uint32_t TriOctTree::size() const
 {
 	return m_nodes;
 }
 
-void OctTree::SplitNode(OctNode* node, const AABB& box, const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices)
+void TriOctTree::SplitNode(TriOctNode* node, const AABB& box, const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices)
 {
 	const uint32_t currDepth = node->depth + 1;
 	const uint32_t numTriangles = static_cast<uint32_t>(indices.size()) / 3;
@@ -99,7 +99,7 @@ void OctTree::SplitNode(OctNode* node, const AABB& box, const std::vector<Point3
 	if (currDepth > m_maxDepth
 		|| (numTriangles <= m_maxNodesTriangles))
 	{
-		node->type = OctNode::LEAF;
+		node->type = TriOctNode::LEAF;
 		node->nodeID = ++m_nodes;
 		if (currDepth > s_stop_depth)
 		{
@@ -111,7 +111,7 @@ void OctTree::SplitNode(OctNode* node, const AABB& box, const std::vector<Point3
 	}
 	else
 	{
-		node->type = OctNode::INTERNAL;
+		node->type = TriOctNode::INTERNAL;
 		const Plane xPlane({ 1.0f,0.0f,0.0f }, box.center.x);
 		const Plane yPlane({ 0.0f,1.0f,0.0f }, box.center.y);
 		const Plane zPlane({ 0.0f,0.0f,1.0f }, box.center.z);
@@ -170,7 +170,7 @@ void OctTree::SplitNode(OctNode* node, const AABB& box, const std::vector<Point3
 
 			if(octantVerts->size())
 				++m_boxesInsertCnt[i];
-			node->children[i] = std::make_unique<OctNode>();
+			node->children[i] = std::make_unique<TriOctNode>();
 			node->children[i]->depth = currDepth;
 			//node->children[i]->nodeID = ++m_nodes;
 			node->children[i]->box = childBox;
@@ -185,7 +185,7 @@ void OctTree::SplitNode(OctNode* node, const AABB& box, const std::vector<Point3
 
 }
 
-void OctTree::PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, const Plane& plane,
+void TriOctTree::PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices, const std::vector<uint32_t>& indices, const Plane& plane,
 	std::vector<Point3D>& positiveVerts, std::vector<uint32_t>& positiveIndices,
 	std::vector<Point3D>& negativeVerts, std::vector<uint32_t>& negativeIndices)
 {
@@ -245,11 +245,11 @@ void OctTree::PartitionTrianglesAlongPlane(const std::vector<Point3D>& vertices,
 	}
 }
 
-void OctTree::GatherTriangles(OctNode* node, std::vector<Point3D>& outVertices, std::vector<uint32_t>& outIndices,std::vector<uint32_t>& depth)
+void TriOctTree::GatherTriangles(TriOctNode* node, std::vector<Point3D>& outVertices, std::vector<uint32_t>& outIndices,std::vector<uint32_t>& depth)
 {
 	if (node == nullptr) return;
 
-	if (node->type == OctNode::LEAF)
+	if (node->type == TriOctNode::LEAF)
 	{
 		const auto triCnt = node->indices.size() / 3;
 		for (size_t i = 0; i < triCnt; i++)
@@ -282,11 +282,11 @@ void OctTree::GatherTriangles(OctNode* node, std::vector<Point3D>& outVertices, 
 
 }
 
-void OctTree::GatherBox(OctNode* node, std::vector<AABB>& boxes, std::vector<uint32_t>& depth)
+void TriOctTree::GatherBox(TriOctNode* node, std::vector<AABB>& boxes, std::vector<uint32_t>& depth)
 {
 	if (node == nullptr) return;
 
-	if (node->type == OctNode::LEAF)
+	if (node->type == TriOctNode::LEAF)
 	{
 		boxes.push_back(node->box);
 		depth.push_back(node->depth);
