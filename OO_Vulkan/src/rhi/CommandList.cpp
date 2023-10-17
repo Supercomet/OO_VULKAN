@@ -420,7 +420,7 @@ void CommandList::BeginRendering(VkRect2D renderArea)
 	
 	m_depth.loadOp = m_shouldClearDepth ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 	m_shouldClearDepth = false;
-	for (size_t i = 0; i < m_highestAttachmentBound + 1; i++)
+	for (size_t i = 0; i < size_t(m_highestAttachmentBound + 1); i++)
 	{
 		m_attachments[i].loadOp = m_shouldClearAttachment[i] ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		m_shouldClearAttachment[i] = false;

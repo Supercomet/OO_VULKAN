@@ -40,6 +40,7 @@ Technology is prohibited.
 static ImDrawListSharedData s_imguiSharedData;
 
 #include "../shaders/shared_structs.h"
+#include "../shaders/fidelity/src/backends/vk/shaders/spd/ffx_spd_glsl_bindings.h"
 
 #include "GfxRenderpass.h"
 
@@ -104,6 +105,7 @@ extern GfxRenderpass* g_ZPrePass;
 
 #pragma warning( pop )
 
+static HHOOK hook;
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
 // vulkan debug callback
@@ -157,6 +159,8 @@ int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU
 
 VulkanRenderer::~VulkanRenderer()
 { 
+
+	UnhookWindowsHookEx(hook);
 	//wait until no actions being run on device before destorying
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
@@ -289,6 +293,36 @@ VulkanRenderer* VulkanRenderer::get()
 	return s_vulkanRenderer;
 }
 
+// This is the callback function that will be triggered when the F7 key is pressed.
+LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+	static bool capturing = false;
+	
+	
+	if (nCode < 0) {
+		return CallNextHookEx(NULL, nCode, wParam, lParam);
+	}
+
+	if (wParam == WM_KEYDOWN) {
+		KBDLLHOOKSTRUCT* kbdStruct = (KBDLLHOOKSTRUCT*)lParam;
+		if (kbdStruct->vkCode == VK_F7) {
+
+			if (capturing)
+			{
+				OPTICK_STOP_CAPTURE();
+				OPTICK_SAVE_CAPTURE("");
+				capturing = false;
+			}
+			else
+			{
+				OPTICK_START_CAPTURE();
+				capturing = true;
+			}
+		}
+	}
+
+	return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
 bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 {
 
@@ -302,6 +336,8 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 #if VULKAN_MESSENGER
 	CreateDebugCallback();
+	hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, 0, 0);
+
 #endif // VULKAN_MESSENGER
 
 	CreateSurface(setupSpecs,window);
@@ -881,11 +917,11 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	
 	
 	DescriptorBuilder::Begin()
-		.BindImage(0, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindBuffer(3000, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindImage(2002, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT,13)
-		.BindImage(2001, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindBuffer(2000, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(FFX_SPD_BIND_SRV_INPUT_DOWNSAMPLE_SRC, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(FFX_SPD_BIND_CB_SPD, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(FFX_SPD_BIND_UAV_INPUT_DOWNSAMPLE_SRC_MIPS, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT,13)
+		.BindImage(FFX_SPD_BIND_UAV_INPUT_DOWNSAMPLE_SRC_MID_MIPMAP, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(FFX_SPD_BIND_UAV_INTERNAL_GLOBAL_ATOMIC, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BuildLayout(SetLayoutDB::compute_AMDSPD);
 
 	// create compute here
@@ -2148,7 +2184,7 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 
 	
 }
-#pragma optimize("" , off);
+#pragma optimize("" , off)
 void VulkanRenderer::UploadInstanceData()
 {
 	PROFILE_SCOPED();
@@ -2352,7 +2388,7 @@ void VulkanRenderer::UploadInstanceData()
 			for (oGFX::IndirectCommand& cmd : commands)
 			{
 				// the offset to the transform will be based off the big buffer
-				cmd.firstInstance += offset;
+				cmd.firstInstance += (uint32_t)offset;
 			}
 
 		} // end for face	
@@ -2981,11 +3017,11 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 
 	std::array<VkDescriptorSet, 1> dstsets;
 	DescriptorBuilder::Begin()
-		.BindImage(0, &dii, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindBuffer(3000, &cb, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindImage(2002, samplers.data(), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 13)
-		.BindImage(2001, &samplers[6], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindBuffer(2000, &atomic, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(FFX_SPD_BIND_SRV_INPUT_DOWNSAMPLE_SRC, &dii, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(FFX_SPD_BIND_CB_SPD, &cb, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(FFX_SPD_BIND_UAV_INPUT_DOWNSAMPLE_SRC_MIPS, samplers.data(), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 13)
+		.BindImage(FFX_SPD_BIND_UAV_INPUT_DOWNSAMPLE_SRC_MID_MIPMAP, &samplers[6], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(FFX_SPD_BIND_UAV_INTERNAL_GLOBAL_ATOMIC, &atomic, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.Build(dstsets[0], SetLayoutDB::compute_AMDSPD);
 
 	

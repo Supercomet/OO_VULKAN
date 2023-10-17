@@ -64,6 +64,7 @@ Technology is prohibited.
 
 struct Window;
 
+
 int Win32SurfaceCreator(ImGuiViewport* vp, ImU64 device, const void* allocator, ImU64* outSurface);
 
 // Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...

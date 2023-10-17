@@ -27,10 +27,7 @@ Technology is prohibited.
 #include <vector>
 
 
-#pragma warning( push )
-#pragma warning( disable : 26451 ) // arithmetic overflow
-#pragma warning( disable : 26495 ) // uninitialized
-#pragma warning( disable : 26819 ) // fallthrough
+#pragma warning( push ,0 )
 #include "loader/stb_image.h"
 #include "loader/DDSLoader.h"
 #pragma warning( pop )

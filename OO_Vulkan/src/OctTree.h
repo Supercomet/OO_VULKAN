@@ -79,7 +79,7 @@ struct OctNode
 
 struct NodeEntry 
 {
-	ObjectInstance* obj;
+	ObjectInstance* obj{ nullptr };
 	AABB box{};
 };
 

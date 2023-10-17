@@ -14,8 +14,7 @@ Technology is prohibited.
 #include "VulkanTexture.h"
 #include "DelayedDeleter.h"
 
-#pragma warning( push )
-#pragma warning( disable : 26451 ) // arithmetic overflow
+#pragma warning( push, 0 )
 #include "loader/stb_image.h"
 #pragma warning( pop )
 
