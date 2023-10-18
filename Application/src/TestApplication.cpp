@@ -787,9 +787,36 @@ void TestApplication::Run()
             {
                 PROFILE_SCOPED("ImGui::Update");
                 ImGui::Begin("Problems");
-                if (ImGui::SliderFloat("RenderResolution", &gs_RenderEngine->changedRenderResolution, 0.1f, 1.0f)) 
+
+                static float scales[]{
+                    1.0f,
+                    1.0f / 1.5f,
+                    1.0f / 1.7f,
+                    1.0f / 2.0f,
+                    1.0f / 3.0f,
+                };
+                
+                static int currItem = 0;
+                static const char* presets[]{
+                    "NATIVE",
+                    "QUALITY",
+                    "BALANCED",
+                    "PERFORMANCE",
+                    "ULTRA PERFORMANCE",
+                    "CUSTOM",
+                };
+                if (ImGui::SliderFloat("RenderResolution", &gs_RenderEngine->changedRenderResolution, 0.1f, 1.0f))
                 {
                     gs_RenderEngine->UpdateRenderResolution();
+                    currItem = 5;
+                }
+                if (ImGui::ListBox("QualityPresets", &currItem, presets, 6)) 
+                {
+                    if (currItem < 5) 
+                    {
+                        gs_RenderEngine->changedRenderResolution = scales[currItem];
+                        gs_RenderEngine->UpdateRenderResolution();
+                    }
                 }
                 if (ImGui::Button("Cause problems"))
                 {
