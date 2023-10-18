@@ -787,6 +787,10 @@ void TestApplication::Run()
             {
                 PROFILE_SCOPED("ImGui::Update");
                 ImGui::Begin("Problems");
+                if (ImGui::SliderFloat("RenderResolution", &gs_RenderEngine->changedRenderResolution, 0.1f, 1.0f)) 
+                {
+                    gs_RenderEngine->UpdateRenderResolution();
+                }
                 if (ImGui::Button("Cause problems"))
                 {
                     uint32_t col = 0x00FFFF00;
@@ -1455,6 +1459,7 @@ void TestApplication::ToolUI_Settings()
         }
         if (ImGui::TreeNode("vignette")) {
             auto& vs = gs_GraphicsWorld.vignetteSettings;
+            ImGui::Checkbox("Vignette Enabled", &vs.enabled);
             ImGui::ColorEdit4("vigCol", glm::value_ptr(vs.colour));
             ImGui::DragFloat("innerRadius", &vs.innerRadius, 0.01f);
             ImGui::DragFloat("outerRadius", &vs.outerRadius, 0.01f);

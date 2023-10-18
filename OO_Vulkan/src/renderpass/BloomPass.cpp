@@ -213,6 +213,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 	}
 
 	// FXAA 
+	if(0)
 	{
 		marker.pMarkerName = "FXAACOMP";
 		if (regionBegin)
@@ -275,7 +276,10 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 			regionEnd(cmdlist);
 		}
 	}
-	
+	if (previousBuffer != &vr.renderTargets[vr.renderTargetInUseID].texture) 
+	{
+		cmd.CopyImage(previousBuffer, &vr.renderTargets[vr.renderTargetInUseID].texture);
+	}
 }
 
 void BloomPass::Shutdown()

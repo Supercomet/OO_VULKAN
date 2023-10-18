@@ -256,6 +256,7 @@ public:
 	void CreateFramebuffers(); 
 	void CreateCommandBuffers();
 
+
 	VkCommandBuffer GetCommandBuffer();
 	void SubmitSingleCommandAndWait(VkCommandBuffer cmd);
 	void SubmitSingleCommand(VkCommandBuffer cmd);
@@ -437,6 +438,10 @@ public:
 	oGFX::CPUSkeletonInstance* CreateSkeletonInstance(uint32_t modelID);
 
 	bool ResizeSwapchain();
+
+	void UpdateRenderResolution();
+	float changedRenderResolution = 1.0f;
+	float renderResolution = 1.0f;
 
 	Window* windowPtr{ nullptr };
 

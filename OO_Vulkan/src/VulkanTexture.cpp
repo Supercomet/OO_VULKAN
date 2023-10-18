@@ -20,6 +20,8 @@ Technology is prohibited.
 
 #include <cassert>
 
+#include "VulkanRenderer.h"
+
 namespace vkutils
 {
 	void Texture::updateDescriptor()
@@ -538,11 +540,13 @@ namespace vkutils
 		VkFilter _filter
 	)
 	{
+		auto& vr = *VulkanRenderer::get();
+
 		this->device = device;
 		targetSwapchain = forFullscr;
 		renderScale = _renderscale;
-		width = static_cast<uint32_t>(texWidth * renderScale);
-		height = static_cast<uint32_t>(texHeight* renderScale);
+		width = static_cast<uint32_t>(texWidth * renderScale* vr.renderResolution);
+		height = static_cast<uint32_t>(texHeight* renderScale* vr.renderResolution);
 		format = _format;
 		filter = _filter;
 		referenceLayout = _imageLayout;
@@ -587,8 +591,10 @@ namespace vkutils
 		if (device == nullptr)
 			return;
 
-		width = static_cast<uint32_t>(texWidth * renderScale);
-		height = static_cast<uint32_t>(texHeight * renderScale);
+		auto& vr = *VulkanRenderer::get();
+
+		width = static_cast<uint32_t>(texWidth * renderScale * vr.renderResolution);
+		height = static_cast<uint32_t>(texHeight * renderScale * vr.renderResolution);
 
 		VkImageView oldview = view;
 		VmaAllocation oldMemory = image.allocation;

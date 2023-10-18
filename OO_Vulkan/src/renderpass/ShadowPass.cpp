@@ -103,8 +103,8 @@ void ShadowPass::Draw(const VkCommandBuffer cmdlist)
 	VkClearValue clearValues;
 	clearValues.depthStencil = { 0.0f, 0 };
 	
-	const float vpHeight = (float)shadowmapSize.height;
-	const float vpWidth = (float)shadowmapSize.width;
+	const float vpHeight = (float)vr.attachments.shadow_depth.height;
+	const float vpWidth = (float)vr.attachments.shadow_depth.width;
 	rhi::CommandList cmd{ cmdlist, "Shadow Pass"};
 
 	bool clearOnDraw = true;

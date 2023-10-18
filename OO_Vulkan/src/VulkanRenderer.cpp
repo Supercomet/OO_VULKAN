@@ -106,6 +106,7 @@ extern GfxRenderpass* g_ZPrePass;
 #pragma warning( pop )
 
 static HHOOK hook;
+LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam); // forward decl
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
 // vulkan debug callback
@@ -121,11 +122,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	constexpr int VALIDATION_MSG_Shader_OutputNotConsumed = 0x609a13b;
 	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT && pCallbackData->messageIdNumber != VALIDATION_MSG_Shader_OutputNotConsumed) //&& !(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
 	{
-		
+		UnhookWindowsHookEx(hook);
 		int x;
 		std::cerr << pCallbackData->pMessage << "\n" << std::endl;
 		//assert(false); temp comment out
-			x=5; // for breakpoint
+		x=5; // for breakpoint
+		hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, 0, 0);
 	}
 
 	return VK_FALSE;
@@ -145,7 +147,7 @@ int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU
 		
 	auto result = VulkanRenderer::get()->m_instance.CreateSurface(temp, *(VkSurfaceKHR*)out_vk_surface);
 	
-	//unbind to prevent destrauction
+	//unbind to prevent destruction
 	temp.rawHandle = nullptr;
 
 	if (result == oGFX::ERROR_VAL)
@@ -244,10 +246,10 @@ VulkanRenderer::~VulkanRenderer()
 	vkDestroyDescriptorPool(m_device.logicalDevice, samplerDescriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(m_device.logicalDevice, SetLayoutDB::bindless, nullptr);
 
-	for (auto framebuffer : swapChainFramebuffers)
-	{
-		vkDestroyFramebuffer(m_device.logicalDevice, framebuffer, nullptr);
-	}
+	// for (auto framebuffer : swapChainFramebuffers)
+	// {
+	// 	vkDestroyFramebuffer(m_device.logicalDevice, framebuffer, nullptr);
+	// }
 
 	vkDestroyDescriptorPool(m_device.logicalDevice, descriptorPool, nullptr);
 	for (size_t i = 0; i < vpUniformBuffer.size(); i++)
@@ -306,6 +308,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 		KBDLLHOOKSTRUCT* kbdStruct = (KBDLLHOOKSTRUCT*)lParam;
 		if (kbdStruct->vkCode == VK_F7) {
 
+			MessageBox(NULL,L"F7 is pressed!", L"Key Pressed", MB_OK);
 			if (capturing)
 			{
 				OPTICK_STOP_CAPTURE();
@@ -1094,10 +1097,10 @@ void VulkanRenderer::CreateDebugCallback()
 
 void VulkanRenderer::CreateFramebuffers()
 {
-	for (size_t i = 0; i < swapChainFramebuffers.size(); i++)
-	{
-		vkDestroyFramebuffer(m_device.logicalDevice, swapChainFramebuffers[i], nullptr);
-	}
+	// for (size_t i = 0; i < swapChainFramebuffers.size(); i++)
+	// {
+	// 	vkDestroyFramebuffer(m_device.logicalDevice, swapChainFramebuffers[i], nullptr);
+	// }
 
 	//resize framebuffer count to equal swapchain image count
 	swapChainFramebuffers.resize(m_swapchain.swapChainImages.size());
@@ -1119,13 +1122,13 @@ void VulkanRenderer::CreateFramebuffers()
 		framebufferCreateInfo.height = m_swapchain.swapChainExtent.height;
 		framebufferCreateInfo.layers = 1;
 
-		VkResult result = vkCreateFramebuffer(m_device.logicalDevice, &framebufferCreateInfo, nullptr, &swapChainFramebuffers[i]);
-		VK_NAME(m_device.logicalDevice, "swapchainFramebuffers", swapChainFramebuffers[i]);
-		if (result != VK_SUCCESS)
-		{
-			std::cerr << "Failed to create a Framebuffer!" << std::endl;
-			__debugbreak();
-		}
+		// VkResult result = vkCreateFramebuffer(m_device.logicalDevice, &framebufferCreateInfo, nullptr, &swapChainFramebuffers[i]);
+		// VK_NAME(m_device.logicalDevice, "swapchainFramebuffers", swapChainFramebuffers[i]);
+		// if (result != VK_SUCCESS)
+		// {
+		// 	std::cerr << "Failed to create a Framebuffer!" << std::endl;
+		// 	__debugbreak();
+		// }
 	}
 }
 
@@ -1160,6 +1163,15 @@ void VulkanRenderer::CreateCommandBuffers()
 	//	}
 	//}
 	
+}
+
+void VulkanRenderer::UpdateRenderResolution()
+{
+	std::scoped_lock l{ g_mut_workQueue };
+	g_workQueue.push_back([this] { 
+		renderResolution = changedRenderResolution;
+		resizeSwapchain = true; 
+	});
 }
 
 VkCommandBuffer VulkanRenderer::GetCommandBuffer()
@@ -4722,8 +4734,8 @@ void SetDefaultViewportAndScissor(VkCommandBuffer commandBuffer, VkViewport* vp,
 {
 	auto& vr = *VulkanRenderer::get();
     auto* windowPtr = vr.windowPtr;
-    const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height;
-    const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width;
+    const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height * vr.renderResolution;
+    const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width * vr.renderResolution;
     VkViewport viewport = { 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f };
     VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width), uint32_t(windowPtr->m_height) } };
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);

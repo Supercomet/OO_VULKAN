@@ -105,7 +105,8 @@ void ImguiRenderpass::Draw(const VkCommandBuffer cmdlist)
 	cmd.BindPSO(imguiPSO, PSOLayoutDB::imguiPSOLayout);
 	cmd.BindAttachment(0, &target);
 	
-	cmd.SetDefaultViewportAndScissor();
+	cmd.SetViewport(VkViewport{ 0,(float)target.height,(float)target.width,-(float)target.height,0.0f,1.0f });
+	cmd.SetScissor({ 0,0,target.width,target.height });
 	
 	cmd.DescriptorSetBegin(1)
 		.BindBuffer(0, vr.imguiConstantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
