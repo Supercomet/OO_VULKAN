@@ -105,6 +105,16 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout compute_brightPixels{VK_NULL_HANDLE};
 	inline static VkDescriptorSetLayout compute_tonemap{VK_NULL_HANDLE};
 
+	// FSR2
+	inline static VkDescriptorSetLayout compute_fsr2_luminance_pyramid{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_fsr2_accumulate{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_fsr2_autogen_reactive{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_fsr2_depth_clip{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_fsr2_lock{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_fsr2_rcas{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_fsr2_reconstruct_previous_depth{VK_NULL_HANDLE};
+	inline static VkDescriptorSetLayout compute_fsr2_tcr_autogen{VK_NULL_HANDLE};	
+
 };
 
 struct Attachments_imguiBinding {
@@ -137,6 +147,16 @@ struct PSOLayoutDB
 	inline static VkPipelineLayout skypassPSOLayout{ VK_NULL_HANDLE };
 	inline static VkPipelineLayout histogramPSOLayout{ VK_NULL_HANDLE };
 	inline static VkPipelineLayout luminancePSOLayout{ VK_NULL_HANDLE };
+
+	// FSR2
+	inline static VkPipelineLayout PSOLayout_fsr2_luminance_pyramid{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout PSOLayout_fsr2_accumulate{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout PSOLayout_fsr2_autogen_reactive{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout PSOLayout_fsr2_depth_clip{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout PSOLayout_fsr2_lock{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout PSOLayout_fsr2_rcas{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout PSOLayout_fsr2_reconstruct_previous_depth{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout PSOLayout_fsr2_tcr_autogen{ VK_NULL_HANDLE };
 };
 
 // Moving all constant buffer structures into this CB namespace.

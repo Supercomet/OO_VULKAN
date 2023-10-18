@@ -308,7 +308,6 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 		KBDLLHOOKSTRUCT* kbdStruct = (KBDLLHOOKSTRUCT*)lParam;
 		if (kbdStruct->vkCode == VK_F7) {
 
-			MessageBox(NULL,L"F7 is pressed!", L"Key Pressed", MB_OK);
 			if (capturing)
 			{
 				OPTICK_STOP_CAPTURE();
