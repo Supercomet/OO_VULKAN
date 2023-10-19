@@ -57,6 +57,7 @@ extern GfxRenderpass* g_ShadowPass;
 extern GfxRenderpass* g_SSAORenderPass;
 extern GfxRenderpass* g_SkyRenderPass;
 extern GfxRenderpass* g_ZPrePass;
+extern GfxRenderpass* g_FSR2Pass;
 
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	#include "renderpass/ForwardDecalRenderpass.h"
@@ -403,6 +404,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	rpd->RegisterRenderPass(g_ForwardParticlePass);
 	rpd->RegisterRenderPass(g_ForwardUIPass);
 	rpd->RegisterRenderPass(g_BloomPass);
+	rpd->RegisterRenderPass(g_FSR2Pass);
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	ptr = new ForwardDecalRenderpass;
 	rpd->RegisterRenderPass(ptr);
@@ -4643,6 +4645,7 @@ VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(VulkanDevice& device,
 	//read in SPIR-V code of shaders
 	auto shaderCode = oGFX::readFile(fileName);
 	VkShaderModule shaderModule = oGFX::CreateShaderModule(device,shaderCode);
+	VK_NAME(device.logicalDevice, fileName.c_str(), shaderModule);
 
 	//shader module to be used by stage
 	shaderStageCreateInfo.module = shaderModule;

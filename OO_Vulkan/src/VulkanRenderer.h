@@ -67,6 +67,18 @@ struct Window;
 
 int Win32SurfaceCreator(ImGuiViewport* vp, ImU64 device, const void* allocator, ImU64* outSurface);
 
+enum FSR2 : uint8_t {
+	TCR_AUTOGEN,
+	AUTOGEN_REACTIVE,
+	COMPUTE_LUMINANCE_PYRAMID,
+	RECONSTRUCT_PREVIOUS_DEPTH,
+	DEPTH_CLIP,
+	LOCK,
+	ACCUMULATE,
+	RCAS,
+	MAX_SIZE
+};
+
 // Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...
 struct SetLayoutDB // Think of a better name? Very short and sweet for easy typing productivity?
 {
@@ -106,14 +118,7 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	inline static VkDescriptorSetLayout compute_tonemap{VK_NULL_HANDLE};
 
 	// FSR2
-	inline static VkDescriptorSetLayout compute_fsr2_luminance_pyramid{VK_NULL_HANDLE};
-	inline static VkDescriptorSetLayout compute_fsr2_accumulate{VK_NULL_HANDLE};
-	inline static VkDescriptorSetLayout compute_fsr2_autogen_reactive{VK_NULL_HANDLE};
-	inline static VkDescriptorSetLayout compute_fsr2_depth_clip{VK_NULL_HANDLE};
-	inline static VkDescriptorSetLayout compute_fsr2_lock{VK_NULL_HANDLE};
-	inline static VkDescriptorSetLayout compute_fsr2_rcas{VK_NULL_HANDLE};
-	inline static VkDescriptorSetLayout compute_fsr2_reconstruct_previous_depth{VK_NULL_HANDLE};
-	inline static VkDescriptorSetLayout compute_fsr2_tcr_autogen{VK_NULL_HANDLE};	
+	inline static VkDescriptorSetLayout compute_fsr2[FSR2::MAX_SIZE]{};
 
 };
 
@@ -149,14 +154,7 @@ struct PSOLayoutDB
 	inline static VkPipelineLayout luminancePSOLayout{ VK_NULL_HANDLE };
 
 	// FSR2
-	inline static VkPipelineLayout PSOLayout_fsr2_luminance_pyramid{ VK_NULL_HANDLE };
-	inline static VkPipelineLayout PSOLayout_fsr2_accumulate{ VK_NULL_HANDLE };
-	inline static VkPipelineLayout PSOLayout_fsr2_autogen_reactive{ VK_NULL_HANDLE };
-	inline static VkPipelineLayout PSOLayout_fsr2_depth_clip{ VK_NULL_HANDLE };
-	inline static VkPipelineLayout PSOLayout_fsr2_lock{ VK_NULL_HANDLE };
-	inline static VkPipelineLayout PSOLayout_fsr2_rcas{ VK_NULL_HANDLE };
-	inline static VkPipelineLayout PSOLayout_fsr2_reconstruct_previous_depth{ VK_NULL_HANDLE };
-	inline static VkPipelineLayout PSOLayout_fsr2_tcr_autogen{ VK_NULL_HANDLE };
+	inline static VkPipelineLayout fsr2_PSOLayouts[FSR2::MAX_SIZE]{};
 };
 
 // Moving all constant buffer structures into this CB namespace.
