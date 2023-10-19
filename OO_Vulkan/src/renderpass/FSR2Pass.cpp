@@ -79,6 +79,14 @@ struct FSR2_CB_DATA {
 	FfxFloat32    viewSpaceToMetersFactor;
 };
 
+typedef struct Fsr2SpdConstants {
+
+	uint32_t                    mips;
+	uint32_t                    numworkGroups;
+	uint32_t                    workGroupOffset[2];
+	uint32_t                    renderSize[2];
+} Fsr2SpdConstants;
+
 FSR2_CB_DATA constantBuffer{};
 
 struct FSR2Pass : public GfxRenderpass
@@ -106,15 +114,46 @@ DECLARE_RENDERPASS(FSR2Pass);
 
 VkPipeline pso_fsr2[FSR2::MAX_SIZE]{};
 
+vkutils::Texture2D FSR2atomicBuffer;
+vkutils::Texture2D FSR2AutoExposure;
+
 void FSR2Pass::Init()
 {
 	auto& vr = *VulkanRenderer::get();
 	auto swapchainext = vr.m_swapchain.swapChainExtent;
 
+	SetupDependencies();
 
+	vr.attachments.fsr_lum_midMip.name = "fsr2_lum_midMip	";
+	vr.attachments.fsr_lum_midMip.forFrameBuffer(&vr.m_device, VK_FORMAT_R16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, true, 0.5f,1,VK_IMAGE_LAYOUT_GENERAL); // half resolution for mipmap
+	
+	vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_lum_midMip);
 
+	FSR2atomicBuffer.name = "FSR2_atomic_tex";
+	FSR2atomicBuffer.forFrameBuffer(&vr.m_device, VK_FORMAT_R32_UINT, VK_IMAGE_USAGE_STORAGE_BIT,
+		1, 1, false, 1.0f, 1, VK_IMAGE_LAYOUT_GENERAL);
+
+	FSR2AutoExposure.name = "FSR2_AutoExposure_tex";
+	FSR2AutoExposure.forFrameBuffer(&vr.m_device, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT,
+		1, 1, false, 1.0f, 1, VK_IMAGE_LAYOUT_GENERAL);
+	
+	// for initializing textures etc
 	auto cmd = vr.GetCommandBuffer();
+
+	vkutils::SetImageInitialState(cmd, vr.attachments.fsr_lum_midMip);
+	vkutils::SetImageInitialState(cmd, FSR2atomicBuffer);
+	vkutils::SetImageInitialState(cmd, FSR2AutoExposure);
+
+	VkClearColorValue clear{};
+	clear.float32[0] = 0;
+	clear.float32[1] = 0;
+	VkImageSubresourceRange rng{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };	
+	vkCmdClearColorImage(cmd, FSR2atomicBuffer.image.image, FSR2atomicBuffer.referenceLayout, &clear, 1, &rng); // clear to zero
+	vkCmdClearColorImage(cmd, FSR2AutoExposure.image.image, FSR2AutoExposure.referenceLayout, &clear, 1, &rng); // clear to zero
+
 	vr.SubmitSingleCommandAndWait(cmd);
+	vr.GenerateMipmaps(vr.attachments.fsr_lum_midMip);
 	
 	SetupRenderpass();
 
@@ -141,8 +180,13 @@ bool FSR2Pass::SetupDependencies()
 			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
 			, vr.FSR2constantBuffer[i]);
 		VK_NAME(vr.m_device.logicalDevice, "FSR2 CB", vr.FSR2constantBuffer[i].buffer);
+		
+		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(Fsr2SpdConstants)
+			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+			, vr.FSR2luminanceCB[i]);
+		VK_NAME(vr.m_device.logicalDevice, "FSR2 lumCB", vr.FSR2luminanceCB[i].buffer);
+				
 	}
-
 
 	return true;
 }
@@ -240,7 +284,7 @@ void ffxFsr2GetJitterOffset(float* outX, float* outY, int32_t index, int32_t pha
 	*outY = y;
 }
 
-void SetupConstantBuffer() 
+void SetupConstantBuffers() 
 {
 	VulkanRenderer& vr = *VulkanRenderer::get();
 
@@ -303,8 +347,6 @@ void SetupConstantBuffer()
 	// 	context->previousJitterOffset[1] = context->constants.jitterOffset[1];
 	// }
 
-	
-
 }
 
 void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
@@ -318,10 +360,27 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 	rhi::CommandList cmd{ cmdlist, "FSR2",{1,0,0,0.5} };
 	lastCmd = cmdlist;
 
-	return;
-
-	SetupConstantBuffer();
+	SetupConstantBuffers();
 	
+	// Auto exposure
+	uint32_t dispatchThreadGroupCountXY[2];
+	uint32_t workGroupOffset[2];
+	uint32_t numWorkGroupsAndMips[2];
+	uint32_t rectInfo[4] = { 0, 0, vr.renderWidth, vr.renderHeight };
+	ffxSpdSetup(dispatchThreadGroupCountXY, workGroupOffset, numWorkGroupsAndMips, rectInfo, -1);
+
+	// downsample
+	Fsr2SpdConstants luminancePyramidConstants;
+	luminancePyramidConstants.numworkGroups = numWorkGroupsAndMips[0];
+	luminancePyramidConstants.mips = numWorkGroupsAndMips[1];
+	luminancePyramidConstants.workGroupOffset[0] = workGroupOffset[0];
+	luminancePyramidConstants.workGroupOffset[1] = workGroupOffset[1];
+	luminancePyramidConstants.renderSize[0] = vr.renderWidth;
+	luminancePyramidConstants.renderSize[1] = vr.renderHeight;
+	
+	// copy over
+	memcpy(vr.FSR2luminanceCB[currFrame].allocInfo.pMappedData, &luminancePyramidConstants, sizeof(Fsr2SpdConstants));
+
 	//  FSR2_BIND_SRV_INPUT_COLOR                     0
 	// 
 	//  FSR2_BIND_UAV_SPD_GLOBAL_ATOMIC            2001
@@ -331,6 +390,41 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 	// 
 	//  FSR2_BIND_CB_FSR2                          3000
 	//  FSR2_BIND_CB_SPD                           3001
+
+	constexpr size_t maxNumMips = 13;
+	std::array < VkImageView, maxNumMips> mipViews{};
+	VkImageViewCreateInfo viewCreateInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+	viewCreateInfo.pNext = NULL;
+	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D; // for shader
+	viewCreateInfo.format = vr.attachments.fsr_lum_midMip.format;
+	viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+	viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+	viewCreateInfo.subresourceRange.levelCount = 1;
+	viewCreateInfo.subresourceRange.layerCount = vr.attachments.fsr_lum_midMip.layerCount;
+	viewCreateInfo.subresourceRange.baseMipLevel = 0;
+
+	viewCreateInfo.image = vr.attachments.fsr_lum_midMip.image.image;
+	for (size_t i = 0; i < vr.attachments.fsr_lum_midMip.mipLevels; i++)
+	{
+		viewCreateInfo.subresourceRange.baseMipLevel = (uint32_t)i;
+		vkCreateImageView(vr.m_device.logicalDevice,&viewCreateInfo,nullptr, &mipViews[i]);
+		//printf("Created %llu\n", size_t(mipViews[i]));
+	}
+
+	std::array<VkDescriptorImageInfo, maxNumMips> samplers{};
+	for (size_t i = 0; i < samplers.size(); i++)
+	{
+		samplers[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		samplers[i].imageView = mipViews[0];
+		samplers[i].sampler = nullptr;
+	}
+	for (size_t i = 0; i < vr.attachments.fsr_lum_midMip.mipLevels; i++)
+	{		
+		samplers[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		samplers[i].imageView = mipViews[i];
+		samplers[i].sampler = nullptr;
+	}
+
 	cmd.BindPSO(pso_fsr2[FSR2::COMPUTE_LUMINANCE_PYRAMID], PSOLayoutDB::fsr2_PSOLayouts[FSR2::COMPUTE_LUMINANCE_PYRAMID], VK_PIPELINE_BIND_POINT_COMPUTE);
 	cmd.DescriptorSetBegin(0)
 		.BindImage(0, &vr.attachments.lighting_target, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
@@ -338,24 +432,45 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindSampler(1000, GfxSamplerManager::GetSampler_PointClamp()) // point clamp
 		.BindSampler(1001, GfxSamplerManager::GetSampler_LinearClamp()) // linear clamp
 
-		.BindImage(2001, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-		.BindImage(2002, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-		.BindImage(2003, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-		.BindImage(2004, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+		.BindImage(2001, &FSR2atomicBuffer, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+		.BindImage(2002, &vr.attachments.fsr_lum_midMip, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,mipViews[0])
+		.BindImage(2003, &vr.attachments.fsr_lum_midMip, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,mipViews[vr.attachments.fsr_lum_midMip.mipLevels-1])
+		.BindImage(2004, &FSR2AutoExposure, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 
 		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-		.BindBuffer(3001, nullptr, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		.BindBuffer(3001, vr.FSR2luminanceCB[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+
+	cmd.Dispatch(dispatchThreadGroupCountXY[0], dispatchThreadGroupCountXY[1]);
+
+	DelayedDeleter::get()->DeleteAfterFrames([views = mipViews, dev = vr.m_device.logicalDevice]() {
+		for (size_t i = 0; i < views.size(); i++)
+		{
+			if (views[i] != VK_NULL_HANDLE)
+			{
+				//printf("Destroying %llu\n", size_t(views[i]));
+				vkDestroyImageView(dev, views[i], nullptr);
+			}
+		}
+	});
+	
+
 }
 
 void FSR2Pass::Shutdown()
 {
 	auto& vr = *VulkanRenderer::get();
 	auto& device = vr.m_device.logicalDevice;
-	
+
+	vr.attachments.fsr_lum_midMip.destroy();
+
+	FSR2atomicBuffer.destroy();
+	FSR2AutoExposure.destroy();
+
 	constexpr size_t MAX_FRAMES = 2;
 	for (size_t i = 0; i < MAX_FRAMES; i++)
 	{
 		vmaDestroyBuffer(vr.m_device.m_allocator, vr.FSR2constantBuffer[i].buffer, vr.FSR2constantBuffer[i].alloc);
+		vmaDestroyBuffer(vr.m_device.m_allocator, vr.FSR2luminanceCB[i].buffer, vr.FSR2luminanceCB[i].alloc);
 	}
 
 	for (size_t i = 0; i < FSR2::MAX_SIZE; i++)

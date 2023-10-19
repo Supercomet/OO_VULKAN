@@ -108,7 +108,11 @@ oGFX::SetVulkanObjectName(DEVICE,nameInfo);\
 
 #endif
 
-
+void ffxSpdSetup(uint32_t* dispatchThreadGroupCountXY,
+	uint32_t* workGroupOffset,
+	uint32_t* numWorkGroupsAndMips,
+	uint32_t* rectInfo,
+	int32_t mips);
 
 struct VulkanInstance;
 struct VulkanDevice;

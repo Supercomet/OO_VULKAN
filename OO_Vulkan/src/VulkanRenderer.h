@@ -225,6 +225,8 @@ public:
 		vkutils::Texture2D SD_target[2];
 		std::array<vkutils::Texture2D, MAX_BLOOM_SAMPLES> Bloom_downsampleTargets;
 
+		//FSR2 
+		vkutils::Texture2D fsr_lum_midMip;
 	}attachments;
 
 	inline static uint64_t totalTextureSizeLoaded = 0;
@@ -548,6 +550,7 @@ public:
 	oGFX::AllocatedBuffer SPDconstantBuffer;
 
 	oGFX::AllocatedBuffer FSR2constantBuffer[MAX_FRAME_DRAWS];
+	oGFX::AllocatedBuffer FSR2luminanceCB[MAX_FRAME_DRAWS];
 
 	std::vector<oGFX::AllocatedBuffer> imguiVertexBuffer;
 	std::vector<oGFX::AllocatedBuffer> imguiIndexBuffer;

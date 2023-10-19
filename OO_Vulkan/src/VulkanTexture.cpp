@@ -551,12 +551,11 @@ namespace vkutils
 		filter = _filter;
 		referenceLayout = _imageLayout;
 
-		aspectMask = 0;
+		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		if (referenceLayout == VK_IMAGE_LAYOUT_UNDEFINED) // no user defined layout, set automatically
 		{
 			if (imageUsageFlags & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 			{
-				aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 				referenceLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			}
 			else if (imageUsageFlags & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
@@ -571,7 +570,7 @@ namespace vkutils
 		// for blitting
 		usage = imageUsageFlags | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		
-		assert(aspectMask > 0);
+		OO_ASSERT(aspectMask > 0);
 
 		//uint mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
 		mipLevels = 1;
