@@ -651,6 +651,8 @@ DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Textu
 
 DescriptorSetInfo& DescriptorSetInfo::BindSampler(uint32_t binding, VkSampler sampler, VkShaderStageFlags stageFlagsInclude)
 {
+	OO_ASSERT(sampler != VK_NULL_HANDLE);
+
 	VkDescriptorImageInfo samplerInfo = oGFX::vkutils::inits::descriptorImageInfo(
 		sampler, 
 		VK_NULL_HANDLE,
@@ -662,6 +664,8 @@ DescriptorSetInfo& DescriptorSetInfo::BindSampler(uint32_t binding, VkSampler sa
 
 DescriptorSetInfo& DescriptorSetInfo::BindBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type, ResourceUsage access, VkShaderStageFlags stageFlagsInclude)
 {
+	OO_ASSERT(bufferInfo);
+
 	builder.BindBuffer(binding, bufferInfo, type, shaderStage | stageFlagsInclude);
 	this->m_cmdList->BeginTrackingBuffer(bufferInfo->buffer);
 	BufferStateTracking* tracked = m_cmdList->getTrackedBuffer(bufferInfo->buffer);

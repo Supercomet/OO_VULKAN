@@ -460,6 +460,9 @@ public:
 	void UpdateRenderResolution();
 	float changedRenderResolution = 1.0f;
 	float renderResolution = 1.0f;
+	uint32_t renderWidth{};
+	uint32_t renderHeight{};
+	uint32_t m_JitterIndex = 0;
 
 	Window* windowPtr{ nullptr };
 
@@ -543,6 +546,8 @@ public:
 	std::vector<oGFX::AllocatedBuffer> vpUniformBuffer{};
 	oGFX::AllocatedBuffer SPDatomicBuffer;
 	oGFX::AllocatedBuffer SPDconstantBuffer;
+
+	oGFX::AllocatedBuffer FSR2constantBuffer[MAX_FRAME_DRAWS];
 
 	std::vector<oGFX::AllocatedBuffer> imguiVertexBuffer;
 	std::vector<oGFX::AllocatedBuffer> imguiIndexBuffer;

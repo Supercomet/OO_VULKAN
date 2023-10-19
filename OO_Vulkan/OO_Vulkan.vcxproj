@@ -72,6 +72,7 @@
     <ClCompile Include="src\Input.cpp" />
     <ClCompile Include="src\renderpass\BloomPass.cpp" />
     <ClCompile Include="src\renderpass\DebugDrawRenderpass.cpp" />
+    <ClCompile Include="src\renderpass\FSR2Pass.cpp" />
     <ClCompile Include="src\renderpass\ImguiRenderpass.cpp" />
     <ClCompile Include="src\renderpass\LightingHistogram.cpp" />
     <ClCompile Include="src\renderpass\LightingRenderpass.cpp" />

@@ -505,6 +505,8 @@ void VulkanRenderer::InitVMA(const oGFX::SetupInfo& setupSpecs)
 void VulkanRenderer::SetupSwapchain()
 {
 	m_swapchain.Init(m_instance,m_device);
+	renderWidth = renderResolution * m_swapchain.swapChainExtent.width;
+	renderHeight= renderResolution * m_swapchain.swapChainExtent.height;
 }
 
 void VulkanRenderer::CreateDefaultRenderpass()
@@ -921,11 +923,11 @@ void VulkanRenderer::CreateDefaultPSOLayouts()
 	
 	
 	DescriptorBuilder::Begin()
-		.BindImage(FFX_SPD_BIND_SRV_INPUT_DOWNSAMPLE_SRC, &basicSampler, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindBuffer(FFX_SPD_BIND_CB_SPD, gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(FFX_SPD_BIND_SRV_INPUT_DOWNSAMPLE_SRC, nullptr, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(FFX_SPD_BIND_CB_SPD, nullptr, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(FFX_SPD_BIND_UAV_INPUT_DOWNSAMPLE_SRC_MIPS, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT,13)
 		.BindImage(FFX_SPD_BIND_UAV_INPUT_DOWNSAMPLE_SRC_MID_MIPMAP, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindBuffer(FFX_SPD_BIND_UAV_INTERNAL_GLOBAL_ATOMIC, objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(FFX_SPD_BIND_UAV_INTERNAL_GLOBAL_ATOMIC, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BuildLayout(SetLayoutDB::compute_AMDSPD);
 
 	// create compute here
@@ -2762,6 +2764,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		AddRenderer(g_SSAORenderPass);
 		AddRenderer(g_LightingPass);
 		AddRenderer(g_SkyRenderPass);
+		AddRenderer(g_FSR2Pass);
 		AddRenderer(g_LightingHistogram);
 		AddRenderer(g_BloomPass);
 		AddRenderer(g_ForwardParticlePass);
@@ -3031,10 +3034,10 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 	std::array<VkDescriptorSet, 1> dstsets;
 	DescriptorBuilder::Begin()
 		.BindImage(FFX_SPD_BIND_SRV_INPUT_DOWNSAMPLE_SRC, &dii, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindBuffer(FFX_SPD_BIND_CB_SPD, &cb, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(FFX_SPD_BIND_CB_SPD, SPDconstantBuffer.getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(FFX_SPD_BIND_UAV_INPUT_DOWNSAMPLE_SRC_MIPS, samplers.data(), VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 13)
 		.BindImage(FFX_SPD_BIND_UAV_INPUT_DOWNSAMPLE_SRC_MID_MIPMAP, &samplers[6], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindBuffer(FFX_SPD_BIND_UAV_INTERNAL_GLOBAL_ATOMIC, &atomic, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindBuffer(FFX_SPD_BIND_UAV_INTERNAL_GLOBAL_ATOMIC, SPDatomicBuffer.getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.Build(dstsets[0], SetLayoutDB::compute_AMDSPD);
 
 	
@@ -3250,7 +3253,9 @@ bool VulkanRenderer::ResizeSwapchain()
 		}
 		if (windowPtr->windowShouldClose) return false;
 	}
-	m_swapchain.Init(m_instance, m_device);
+	
+	SetupSwapchain();
+
 	CreateDefaultRenderpass();
 	//CreateDepthBufferImage();
 	CreateFramebuffers();
@@ -3258,6 +3263,9 @@ bool VulkanRenderer::ResizeSwapchain()
 	fbCache.ResizeSwapchain(m_swapchain.swapChainExtent.width, m_swapchain.swapChainExtent.height);
 
 	ResizeGUIBuffers();
+
+	// Rest jitter index
+	m_JitterIndex = 0;
 
 	// update imgui shit
 	if (currWorld)
