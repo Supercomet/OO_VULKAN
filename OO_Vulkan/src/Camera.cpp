@@ -291,7 +291,6 @@ void Camera::LookFromAngle(float distance, const glm::vec3& target, float vertAn
 void Camera::SetPosition(glm::vec3 position)
 {
 	this->m_position = position;
-	UpdateViewMatrixQuaternion();
 
 	//updateViewMatrix();
 }
@@ -305,7 +304,7 @@ void Camera::SetPosition(glm::vec3 position)
 void Camera::SetRotation(glm::quat orientation)
 {
 	this->m_orientation = orientation;
-	UpdateViewMatrixQuaternion();
+
 	m_rotation = glm::eulerAngles(orientation);
 }
 
@@ -320,7 +319,6 @@ void Camera::Rotate(glm::vec3 delta)
 	//glm::quat qRoll		= glm::angleAxis(glm::radians(delta.z), glm::vec3(0, 0, 1));
 
 	m_orientation = glm::normalize(qYaw) * glm::normalize(qPitch) /** glm::normalize(qRoll) */ * glm::quat{ 0, 0, 0, 1 };
-	UpdateViewMatrixQuaternion();
 }
 
 void Camera::SetTranslation(glm::vec3 translation)
@@ -333,7 +331,6 @@ void Camera::SetTranslation(glm::vec3 translation)
 	{
 		this->m_position = translation;
 	}
-	UpdateViewMatrixQuaternion();
 	//updateViewMatrix();
 }
 
@@ -347,14 +344,12 @@ void Camera::Translate(glm::vec3 delta)
 	{
 		this->m_position += delta;
 	}
-	UpdateViewMatrixQuaternion();
 	//updateViewMatrix();
 }
 
 void Camera::ChangeTargetDistance(float delta)
 {
 	m_TargetDistance = std::max(1.0f, delta + m_TargetDistance);
-	UpdateViewMatrixQuaternion();
 	//updateViewMatrix();
 }
 
@@ -415,7 +410,6 @@ bool Camera::UpdatePad(glm::vec2 axisLeft, glm::vec2 axisRight, float deltaTime)
 
 	if (retVal)
 	{
-		UpdateViewMatrixQuaternion();
 		//updateViewMatrix();
 	}
 
@@ -444,10 +438,28 @@ glm::mat4 inversed_infinite_perspectiveRH_ZO(float fovRad, float aspect, float n
 };
 
 
-void Camera::UpdateProjectionMatrix()
+void Camera::SetDirty()
 {
+	
+}
+
+glm::mat4 Camera::GetNonInvProjectionMatrix()
+{
+	return glm::perspective(glm::radians(m_fovDegrees), m_aspectRatio, m_znear, m_zfar);
+}
+
+void Camera::UpdateMatrices()
+{
+	// Always update temporal information
+	previousMat.perspective = matrices.perspective;
+	previousMat.perspectiveJittered = matrices.perspectiveJittered;
+	previousMat.view = matrices.view;
+
+
+	UpdateViewMatrixQuaternion();
+
 	if (m_aspectRatio != m_aspectRatio)
-	{ 
+	{
 		//assert(false && "Times like this we must ask ourselves - why is aspect ratio NaN");
 		return;
 	}
@@ -459,7 +471,7 @@ void Camera::UpdateProjectionMatrix()
 		matrices.perspective = glm::ortho(-m_orthoSize, m_orthoSize, -h, h, m_znear, m_zfar);
 	}
 	else
-	{		
+	{
 #define INVERSED_DEPTH
 #ifdef INVERSED_DEPTH
 
@@ -471,9 +483,4 @@ void Camera::UpdateProjectionMatrix()
 #endif // INVERSED_DEPTH
 
 	}
-}
-
-glm::mat4 Camera::GetNonInvProjectionMatrix()
-{
-	return glm::perspective(glm::radians(m_fovDegrees), m_aspectRatio, m_znear, m_zfar);
 }

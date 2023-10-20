@@ -61,8 +61,16 @@ public:
 	struct
 	{
 		glm::mat4 perspective{};
+		glm::mat4 perspectiveJittered{};
 		glm::mat4 view{};
 	} matrices{};
+
+	struct
+	{
+		glm::mat4 perspective{};
+		glm::mat4 perspectiveJittered{};
+		glm::mat4 view{};
+	} previousMat{};
 
 	struct
 	{
@@ -73,9 +81,9 @@ public:
 	} keys;
 
 	bool Moving() const { return keys.left || keys.right || keys.up || keys.down; };
-	void SetNearClip(float inNear) { m_znear = inNear; UpdateProjectionMatrix(); }
+	void SetNearClip(float inNear) { m_znear = inNear; SetDirty(); }
 	float GetNearClip() const { return m_znear; };
-	void SetFarClip(float inFar) { m_zfar = inFar; UpdateProjectionMatrix(); }
+	void SetFarClip(float inFar) { m_zfar = inFar; SetDirty(); }
 	float GetFarClip() const { return m_zfar; };
 
 	oGFX::Frustum GetFrustum() const;
@@ -110,26 +118,27 @@ public:
 	// Update camera passing separate axis data (gamepad)
 	// Returns true if view or position has been changed
 	bool UpdatePad(glm::vec2 axisLeft, glm::vec2 axisRight, float deltaTime);
-
 	void SetFov(float fov) { 
 		m_fovDegrees = fov; 
-	UpdateProjectionMatrix(); 
+		SetDirty(); 
 	}
-
 	float GetFov() const { return m_fovDegrees; }
-
 	void SetAspectRatio(float aspect) { 
 		m_aspectRatio = aspect; 
-	UpdateProjectionMatrix(); 
+		SetDirty(); 
 	}
-
 	float GetAspectRatio() const { return m_aspectRatio; }
-
-	void UpdateProjectionMatrix();
-
+	void SetDirty();
 	glm::mat4 GetNonInvProjectionMatrix();
+
+
+
+
+
 
 	// 
 	bool m_ViewMatrixOutdated{ true };
 	bool m_ProjectionMatrixOutdated{ true };
+
+	void UpdateMatrices();
 };

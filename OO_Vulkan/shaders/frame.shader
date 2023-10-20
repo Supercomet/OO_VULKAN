@@ -13,6 +13,7 @@ struct FrameContext
 	mat4 inverseView;
 	mat4 inverseProjection;
 	vec4 cameraPosition;
+    mat4 prevViewProjection;
 	vec4 renderTimer;
 
 	// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.

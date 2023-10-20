@@ -9,6 +9,7 @@ layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec3 inColor;
 layout(location = 3) in vec3 inTangent;
 layout(location = 4) in vec2 inUV;
+layout(location = 5) out vec4 outPrevPosition;
 
 // Note: Sending too much stuff from VS to FS can result in bottleneck...
 layout(location = 0) out vec4 outPosition;
@@ -103,6 +104,7 @@ void main()
 	}
 
 	gl_Position = uboFrameContext.viewProjection * outPosition;
+    outPrevPosition = uboFrameContext.prevViewProjection * outPosition;
 	
 	outUV = inUV;
 	outColor = inColor;

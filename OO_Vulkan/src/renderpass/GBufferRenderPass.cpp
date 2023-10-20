@@ -145,6 +145,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 	clearValues[GBufferAttachmentIndex::ALBEDO].color =	  zeroFloat4;
 	clearValues[GBufferAttachmentIndex::MATERIAL].color = zeroFloat4;
 	clearValues[GBufferAttachmentIndex::EMISSIVE].color = zeroFloat4;
+	clearValues[GBufferAttachmentIndex::VELOCITY].color = zeroFloat4;
 	clearValues[GBufferAttachmentIndex::ENTITY_ID].color = rMinusOne;
 	clearValues[GBufferAttachmentIndex::DEPTH]   .depthStencil = { 0.0f, 0 };
 
@@ -159,6 +160,10 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		if (i == GBufferAttachmentIndex::NORMAL) 
 		{
 			cmd.BindAttachment((uint32_t)i, &attachments[i],clearOnDraw);
+		}
+		if (i == GBufferAttachmentIndex::VELOCITY)
+		{
+			cmd.BindAttachment((uint32_t)i, &attachments[i], clearOnDraw);
 		}
 		else 
 		{
@@ -325,7 +330,7 @@ void GBufferRenderPass::Shutdown()
 	vkDestroyPipelineLayout(device, PSOLayoutDB::singleSSBOlayout, nullptr);
 	vkDestroyPipeline(device, pso_ComputeCull, nullptr);
 
-	renderpass_GBuffer.destroy();
+	// renderpass_GBuffer.destroy();
 	vkDestroyPipeline(device, pso_GBufferDefault, nullptr);
 
 	vkDestroyPipeline(device, pso_ComputeShadowPrepass, nullptr);
@@ -342,89 +347,89 @@ void GBufferRenderPass::SetupRenderpass()
 	const uint32_t height = m_swapchain.swapChainExtent.height;
 
 	
-	// Set up separate renderpass with references to the color and depth attachments
-	std::array<VkAttachmentDescription, GBufferAttachmentIndex::MAX_ATTACHMENTS> attachmentDescs = {};
-
-	// Init attachment properties
-	for (uint32_t i = 0; i < GBufferAttachmentIndex::MAX_ATTACHMENTS; ++i)
-	{
-		attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
-		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		attachmentDescs[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		if (i == GBufferAttachmentIndex::DEPTH)
-		{
-			attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-			attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		}
-		else
-		{
-			attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		}
-	}
-
-	auto& attachments = vr.attachments.gbuffer;
-	// Formats
-	//attachmentDescs[GBufferAttachmentIndex::POSITION].format = attachments[GBufferAttachmentIndex::POSITION].format;
-	attachmentDescs[GBufferAttachmentIndex::NORMAL]  .format = attachments[GBufferAttachmentIndex::NORMAL]  .format;
-	attachmentDescs[GBufferAttachmentIndex::ALBEDO]  .format = attachments[GBufferAttachmentIndex::ALBEDO]  .format;
-	attachmentDescs[GBufferAttachmentIndex::MATERIAL].format = attachments[GBufferAttachmentIndex::MATERIAL].format;
-	attachmentDescs[GBufferAttachmentIndex::EMISSIVE].format = attachments[GBufferAttachmentIndex::EMISSIVE].format;
-	attachmentDescs[GBufferAttachmentIndex::ENTITY_ID].format = attachments[GBufferAttachmentIndex::ENTITY_ID].format;
-	attachmentDescs[GBufferAttachmentIndex::DEPTH]   .format = attachments[GBufferAttachmentIndex::DEPTH]   .format;
-	
-
-	std::vector<VkAttachmentReference> colorReferences;
-	//colorReferences.push_back({ GBufferAttachmentIndex::POSITION, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-	colorReferences.push_back({ GBufferAttachmentIndex::NORMAL,   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-	colorReferences.push_back({ GBufferAttachmentIndex::ALBEDO,   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-	colorReferences.push_back({ GBufferAttachmentIndex::MATERIAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-	colorReferences.push_back({ GBufferAttachmentIndex::EMISSIVE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-	colorReferences.push_back({ GBufferAttachmentIndex::ENTITY_ID, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
-
-	VkAttachmentReference depthReference = {};
-	depthReference.attachment = GBufferAttachmentIndex::DEPTH;
-	depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpass = {};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.pColorAttachments = colorReferences.data();
-	subpass.colorAttachmentCount = static_cast<uint32_t>(colorReferences.size());
-	subpass.pDepthStencilAttachment = &depthReference;
-
-	// Use subpass dependencies for attachment layout transitions
-	std::array<VkSubpassDependency, 2> dependencies;
-
-	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependencies[0].dstSubpass = 0;
-	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-	dependencies[1].srcSubpass = 0;
-	dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-	dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-	VkRenderPassCreateInfo renderPassInfo = {};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.pAttachments = attachmentDescs.data();
-	renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescs.size());
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
-	renderPassInfo.dependencyCount = 2;
-	renderPassInfo.pDependencies = dependencies.data();
-
-	renderpass_GBuffer.name = "deferredPass";
-	renderpass_GBuffer.Init(m_device, renderPassInfo);
+	// // Set up separate renderpass with references to the color and depth attachments
+	// std::array<VkAttachmentDescription, GBufferAttachmentIndex::MAX_ATTACHMENTS> attachmentDescs = {};
+	// 
+	// // Init attachment properties
+	// for (uint32_t i = 0; i < GBufferAttachmentIndex::MAX_ATTACHMENTS; ++i)
+	// {
+	// 	attachmentDescs[i].samples = VK_SAMPLE_COUNT_1_BIT;
+	// 	attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	// 	attachmentDescs[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	// 	attachmentDescs[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	// 	attachmentDescs[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	// 	if (i == GBufferAttachmentIndex::DEPTH)
+	// 	{
+	// 		attachmentDescs[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	// 		attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	// 		attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	// 	}
+	// 	else
+	// 	{
+	// 		attachmentDescs[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	// 		attachmentDescs[i].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	// 	}
+	// }
+	// 
+	// auto& attachments = vr.attachments.gbuffer;
+	// // Formats
+	// //attachmentDescs[GBufferAttachmentIndex::POSITION].format = attachments[GBufferAttachmentIndex::POSITION].format;
+	// attachmentDescs[GBufferAttachmentIndex::NORMAL]  .format = attachments[GBufferAttachmentIndex::NORMAL]  .format;
+	// attachmentDescs[GBufferAttachmentIndex::ALBEDO]  .format = attachments[GBufferAttachmentIndex::ALBEDO]  .format;
+	// attachmentDescs[GBufferAttachmentIndex::MATERIAL].format = attachments[GBufferAttachmentIndex::MATERIAL].format;
+	// attachmentDescs[GBufferAttachmentIndex::EMISSIVE].format = attachments[GBufferAttachmentIndex::EMISSIVE].format;
+	// attachmentDescs[GBufferAttachmentIndex::ENTITY_ID].format = attachments[GBufferAttachmentIndex::ENTITY_ID].format;
+	// attachmentDescs[GBufferAttachmentIndex::DEPTH]   .format = attachments[GBufferAttachmentIndex::DEPTH]   .format;
+	// 
+	// 
+	// std::vector<VkAttachmentReference> colorReferences;
+	// //colorReferences.push_back({ GBufferAttachmentIndex::POSITION, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	// colorReferences.push_back({ GBufferAttachmentIndex::NORMAL,   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	// colorReferences.push_back({ GBufferAttachmentIndex::ALBEDO,   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	// colorReferences.push_back({ GBufferAttachmentIndex::MATERIAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	// colorReferences.push_back({ GBufferAttachmentIndex::EMISSIVE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	// colorReferences.push_back({ GBufferAttachmentIndex::ENTITY_ID, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
+	// 
+	// VkAttachmentReference depthReference = {};
+	// depthReference.attachment = GBufferAttachmentIndex::DEPTH;
+	// depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	// 
+	// VkSubpassDescription subpass = {};
+	// subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	// subpass.pColorAttachments = colorReferences.data();
+	// subpass.colorAttachmentCount = static_cast<uint32_t>(colorReferences.size());
+	// subpass.pDepthStencilAttachment = &depthReference;
+	// 
+	// // Use subpass dependencies for attachment layout transitions
+	// std::array<VkSubpassDependency, 2> dependencies;
+	// 
+	// dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+	// dependencies[0].dstSubpass = 0;
+	// dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	// dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	// dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	// dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	// dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+	// 
+	// dependencies[1].srcSubpass = 0;
+	// dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+	// dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	// dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	// dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	// dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	// dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+	// 
+	// VkRenderPassCreateInfo renderPassInfo = {};
+	// renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	// renderPassInfo.pAttachments = attachmentDescs.data();
+	// renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescs.size());
+	// renderPassInfo.subpassCount = 1;
+	// renderPassInfo.pSubpasses = &subpass;
+	// renderPassInfo.dependencyCount = 2;
+	// renderPassInfo.pDependencies = dependencies.data();
+	// 
+	// renderpass_GBuffer.name = "deferredPass";
+	// renderpass_GBuffer.Init(m_device, renderPassInfo);
 }
 
 void GBufferRenderPass::SetupFramebuffer()
@@ -507,6 +512,7 @@ void GBufferRenderPass::CreatePipeline()
 	// won't see anything rendered to the attachment
 	std::array<VkPipelineColorBlendAttachmentState, GBufferAttachmentIndex::TOTAL_COLOR_ATTACHMENTS> blendAttachmentStates =
 	{
+		oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
 		oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
 		oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
 		oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
@@ -684,6 +690,9 @@ void GBufferRenderPass::SetupResources() {
 	attachments[GBufferAttachmentIndex::MATERIAL].name = "GB_Material";
 	attachments[GBufferAttachmentIndex::MATERIAL].forFrameBuffer(&m_device, vr.G_NON_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
 	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::MATERIAL]);
+	attachments[GBufferAttachmentIndex::VELOCITY].name = "GB_Velocity";
+	attachments[GBufferAttachmentIndex::VELOCITY].forFrameBuffer(&m_device, VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::VELOCITY]);
 	attachments[GBufferAttachmentIndex::ENTITY_ID].name = "GB_Entity";
 	attachments[GBufferAttachmentIndex::ENTITY_ID].forFrameBuffer(&m_device, VK_FORMAT_R32_SINT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
 	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::ENTITY_ID]);

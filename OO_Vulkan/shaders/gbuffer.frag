@@ -7,14 +7,15 @@ layout(location = 1) in vec2 inUV;
 layout(location = 2) in vec3 inColor;
 layout(location = 3) in flat int inEntityID;
 layout(location = 4) in flat vec4 inEmissiveColour;
+layout(location = 5) in vec4 inPrevPosition;
 
-layout(location = 15) in flat uvec4 inInstanceData;
 layout(location = 7) in struct
 {
     vec3 b;
 	vec3 t;
 	vec3 n;
 }inLightData;
+layout(location = 15) in flat uvec4 inInstanceData;
 
 
 //layout(location = 0) out vec4 outPosition; // Optimization for space reconstructed from depth.
@@ -22,7 +23,8 @@ layout(location = 0) out vec4 outNormal;
 layout(location = 1) out vec4 outAlbedo;
 layout(location = 2) out vec4 outMaterial;
 layout(location = 3) out vec4 outEmissive;
-layout(location = 4) out int outEntityID;
+layout(location = 4) out vec2 outVelocity;
+layout(location = 5) out int outEntityID;
 
 #include "shader_utility.shader"
 
@@ -84,6 +86,11 @@ void main()
 {
     outEntityID = inEntityID;
     outAlbedo = vec4(inColor, 1.0);
+    
+    vec4 clipPos = uboFrameContext.viewProjection * inPosition;
+    vec2 a = (clipPos.xy / clipPos.w) * 0.5 + 0.5;
+    vec2 b = (inPrevPosition.xy / inPrevPosition.w) * 0.5 + 0.5;
+    outVelocity.xy = (a - b) * vec2(100);
     
     //outPosition = inPosition;
     // implicit depthOut will reconstruct the position

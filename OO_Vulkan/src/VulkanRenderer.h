@@ -62,6 +62,8 @@ Technology is prohibited.
 #include <functional>
 #include <memory>
 
+
+
 struct Window;
 
 
@@ -170,6 +172,7 @@ namespace CB
 		glm::mat4 inverseView{ 1.0f };
 		glm::mat4 inverseProjection{ 1.0f };
 		glm::vec4 cameraPosition{ 1.0f };
+		glm::mat4 prevViewProjection{ 1.0f };
 		glm::vec4 renderTimer{ 0.0f, 0.0f, 0.0f, 0.0f };
 
 		// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.

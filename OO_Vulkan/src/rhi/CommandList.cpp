@@ -635,6 +635,8 @@ DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Textu
 {
 	VkImageLayout layout = (type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+	OO_ASSERT(viewOverride);
+
 	VkDescriptorImageInfo texinfo = oGFX::vkutils::inits::descriptorImageInfo(
 		VK_NULL_HANDLE, // no sampler
 		viewOverride,

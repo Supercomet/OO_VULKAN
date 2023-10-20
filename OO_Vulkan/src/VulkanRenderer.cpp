@@ -2595,6 +2595,12 @@ void VulkanRenderer::BeginDraw()
 		if (currWorld)
 		{
 			PROFILE_SCOPED("Init batches");
+			
+			for (size_t i = 0; i < currWorld->numCameras; i++)
+			{
+				currWorld->cameras[i].UpdateMatrices();
+			}
+			
 			batches.Init(currWorld, this, MAX_OBJECTS);
 			currWorld->BeginFrame();
 			auto f = currWorld->cameras[0].GetFrustum();
@@ -2618,6 +2624,8 @@ void VulkanRenderer::BeginDraw()
 				//oGFX::DebugDraw::AddAABB(intersecting[i], oGFX::Colors::YELLOW);
 			}
 			batches.GenerateBatches();
+
+			
 		}
 
 		{
@@ -4426,6 +4434,8 @@ void VulkanRenderer::UpdateUniformBuffers()
 			frameContextUBO[i].renderTimer.y = std::sin(renderClock * glm::pi<float>());
 			frameContextUBO[i].renderTimer.z = std::cos(renderClock * glm::pi<float>());
 			frameContextUBO[i].renderTimer.w = 0.0f; // unused
+
+			frameContextUBO[i].prevViewProjection = camera.previousMat.perspective * camera.previousMat.view;
 		
 			// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
 			// Bind this to every single shader possible.

@@ -608,7 +608,12 @@ namespace vkutils
 
 		bool n = name.empty();
 
-		AllocateImageMemory(device, usage);
+		if (mipLevels > 1) {
+			//recompute mips
+			mipLevels = std::floor(std::log2(std::max(width, height))) + 1;
+		}
+
+		AllocateImageMemory(device, usage, mipLevels);
 
 		CreateImageView();
 
