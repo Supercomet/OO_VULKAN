@@ -124,7 +124,7 @@ void FSR2Pass::Init()
 
 	SetupDependencies();
 
-	vr.attachments.fsr_lum_midMip.name = "fsr2_lum_midMip	";
+	vr.attachments.fsr_lum_midMip.name = "fsr2_lum_midMip";
 	vr.attachments.fsr_lum_midMip.forFrameBuffer(&vr.m_device, VK_FORMAT_R16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT,
 		swapchainext.width, swapchainext.height, true, 0.5f,1,VK_IMAGE_LAYOUT_GENERAL); // half resolution for mipmap
 	
@@ -287,6 +287,7 @@ void ffxFsr2GetJitterOffset(float* outX, float* outY, int32_t index, int32_t pha
 void SetupConstantBuffers() 
 {
 	VulkanRenderer& vr = *VulkanRenderer::get();
+	size_t currFrame = vr.getFrame();
 
 	Camera& cam = vr.currWorld->cameras[0];
 	VkExtent2D resInfo = vr.m_swapchain.swapChainExtent;
@@ -346,6 +347,10 @@ void SetupConstantBuffers()
 	// 	context->previousJitterOffset[0] = context->constants.jitterOffset[0];
 	// 	context->previousJitterOffset[1] = context->constants.jitterOffset[1];
 	// }
+
+	constantBuffer.deltaTime = vr.deltaTime;
+	constantBuffer.lumaMipLevelToUse = 4;
+	memcpy(vr.FSR2constantBuffer[currFrame].allocInfo.pMappedData, &constantBuffer, sizeof(FSR2_CB_DATA));
 
 }
 
@@ -433,8 +438,8 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindSampler(1001, GfxSamplerManager::GetSampler_LinearClamp()) // linear clamp
 
 		.BindImage(2001, &FSR2atomicBuffer, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-		.BindImage(2002, &vr.attachments.fsr_lum_midMip, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,mipViews[0])
-		.BindImage(2003, &vr.attachments.fsr_lum_midMip, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,mipViews[vr.attachments.fsr_lum_midMip.mipLevels-1])
+		.BindImage(2002, &vr.attachments.fsr_lum_midMip, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,mipViews[4])
+		.BindImage(2003, &vr.attachments.fsr_lum_midMip, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,mipViews[5])
 		.BindImage(2004, &FSR2AutoExposure, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 
 		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
