@@ -124,11 +124,32 @@ void FSR2Pass::Init()
 
 	SetupDependencies();
 
+	float halfResolution = 0.5f;
+	float fullResolution = 1.0f;
 	vr.attachments.fsr_lum_midMip.name = "fsr2_lum_midMip";
 	vr.attachments.fsr_lum_midMip.forFrameBuffer(&vr.m_device, VK_FORMAT_R16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT,
-		swapchainext.width, swapchainext.height, true, 0.5f,1,VK_IMAGE_LAYOUT_GENERAL); // half resolution for mipmap
-	
+		swapchainext.width, swapchainext.height, true, halfResolution,1,VK_IMAGE_LAYOUT_GENERAL); // half resolution for mipmap
 	vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_lum_midMip);
+	
+	vr.attachments.fsr_reconstructed_prev_depth.name = "fsr_reconstructed_prev_depth";
+	vr.attachments.fsr_reconstructed_prev_depth.forFrameBuffer(&vr.m_device, VK_FORMAT_R32_UINT, VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL); // half resolution for mipmap
+	vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_reconstructed_prev_depth);
+
+	vr.attachments.fsr_dilated_depth.name = "fsr_dilated_depth";
+	vr.attachments.fsr_dilated_depth.forFrameBuffer(&vr.m_device, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL); // half resolution for mipmap
+	vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_dilated_depth);
+
+	vr.attachments.fsr_dilated_velocity.name = "fsr_dilated_velocity";
+	vr.attachments.fsr_dilated_velocity.forFrameBuffer(&vr.m_device, VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL); // half resolution for mipmap
+	vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_dilated_velocity);
+
+	vr.attachments.fsr_lock_input_luma.name = "fsr_lock_input_luma";
+	vr.attachments.fsr_lock_input_luma.forFrameBuffer(&vr.m_device, VK_FORMAT_R16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL); // half resolution for mipmap
+	vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_lock_input_luma);
 
 	FSR2atomicBuffer.name = "FSR2_atomic_tex";
 	FSR2atomicBuffer.forFrameBuffer(&vr.m_device, VK_FORMAT_R32_UINT, VK_IMAGE_USAGE_STORAGE_BIT,
@@ -142,6 +163,11 @@ void FSR2Pass::Init()
 	auto cmd = vr.GetCommandBuffer();
 
 	vkutils::SetImageInitialState(cmd, vr.attachments.fsr_lum_midMip);
+	vkutils::SetImageInitialState(cmd, vr.attachments.fsr_reconstructed_prev_depth);
+	vkutils::SetImageInitialState(cmd, vr.attachments.fsr_dilated_depth);
+	vkutils::SetImageInitialState(cmd, vr.attachments.fsr_dilated_velocity);
+	vkutils::SetImageInitialState(cmd, vr.attachments.fsr_lock_input_luma);
+
 	vkutils::SetImageInitialState(cmd, FSR2atomicBuffer);
 	vkutils::SetImageInitialState(cmd, FSR2AutoExposure);
 
@@ -305,8 +331,11 @@ void SetupConstantBuffers()
 	constantBuffer.displaySize[0] = resInfo.width;
 	constantBuffer.displaySize[1] = resInfo.height;
 
+	/// TEMP REMOVE
+	/*
 	constantBuffer.jitterOffset[0] = jitterX;
 	constantBuffer.jitterOffset[1] = jitterY;
+	*/
 	constantBuffer.renderSize[0] = vr.renderWidth;
 	constantBuffer.renderSize[1] = vr.renderHeight;
 	constantBuffer.maxRenderSize[0] = vr.renderWidth;
@@ -350,6 +379,13 @@ void SetupConstantBuffers()
 
 	constantBuffer.deltaTime = vr.deltaTime;
 	constantBuffer.lumaMipLevelToUse = 4;
+	glm::uvec2 mipDims = vkutils::GetMipDims(vr.attachments.fsr_lum_midMip, constantBuffer.lumaMipLevelToUse);
+	constantBuffer.lumaMipDimensions[0] = mipDims.x;
+	constantBuffer.lumaMipDimensions[1] = mipDims.y;
+
+	constantBuffer.motionVectorScale.x = vr.renderWidth;
+	constantBuffer.motionVectorScale.y = vr.renderHeight;
+
 	memcpy(vr.FSR2constantBuffer[currFrame].allocInfo.pMappedData, &constantBuffer, sizeof(FSR2_CB_DATA));
 
 }
@@ -366,6 +402,12 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 	lastCmd = cmdlist;
 
 	SetupConstantBuffers();
+
+	const int32_t threadGroupWorkRegionDim = 8;
+	glm::uvec2 dispatchSrc{
+		(vr.renderWidth-1)  / threadGroupWorkRegionDim + 1,
+		(vr.renderHeight-1) / threadGroupWorkRegionDim + 1
+	};
 	
 	// Auto exposure
 	uint32_t dispatchThreadGroupCountXY[2];
@@ -430,6 +472,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		samplers[i].sampler = nullptr;
 	}
 
+	// Luminance pyramid
 	cmd.BindPSO(pso_fsr2[FSR2::COMPUTE_LUMINANCE_PYRAMID], PSOLayoutDB::fsr2_PSOLayouts[FSR2::COMPUTE_LUMINANCE_PYRAMID], VK_PIPELINE_BIND_POINT_COMPUTE);
 	cmd.DescriptorSetBegin(0)
 		.BindImage(0, &vr.attachments.lighting_target, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
@@ -447,6 +490,31 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 
 	cmd.Dispatch(dispatchThreadGroupCountXY[0], dispatchThreadGroupCountXY[1]);
 
+
+	// Reconstruct and dilate
+
+	VkClearValue cv{};
+	cv.depthStencil = {};
+	cmd.ClearImage(&vr.attachments.fsr_reconstructed_prev_depth,cv);
+	cmd.BindPSO(pso_fsr2[FSR2::RECONSTRUCT_PREVIOUS_DEPTH], PSOLayoutDB::fsr2_PSOLayouts[FSR2::RECONSTRUCT_PREVIOUS_DEPTH], VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.DescriptorSetBegin(0)
+		.BindImage(0, &vr.attachments.gbuffer[GBufferAttachmentIndex::VELOCITY], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		.BindImage(1, &vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		.BindImage(2, &vr.attachments.lighting_target, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		.BindImage(3, &FSR2AutoExposure, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		.BindImage(4, &FSR2AutoExposure, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+
+		.BindSampler(1000, GfxSamplerManager::GetSampler_PointClamp()) // point clamp
+		.BindSampler(1001, GfxSamplerManager::GetSampler_LinearClamp()) // linear clamp
+
+		.BindImage(2005, &vr.attachments.fsr_reconstructed_prev_depth, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) // must clear
+		.BindImage(2006, &vr.attachments.fsr_dilated_velocity, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+		.BindImage(2007, &vr.attachments.fsr_dilated_depth, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) // dont need clear..
+		.BindImage(2011, &vr.attachments.fsr_lock_input_luma, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+
+		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	cmd.Dispatch(dispatchSrc.x, dispatchSrc.y);
+
 	DelayedDeleter::get()->DeleteAfterFrames([views = mipViews, dev = vr.m_device.logicalDevice]() {
 		for (size_t i = 0; i < views.size(); i++)
 		{
@@ -456,8 +524,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 				vkDestroyImageView(dev, views[i], nullptr);
 			}
 		}
-	});
-	
+	});	
 
 }
 
@@ -603,9 +670,9 @@ void FSR2Pass::CreateDescriptors()
 		.BindImage(2005, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2006, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2007, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindImage(2008, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindImage(2009, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-		.BindImage(2010, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		//.BindImage(2008, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		//.BindImage(2009, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		//.BindImage(2010, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2011, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 
 		.BindBuffer(3000, nullptr, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)

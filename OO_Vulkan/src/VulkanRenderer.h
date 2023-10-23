@@ -230,6 +230,10 @@ public:
 
 		//FSR2 
 		vkutils::Texture2D fsr_lum_midMip;
+		vkutils::Texture2D fsr_reconstructed_prev_depth;
+		vkutils::Texture2D fsr_dilated_depth;
+		vkutils::Texture2D fsr_dilated_velocity;
+		vkutils::Texture2D fsr_lock_input_luma;
 	}attachments;
 
 	inline static uint64_t totalTextureSizeLoaded = 0;

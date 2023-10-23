@@ -448,6 +448,27 @@ void CommandList::EndRendering()
 }
 
 
+void CommandList::ClearImage(vkutils::Texture* tex, VkClearValue clear)
+{
+	OO_ASSERT(tex);
+
+	ImageStateTracking* tracked = ensureTrackedImage(tex);
+	tracked->expectedLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	VerifyImageResourceStates();
+	if (tex->format == VK_FORMAT_D32_SFLOAT_S8_UINT) 
+	{
+		VkImageSubresourceRange srr{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, tex->mipLevels, 0, tex->layerCount };	
+		vkCmdClearDepthStencilImage(m_VkCommandBuffer, tex->image.image, tracked->currentLayout
+			, &clear.depthStencil, 1, &srr);
+	}
+	else 
+	{
+		VkImageSubresourceRange srr{ VK_IMAGE_ASPECT_COLOR_BIT, 0, tex->mipLevels, 0, tex->layerCount };	
+		vkCmdClearColorImage(m_VkCommandBuffer, tex->image.image, tracked->currentLayout
+			, &clear.color, 1, &srr);
+	}
+}
+
 void CommandList::Draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance)
 {
 	PROFILE_SCOPED();
