@@ -210,6 +210,7 @@ class VulkanRenderer
 public:
 
 	static VulkanRenderer* s_vulkanRenderer;
+	static constexpr int MAX_FRAME_DRAWS = 2;
 
 	struct Attachments {
 		std::array<vkutils::Texture2D, GBufferAttachmentIndex::MAX_ATTACHMENTS> gbuffer{};
@@ -231,13 +232,15 @@ public:
 		//FSR2 
 		vkutils::Texture2D fsr_lum_midMip;
 		vkutils::Texture2D fsr_reconstructed_prev_depth;
-		vkutils::Texture2D fsr_dilated_depth;
+		vkutils::Texture2D fsr_dilated_depth[MAX_FRAME_DRAWS];
 		vkutils::Texture2D fsr_dilated_velocity;
 		vkutils::Texture2D fsr_lock_input_luma;
+		vkutils::Texture2D fsr_dilated_reactive_masks;
+		vkutils::Texture2D fsr_prepared_input_color;
 	}attachments;
 
 	inline static uint64_t totalTextureSizeLoaded = 0;
-	static constexpr int MAX_FRAME_DRAWS = 2;
+
 	static constexpr int MAX_OBJECTS = 2048;
 	static constexpr VkFormat G_DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT_S8_UINT;
 	static constexpr VkFormat G_NORMALS_FORMAT = VK_FORMAT_R8G8B8A8_UNORM;
@@ -588,6 +591,7 @@ public:
 	uint32_t frameCounter = 0;
 	uint32_t currentFrame = 0;
 	uint32_t getFrame() const;
+	uint32_t getPreviousFrame() const;
 
 	uint64_t uboDynamicAlignment{};
 	static constexpr uint32_t numCameras = 2;

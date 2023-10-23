@@ -3297,6 +3297,15 @@ uint32_t VulkanRenderer::getFrame() const
 	return currentFrame % MAX_FRAME_DRAWS;
 }
 
+uint32_t VulkanRenderer::getPreviousFrame() const
+{
+	if (currentFrame) 
+	{
+		return (currentFrame - 1) % MAX_FRAME_DRAWS;
+	}
+	return 1; // special for first frame
+}
+
 uint32_t VulkanRenderer::RegisterThreadMapping()
 {
 	std::scoped_lock l{ g_mut_taskMap };
