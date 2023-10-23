@@ -63,7 +63,7 @@ void BloomPass::Init()
 	auto swapchainext = vr.m_swapchain.swapChainExtent;
 	vr.attachments.Bloom_brightTarget.name = "bloom_bright";
 	vr.attachments.Bloom_brightTarget.forFrameBuffer(&vr.m_device, vr.G_HDR_FORMAT_ALPHA, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-		swapchainext.width, swapchainext.height, true, 1.0f);
+		swapchainext.width, swapchainext.height, false, 1.0f);
 	vr.fbCache.RegisterFramebuffer(vr.attachments.Bloom_brightTarget);
 	float renderScale = 0.5f;
 	for (size_t i = 0; i < vr.attachments.MAX_BLOOM_SAMPLES; i++)
@@ -71,7 +71,7 @@ void BloomPass::Init()
 		// generate textures with half sizes
 		vr.attachments.Bloom_downsampleTargets[i].name = "bloom_down_" + std::to_string(i);
 		vr.attachments.Bloom_downsampleTargets[i].forFrameBuffer(&vr.m_device, vr.G_HDR_FORMAT_ALPHA, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-			swapchainext.width, swapchainext.height, true, renderScale);
+			swapchainext.width, swapchainext.height, false, renderScale);
 		vr.fbCache.RegisterFramebuffer(vr.attachments.Bloom_downsampleTargets[i]);
 
 		renderScale /= 2.0f;
@@ -412,7 +412,7 @@ vkutils::Texture2D* BloomPass::PerformBloom(rhi::CommandList& cmd)
 	auto regionBegin = VulkanRenderer::get()->pfnDebugMarkerRegionBegin;
 	auto regionEnd = VulkanRenderer::get()->pfnDebugMarkerRegionEnd;
 
-	auto& mainImage = vr.attachments.lighting_target;
+	auto& mainImage = vr.attachments.fullres_HDR;
 
 	VkDebugMarkerMarkerInfoEXT marker = {};
 	marker.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
@@ -436,7 +436,7 @@ vkutils::Texture2D* BloomPass::PerformBloom(rhi::CommandList& cmd)
 			.BindImage(2, &vr.attachments.Bloom_brightTarget, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 			.BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
-		BloomPC pc;
+		BloomPC pc{};
 		auto knee = vr.currWorld->bloomSettings.threshold * vr.currWorld->bloomSettings.softThreshold;
 		pc.threshold.x = vr.currWorld->bloomSettings.threshold;
 		pc.threshold.y = pc.threshold.x - knee;

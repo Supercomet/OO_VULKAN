@@ -810,6 +810,10 @@ void TestApplication::Run()
                     gs_RenderEngine->UpdateRenderResolution();
                     currItem = 5;
                 }
+                if (ImGui::SliderFloat("RCAS Sharpness", &gs_RenderEngine->rcas_sharpness, 0.1f, 1.0f))
+                {
+
+                }
                 if (ImGui::ListBox("QualityPresets", &currItem, presets, 6)) 
                 {
                     if (currItem < 5) 

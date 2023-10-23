@@ -224,6 +224,8 @@ public:
 
 		vkutils::Texture2D lighting_target{};
 
+		vkutils::Texture2D fullres_HDR{};
+
 		static constexpr size_t MAX_BLOOM_SAMPLES = 5;
 		vkutils::Texture2D Bloom_brightTarget;
 		vkutils::Texture2D SD_target[2];
@@ -480,6 +482,8 @@ public:
 	uint32_t renderHeight{};
 	uint32_t m_JitterIndex = 0;
 
+	float rcas_sharpness = 1.0f;
+
 	Window* windowPtr{ nullptr };
 
 	//textures
@@ -564,6 +568,7 @@ public:
 	oGFX::AllocatedBuffer SPDconstantBuffer;
 
 	oGFX::AllocatedBuffer FSR2constantBuffer[MAX_FRAME_DRAWS];
+	oGFX::AllocatedBuffer FSR2rcasBuffer[MAX_FRAME_DRAWS];
 	oGFX::AllocatedBuffer FSR2luminanceCB[MAX_FRAME_DRAWS];
 
 	std::vector<oGFX::AllocatedBuffer> imguiVertexBuffer;
