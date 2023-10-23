@@ -2540,7 +2540,7 @@ void VulkanRenderer::BeginDraw()
 
 	//vkWaitForFences(m_device.logicalDevice, 1, &drawFences[getFrame()], VK_TRUE, UINT64_MAX);
 	uint64_t res{};
-	VK_CHK(vkGetSemaphoreCounterValue(m_device.logicalDevice, frameCountSemaphore, &res));
+	VK_CHK(vkGetSemaphoreCounterValue(m_device.logicalDevice, frameCountSemaphore, &frameCounter));
 	//printf("[FRAME COUNTER %5llu]\n", res);	
 
 	//wait for given fence to signal from last draw before continuing

@@ -230,14 +230,17 @@ public:
 		std::array<vkutils::Texture2D, MAX_BLOOM_SAMPLES> Bloom_downsampleTargets;
 
 		//FSR2 
-		vkutils::Texture2D fsr_lum_midMip;
+		vkutils::Texture2D fsr_exposure_mips;
 		vkutils::Texture2D fsr_reconstructed_prev_depth;
-		vkutils::Texture2D fsr_dilated_depth[MAX_FRAME_DRAWS];
-		vkutils::Texture2D fsr_dilated_velocity;
+		vkutils::Texture2D fsr_dilated_depth;
+		vkutils::Texture2D fsr_dilated_velocity[MAX_FRAME_DRAWS];
 		vkutils::Texture2D fsr_lock_input_luma;
 		vkutils::Texture2D fsr_dilated_reactive_masks;
 		vkutils::Texture2D fsr_prepared_input_color;
 		vkutils::Texture2D fsr_new_locks;
+		vkutils::Texture2D fsr_lock_status[MAX_FRAME_DRAWS];
+		vkutils::Texture2D fsr_upscaled_color[MAX_FRAME_DRAWS];
+		vkutils::Texture2D fsr_luma_history[MAX_FRAME_DRAWS];
 	}attachments;
 
 	inline static uint64_t totalTextureSizeLoaded = 0;
@@ -589,7 +592,7 @@ public:
 	std::mutex g_mut_workQueue;
 	std::vector<std::function<void()>> g_workQueue;
 
-	uint32_t frameCounter = 0;
+	size_t frameCounter = 0;
 	uint32_t currentFrame = 0;
 	uint32_t getFrame() const;
 	uint32_t getPreviousFrame() const;
