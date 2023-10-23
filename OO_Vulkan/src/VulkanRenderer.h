@@ -237,6 +237,7 @@ public:
 		vkutils::Texture2D fsr_lock_input_luma;
 		vkutils::Texture2D fsr_dilated_reactive_masks;
 		vkutils::Texture2D fsr_prepared_input_color;
+		vkutils::Texture2D fsr_new_locks;
 	}attachments;
 
 	inline static uint64_t totalTextureSizeLoaded = 0;

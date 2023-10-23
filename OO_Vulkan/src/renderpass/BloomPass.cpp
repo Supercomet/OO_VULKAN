@@ -103,7 +103,7 @@ void BloomPass::Init()
 	blankInfo.pAttachments = dummyViews.data();
 	// we add this to resize resource tracking
 	const bool resourceTrackonly = true;
-	vr.fbCache.CreateFramebuffer(&blankInfo, std::move(textures), textures.front()->targetSwapchain, resourceTrackonly);
+	vr.fbCache.CreateFramebuffer(&blankInfo, std::move(textures), textures.front()->useRenderscale, resourceTrackonly);
 
 	auto cmd = vr.GetCommandBuffer();
 

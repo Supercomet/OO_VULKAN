@@ -40,7 +40,7 @@ bool FramebufferBuilder::Build(VkFramebuffer& framebuffer, const VulkanRenderpas
 	uint32_t w, h;
 	w = textures.front()->width;
 	h = textures.front()->height;
-	bool swapchainTarget = textures.front()->targetSwapchain;
+	bool swapchainTarget = textures.front()->useRenderscale;
 	for (size_t i = 0; i < renderPass.rpci.attachmentCount; i++)
 	{
 		auto& tex = textures[i];
@@ -76,7 +76,7 @@ bool FramebufferBuilder::Build(VkFramebuffer& framebuffer, const VulkanRenderpas
 	fbInfo.height = h;
 	fbInfo.layers = 1;
 
-	framebuffer = cache->CreateFramebuffer(&fbInfo, std::move(textures), textures.front()->targetSwapchain);
+	framebuffer = cache->CreateFramebuffer(&fbInfo, std::move(textures), textures.front()->useRenderscale);
 
 	return true;
 }

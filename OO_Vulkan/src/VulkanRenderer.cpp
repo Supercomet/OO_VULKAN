@@ -4731,8 +4731,8 @@ void SetDefaultViewportAndScissor(VkCommandBuffer commandBuffer, VkViewport* vp,
 {
 	auto& vr = *VulkanRenderer::get();
     auto* windowPtr = vr.windowPtr;
-    const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height * vr.renderResolution;
-    const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width * vr.renderResolution;
+    const float vpWidth = (float)vr.renderWidth;
+    const float vpHeight = (float)vr.renderHeight;
     VkViewport viewport = { 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f };
     VkRect2D scissor = { {0, 0}, {uint32_t(windowPtr->m_width), uint32_t(windowPtr->m_height) } };
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);

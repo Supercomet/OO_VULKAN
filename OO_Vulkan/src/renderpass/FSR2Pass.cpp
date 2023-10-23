@@ -164,6 +164,11 @@ void FSR2Pass::Init()
 		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL); // half resolution for mipmap
 	vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_prepared_input_color);
 	
+	vr.attachments.fsr_new_locks.name = "fsr_new_locks";
+	vr.attachments.fsr_new_locks.forFrameBuffer(&vr.m_device, VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, false, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL); // half resolution for mipmap
+	vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_new_locks);
+	
 
 	FSR2atomicBuffer.name = "FSR2_atomic_tex";
 	FSR2atomicBuffer.forFrameBuffer(&vr.m_device, VK_FORMAT_R32_UINT, VK_IMAGE_USAGE_STORAGE_BIT,
@@ -186,6 +191,7 @@ void FSR2Pass::Init()
 	vkutils::SetImageInitialState(cmd, vr.attachments.fsr_lock_input_luma);
 	vkutils::SetImageInitialState(cmd, vr.attachments.fsr_dilated_reactive_masks);
 	vkutils::SetImageInitialState(cmd, vr.attachments.fsr_prepared_input_color);
+	vkutils::SetImageInitialState(cmd, vr.attachments.fsr_new_locks);
 
 	vkutils::SetImageInitialState(cmd, FSR2atomicBuffer);
 	vkutils::SetImageInitialState(cmd, FSR2AutoExposure);
@@ -556,6 +562,20 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	cmd.Dispatch(dispatchSrc.x, dispatchSrc.y);
 
+	// Depth clip
+	cmd.BindPSO(pso_fsr2[FSR2::LOCK], PSOLayoutDB::fsr2_PSOLayouts[FSR2::LOCK], VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.DescriptorSetBegin(0)
+		.BindImage(0, &vr.attachments.fsr_lock_input_luma, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		
+		.BindSampler(1000, GfxSamplerManager::GetSampler_PointClamp()) // point clamp
+		.BindSampler(1001, GfxSamplerManager::GetSampler_LinearClamp()) // linear clamp
+
+		.BindImage(2001, &vr.attachments.fsr_new_locks, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+		.BindImage(2002, &vr.attachments.fsr_reconstructed_prev_depth, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+
+		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	cmd.Dispatch(dispatchSrc.x, dispatchSrc.y);
+
 	DelayedDeleter::get()->DeleteAfterFrames([views = mipViews, dev = vr.m_device.logicalDevice]() {
 		for (size_t i = 0; i < views.size(); i++)
 		{
@@ -590,6 +610,8 @@ void FSR2Pass::Shutdown()
 	vr.attachments.fsr_dilated_reactive_masks.destroy();
 
 	vr.attachments.fsr_prepared_input_color.destroy();
+
+	vr.attachments.fsr_new_locks.destroy();
 
 	FSR2atomicBuffer.destroy();
 	FSR2AutoExposure.destroy();

@@ -543,10 +543,16 @@ namespace vkutils
 		auto& vr = *VulkanRenderer::get();
 
 		this->device = device;
-		targetSwapchain = forFullscr;
+		useRenderscale = forFullscr;
 		renderScale = _renderscale;
-		width = static_cast<uint32_t>(texWidth * renderScale* vr.renderResolution);
-		height = static_cast<uint32_t>(texHeight* renderScale* vr.renderResolution);
+
+		float scale = 1.0f;
+		if (useRenderscale) {
+			scale = vr.renderResolution;
+		}
+
+		width = static_cast<uint32_t>(texWidth * renderScale* scale);
+		height = static_cast<uint32_t>(texHeight* renderScale* scale);
 		format = _format;
 		filter = _filter;
 		referenceLayout = _imageLayout;
@@ -592,8 +598,14 @@ namespace vkutils
 
 		auto& vr = *VulkanRenderer::get();
 
-		width = static_cast<uint32_t>(texWidth * renderScale * vr.renderResolution);
-		height = static_cast<uint32_t>(texHeight * renderScale * vr.renderResolution);
+		float scaling = 1.0f;
+		if (useRenderscale)
+		{
+			scaling = vr.renderResolution;
+		}
+
+		width = static_cast<uint32_t>(texWidth * renderScale * scaling);
+		height = static_cast<uint32_t>(texHeight * renderScale * scaling);
 
 		VkImageView oldview = view;
 		VmaAllocation oldMemory = image.allocation;
