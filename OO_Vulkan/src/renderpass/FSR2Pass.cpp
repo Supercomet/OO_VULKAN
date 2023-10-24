@@ -309,8 +309,9 @@ void SetupConstantBuffers()
 	 constantBuffer.downscaleFactor[0] = float(vr.renderWidth) / resInfo.width;
 	 constantBuffer.downscaleFactor[1] = float(vr.renderHeight) / resInfo.height;
 
-	 float toMilliseconds = 1.0f / 1000.0f;
+	 float toMilliseconds = 1000.0f;
 	 constantBuffer.deltaTime = vr.deltaTime * toMilliseconds;
+	 
 
 	 constantBuffer.lumaMipLevelToUse = 4;
 	 glm::uvec2 mipDims = vkutils::GetMipDims(vr.attachments.fsr_exposure_mips, constantBuffer.lumaMipLevelToUse);

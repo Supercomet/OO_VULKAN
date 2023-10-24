@@ -810,6 +810,7 @@ void TestApplication::Run()
                     gs_RenderEngine->UpdateRenderResolution();
                     currItem = 5;
                 }
+                ImGui::Checkbox("Use Jitter", &gs_RenderEngine->m_useJitter);
                 if (ImGui::SliderFloat("RCAS Sharpness", &gs_RenderEngine->rcas_sharpness, 0.0f, 1.0f))
                 {
 

@@ -182,8 +182,8 @@ static void setupDeviceDepthToViewSpaceDepthParams(const Camera& cam)
 
     // make sure it has no impact if near and far plane values are swapped in dispatch params
     // the flags "inverted" and "infinite" will decide what transform to use
-    float fMin = std::min(cam.m_znear, cam.m_zfar);
-    float fMax = std::max(cam.m_znear, cam.m_zfar);
+    float fMin = std::min(FLT_MAX, cam.m_znear);
+    float fMax = std::max(FLT_MAX, cam.m_znear);
 
     if (bInverted) {
         float tmp = fMin;
