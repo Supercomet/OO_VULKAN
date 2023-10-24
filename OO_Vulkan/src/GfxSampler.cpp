@@ -127,7 +127,7 @@ void GfxSamplerManager::Init()
         samplerCreateInfo.maxAnisotropy = maxAni;
         samplerCreateInfo.anisotropyEnable = aniEnabled;
         samplerCreateInfo.minLod = 0.0f;
-        samplerCreateInfo.maxLod = 1.0f;
+        samplerCreateInfo.maxLod = FLT_MAX;
         VK_CHK(vkCreateSampler(device, &samplerCreateInfo, nullptr, &linearClampSampler));
         VK_NAME(device, "linearClampSampler", linearClampSampler);
         

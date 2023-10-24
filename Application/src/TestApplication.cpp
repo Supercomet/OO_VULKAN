@@ -810,7 +810,7 @@ void TestApplication::Run()
                     gs_RenderEngine->UpdateRenderResolution();
                     currItem = 5;
                 }
-                if (ImGui::SliderFloat("RCAS Sharpness", &gs_RenderEngine->rcas_sharpness, 0.1f, 1.0f))
+                if (ImGui::SliderFloat("RCAS Sharpness", &gs_RenderEngine->rcas_sharpness, 0.0f, 1.0f))
                 {
 
                 }

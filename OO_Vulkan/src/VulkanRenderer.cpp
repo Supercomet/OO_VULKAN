@@ -2772,8 +2772,13 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		AddRenderer(g_SSAORenderPass);
 		AddRenderer(g_LightingPass);
 		AddRenderer(g_SkyRenderPass);
-		AddRenderer(g_FSR2Pass);
 		AddRenderer(g_LightingHistogram);
+		//if (enableFSR2) {
+			AddRenderer(g_FSR2Pass);
+		//}
+		//else {
+		//
+		//}
 		AddRenderer(g_BloomPass);
 		AddRenderer(g_ForwardParticlePass);
 		AddRenderer(g_ForwardUIPass);

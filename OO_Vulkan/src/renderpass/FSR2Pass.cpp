@@ -265,7 +265,7 @@ void FSR2Pass::Init()
 		vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_dilated_velocity[i]);
 
 		vr.attachments.fsr_upscaled_color[i].name = "fsr_upscaled_color_" + std::to_string(i);
-		vr.attachments.fsr_upscaled_color[i].forFrameBuffer(&vr.m_device, vr.G_HDR_FORMAT, VK_IMAGE_USAGE_STORAGE_BIT,
+		vr.attachments.fsr_upscaled_color[i].forFrameBuffer(&vr.m_device, vr.G_HDR_FORMAT_ALPHA, VK_IMAGE_USAGE_STORAGE_BIT,
 			swapchainext.width, swapchainext.height, false, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL); 
 		vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_upscaled_color[i]);
 
@@ -726,7 +726,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	cmd.Dispatch(dispatchSrc.x, dispatchSrc.y);
 
-	// Depth clip
+	// Generate Locks
 	cmd.BindPSO(pso_fsr2[FSR2::LOCK], PSOLayoutDB::fsr2_PSOLayouts[FSR2::LOCK], VK_PIPELINE_BIND_POINT_COMPUTE);
 	cmd.DescriptorSetBegin(0)
 		.BindImage(0, &vr.attachments.fsr_lock_input_luma, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
@@ -763,7 +763,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	cmd.Dispatch(dispatchDst.x, dispatchDst.y);
 
-	// Reproject & accumulate
+	// RCAS
 	cmd.BindPSO(pso_fsr2[FSR2::RCAS], PSOLayoutDB::fsr2_PSOLayouts[FSR2::RCAS], VK_PIPELINE_BIND_POINT_COMPUTE);
 	cmd.DescriptorSetBegin(0)
 		.BindImage(0, &FSR2AutoExposure, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
