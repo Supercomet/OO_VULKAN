@@ -32,6 +32,8 @@ Technology is prohibited.
 #include "../shaders/shared_structs.h"
 #include "../shaders/fidelity/include/FidelityFX/gpu/ffx_common_types.h"
 
+#include "FSR2Helper.h"
+
 // must match FSR2 enum
 static const char* fsr_shaders[]{
 	"Shaders/bin/ffx_fsr2_tcr_autogen_pass.glsl.spv",
@@ -55,155 +57,7 @@ static const char* fsr_shaders_names[]{
 	"fsr2_rcas",
 };
 
-static FfxUInt32 ffx_f32tof16(FfxFloat32 f)
-{
-    static FfxUInt16 base[512] = {
-        0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
-        0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
-        0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
-        0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
-        0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
-        0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001, 0x0002, 0x0004, 0x0008, 0x0010, 0x0020, 0x0040, 0x0080, 0x0100, 0x0200, 0x0400,
-        0x0800, 0x0c00, 0x1000, 0x1400, 0x1800, 0x1c00, 0x2000, 0x2400, 0x2800, 0x2c00, 0x3000, 0x3400, 0x3800, 0x3c00, 0x4000, 0x4400, 0x4800, 0x4c00, 0x5000,
-        0x5400, 0x5800, 0x5c00, 0x6000, 0x6400, 0x6800, 0x6c00, 0x7000, 0x7400, 0x7800, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff,
-        0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff,
-        0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff,
-        0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff,
-        0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff,
-        0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff,
-        0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x7bff, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000,
-        0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000,
-        0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000,
-        0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000,
-        0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000,
-        0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8001, 0x8002,
-        0x8004, 0x8008, 0x8010, 0x8020, 0x8040, 0x8080, 0x8100, 0x8200, 0x8400, 0x8800, 0x8c00, 0x9000, 0x9400, 0x9800, 0x9c00, 0xa000, 0xa400, 0xa800, 0xac00,
-        0xb000, 0xb400, 0xb800, 0xbc00, 0xc000, 0xc400, 0xc800, 0xcc00, 0xd000, 0xd400, 0xd800, 0xdc00, 0xe000, 0xe400, 0xe800, 0xec00, 0xf000, 0xf400, 0xf800,
-        0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff,
-        0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff,
-        0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff,
-        0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff,
-        0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff,
-        0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff, 0xfbff
-    };
-    
-    static FfxUInt8 shift[512] = {
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11, 0x10, 0x0f, 0x0e, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d,
-        0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11, 0x10, 0x0f, 0x0e, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d,
-        0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x0d, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
-        0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
-    };
 
-    union
-    {
-        FfxFloat32      f;
-        FfxUInt32 u;
-    } bits;
-
-    bits.f       = f;
-    FfxUInt32 u = bits.u;
-    FfxUInt32 i = u >> 23;
-    return (FfxUInt32)(base[i]) + ((u & 0x7fffff) >> shift[i]);
-}
-
-/// Pack 2x32-bit floating point values in a single 32bit value.
-///
-/// This function first converts each component of <c><i>value</i></c> into their nearest 16-bit floating
-/// point representation, and then stores the X and Y components in the lower and upper 16 bits of the
-/// 32bit unsigned integer respectively.
-///
-/// @param [in] x               A 2-dimensional floating point value to convert and pack.
-///
-/// @returns
-/// A packed 32bit value containing 2 16bit floating point values.
-///
-/// @ingroup CPUCore
-static FfxUInt32 ffx_packHalf2x16(FfxFloat32x2 x)
-{
-    return ffx_f32tof16(x[0]) + (ffx_f32tof16(x[1]) << 16);
-}
-
-#pragma optimize("" off)
-struct FSR2_CB_DATA {
-	FfxInt32x2    renderSize;
-	FfxInt32x2    maxRenderSize;
-	FfxInt32x2    displaySize;
-	FfxInt32x2    inputColorResourceDimensions;
-	FfxInt32x2    lumaMipDimensions;
-	FfxInt32      lumaMipLevelToUse;
-	FfxInt32      frameIndex;
-
-	FfxFloat32x4  deviceToViewDepth;
-	FfxFloat32x2  jitterOffset;
-	FfxFloat32x2  motionVectorScale;
-	FfxFloat32x2  downscaleFactor;
-	FfxFloat32x2  motionVectorJitterCancellation;
-	FfxFloat32    preExposure;
-	FfxFloat32    previousFramePreExposure;
-	FfxFloat32    tanHalfFOV;
-	FfxFloat32    jitterPhaseCount;
-	FfxFloat32    deltaTime;
-	FfxFloat32    dynamicResChangeFactor;
-	FfxFloat32    viewSpaceToMetersFactor;
-};
-
-typedef struct Fsr2RcasConstants {
-	FfxUInt32x4                 rcasConfig;
-} FfxRcasConstants;
-
-FfxRcasConstants rcasCB;
-
-static FfxUInt32 ffxAsUInt32(FfxFloat32 x)
-{
-	union
-	{
-		FfxFloat32 f;
-		FfxUInt32  u;
-	} bits;
-
-	bits.f = x;
-	return bits.u;
-}
-
-static void FsrRcasCon(FfxUInt32x4& con,
-	// The scale is {0.0 := maximum, to N>0, where N is the number of stops (halving) of the reduction of sharpness}.
-	FfxFloat32 sharpness)
-{
-	// Transform from stops to linear value.
-	sharpness = exp2(-sharpness);
-	FfxFloat32x2 hSharp  = {sharpness, sharpness};
-	con[0] = ffxAsUInt32(sharpness);
-	con[1] = packHalf2x16(hSharp);
-	con[2] = 0;
-	con[3] = 0;
-}
-
-typedef struct Fsr2SpdConstants {
-
-	uint32_t                    mips;
-	uint32_t                    numworkGroups;
-	uint32_t                    workGroupOffset[2];
-	uint32_t                    renderSize[2];
-} Fsr2SpdConstants;
-
-FSR2_CB_DATA constantBuffer{};
 
 struct FSR2Pass : public GfxRenderpass
 {
@@ -390,99 +244,6 @@ bool FSR2Pass::SetupDependencies()
 	return true;
 }
 
-#define FFX_FSR2_ENABLE_DEPTH_INVERTED true
-#define FFX_FSR2_ENABLE_DEPTH_INFINITE true
-#define FFX_FSR2_ENABLE_DISPLAY_RESOLUTION_MOTION_VECTORS false
-
-static void setupDeviceDepthToViewSpaceDepthParams(const Camera& cam)
-{
-
-	auto& vr = *VulkanRenderer::get();
-	VkExtent2D renderSize = {vr.m_swapchain.swapChainExtent.width * vr.renderResolution ,vr.m_swapchain.swapChainExtent.height * vr.renderResolution };
-
-	const bool bInverted = FFX_FSR2_ENABLE_DEPTH_INVERTED;
-	const bool bInfinite = FFX_FSR2_ENABLE_DEPTH_INFINITE;
-
-	// make sure it has no impact if near and far plane values are swapped in dispatch params
-	// the flags "inverted" and "infinite" will decide what transform to use
-	float fMin = std::min(cam.m_znear, cam.m_zfar);
-	float fMax = std::max(cam.m_znear, cam.m_zfar);
-
-	if (bInverted) {
-		float tmp = fMin;
-		fMin = fMax;
-		fMax = tmp;
-	}
-
-	// a 0 0 0   x
-	// 0 b 0 0   y
-	// 0 0 c d   z
-	// 0 0 e 0   1
-
-	const float fQ = fMax / (fMin - fMax);
-	const float d = -1.0f; // for clarity
-
-	const float matrix_elem_c[2][2] = {
-		fQ,                     // non reversed, non infinite
-		-1.0f - FLT_EPSILON,    // non reversed, infinite
-		fQ,                     // reversed, non infinite
-		0.0f + FLT_EPSILON      // reversed, infinite
-	};
-
-	const float matrix_elem_e[2][2] = {
-		fQ * fMin,             // non reversed, non infinite
-		-fMin - FLT_EPSILON,    // non reversed, infinite
-		fQ * fMin,             // reversed, non infinite
-		fMax,                  // reversed, infinite
-	};
-
-	constantBuffer.deviceToViewDepth[0] = d * matrix_elem_c[bInverted][bInfinite];
-	constantBuffer.deviceToViewDepth[1] = matrix_elem_e[bInverted][bInfinite];
-
-	// revert x and y coords
-	const float aspect = renderSize.width / float(renderSize.height);
-	const float cotHalfFovY = cosf(0.5f * glm::radians(cam.m_fovDegrees)) / sinf(0.5f * glm::radians(cam.m_fovDegrees));
-	const float a = cotHalfFovY / aspect;
-	const float b = cotHalfFovY;
-
-	constantBuffer.deviceToViewDepth[2] = (1.0f / a);
-	constantBuffer.deviceToViewDepth[3] = (1.0f / b);
-}
-
-int32_t ffxFsr2GetJitterPhaseCount(int32_t renderWidth, int32_t displayWidth)
-{
-	const float basePhaseCount = 8.0f;
-	const int32_t jitterPhaseCount = int32_t(basePhaseCount * pow((float(displayWidth) / renderWidth), 2.0f));
-	return jitterPhaseCount;
-}
-
-// Calculate halton number for index and base.
-static float halton(int32_t index, int32_t base)
-{
-	float f = 1.0f, result = 0.0f;
-
-	for (int32_t currentIndex = index; currentIndex > 0;) {
-
-		f /= (float)base;
-		result = result + f * (float)(currentIndex % base);
-		currentIndex = (uint32_t)(floorf((float)(currentIndex) / (float)(base)));
-	}
-
-	return result;
-}
-
-void ffxFsr2GetJitterOffset(float* outX, float* outY, int32_t index, int32_t phaseCount)
-{
-	OO_ASSERT(outX && outY);
-	OO_ASSERT(phaseCount > 0);
-
-	const float x = halton((index % phaseCount) + 1, 2) - 0.5f;
-	const float y = halton((index % phaseCount) + 1, 3) - 0.5f;
-
-	*outX = x;
-	*outY = y;
-}
-
 void SetupConstantBuffers() 
 {
 	VulkanRenderer& vr = *VulkanRenderer::get();
@@ -490,34 +251,12 @@ void SetupConstantBuffers()
 
 	Camera& cam = vr.currWorld->cameras[0];
 	VkExtent2D resInfo = vr.m_swapchain.swapChainExtent;
-	// Increment jitter index for frame
-	++vr.m_JitterIndex;
+	
+	// Jitter handled in main
 
-	float         jitterX, jitterY;
-	const int32_t jitterPhaseCount = ffxFsr2GetJitterPhaseCount(vr.renderWidth, resInfo.width);
-	ffxFsr2GetJitterOffset(&jitterX, &jitterY, vr.m_JitterIndex, jitterPhaseCount);
-
-	// TODO: setup camera to use jittered projection
-	// pCamera->SetJitterValues({ -2.f * jitterX / vr.renderWidth, 2.f * jitterY / vr.renderHeight });
-
-	constantBuffer.displaySize[0] = resInfo.width;
-	constantBuffer.displaySize[1] = resInfo.height;
-
-	constantBuffer.frameIndex = vr.frameCounter;
-
-	/// TEMP REMOVE
-	/*
-	constantBuffer.jitterOffset[0] = jitterX;
-	constantBuffer.jitterOffset[1] = jitterY;
-	*/
-	constantBuffer.renderSize[0] = vr.renderWidth;
-	constantBuffer.renderSize[1] = vr.renderHeight;
-	constantBuffer.maxRenderSize[0] = vr.renderWidth;
-	constantBuffer.maxRenderSize[1] = vr.renderHeight;
-
-	// or colour .size
-	constantBuffer.inputColorResourceDimensions[0] = vr.renderWidth;
-	constantBuffer.inputColorResourceDimensions[1] = vr.renderHeight;
+	constantBuffer.jitterOffset[0] = vr.jitterX;
+	constantBuffer.jitterOffset[1] = vr.jitterY;
+	constantBuffer.jitterPhaseCount = vr.jitterPhaseCount;
 
 	// compute the horizontal FOV for the shader from the vertical one.
 	const float aspectRatio = (float)vr.renderWidth / (float)vr.renderHeight;
@@ -528,9 +267,6 @@ void SetupConstantBuffers()
 	// compute params to enable device depth to view space depth computation in shader
 	setupDeviceDepthToViewSpaceDepthParams(cam);
 
-	// To be updated if resource is larger than the actual image size
-	constantBuffer.downscaleFactor[0] = float(vr.renderWidth) / resInfo.width;
-	constantBuffer.downscaleFactor[1] = float(vr.renderHeight) / resInfo.height;
 	constantBuffer.previousFramePreExposure = constantBuffer.preExposure;
 	constantBuffer.preExposure = (constantBuffer.previousFramePreExposure != 0) ? constantBuffer.previousFramePreExposure : 1.0f;
 
@@ -538,38 +274,59 @@ void SetupConstantBuffers()
 	// motion vector data
 	const uint32_t* motionVectorsTargetSize = (FFX_FSR2_ENABLE_DISPLAY_RESOLUTION_MOTION_VECTORS) ? (uint32_t*)&resInfo : (uint32_t*)&renderSize;
 
-	// constantBuffer.motionVectorScale[0] = (params->motionVectorScale.x / motionVectorsTargetSize[0]);
-	// constantBuffer.motionVectorScale[1] = (params->motionVectorScale.y / motionVectorsTargetSize[1]);
-	// 
-	// // compute jitter cancellation
-	// if (context->contextDescription.flags & FFX_FSR2_ENABLE_MOTION_VECTORS_JITTER_CANCELLATION) {
-	// 
-	// 	constantBuffer.motionVectorJitterCancellation[0] = (context->previousJitterOffset[0] - context->constants.jitterOffset[0]) / motionVectorsTargetSize[0];
-	// 	constantBuffer.motionVectorJitterCancellation[1] = (context->previousJitterOffset[1] - context->constants.jitterOffset[1]) / motionVectorsTargetSize[1];
-	// 
-	// 	context->previousJitterOffset[0] = context->constants.jitterOffset[0];
-	// 	context->previousJitterOffset[1] = context->constants.jitterOffset[1];
-	// }
+	 // compute jitter cancellation
+	 if (FFX_FSR2_ENABLE_MOTION_VECTORS_JITTER_CANCELLATION) 
+	 {	 
+		 static glm::vec2 previousJitterOffset{};
 
-	constantBuffer.deltaTime = vr.deltaTime;
-	constantBuffer.lumaMipLevelToUse = 4;
-	glm::uvec2 mipDims = vkutils::GetMipDims(vr.attachments.fsr_exposure_mips, constantBuffer.lumaMipLevelToUse);
-	constantBuffer.lumaMipDimensions[0] = mipDims.x;
-	constantBuffer.lumaMipDimensions[1] = mipDims.y;
+	 	constantBuffer.motionVectorJitterCancellation[0] = (previousJitterOffset[0] - constantBuffer.jitterOffset[0]) / motionVectorsTargetSize[0];
+	 	constantBuffer.motionVectorJitterCancellation[1] = (previousJitterOffset[1] - constantBuffer.jitterOffset[1]) / motionVectorsTargetSize[1];
+	
+		previousJitterOffset[0] = constantBuffer.jitterOffset[0];
+		previousJitterOffset[1] = constantBuffer.jitterOffset[1];
+	 }
 
-	constantBuffer.motionVectorScale.x = 1.0f;
-	constantBuffer.motionVectorScale.y = 1.0f;
+	 constantBuffer.motionVectorScale.x = 1.0f;
+	 constantBuffer.motionVectorScale.y = 1.0f;
 
-	memcpy(vr.FSR2constantBuffer[currFrame].allocInfo.pMappedData, &constantBuffer, sizeof(FSR2_CB_DATA));
+	 // guarenteed OK
+
+	 constantBuffer.displaySize[0] = resInfo.width;
+	 constantBuffer.displaySize[1] = resInfo.height;
+
+	 constantBuffer.frameIndex = vr.frameCounter;
+
+	 constantBuffer.renderSize[0] = vr.renderWidth;
+	 constantBuffer.renderSize[1] = vr.renderHeight;
+	 constantBuffer.maxRenderSize[0] = vr.renderWidth;
+	 constantBuffer.maxRenderSize[1] = vr.renderHeight;
+
+	 // or colour .size
+	 constantBuffer.inputColorResourceDimensions[0] = vr.renderWidth;
+	 constantBuffer.inputColorResourceDimensions[1] = vr.renderHeight;
+
+	// To be updated if resource is larger than the actual image size
+	 constantBuffer.downscaleFactor[0] = float(vr.renderWidth) / resInfo.width;
+	 constantBuffer.downscaleFactor[1] = float(vr.renderHeight) / resInfo.height;
+
+	 float toMilliseconds = 1.0f / 1000.0f;
+	 constantBuffer.deltaTime = vr.deltaTime * toMilliseconds;
+
+	 constantBuffer.lumaMipLevelToUse = 4;
+	 glm::uvec2 mipDims = vkutils::GetMipDims(vr.attachments.fsr_exposure_mips, constantBuffer.lumaMipLevelToUse);
+	 constantBuffer.lumaMipDimensions[0] = mipDims.x;
+	 constantBuffer.lumaMipDimensions[1] = mipDims.y;
+
+	 memcpy(vr.FSR2constantBuffer[currFrame].allocInfo.pMappedData, &constantBuffer, sizeof(FSR2_CB_DATA));
 
 
-	// compute the constants.
-	rcasCB = {};
-	float sharpness = std::clamp(vr.rcas_sharpness, 0.0f, 1.0f);
-	const float sharpenessRemapped = (-2.0f * sharpness) + 2.0f;
-	FsrRcasCon(rcasCB.rcasConfig, sharpenessRemapped);
+	 // compute the constants.
+	 rcasCB = {};
+	 float sharpness = std::clamp(vr.rcas_sharpness, 0.0f, 1.0f);
+	 const float sharpenessRemapped = (-2.0f * sharpness) + 2.0f;
+	 FsrRcasCon(rcasCB.rcasConfig, sharpenessRemapped);
 
-	memcpy(vr.FSR2rcasBuffer[currFrame].allocInfo.pMappedData, &rcasCB, sizeof(Fsr2RcasConstants));
+	 memcpy(vr.FSR2rcasBuffer[currFrame].allocInfo.pMappedData, &rcasCB, sizeof(Fsr2RcasConstants));
 
 }
 
@@ -776,7 +533,13 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 
 		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
 		.BindBuffer(3001, vr.FSR2rcasBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	cmd.Dispatch(dispatchDst.x, dispatchDst.y);
+	
+	const int32_t threadGroupWorkRegionDimRCAS = 16;
+	glm::uvec2 rcasDispatchDst = {
+		(vr.m_swapchain.swapChainExtent.width - 1) / threadGroupWorkRegionDimRCAS + 1,
+		(vr.m_swapchain.swapChainExtent.height - 1) / threadGroupWorkRegionDimRCAS + 1
+	};
+	cmd.Dispatch(rcasDispatchDst.x, rcasDispatchDst.y);
 
 	DelayedDeleter::get()->DeleteAfterFrames([views = mipViews, dev = vr.m_device.logicalDevice]() {
 		for (size_t i = 0; i < views.size(); i++)

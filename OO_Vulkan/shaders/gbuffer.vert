@@ -103,8 +103,9 @@ void main()
 		outPosition = dInsMatrix * vec4(inPosition,1.0);
 	}
 
-	gl_Position = uboFrameContext.viewProjection * outPosition;
-    outPrevPosition = uboFrameContext.prevViewProjection * outPosition;
+	gl_Position = uboFrameContext.viewProjJittered * outPosition;
+	// todo :: prev model
+    outPrevPosition = uboFrameContext.prevViewProjection* outPosition;
 	
 	outUV = inUV;
 	outColor = inColor;

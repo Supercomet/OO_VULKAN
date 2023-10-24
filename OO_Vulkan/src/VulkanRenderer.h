@@ -175,6 +175,13 @@ namespace CB
 		glm::mat4 prevViewProjection{ 1.0f };
 		glm::vec4 renderTimer{ 0.0f, 0.0f, 0.0f, 0.0f };
 
+		glm::mat4 projectionJittered;
+		glm::mat4 viewProjJittered;
+		glm::mat4 inverseProjectionJittered;
+		glm::mat4 prevViewProjJittered;
+		glm::vec2 currJitter;
+		glm::vec2 prevJitter;
+
 		// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
 		// Bind this to every single shader possible.
 		// Remove this upon shipping the final product.
@@ -481,6 +488,12 @@ public:
 	uint32_t renderWidth{};
 	uint32_t renderHeight{};
 	uint32_t m_JitterIndex = 0;
+	bool m_useJitter = true;
+	float prevjitterX;
+	float prevjitterY;
+	float jitterX;
+	float jitterY;
+	int32_t jitterPhaseCount;
 
 	float rcas_sharpness = 1.0f;
 

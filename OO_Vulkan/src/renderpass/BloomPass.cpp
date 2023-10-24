@@ -176,7 +176,7 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 	// tone mapping 
 	{// composite online main buffer
 		cmd.BindPSO(pso_tone_mapping, PSOLayoutDB::tonemapPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
-		vkutils::Texture2D * outputBuffer = (&vr.attachments.SD_target[0]);
+		vkutils::Texture2D * outputBuffer = (&vr.renderTargets[0].texture);
 		vkutils::Texture2D * inputBuffer = previousBuffer;
 
 		VkDescriptorBufferInfo dbi{};

@@ -102,8 +102,9 @@ void ForwardUIPass::Draw(const VkCommandBuffer cmdlist)
 	rhi::CommandList cmd{ cmdlist, "Forward UI Pass"};
 	
 	auto& attachments = vr.attachments.gbuffer;
+	auto& target = vr.attachments.lighting_target;
 
-	cmd.BindAttachment(0, &vr.renderTargets[vr.renderTargetInUseID].texture);
+	cmd.BindAttachment(0, &target);
 	//cmd.BindAttachment(1, &attachments[GBufferAttachmentIndex::ENTITY_ID]);
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 
@@ -357,7 +358,7 @@ void ForwardUIPass::CreatePipeline()
 	colorBlendState.pAttachments = blendAttachmentStates.data();
 
 	std::array<VkFormat, 2> formats{
-		vr.G_NON_HDR_FORMAT,
+		vr.G_HDR_FORMAT,
 		VK_FORMAT_R32_SINT
 	};
 	VkPipelineRenderingCreateInfo renderingInfo{};

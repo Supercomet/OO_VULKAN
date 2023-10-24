@@ -101,8 +101,9 @@ void DebugDrawRenderpass::Draw(const VkCommandBuffer cmdlist)
 	rhi::CommandList cmd{ cmdlist, "Debug Pass"};
 
 	auto& attachments = vr.attachments.gbuffer;
+	auto& target = vr.renderTargets[vr.renderTargetInUseID].texture;
 	
-	cmd.BindAttachment(0, &vr.renderTargets[vr.renderTargetInUseID].texture);
+	cmd.BindAttachment(0, &target);
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 
 	const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height;

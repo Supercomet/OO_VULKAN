@@ -71,6 +71,9 @@ public:
 		glm::mat4 perspectiveJittered{};
 		glm::mat4 view{};
 	} previousMat{};
+	glm::vec2 jitterValues;
+
+	void SetJitterValues(glm::vec2 vals);
 
 	struct
 	{
@@ -130,11 +133,6 @@ public:
 	float GetAspectRatio() const { return m_aspectRatio; }
 	void SetDirty();
 	glm::mat4 GetNonInvProjectionMatrix();
-
-
-
-
-
 
 	// 
 	bool m_ViewMatrixOutdated{ true };

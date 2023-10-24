@@ -64,6 +64,6 @@ void main()
 		outPosition = dInsMatrix * vec4(inPos,1.0);
 	}
 
-	gl_Position = uboFrameContext.viewProjection * outPosition;
+    gl_Position = uboFrameContext.viewProjJittered * outPosition;
 	
 }

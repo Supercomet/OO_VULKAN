@@ -42,6 +42,8 @@ static ImDrawListSharedData s_imguiSharedData;
 #include "../shaders/shared_structs.h"
 #include "../shaders/fidelity/src/backends/vk/shaders/spd/ffx_spd_glsl_bindings.h"
 
+#include "renderpass/FSR2Helper.h"
+
 #include "GfxRenderpass.h"
 
 
@@ -401,8 +403,8 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	rpd->RegisterRenderPass(g_LightingPass);
 	rpd->RegisterRenderPass(g_LightingHistogram);
 	rpd->RegisterRenderPass(g_SSAORenderPass);
-	rpd->RegisterRenderPass(g_ForwardParticlePass);
 	rpd->RegisterRenderPass(g_ForwardUIPass);
+	rpd->RegisterRenderPass(g_ForwardParticlePass);
 	rpd->RegisterRenderPass(g_BloomPass);
 	rpd->RegisterRenderPass(g_FSR2Pass);
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
@@ -1256,7 +1258,7 @@ void VulkanRenderer::InitWorld(GraphicsWorld* world)
 				{
 					image.name = "GW_"+std::to_string(wrdID)+":COL";
 					image.forFrameBuffer(&m_device, G_NON_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-						m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height);
+						m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height, false);
 					fbCache.RegisterFramebuffer(image);
 					auto cmd = GetCommandBuffer();
 					vkutils::SetImageInitialState(cmd, image);
@@ -2595,10 +2597,37 @@ void VulkanRenderer::BeginDraw()
 		if (currWorld)
 		{
 			PROFILE_SCOPED("Init batches");
+
+			VkExtent2D resInfo{ m_swapchain.swapChainExtent };
+
+			// Increment jitter index for frame
+			++m_JitterIndex;
+			
+			prevjitterX = currWorld->cameras[0].jitterValues.x;
+			prevjitterY = currWorld->cameras[0].jitterValues.y;
+
+			jitterX = 0.0f;
+			jitterY = 0.0f;
+			jitterPhaseCount = 0;
+
+
+			jitterPhaseCount = ffxFsr2GetJitterPhaseCount(renderWidth, resInfo.width);
+			ffxFsr2GetJitterOffset(&jitterX, &jitterY, m_JitterIndex, jitterPhaseCount);
+
 			
 			for (size_t i = 0; i < currWorld->numCameras; i++)
 			{
-				currWorld->cameras[i].UpdateMatrices();
+				Camera& cam = currWorld->cameras[i];		
+
+				if (m_useJitter) {
+					cam.SetJitterValues({ -2.f * jitterX / renderWidth, 2.f * jitterY / renderHeight });
+				}
+				else {
+					cam.SetJitterValues({ 0.0f,0.0f });
+					m_JitterIndex = 1;
+				}
+
+				cam.UpdateMatrices();
 			}
 			
 			batches.Init(currWorld, this, MAX_OBJECTS);
@@ -2773,6 +2802,8 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		AddRenderer(g_LightingPass);
 		AddRenderer(g_SkyRenderPass);
 		AddRenderer(g_LightingHistogram);
+		AddRenderer(g_ForwardUIPass);
+		AddRenderer(g_ForwardParticlePass);
 		//if (enableFSR2) {
 			AddRenderer(g_FSR2Pass);
 		//}
@@ -2780,9 +2811,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		//
 		//}
 		AddRenderer(g_BloomPass);
-		AddRenderer(g_ForwardParticlePass);
-		AddRenderer(g_ForwardUIPass);
-		AddRenderer(g_DebugDrawRenderpass);
+		//AddRenderer(g_DebugDrawRenderpass);
 		
 		auto updateHistogram = [this](void*) {
 			const VkCommandBuffer cmd = GetCommandBuffer();
@@ -4449,8 +4478,20 @@ void VulkanRenderer::UpdateUniformBuffers()
 			frameContextUBO[i].renderTimer.z = std::cos(renderClock * glm::pi<float>());
 			frameContextUBO[i].renderTimer.w = 0.0f; // unused
 
+			frameContextUBO[i].projectionJittered = camera.matrices.perspectiveJittered;
 			frameContextUBO[i].prevViewProjection = camera.previousMat.perspective * camera.previousMat.view;
-		
+			frameContextUBO[i].viewProjJittered = camera.matrices.perspectiveJittered * camera.matrices.view;
+			frameContextUBO[i].inverseProjectionJittered = glm::inverse(camera.matrices.perspectiveJittered);
+
+			frameContextUBO[i].prevViewProjJittered = camera.previousMat.perspectiveJittered * camera.previousMat.view;
+			frameContextUBO[i].currJitter = { camera.jitterValues.x,camera.jitterValues.y};
+			frameContextUBO[i].prevJitter = { prevjitterX,prevjitterY };
+
+			//if(i == 0)
+			//printf("[J] prev {%-1.5f,%-1.5f} jit {%-1.5f,%-1.5f} \n"
+			//	, prevjitterX, prevjitterY
+			//	, frameContextUBO[i].currJitter.x, frameContextUBO[i].currJitter.y);
+
 			// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
 			// Bind this to every single shader possible.
 			// Remove this upon shipping the final product.

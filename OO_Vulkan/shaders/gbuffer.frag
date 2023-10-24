@@ -87,10 +87,13 @@ void main()
     outEntityID = inEntityID;
     outAlbedo = vec4(inColor, 1.0);
     
-    vec4 clipPos = uboFrameContext.viewProjection * inPosition;
-    vec2 a = (clipPos.xy / clipPos.w) * 0.5 + 0.5;
-    vec2 b = (inPrevPosition.xy / inPrevPosition.w) * 0.5 + 0.5;
-    outVelocity.xy = (a - b) * vec2(100);
+    vec2 cancelJitter = uboFrameContext.prevJitter - uboFrameContext.currJitter;
+    vec4 clipPos = uboFrameContext.viewProjection* inPosition;
+    vec2 a = (clipPos.xy / clipPos.w);
+    vec2 b = (inPrevPosition.xy / inPrevPosition.w);
+    outVelocity.xy = (a - b); //; + cancelJitter;
+    
+    outVelocity.xy *= vec2(-0.5, 0.5);
     
     //outPosition = inPosition;
     // implicit depthOut will reconstruct the position

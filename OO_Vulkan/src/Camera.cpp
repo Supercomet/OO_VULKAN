@@ -182,6 +182,12 @@ void Camera::UpdateViewMatrixQuaternion()
 //	updated = true;
 //}
 
+void Camera::SetJitterValues(glm::vec2 vals)
+{
+	jitterValues = vals;
+	SetDirty();
+}
+
 oGFX::Frustum Camera::GetFrustum() const
 {
 	oGFX::Frustum frustum;
@@ -440,7 +446,7 @@ glm::mat4 inversed_infinite_perspectiveRH_ZO(float fovRad, float aspect, float n
 
 void Camera::SetDirty()
 {
-	
+	m_ProjectionMatrixOutdated = true;
 }
 
 glm::mat4 Camera::GetNonInvProjectionMatrix()
@@ -476,7 +482,8 @@ void Camera::UpdateMatrices()
 #ifdef INVERSED_DEPTH
 
 		matrices.perspective = inversed_infinite_perspectiveRH_ZO(glm::radians(m_fovDegrees), m_aspectRatio, m_znear, m_zfar);
-
+		glm::mat4 jitterTranslation = glm::translate(glm::mat4(1.0f), glm::vec3(jitterValues, 0.0f));
+		matrices.perspectiveJittered = jitterTranslation * matrices.perspective;
 #else
 		matrices.perspective = glm::perspective(glm::radians(m_fovDegrees), m_aspectRatio, m_znear, m_zfar);
 
