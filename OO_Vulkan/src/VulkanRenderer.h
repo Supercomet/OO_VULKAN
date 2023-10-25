@@ -493,6 +493,7 @@ public:
 	float prevjitterY;
 	float jitterX;
 	float jitterY;
+	uint32_t fsrFrameCount;
 	int32_t jitterPhaseCount;
 
 	float rcas_sharpness = 1.0f;

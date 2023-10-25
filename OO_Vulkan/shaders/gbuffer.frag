@@ -8,6 +8,7 @@ layout(location = 2) in vec3 inColor;
 layout(location = 3) in flat int inEntityID;
 layout(location = 4) in flat vec4 inEmissiveColour;
 layout(location = 5) in vec4 inPrevPosition;
+layout(location = 6) in vec4 inCurrPosition;
 
 layout(location = 7) in struct
 {
@@ -88,12 +89,12 @@ void main()
     outAlbedo = vec4(inColor, 1.0);
     
     vec2 cancelJitter = uboFrameContext.prevJitter - uboFrameContext.currJitter;
-    vec4 clipPos = uboFrameContext.viewProjection* inPosition;
+    vec4 clipPos = inCurrPosition;
     vec2 a = (clipPos.xy / clipPos.w);
     vec2 b = (inPrevPosition.xy / inPrevPosition.w);
-    outVelocity.xy = (a - b); //; + cancelJitter;
+    outVelocity.xy = (b - a) + vec2(1,-1) * cancelJitter;
     
-    outVelocity.xy *= vec2(-0.5, 0.5);
+    outVelocity.xy *= vec2(0.5, -0.5);
     
     //outPosition = inPosition;
     // implicit depthOut will reconstruct the position
@@ -115,7 +116,7 @@ void main()
    
     vec3 normalInfo = vec3(0.0);
     {
-        outAlbedo.rgb = texture(sampler2D(textureDescriptorArray[textureIndex_Albedo],basicSampler), inUV.xy).rgb;
+        outAlbedo.rgb = texture(sampler2D(textureDescriptorArray[textureIndex_Albedo],basicSampler), inUV.xy, -2.585).rgb;
     }
 	
     {
@@ -128,7 +129,7 @@ void main()
          
         vec3 V = normalize(inPosition.xyz - uboFrameContext.cameraPosition.xyz);    
   
-        vec3 map = texture(sampler2D(textureDescriptorArray[textureIndex_Normal],basicSampler), inUV.xy).xyz*2.0-1.0;
+        vec3 map = texture(sampler2D(textureDescriptorArray[textureIndex_Normal],basicSampler), inUV.xy, -2.585).xyz*2.0-1.0;
         
         // new method
         mat3 TBN = cotangent_frame( N, V,  inUV.xy );

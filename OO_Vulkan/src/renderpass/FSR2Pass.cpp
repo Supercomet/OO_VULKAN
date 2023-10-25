@@ -113,22 +113,22 @@ void FSR2Pass::Init()
 
 	for (size_t i = 0; i < VulkanRenderer::MAX_FRAME_DRAWS; i++)
 	{
-		vr.attachments.fsr_dilated_velocity[i].name = "fsr_dilated_velocity_" + std::to_string(i);
+		vr.attachments.fsr_dilated_velocity[i].name = "fsr_dilated_velocity_" + std::to_string(i+1);
 		vr.attachments.fsr_dilated_velocity[i].forFrameBuffer(&vr.m_device, VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT,
 			swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL);
 		vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_dilated_velocity[i]);
 
-		vr.attachments.fsr_upscaled_color[i].name = "fsr_upscaled_color_" + std::to_string(i);
+		vr.attachments.fsr_upscaled_color[i].name = "fsr_upscaled_color_" + std::to_string(i+1);
 		vr.attachments.fsr_upscaled_color[i].forFrameBuffer(&vr.m_device, vr.G_HDR_FORMAT_ALPHA, VK_IMAGE_USAGE_STORAGE_BIT,
 			swapchainext.width, swapchainext.height, false, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL); 
 		vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_upscaled_color[i]);
 
-		vr.attachments.fsr_lock_status[i].name = "fsr_lock_status" + std::to_string(i);
+		vr.attachments.fsr_lock_status[i].name = "fsr_lock_status" + std::to_string(i+1);
 		vr.attachments.fsr_lock_status[i].forFrameBuffer(&vr.m_device, VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT,
 			swapchainext.width, swapchainext.height, false, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL);
 		vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_lock_status[i]);
 
-		vr.attachments.fsr_luma_history[i].name = "fsr_luma_history" + std::to_string(i);
+		vr.attachments.fsr_luma_history[i].name = "fsr_luma_history" + std::to_string(i+1);
 		vr.attachments.fsr_luma_history[i].forFrameBuffer(&vr.m_device, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_STORAGE_BIT,
 			swapchainext.width, swapchainext.height, false, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL);
 		vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_luma_history[i]);
@@ -256,11 +256,32 @@ void SetupConstantBuffers()
 
 	constantBuffer.jitterOffset[0] = vr.jitterX;
 	constantBuffer.jitterOffset[1] = vr.jitterY;
-	constantBuffer.jitterPhaseCount = vr.jitterPhaseCount;
+
+	if (constantBuffer.jitterPhaseCount == 0) {
+		constantBuffer.jitterPhaseCount = vr.jitterPhaseCount;
+	}
+	else {
+		const int32_t jitterPhaseCountDelta = (int32_t)(vr.jitterPhaseCount - constantBuffer.jitterPhaseCount);
+		if (jitterPhaseCountDelta > 0) {
+			constantBuffer.jitterPhaseCount++;
+		}
+		else if (jitterPhaseCountDelta < 0) {
+			constantBuffer.jitterPhaseCount--;
+		}
+	}
+	
+
+	printf("[%d] gpujitter [%1.4f,%1.4f], cameraJitter [%1.4f,%1.4f], previousJitter [%1.4f,%1.4f]\n",
+		vr.m_JitterIndex
+		, constantBuffer.jitterOffset[0]
+		, constantBuffer.jitterOffset[1]
+		, cam.jitterValues.x,cam.jitterValues.y
+		, vr.prevjitterX,	 vr.prevjitterY);
 
 	// compute the horizontal FOV for the shader from the vertical one.
+	float fovYrad = glm::radians(cam.m_fovDegrees);
 	const float aspectRatio = (float)vr.renderWidth / (float)vr.renderHeight;
-	const float cameraAngleHorizontal = atan(tan(glm::radians(cam.m_fovDegrees) / 2) * aspectRatio) * 2;
+	const float cameraAngleHorizontal = atan(tan(fovYrad / 2) * aspectRatio) * 2;
 	constantBuffer.tanHalfFOV = tanf(cameraAngleHorizontal * 0.5f);
 	constantBuffer.viewSpaceToMetersFactor = 1.0f; // wtf is this
 
@@ -294,7 +315,7 @@ void SetupConstantBuffers()
 	 constantBuffer.displaySize[0] = resInfo.width;
 	 constantBuffer.displaySize[1] = resInfo.height;
 
-	 constantBuffer.frameIndex = vr.frameCounter;
+	 constantBuffer.frameIndex = vr.fsrFrameCount++;
 
 	 constantBuffer.renderSize[0] = vr.renderWidth;
 	 constantBuffer.renderSize[1] = vr.renderHeight;
@@ -310,7 +331,7 @@ void SetupConstantBuffers()
 	 constantBuffer.downscaleFactor[1] = float(vr.renderHeight) / resInfo.height;
 
 	 float toMilliseconds = 1000.0f;
-	 constantBuffer.deltaTime = vr.deltaTime * toMilliseconds;
+	 constantBuffer.deltaTime = glm::clamp(vr.deltaTime, 0.0f, 1.0f);
 	 
 
 	 constantBuffer.lumaMipLevelToUse = 4;
@@ -440,7 +461,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 	// Reconstruct and dilate
 	VkClearValue cv{};
 	cv.depthStencil = {};
-	cmd.ClearImage(&vr.attachments.fsr_reconstructed_prev_depth,cv);
+	//cmd.ClearImage(&vr.attachments.fsr_reconstructed_prev_depth,cv);
 	cmd.BindPSO(pso_fsr2[FSR2::RECONSTRUCT_PREVIOUS_DEPTH], PSOLayoutDB::fsr2_PSOLayouts[FSR2::RECONSTRUCT_PREVIOUS_DEPTH], VK_PIPELINE_BIND_POINT_COMPUTE);
 	cmd.DescriptorSetBegin(0)
 		.BindImage(0, &vr.attachments.gbuffer[GBufferAttachmentIndex::VELOCITY], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
@@ -453,7 +474,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindSampler(1001, GfxSamplerManager::GetSampler_LinearClamp()) // linear clamp
 
 		.BindImage(2005, &vr.attachments.fsr_reconstructed_prev_depth, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) // must clear
-		.BindImage(2006, &vr.attachments.fsr_dilated_velocity[currFrame], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+		.BindImage(2006, &vr.attachments.fsr_dilated_velocity[prevFrame], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 		.BindImage(2007, &vr.attachments.fsr_dilated_depth, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) // dont need clear..
 		.BindImage(2011, &vr.attachments.fsr_lock_input_luma, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 
@@ -464,12 +485,12 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 	cmd.BindPSO(pso_fsr2[FSR2::DEPTH_CLIP], PSOLayoutDB::fsr2_PSOLayouts[FSR2::DEPTH_CLIP], VK_PIPELINE_BIND_POINT_COMPUTE);
 	cmd.DescriptorSetBegin(0)
 		.BindImage(0 , &vr.attachments.fsr_reconstructed_prev_depth, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
-		.BindImage(1 , &vr.attachments.fsr_dilated_velocity[currFrame], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		.BindImage(1 , &vr.attachments.fsr_dilated_velocity[prevFrame], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(2 , &vr.attachments.fsr_dilated_depth, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(3 , &vr.g_Textures[vr.blackTextureID], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // reactive
 		.BindImage(4 , &vr.g_Textures[vr.blackTextureID], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // transparent
 		.BindImage(5 , &vr.attachments.lighting_target, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
-		.BindImage(6 , &vr.attachments.fsr_dilated_velocity[prevFrame], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		.BindImage(6 , &vr.attachments.fsr_dilated_velocity[currFrame], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(7 , &vr.attachments.gbuffer[GBufferAttachmentIndex::VELOCITY], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(8 , &vr.attachments.lighting_target, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(9 , &vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
@@ -515,6 +536,9 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 
 		.BindImage(2013, &vr.attachments.fsr_upscaled_color[currFrame], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 		.BindImage(2014, &vr.attachments.fsr_lock_status[currFrame], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+#ifdef FFX_FSR2_OPTION_APPLY_SHARPENING
+		.BindImage(2015, &vr.attachments.fullres_HDR, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+#endif // DEBUG
 		.BindImage(2016, &vr.attachments.fsr_new_locks, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 		.BindImage(2017, &vr.attachments.fsr_luma_history[currFrame], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 
@@ -540,7 +564,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		(vr.m_swapchain.swapChainExtent.width - 1) / threadGroupWorkRegionDimRCAS + 1,
 		(vr.m_swapchain.swapChainExtent.height - 1) / threadGroupWorkRegionDimRCAS + 1
 	};
-	cmd.Dispatch(rcasDispatchDst.x, rcasDispatchDst.y);
+	//cmd.Dispatch(rcasDispatchDst.x, rcasDispatchDst.y);
 
 	DelayedDeleter::get()->DeleteAfterFrames([views = mipViews, dev = vr.m_device.logicalDevice]() {
 		for (size_t i = 0; i < views.size(); i++)
@@ -831,7 +855,9 @@ void FSR2Pass::CreateDescriptors()
 
 		.BindImage(2013, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2014, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-		//.BindImage(2015, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+#ifdef FFX_FSR2_OPTION_APPLY_SHARPENING
+		.BindImage(2015, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+#endif // DEBUG
 		.BindImage(2016, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(2017, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 

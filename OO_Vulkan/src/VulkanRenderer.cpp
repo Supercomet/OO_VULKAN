@@ -2603,8 +2603,11 @@ void VulkanRenderer::BeginDraw()
 			// Increment jitter index for frame
 			++m_JitterIndex;
 			
-			prevjitterX = currWorld->cameras[0].jitterValues.x;
-			prevjitterY = currWorld->cameras[0].jitterValues.y;
+			//prevjitterX = currWorld->cameras[0].jitterValues.x;
+			//prevjitterY = currWorld->cameras[0].jitterValues.y;
+
+			prevjitterX =jitterX;
+			prevjitterY =jitterY;
 
 			jitterX = 0.0f;
 			jitterY = 0.0f;
@@ -2620,7 +2623,13 @@ void VulkanRenderer::BeginDraw()
 				Camera& cam = currWorld->cameras[i];		
 
 				if (m_useJitter) {
-					cam.SetJitterValues({ -2.f * jitterX / renderWidth, 2.f * jitterY / renderHeight });
+
+					uint32_t x = getFrame();
+					float xval[]{ -.5,.5 };
+					float yval[]{ -.5,.5 };
+					//jitterX = xval[x];
+					//jitterY = yval[x];
+					cam.SetJitterValues({ -1.f * jitterX / renderWidth, 1.f * jitterY / renderHeight });
 				}
 				else {
 					cam.SetJitterValues({ 0.0f,0.0f });
@@ -3275,7 +3284,8 @@ bool VulkanRenderer::ResizeSwapchain()
 	ResizeGUIBuffers();
 
 	// Rest jitter index
-	m_JitterIndex = 0;
+	m_JitterIndex = 0; 
+	fsrFrameCount = 0;
 
 	// update imgui shit
 	if (currWorld)
@@ -4484,8 +4494,8 @@ void VulkanRenderer::UpdateUniformBuffers()
 			frameContextUBO[i].inverseProjectionJittered = glm::inverse(camera.matrices.perspectiveJittered);
 
 			frameContextUBO[i].prevViewProjJittered = camera.previousMat.perspectiveJittered * camera.previousMat.view;
-			frameContextUBO[i].currJitter = { camera.jitterValues.x,camera.jitterValues.y};
-			frameContextUBO[i].prevJitter = { prevjitterX,prevjitterY };
+			frameContextUBO[i].currJitter = { (float)jitterX/renderWidth,(float)jitterY/renderHeight};
+			frameContextUBO[i].prevJitter = { (float)prevjitterX/ renderWidth, (float)prevjitterY/ renderHeight };
 
 			//if(i == 0)
 			//printf("[J] prev {%-1.5f,%-1.5f} jit {%-1.5f,%-1.5f} \n"

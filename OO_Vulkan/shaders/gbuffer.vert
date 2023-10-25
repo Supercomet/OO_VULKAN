@@ -10,6 +10,7 @@ layout(location = 2) in vec3 inColor;
 layout(location = 3) in vec3 inTangent;
 layout(location = 4) in vec2 inUV;
 layout(location = 5) out vec4 outPrevPosition;
+layout(location = 6) out vec4 outCurrPosition;
 
 // Note: Sending too much stuff from VS to FS can result in bottleneck...
 layout(location = 0) out vec4 outPosition;
@@ -103,9 +104,11 @@ void main()
 		outPosition = dInsMatrix * vec4(inPosition,1.0);
 	}
 
+	// gl_Position jitters the motion vectors because its jittered
 	gl_Position = uboFrameContext.viewProjJittered * outPosition;
-	// todo :: prev model
-    outPrevPosition = uboFrameContext.prevViewProjection* outPosition;
+	
+    outCurrPosition = uboFrameContext.viewProjJittered * outPosition;
+    outPrevPosition = uboFrameContext.prevViewProjJittered* outPosition;
 	
 	outUV = inUV;
 	outColor = inColor;
