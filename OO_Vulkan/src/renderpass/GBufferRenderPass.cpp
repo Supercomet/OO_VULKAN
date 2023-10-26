@@ -691,7 +691,7 @@ void GBufferRenderPass::SetupResources() {
 	attachments[GBufferAttachmentIndex::MATERIAL].forFrameBuffer(&m_device, vr.G_NON_HDR_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
 	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::MATERIAL]);
 	attachments[GBufferAttachmentIndex::VELOCITY].name = "GB_Velocity";
-	attachments[GBufferAttachmentIndex::VELOCITY].forFrameBuffer(&m_device, VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	attachments[GBufferAttachmentIndex::VELOCITY].forFrameBuffer(&m_device, vr.G_VELOCITY_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
 	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::VELOCITY]);
 	attachments[GBufferAttachmentIndex::ENTITY_ID].name = "GB_Entity";
 	attachments[GBufferAttachmentIndex::ENTITY_ID].forFrameBuffer(&m_device, VK_FORMAT_R32_SINT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);

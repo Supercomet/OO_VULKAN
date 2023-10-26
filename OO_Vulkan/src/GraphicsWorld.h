@@ -117,6 +117,7 @@ struct DrawData {
     glm::vec4 emissiveColour{};
 
     glm::mat4x4 localToWorld{ 1.0f };
+    glm::mat4x4 prevLocalToWorld{ 1.0f };
 
     uint32_t submeshID{}; // Index for the mesh
     uint32_t entityID{}; // Unique ID for this entity instance

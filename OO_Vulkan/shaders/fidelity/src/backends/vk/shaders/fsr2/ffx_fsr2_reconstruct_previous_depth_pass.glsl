@@ -41,10 +41,7 @@
 
 #define FSR2_BIND_CB_FSR2                                3000
 
-//options
-#define FFX_FSR2_OPTION_LOW_RESOLUTION_MOTION_VECTORS   1     
-#define FFX_FSR2_OPTION_INVERTED_DEPTH   1     
-#define FFX_FSR2_OPTION_INVERTED_DEPTH   1     
+//options 
 
 #include "fsr2/ffx_fsr2_callbacks_glsl.h"
 #include "fsr2/ffx_fsr2_common.h"

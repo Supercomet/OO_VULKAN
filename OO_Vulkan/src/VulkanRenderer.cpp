@@ -2617,19 +2617,18 @@ void VulkanRenderer::BeginDraw()
 			jitterPhaseCount = ffxFsr2GetJitterPhaseCount(renderWidth, resInfo.width);
 			ffxFsr2GetJitterOffset(&jitterX, &jitterY, m_JitterIndex, jitterPhaseCount);
 
-			
 			for (size_t i = 0; i < currWorld->numCameras; i++)
 			{
 				Camera& cam = currWorld->cameras[i];		
 
-				if (m_useJitter) {
+				if (m_useJitter && enableFSR2) {
 
 					uint32_t x = getFrame();
 					float xval[]{ -.5,.5 };
 					float yval[]{ -.5,.5 };
 					//jitterX = xval[x];
 					//jitterY = yval[x];
-					cam.SetJitterValues({ -1.f * jitterX / renderWidth, 1.f * jitterY / renderHeight });
+					cam.SetJitterValues({ -2.f * jitterX / renderWidth, 2.f * jitterY / renderHeight });
 				}
 				else {
 					cam.SetJitterValues({ 0.0f,0.0f });
@@ -2813,9 +2812,9 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		AddRenderer(g_LightingHistogram);
 		AddRenderer(g_ForwardUIPass);
 		AddRenderer(g_ForwardParticlePass);
-		//if (enableFSR2) {
-			AddRenderer(g_FSR2Pass);
-		//}
+		if (enableFSR2) {
+		AddRenderer(g_FSR2Pass);
+		}
 		//else {
 		//
 		//}
@@ -2846,17 +2845,29 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			// TODO: Very bad pls fix
 			auto thisID = currWorld->targetIDs[1];
 			auto& texture = renderTargets[thisID].texture;
-
 			auto nextID = currWorld->targetIDs[0];
-			auto& nextTexture = renderTargets[nextID].texture;
-			FullscreenBlit(cmd, nextTexture, nextTexture.referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+			vkutils::Texture* nextTexture;
+			if (1) {
+			nextTexture = &renderTargets[nextID].texture;
+			}
+			else {
+				nextTexture = &attachments.lighting_target;
+			}
+			FullscreenBlit(cmd, *nextTexture, nextTexture->referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 		}
 		else
 		{
 			auto thisID = currWorld->targetIDs[0];
-			auto& texture = renderTargets[thisID].texture;
-			FullscreenBlit(cmd, texture, texture.referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			vkutils::Texture* texture;
+			if (1) {
+				texture = &renderTargets[thisID].texture;
+			}
+			else {
+				texture = &attachments.lighting_target;
+			}
+			FullscreenBlit(cmd, *texture, texture->referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		}
 	};
 	m_taskList.push(Task(blitT, 0, &drawCallRecrodingCompleted));
@@ -4494,8 +4505,8 @@ void VulkanRenderer::UpdateUniformBuffers()
 			frameContextUBO[i].inverseProjectionJittered = glm::inverse(camera.matrices.perspectiveJittered);
 
 			frameContextUBO[i].prevViewProjJittered = camera.previousMat.perspectiveJittered * camera.previousMat.view;
-			frameContextUBO[i].currJitter = { (float)jitterX/renderWidth,(float)jitterY/renderHeight};
-			frameContextUBO[i].prevJitter = { (float)prevjitterX/ renderWidth, (float)prevjitterY/ renderHeight };
+			frameContextUBO[i].currJitter = {-2.0f* jitterX/renderWidth,2.0*jitterY/renderHeight};
+			frameContextUBO[i].prevJitter = { -2.0f * prevjitterX/ renderWidth,2.0f * prevjitterY/ renderHeight };
 
 			//if(i == 0)
 			//printf("[J] prev {%-1.5f,%-1.5f} jit {%-1.5f,%-1.5f} \n"

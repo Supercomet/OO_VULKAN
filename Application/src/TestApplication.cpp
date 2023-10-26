@@ -71,8 +71,8 @@ static BindlessTextureIndex gs_RedTexture= INVALID_BINDLESS_TEXTURE_INDEX;
 
 static uint32_t globalDionaID{ 0 };
 
-std::array<BindlessTextureIndex, 2> roughness{};
-std::array<BindlessTextureIndex, 2> metalic{};
+std::array<BindlessTextureIndex, 10> roughness{};
+std::array<BindlessTextureIndex, 10> metalic{};
 uint32_t beginSpheres;
 uint32_t endSpheres;
 
@@ -544,43 +544,54 @@ void TestApplication::Run()
     
 
 
-    //const float gridSize = 1.3f;
-    //const float halfGrid = roughness.size() * gridSize / 2.0f;
-    //beginSpheres = (uint32_t)entities.size();
-    //for (size_t i = 0; i < roughness.size(); i++)
-    //{
-    //    for (size_t y = 0; y < metalic.size(); y++)
-    //    {
-    //        auto& ed = entities.emplace_back(EntityInfo{});
+    const float gridSize = 1.3f;
+    const float halfGrid = roughness.size() * gridSize / 2.0f;
+    beginSpheres = (uint32_t)entities.size();
+    for (size_t i = 0; i < roughness.size(); i++)
+    {
+        for (size_t y = 0; y < metalic.size(); y++)
+        {
+            auto& ed = entities.emplace_back(EntityInfo{});
 
-    //        std::stringstream ss;
-    //        ss << "Sphere_M[" << y << "]R[" << i << "]";
-    //        ed.name = std::string("Sphere_M") + std::to_string(i * metalic.size() + y);
-    //        ed.name = ss.str();
-    //        ed.entityID = FastRandomMagic();
-    //        ed.modelID = model_sphere->meshResource;
-    //        //ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
+            std::stringstream ss;
+            ss << "Sphere_M[" << y << "]R[" << i << "]";
+            ed.name = std::string("Sphere_M") + std::to_string(i * metalic.size() + y);
+            ed.name = ss.str();
+            ed.entityID = FastRandomMagic();
+            ed.modelID = model_sphere->meshResource;
+            //ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags)& ~static_cast<uint32_t>(ObjectInstanceFlags::SHADOW_CASTER));
 
-    //        ed.scale = { 1.0f,1.0f,1.0f };
+            ed.scale = { 1.0f,1.0f,1.0f };
 
-    //        ed.bindlessGlobalTextureIndex_Albedo = gs_RedTexture;
-    //        ed.bindlessGlobalTextureIndex_Metallic = metalic[y];
-    //        ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
+            ed.bindlessGlobalTextureIndex_Albedo = gs_RedTexture;
+            ed.bindlessGlobalTextureIndex_Metallic = metalic[y];
+            ed.bindlessGlobalTextureIndex_Roughness = roughness[i];
 
-    //        std::stringstream name;
-    //        name << "Roughness " << std::setprecision(2) << ((float)i / (roughness.size() - 1))
-    //            << "\nMetallic " << std::setprecision(2) << ((float)y / (roughness.size() - 1));
-    //        auto strpos = glm::vec3{ gridSize * i - halfGrid, gridSize * y - halfGrid + 3.5f - 0.6f, -5.0f };
-    //        CreateTextHelper(glm::translate(strpos), name.str(), testFont.get());
+            std::stringstream name;
+            name << "Roughness " << std::setprecision(2) << ((float)i / (roughness.size() - 1))
+                << "\nMetallic " << std::setprecision(2) << ((float)y / (roughness.size() - 1));
+            auto strpos = glm::vec3{ gridSize * i - halfGrid, gridSize * y - halfGrid + 3.5f - 0.6f, -5.0f };
+            CreateTextHelper(glm::translate(strpos), name.str(), testFont.get());
 
-    //    }
-    //}
-    //endSpheres = (uint32_t)entities.size();
+        }
+    }
+    endSpheres = (uint32_t)entities.size();
 
-    // ResetSpheres();
+    ResetSpheres();
+
+    constexpr float M_PI = glm::pi<float>();
+    std::vector<glm::vec4> angles;        
+    angles.resize(endSpheres - beginSpheres);
+    for (size_t i = 0; i < angles.size(); i++)
+    {
+        angles[i].x = float(FastRandomMagic()) / UINT32_MAX * M_PI;
+        angles[i].y = float(FastRandomMagic()) / UINT32_MAX * M_PI;
+        angles[i].z = float(FastRandomMagic()) / UINT32_MAX * M_PI;
+        angles[i].w = float(i) / angles.size() * 2.0f;
+    }
 
     /* // WIP
-    if (alibaba)
+    if (alibaba) 
     {
         auto& ed = entities.emplace_back(EntityInfo{});
         ed.modelID = alibaba->meshResource;
@@ -810,6 +821,10 @@ void TestApplication::Run()
                     gs_RenderEngine->UpdateRenderResolution();
                     currItem = 5;
                 }
+               
+                if (ImGui::Checkbox("Use FSR2", &gs_RenderEngine->enableFSR2)) {
+                    gs_RenderEngine->UpdateRenderResolution();
+                }
                 ImGui::Checkbox("Use Jitter", &gs_RenderEngine->m_useJitter);
                 if (ImGui::SliderFloat("RCAS Sharpness", &gs_RenderEngine->rcas_sharpness, 0.0f, 1.0f))
                 {
@@ -981,19 +996,7 @@ void TestApplication::Run()
 				lights[5]->position.z = 0.0f - cos(glm::radians(-360.0f * lightTimer - 45.0f)) * 10.0f;
 
 			}
-            constexpr float M_PI = glm::pi<float>();
-            static std::vector<glm::vec4> angles = [sz = endSpheres-beginSpheres, M_PI= M_PI]() {
-                std::vector<glm::vec4> a;
-                a.resize(sz);
-                for (size_t i = 0; i < a.size(); i++)
-                {
-                    a[i].x = float(FastRandomMagic()) / UINT32_MAX * M_PI;
-                    a[i].y = float(FastRandomMagic()) / UINT32_MAX * M_PI;
-                    a[i].z = float(FastRandomMagic()) / UINT32_MAX * M_PI;
-                    a[i].w =float(i)/a.size()*2.0f;
-                }
-                return a;
-            }();
+            
             if (s_freezeSphere == false) 
             {
                 static float ballsTimer = 0.0f;
@@ -1015,7 +1018,7 @@ void TestApplication::Run()
                     if (angles[i].z > 2 * M_PI) {
                         angles[i].z -= 2 * M_PI;
                     }
-                    float r = 10.0f;
+                    float r = 20.0f;
                     std::function<float(float)> funs[] = {
                         [](float x) { return cos(x); }
                     ,[](float x) { return sin(x); } };

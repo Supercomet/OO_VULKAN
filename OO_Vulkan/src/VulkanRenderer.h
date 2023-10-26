@@ -260,6 +260,7 @@ public:
 	static constexpr VkCompareOp G_DEPTH_COMPARISON = VK_COMPARE_OP_GREATER_OR_EQUAL;
 	static constexpr VkFormat G_HDR_FORMAT_ALPHA = VK_FORMAT_R16G16B16A16_SFLOAT;
 	static constexpr VkFormat G_HDR_FORMAT = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+	static constexpr VkFormat G_VELOCITY_FORMAT = VK_FORMAT_R16G16_SFLOAT;
 	static constexpr VkFormat G_NON_HDR_FORMAT = VK_FORMAT_R8G8B8A8_UNORM;
 
 	static int ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface);
@@ -495,6 +496,7 @@ public:
 	float jitterY;
 	uint32_t fsrFrameCount;
 	int32_t jitterPhaseCount;
+	bool enableFSR2 = true;
 
 	float rcas_sharpness = 1.0f;
 

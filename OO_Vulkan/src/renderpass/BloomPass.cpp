@@ -36,7 +36,7 @@ struct BloomPass : public GfxRenderpass
 
 private:
 
-	vkutils::Texture2D* PerformBloom(rhi::CommandList& cmd);
+	vkutils::Texture2D* PerformBloom(rhi::CommandList& cmd, vkutils::Texture2D* target);
 	void SetupRenderpass();
 	void CreatePipeline();
 
@@ -153,7 +153,13 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 	rhi::CommandList cmd{ cmdlist, "Bloom"};
 	cmd.BindPSO(pso_bloom_bright, PSOLayoutDB::doubleImageStoreLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 	
-	auto& mainImage = vr.attachments.fullres_HDR;
+	vkutils::Texture2D* mainImage;
+	if (vr.enableFSR2) {
+		mainImage = &vr.attachments.fullres_HDR;
+	}
+	else {
+		mainImage = &vr.attachments.lighting_target;
+	}
 
 	glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f };
 	auto regionBegin = VulkanRenderer::get()->pfnDebugMarkerRegionBegin;
@@ -163,10 +169,10 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 	marker.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
 	memcpy(marker.color, &col[0], sizeof(float) * 4);	
 
-	vkutils::Texture2D* previousBuffer{ &mainImage };
+	vkutils::Texture2D* previousBuffer{ mainImage };
 
 	if (vr.currWorld->bloomSettings.enabled == true)
-		previousBuffer = PerformBloom(cmd);	
+		previousBuffer = PerformBloom(cmd, mainImage);
 	
 	marker.pMarkerName = "TonemappingCOMP";
 	if (regionBegin)
@@ -404,7 +410,7 @@ void BloomPass::CreatePipelineLayout()
 	}
 }
 
-vkutils::Texture2D* BloomPass::PerformBloom(rhi::CommandList& cmd)
+vkutils::Texture2D* BloomPass::PerformBloom(rhi::CommandList& cmd, vkutils::Texture2D* target)
 {
 	auto& vr = *VulkanRenderer::get();
 
@@ -412,7 +418,7 @@ vkutils::Texture2D* BloomPass::PerformBloom(rhi::CommandList& cmd)
 	auto regionBegin = VulkanRenderer::get()->pfnDebugMarkerRegionBegin;
 	auto regionEnd = VulkanRenderer::get()->pfnDebugMarkerRegionEnd;
 
-	auto& mainImage = vr.attachments.fullres_HDR;
+	vkutils::Texture2D& mainImage = *target;
 
 	VkDebugMarkerMarkerInfoEXT marker = {};
 	marker.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
