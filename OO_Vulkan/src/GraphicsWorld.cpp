@@ -26,6 +26,10 @@ void GraphicsWorld::BeginFrame()
 {
 	PROFILE_SCOPED();
 	auto& vr = *VulkanRenderer::get();
+	for (size_t i = 0; i < m_ObjectInstances.size(); i++)
+	{
+		m_ObjectInstances.buffer()[i].prevLocalToWorld = m_ObjectInstancesCopy.buffer()[i].localToWorld;
+	}
 	m_ObjectInstancesCopy = m_ObjectInstances;
 	
 	// this doesnt work with all submesh

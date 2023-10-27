@@ -40,6 +40,7 @@ DrawData ObjectInsToDrawData(const ObjectInstance& obj)
 	dd.bindlessGlobalTextureIndex_Emissive = obj.bindlessGlobalTextureIndex_Emissive;
 	dd.emissiveColour = obj.emissiveColour;
 	dd.localToWorld = obj.localToWorld;
+	dd.prevLocalToWorld = obj.prevLocalToWorld;
 	dd.entityID = obj.entityID; // Unique ID for this entity instance
 	dd.flags = obj.flags;
 	dd.instanceData = obj.instanceData;

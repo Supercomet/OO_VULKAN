@@ -63,6 +63,8 @@ void main()
 	outEmissive = objectInfo.emissiveColour;
 	//decode the matrix into transform matrix
 	mat4 dInsMatrix = GPUTransformToMatrix4x4(GPUScene_SSBO[instanceIndex]);
+    mat4 dPrevInsMatrix = GPUTransformToPreviousMatrix4x4(GPUScene_SSBO[instanceIndex]);
+    vec4 prevPosition;
 	
 	// inefficient
 	mat3 L2W = mat3(dInsMatrix);//inverse(dInsMatrix);
@@ -92,23 +94,30 @@ void main()
         uvec4 boneIndices = UnpackBoneIndices(boneInfo);		
         vec4 boneWeights = UnpackBoneWeights(boneInfo);
 		
-		mat4x4 boneToModel; // what do i do with this
+		mat4x4 boneToModel;
 		outPosition = ComputeSkinnedVertexPosition(dInsMatrix,inPosition
 													, boneIndices, boneWeights
 													,objectInfo.boneStartIdx,boneToModel);
+		
+		// calculate previous position
+        prevPosition = ComputeSkinnedVertexPosition(dPrevInsMatrix, inPosition
+													, boneIndices, boneWeights
+													, objectInfo.boneStartIdx, boneToModel);
+		
 		mat3 inverseTransformBone = transpose(mat3(inverse(boneToModel)));
 		outLightData.n = normalize(inverseTransformBone*NN);
 	}
 	else
 	{
 		outPosition = dInsMatrix * vec4(inPosition,1.0);
-	}
+        prevPosition = dPrevInsMatrix * vec4(inPosition, 1.0);
+    }
 
 	// gl_Position jitters the motion vectors because its jittered
 	gl_Position = uboFrameContext.viewProjJittered * outPosition;
 	
     outCurrPosition = uboFrameContext.viewProjJittered * outPosition;
-    outPrevPosition = uboFrameContext.prevViewProjJittered* outPosition;
+    outPrevPosition = uboFrameContext.prevViewProjJittered * prevPosition;
 	
 	outUV = inUV;
 	outColor = inColor;

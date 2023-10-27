@@ -80,7 +80,7 @@ inline TYPE operator~(TYPE a)\
 VkDebugReportObjectTypeEXT GetDebugNameExtTypeByID(std::type_index id);
 
 
-GPUTransform ConstructGPUTransform(const glm::mat4& m, const glm::mat4& inv);
+GPUTransform ConstructGPUTransform(const glm::mat4& m, const glm::mat4& inv, const glm::mat4& p);
 
 namespace oGFX
 {

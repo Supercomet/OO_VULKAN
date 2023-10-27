@@ -2288,9 +2288,10 @@ void VulkanRenderer::UploadInstanceData()
 				// creates a single transform reference for each entity in the scene
 				size_t x = gpuTransform.size();
 				OO_ASSERT(indexCounter == x);
-				mat4 xform = ent.localToWorld;
-				mat4 inverseXform = glm::inverse(xform);
-				GPUTransform gpt = ConstructGPUTransform(xform, inverseXform);
+				const mat4& xform = ent.localToWorld;
+				const mat4& prev = ent.prevLocalToWorld;
+				const mat4 inverseXform = glm::inverse(xform);
+				GPUTransform gpt = ConstructGPUTransform(xform, inverseXform,prev);
 
 				gpuTransform.emplace_back(gpt);
 			}
@@ -2358,9 +2359,10 @@ void VulkanRenderer::UploadInstanceData()
 				{
 					auto& ent = entities[icmd.firstInstance+i];
 					// creates a single transform reference for each entity in the scene
-					mat4 xform = ent.localToWorld;
-					mat4 inverseXform = glm::inverse(xform);
-					GPUTransform gpt = ConstructGPUTransform(xform, inverseXform);
+					const mat4& xform = ent.localToWorld;
+					const mat4& prev = ent.prevLocalToWorld;
+					const mat4 inverseXform = glm::inverse(xform);
+					GPUTransform gpt = ConstructGPUTransform(xform, inverseXform, prev);
 
 					gpuShadowCasterTransform.emplace_back(gpt);
 

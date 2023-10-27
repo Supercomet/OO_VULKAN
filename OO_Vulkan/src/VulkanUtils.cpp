@@ -1481,7 +1481,7 @@ VkDebugReportObjectTypeEXT GetDebugNameExtTypeByID(std::type_index id)
 	return ret;	
 }
 
-GPUTransform ConstructGPUTransform(const glm::mat4& m, const glm::mat4& inv)
+GPUTransform ConstructGPUTransform(const glm::mat4& m, const glm::mat4& inv, const glm::mat4& p)
 {
 	GPUTransform g;
 
@@ -1492,6 +1492,10 @@ GPUTransform ConstructGPUTransform(const glm::mat4& m, const glm::mat4& inv)
 	g.invRow0 = vec4(inv[0][0], inv[1][0], inv[2][0], inv[3][0]);
 	g.invRow1 = vec4(inv[0][1], inv[1][1], inv[2][1], inv[3][1]);
 	g.invRow2 = vec4(inv[0][2], inv[1][2], inv[2][2], inv[3][2]);
+
+	g.prevRow0 = vec4(p[0][0], p[1][0], p[2][0], p[3][0]);
+	g.prevRow1 = vec4(p[0][1], p[1][1], p[2][1], p[3][1]);
+	g.prevRow2 = vec4(p[0][2], p[1][2], p[2][2], p[3][2]);
 
 	return g;
 }
