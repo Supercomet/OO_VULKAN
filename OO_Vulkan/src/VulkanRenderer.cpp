@@ -108,6 +108,12 @@ extern GfxRenderpass* g_FSR2Pass;
 
 #pragma warning( pop )
 
+// nvidia DLSS
+#include "nvsdk_ngx_vk.h"
+#include "nvsdk_ngx_defs.h"
+#include "nvsdk_ngx_params.h"
+#include "nvsdk_ngx_helpers_vk.h"
+
 static HHOOK hook;
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam); // forward decl
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
@@ -288,7 +294,7 @@ VulkanRenderer::~VulkanRenderer()
 	
 	PROFILE_GPU_SHUTDOWN();
 }
-
+#pragma optimize("", off)
 VulkanRenderer* VulkanRenderer::get()
 {
 	if (s_vulkanRenderer == nullptr)
@@ -328,6 +334,62 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 	return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
+bool IsFeatureSupported(NVSDK_NGX_FeatureDiscoveryInfo* dis) 
+{
+	VulkanRenderer& vr = *VulkanRenderer::get();
+
+	NVSDK_NGX_Result             res;
+	NVSDK_NGX_FeatureRequirement req;
+
+	uint32_t nDeviceExtensions;
+	VkExtensionProperties* deviceExtensions;
+	res = NVSDK_NGX_VULKAN_GetFeatureDeviceExtensionRequirements(vr.m_instance.instance, vr.m_device.physicalDevice, dis, &nDeviceExtensions, &deviceExtensions);
+	if (res != NVSDK_NGX_Result_Success)
+	{
+		printf("GetFeatureRequirements error: NVSDK_NGX_VULKAN_GetFeatureDeviceExtensionRequirements returned 0x%08x info: %ls\n", res, GetNGXResultAsString(res));
+		return false;
+	}
+	else
+	{
+		printf("NVSDK_NGX_VULKAN_GetFeatureDeviceExtensionRequirements returned %d device extension requirements: ", nDeviceExtensions);
+		for (uint32_t i = 0; i < nDeviceExtensions; i++)
+		{
+			printf("%s, ", deviceExtensions[i].extensionName);
+		}
+		printf("\n");
+	}
+
+	uint32_t nInstanceExtensions;
+	VkExtensionProperties* instanceExtensions;
+	res = NVSDK_NGX_VULKAN_GetFeatureInstanceExtensionRequirements(dis, &nInstanceExtensions, &instanceExtensions);
+	if (res != NVSDK_NGX_Result_Success)
+	{
+		printf("GetFeatureRequirements error: NVSDK_NGX_VULKAN_GetFeatureInstanceExtensionRequirements returned 0x%08x info: %ls\n", res, GetNGXResultAsString(res));
+		return 1;
+	}
+	else
+	{
+		printf("NVSDK_NGX_VULKAN_GetFeatureInstanceExtensionRequirements returned %d instance extension requirements: ", nInstanceExtensions);
+		for (uint32_t i = 0; i < nInstanceExtensions; i++)
+		{
+			printf("%s, ", instanceExtensions[i].extensionName);
+		}
+		printf("\n");
+	}
+
+	res = NVSDK_NGX_VULKAN_GetFeatureRequirements(vr.m_instance.instance, vr.m_device.physicalDevice, dis, &req);
+
+	if (res != NVSDK_NGX_Result_Success && res != NVSDK_NGX_Result_FAIL_NotImplemented)
+	{
+		printf("GetFeatureRequirements error: 0x%08x info: %ls\n", res, GetNGXResultAsString(res));
+		return false;
+	}
+
+	printf("GetFeatureRequirements returned 0x%08x: Min GPU Arch: 0x%08x MinOS: %s\n", req.FeatureSupported, req.MinHWArchitecture, req.MinOSVersion);
+
+	return true;
+}
+
 bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 {
 
@@ -341,7 +403,8 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 #if VULKAN_MESSENGER
 	CreateDebugCallback();
-	hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, 0, 0);
+	if(setupSpecs.renderDoc)
+		hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, 0, 0);
 
 #endif // VULKAN_MESSENGER
 
@@ -351,6 +414,84 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 	AcquirePhysicalDevice(setupSpecs);
 	CreateLogicalDevice(setupSpecs);
+
+	if (setupSpecs.renderDoc == false) 
+	{
+		size_t applicationID = 1337;
+		const wchar_t* dataPath = L"";
+		const char* projectID = "a0f57b54-1daf-4934-90ae-c4035c19df04";
+		const char* version = "versionSkillIssue";
+		NVSDK_NGX_EngineType et = NVSDK_NGX_EngineType::NVSDK_NGX_ENGINE_TYPE_CUSTOM;
+		// this kills the renderdoc
+		NVSDK_NGX_Result nvRes = NVSDK_NGX_Result_Fail;
+		nvRes = NVSDK_NGX_VULKAN_Init_with_ProjectID(projectID,et, version, dataPath
+			, m_instance.instance, m_device.physicalDevice, m_device.logicalDevice
+		,vkGetInstanceProcAddr,vkGetDeviceProcAddr);
+		if (NVSDK_NGX_FAILED(nvRes))
+		{
+			if (nvRes == NVSDK_NGX_Result_FAIL_FeatureNotSupported || nvRes == NVSDK_NGX_Result_FAIL_PlatformError)
+				printf("NVIDIA NGX not available on this hardware/platform., code = 0x%08x, info: %ls \n", nvRes, GetNGXResultAsString(nvRes));
+			else
+				printf("Failed to initialize NGX, error code = 0x%08x, info: %ls \n", nvRes, GetNGXResultAsString(nvRes));
+			__debugbreak();
+		}
+
+
+		NVSDK_NGX_Parameter* ngxParameters{};
+		nvRes = NVSDK_NGX_Result_Fail;
+		nvRes = NVSDK_NGX_VULKAN_GetCapabilityParameters(&ngxParameters);
+		if (NVSDK_NGX_FAILED(nvRes)) 
+		{
+			printf("NVSDK_NGX_GetCapabilityParameters failed, code = 0x%08x, info: %ls\n", nvRes, GetNGXResultAsString(nvRes));
+			// shutdown ngx
+			__debugbreak();
+		}
+
+
+		#if defined(NVSDK_NGX_Parameter_SuperSampling_NeedsUpdatedDriver)        \
+		    && defined (NVSDK_NGX_Parameter_SuperSampling_MinDriverVersionMajor) \
+		    && defined (NVSDK_NGX_Parameter_SuperSampling_MinDriverVersionMinor)
+		
+		// If NGX Successfully initialized then it should set those flags in return
+		int needsUpdatedDriver = 0;
+		unsigned int minDriverVersionMajor = 0;
+		unsigned int minDriverVersionMinor = 0;
+		NVSDK_NGX_Result ResultUpdatedDriver = ngxParameters->Get(NVSDK_NGX_Parameter_SuperSampling_NeedsUpdatedDriver, &needsUpdatedDriver);
+		NVSDK_NGX_Result ResultMinDriverVersionMajor = ngxParameters->Get(NVSDK_NGX_Parameter_SuperSampling_MinDriverVersionMajor, &minDriverVersionMajor);
+		NVSDK_NGX_Result ResultMinDriverVersionMinor = ngxParameters->Get(NVSDK_NGX_Parameter_SuperSampling_MinDriverVersionMinor, &minDriverVersionMinor);
+		if (ResultUpdatedDriver == NVSDK_NGX_Result_Success &&
+			ResultMinDriverVersionMajor == NVSDK_NGX_Result_Success &&
+			ResultMinDriverVersionMinor == NVSDK_NGX_Result_Success)
+		{
+			if (needsUpdatedDriver)
+			{
+				printf("NVIDIA DLSS cannot be loaded due to outdated driver. Minimum Driver Version required : %u.%u\n", minDriverVersionMajor, minDriverVersionMinor);
+				//shutdown ngx
+				__debugbreak();
+			}
+			else
+			{
+				printf("NVIDIA DLSS Minimum driver version was reported as : %u.%u\n", minDriverVersionMajor, minDriverVersionMinor);
+			}
+		}
+		else
+		{
+			printf("NVIDIA DLSS Minimum driver version was not reported.\n");
+		}
+		#endif
+		
+		int dlssAvailable = 0;
+		NVSDK_NGX_Result ResultDLSS = ngxParameters->Get(NVSDK_NGX_Parameter_SuperSampling_Available, &dlssAvailable);
+		if (ResultDLSS != NVSDK_NGX_Result_Success || !dlssAvailable)
+		{
+			// More details about what failed (per feature init result)
+			NVSDK_NGX_Result FeatureInitResult = NVSDK_NGX_Result_Fail;
+			NVSDK_NGX_Parameter_GetI(ngxParameters, NVSDK_NGX_Parameter_SuperSampling_FeatureInitResult, (int*)&FeatureInitResult);
+			printf("NVIDIA DLSS not available on this hardward/platform., FeatureInitResult = 0x%08x, info: %ls\n", FeatureInitResult, GetNGXResultAsString(FeatureInitResult));
+			// shutdown ngx
+			__debugbreak();
+		}
+	}
 
 	InitVMA(setupSpecs);
 

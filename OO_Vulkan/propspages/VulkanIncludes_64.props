@@ -5,13 +5,13 @@
   <PropertyGroup />
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>%VULKAN_SDK%\include;$(SolutionDir)\vendor\vma\include\;$(SolutionDir)\vendor\glm;$(SolutionDir)\vendor\assimp\include;$(SolutionDir)\vendor\assimp\BINARIES\Win32\include;$(SolutionDir)\vendor\imgui;$(SolutionDir)\vendor\msdf-atlas-gen;$(SolutionDir)\vendor\msdfgen;$(ProjectDir)\src\optick\;$(SolutionDir)\vendor\freetype\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%VULKAN_SDK%\include;$(SolutionDir)\vendor\vma\include\;$(SolutionDir)\vendor\glm;$(SolutionDir)\vendor\assimp\include;$(SolutionDir)\vendor\assimp\BINARIES\Win32\include;$(SolutionDir)\vendor\imgui;$(SolutionDir)\vendor\msdf-atlas-gen;$(SolutionDir)\vendor\msdfgen;$(ProjectDir)\src\optick\;$(SolutionDir)\vendor\freetype\include;$(SolutionDir)\vendor\nvDLSS\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <WarningLevel>Level4</WarningLevel>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%VULKAN_SDK%\Lib\vulkan-1.lib;$(SolutionDir)vendor\assimp\BINARIES\Win32\lib\Release\assimp-vc142-mt.lib;$(SolutionDir)vendor\freetype\x64\freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>%VULKAN_SDK%\Lib\vulkan-1.lib;$(SolutionDir)vendor\assimp\BINARIES\Win32\lib\Release\assimp-vc142-mt.lib;$(SolutionDir)vendor\freetype\x64\freetype.lib;$(SolutionDir)vendor\nvDLSS\lib\Windows_x86_64\x86_64\nvsdk_ngx_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy "$(SolutionDir)OO_Vulkan\shaders\bin" "$(OutDir)\shaders\bin" /Q /E /S /Y /I 

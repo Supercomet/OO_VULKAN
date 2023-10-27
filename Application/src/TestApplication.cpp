@@ -272,8 +272,8 @@ void TestApplication::Run()
 
     //setupSpec.debug = BoolQueryUser("Do you want debugging?");
     //setupSpec.renderDoc = BoolQueryUser("Do you want renderdoc?");
-    setupSpec.debug = true;
-    setupSpec.renderDoc = true;
+    setupSpec.debug = false;
+    setupSpec.renderDoc = false;
 
     //----------------------------------------------------------------------------------------------------
     // Setup Graphics Engine

@@ -76,7 +76,7 @@ void main()
         float sd = median(outfragCol.r, outfragCol.g, outfragCol.b);
         float screenPxDistance = screenPxRange()*(sd - 0.5);
         float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
-        outfragCol = mix(vec4(0),inColor,opacity);        
+        outfragCol = mix(vec4(0),inColor,opacity);   
         
     }
     else
