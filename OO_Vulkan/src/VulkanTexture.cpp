@@ -718,7 +718,7 @@ namespace vkutils
 		if (currentLayout == targetLayout) return; // might bug with write
 
 		auto subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-		if (texture.format == VK_FORMAT_D32_SFLOAT_S8_UINT)
+		if (texture.format == VulkanRenderer::G_DEPTH_FORMAT)
 		{
 			subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 };
 		}
@@ -755,7 +755,7 @@ namespace vkutils
 	void ComputeImageBarrier(VkCommandBuffer cmd, Texture& texture, VkImageLayout currentLayout, VkImageLayout targetLayout, uint32_t mipBegin, uint32_t mipEnd)
 	{
 		auto subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-		if (texture.format == VK_FORMAT_D32_SFLOAT_S8_UINT)
+		if (texture.format == VulkanRenderer::G_DEPTH_FORMAT)
 		{
 			subresrange = VkImageSubresourceRange{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 };
 		}

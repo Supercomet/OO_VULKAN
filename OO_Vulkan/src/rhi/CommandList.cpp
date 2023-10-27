@@ -455,7 +455,7 @@ void CommandList::ClearImage(vkutils::Texture* tex, VkClearValue clear)
 	ImageStateTracking* tracked = ensureTrackedImage(tex);
 	tracked->expectedLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	VerifyImageResourceStates();
-	if (tex->format == VK_FORMAT_D32_SFLOAT_S8_UINT) 
+	if (tex->format == VulkanRenderer::G_DEPTH_FORMAT) 
 	{
 		VkImageSubresourceRange srr{ VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 0, tex->mipLevels, 0, tex->layerCount };	
 		vkCmdClearDepthStencilImage(m_VkCommandBuffer, tex->image.image, tracked->currentLayout
