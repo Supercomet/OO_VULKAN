@@ -247,6 +247,7 @@ public:
 		vkutils::Texture2D fsr_lock_input_luma;
 		vkutils::Texture2D fsr_dilated_reactive_masks;
 		vkutils::Texture2D fsr_prepared_input_color;
+		vkutils::Texture2D fsr_reactive_mask;
 		vkutils::Texture2D fsr_new_locks;
 		vkutils::Texture2D fsr_lock_status[MAX_FRAME_DRAWS];
 		vkutils::Texture2D fsr_upscaled_color[MAX_FRAME_DRAWS];
@@ -625,6 +626,7 @@ public:
 	oGFX::AllocatedBuffer FSR2constantBuffer[MAX_FRAME_DRAWS];
 	oGFX::AllocatedBuffer FSR2rcasBuffer[MAX_FRAME_DRAWS];
 	oGFX::AllocatedBuffer FSR2luminanceCB[MAX_FRAME_DRAWS];
+	oGFX::AllocatedBuffer FSR2autoGen[MAX_FRAME_DRAWS];
 
 	std::vector<oGFX::AllocatedBuffer> imguiVertexBuffer;
 	std::vector<oGFX::AllocatedBuffer> imguiIndexBuffer;

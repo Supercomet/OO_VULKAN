@@ -146,11 +146,6 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-
-            VK_NVX_BINARY_IMPORT_EXTENSION_NAME, 
-            VK_NVX_IMAGE_VIEW_HANDLE_EXTENSION_NAME, 
-            //VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, // vkfeatures 12
-            VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME
     };
 
     if (si.debug && si.renderDoc)
@@ -158,6 +153,13 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
 #if VULKAN_VALIDATION
         deviceExtensions.emplace_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME); 
 #endif // VULKAN_VALIDATION
+    }
+    
+    if(si.renderDoc == false) // since no renderdoc we can support DLSS
+    {
+        deviceExtensions.push_back(VK_NVX_BINARY_IMPORT_EXTENSION_NAME);
+        deviceExtensions.push_back(VK_NVX_IMAGE_VIEW_HANDLE_EXTENSION_NAME);
+        deviceExtensions.push_back(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
     }
 
     //information to create logical device (somtimes called only "device")
@@ -221,12 +223,7 @@ void VulkanDevice::InitLogicalDevice(const oGFX::SetupInfo& si,VulkanInstance& i
     
     
     vk12Features.bufferDeviceAddress = VK_TRUE;
-    
-    // VK_NVX_BINARY_IMPORT_EXTENSION_NAME, 
-    //     VK_NVX_IMAGE_VIEW_HANDLE_EXTENSION_NAME, 
-    //     VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, 
-    //     VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME
-    // 
+
     deviceCreateInfo.pNext = &deviceFeatures;
     deviceFeatures.pNext = &vk12Features;
     vk12Features.pNext = &shaderDrawFeatures;
@@ -340,13 +337,7 @@ bool VulkanDevice::CheckDeviceExtensionSupport(const oGFX::SetupInfo& si,VkPhysi
     { 
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
-        VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
-
-        VK_NVX_BINARY_IMPORT_EXTENSION_NAME, 
-        VK_NVX_IMAGE_VIEW_HANDLE_EXTENSION_NAME, 
-        VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, 
-        VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME
-
+        VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,       
         //        ,   VK_NV_GLSL_SHADER_EXTENSION_NAME  // nVidia useful extension to be able to load GLSL shaders
     };
     // TODO BETTER
@@ -356,6 +347,14 @@ bool VulkanDevice::CheckDeviceExtensionSupport(const oGFX::SetupInfo& si,VkPhysi
 #if VULKAN_VALIDATION
         deviceExtensions.emplace_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
 #endif // VULKAN_VALIDATION
+    }
+
+    if(si.renderDoc == false) 
+    {
+        deviceExtensions.push_back(VK_NVX_BINARY_IMPORT_EXTENSION_NAME);
+        deviceExtensions.push_back(VK_NVX_IMAGE_VIEW_HANDLE_EXTENSION_NAME);
+        deviceExtensions.push_back(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+        deviceExtensions.push_back(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
     }
 
     //check extensions

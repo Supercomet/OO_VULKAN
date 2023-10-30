@@ -139,6 +139,18 @@ typedef struct Fsr2SpdConstants {
     uint32_t                    renderSize[2];
 } Fsr2SpdConstants;
 
+struct FSR2AutogenConstants{
+    FfxFloat32   scale;
+    FfxFloat32   threshold;
+    FfxFloat32   binaryValue;
+    FfxUInt32    flags;
+} ;
+inline static FSR2AutogenConstants autogenCB;
+#define FFX_FSR2_AUTOREACTIVEFLAGS_APPLY_TONEMAP         1
+#define FFX_FSR2_AUTOREACTIVEFLAGS_APPLY_INVERSETONEMAP  2
+#define FFX_FSR2_AUTOREACTIVEFLAGS_APPLY_THRESHOLD       4
+#define FFX_FSR2_AUTOREACTIVEFLAGS_USE_COMPONENTS_MAX    8
+
 inline static FSR2_CB_DATA constantBuffer{};
 
 typedef struct Fsr2RcasConstants {

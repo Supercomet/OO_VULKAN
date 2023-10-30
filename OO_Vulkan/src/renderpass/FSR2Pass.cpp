@@ -145,6 +145,11 @@ void FSR2Pass::Init()
 	vr.attachments.fsr_dilated_reactive_masks.forFrameBuffer(&vr.m_device, VK_FORMAT_R8G8_UNORM, VK_IMAGE_USAGE_STORAGE_BIT,
 		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL);
 	vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_dilated_reactive_masks);
+
+	vr.attachments.fsr_reactive_mask.name = "fsr_reactive_mask";
+	vr.attachments.fsr_reactive_mask.forFrameBuffer(&vr.m_device, VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL); 
+	vr.fbCache.RegisterFramebuffer(vr.attachments.fsr_reactive_mask);
 	
 	vr.attachments.fsr_prepared_input_color.name = "fsr_prepared_input_color";
 	vr.attachments.fsr_prepared_input_color.forFrameBuffer(&vr.m_device, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT,
@@ -238,6 +243,11 @@ bool FSR2Pass::SetupDependencies()
 			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
 			, vr.FSR2rcasBuffer[i]);
 		VK_NAME(vr.m_device.logicalDevice, "FSR2 RCAS_CB", vr.FSR2rcasBuffer[i].buffer);
+		
+		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(FSR2AutogenConstants)
+			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+			, vr.FSR2autoGen[i]);
+		VK_NAME(vr.m_device.logicalDevice, "FSR2 autoGen", vr.FSR2autoGen[i].buffer);
 				
 	}
 
@@ -350,6 +360,16 @@ void SetupConstantBuffers()
 
 	 memcpy(vr.FSR2rcasBuffer[currFrame].allocInfo.pMappedData, &rcasCB, sizeof(Fsr2RcasConstants));
 
+	 // autogen
+	 autogenCB = {};
+	 autogenCB.scale = 1.0f;
+	 autogenCB.threshold =  0.2f;
+	 autogenCB.binaryValue =  0.9f;
+	 autogenCB.flags = FFX_FSR2_AUTOREACTIVEFLAGS_APPLY_TONEMAP |
+		 FFX_FSR2_AUTOREACTIVEFLAGS_APPLY_THRESHOLD |
+		 FFX_FSR2_AUTOREACTIVEFLAGS_USE_COMPONENTS_MAX;
+
+	 memcpy(vr.FSR2autoGen[currFrame].allocInfo.pMappedData, &autogenCB, sizeof(FSR2AutogenConstants));
 }
 
 void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
@@ -378,11 +398,11 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 	};
 	
 	// Auto exposure
-	uint32_t dispatchThreadGroupCountXY[2];
+	uint32_t spdDispatchThreads[2];
 	uint32_t workGroupOffset[2];
 	uint32_t numWorkGroupsAndMips[2];
 	uint32_t rectInfo[4] = { 0, 0, vr.renderWidth, vr.renderHeight };
-	ffxSpdSetup(dispatchThreadGroupCountXY, workGroupOffset, numWorkGroupsAndMips, rectInfo, -1);
+	ffxSpdSetup(spdDispatchThreads, workGroupOffset, numWorkGroupsAndMips, rectInfo, -1);
 
 	// downsample
 	Fsr2SpdConstants luminancePyramidConstants;
@@ -440,6 +460,23 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		samplers[i].sampler = nullptr;
 	}
 
+	// autogen reactive
+	cmd.BindPSO(pso_fsr2[FSR2::AUTOGEN_REACTIVE], PSOLayoutDB::fsr2_PSOLayouts[FSR2::AUTOGEN_REACTIVE], VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.DescriptorSetBegin(0)
+		.BindImage(0, &vr.attachments.lighting_target, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		.BindImage(1, &vr.attachments.lighting_target, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+
+		.BindSampler(1000, GfxSamplerManager::GetSampler_PointClamp()) // point clamp
+		.BindSampler(1001, GfxSamplerManager::GetSampler_LinearClamp()) // linear clamp
+
+		.BindImage(2002, &vr.attachments.fsr_reactive_mask, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+
+
+		.BindBuffer(3000, vr.FSR2autoGen[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+		.BindBuffer(3001, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+	cmd.Dispatch(dispatchSrc[0], dispatchSrc[1]);
+
+
 	// Luminance pyramid
 	cmd.BindPSO(pso_fsr2[FSR2::COMPUTE_LUMINANCE_PYRAMID], PSOLayoutDB::fsr2_PSOLayouts[FSR2::COMPUTE_LUMINANCE_PYRAMID], VK_PIPELINE_BIND_POINT_COMPUTE);
 	cmd.DescriptorSetBegin(0)
@@ -456,7 +493,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
 		.BindBuffer(3001, vr.FSR2luminanceCB[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
-	cmd.Dispatch(dispatchThreadGroupCountXY[0], dispatchThreadGroupCountXY[1]);
+	cmd.Dispatch(spdDispatchThreads[0], spdDispatchThreads[1]);
 
 	// Reconstruct and dilate
 	VkClearValue cv{};
@@ -487,7 +524,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindImage(0 , &vr.attachments.fsr_reconstructed_prev_depth, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(1 , &vr.attachments.fsr_dilated_velocity[prevFrame], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(2 , &vr.attachments.fsr_dilated_depth, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
-		.BindImage(3 , &vr.g_Textures[vr.blackTextureID], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // reactive
+		.BindImage(3 , &vr.attachments.fsr_reactive_mask, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // reactive
 		.BindImage(4 , &vr.g_Textures[vr.blackTextureID], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // transparent
 		.BindImage(5 , &vr.attachments.lighting_target, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(6 , &vr.attachments.fsr_dilated_velocity[currFrame], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
@@ -601,6 +638,8 @@ void FSR2Pass::Shutdown()
 
 	vr.attachments.fsr_dilated_reactive_masks.destroy();
 
+	vr.attachments.fsr_reactive_mask.destroy();
+
 	vr.attachments.fsr_prepared_input_color.destroy();
 
 	vr.attachments.fsr_new_locks.destroy();
@@ -616,6 +655,7 @@ void FSR2Pass::Shutdown()
 		vmaDestroyBuffer(vr.m_device.m_allocator, vr.FSR2constantBuffer[i].buffer, vr.FSR2constantBuffer[i].alloc);
 		vmaDestroyBuffer(vr.m_device.m_allocator, vr.FSR2luminanceCB[i].buffer, vr.FSR2luminanceCB[i].alloc);
 		vmaDestroyBuffer(vr.m_device.m_allocator, vr.FSR2rcasBuffer[i].buffer, vr.FSR2rcasBuffer[i].alloc);
+		vmaDestroyBuffer(vr.m_device.m_allocator, vr.FSR2autoGen[i].buffer, vr.FSR2autoGen[i].alloc);
 	}
 
 	for (size_t i = 0; i < FSR2::MAX_SIZE; i++)
