@@ -581,7 +581,7 @@ void TestApplication::Run()
 
     constexpr float M_PI = glm::pi<float>();
     std::vector<glm::vec4> angles;        
-    angles.resize(endSpheres - beginSpheres);
+    angles.resize(endSpheres - beginSpheres + 1);
     for (size_t i = 0; i < angles.size(); i++)
     {
         angles[i].x = float(FastRandomMagic()) / UINT32_MAX * M_PI;
@@ -821,6 +821,7 @@ void TestApplication::Run()
                     gs_RenderEngine->UpdateRenderResolution();
                     currItem = 5;
                 }
+                ImGui::Text("Rendering at {%4d,%4d}", gs_RenderEngine->renderWidth, gs_RenderEngine->renderHeight);
                
                 if (ImGui::Checkbox("Use FSR2", &gs_RenderEngine->enableFSR2)) {
                     gs_RenderEngine->UpdateRenderResolution();

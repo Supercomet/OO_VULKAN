@@ -499,11 +499,26 @@ public:
 	int32_t jitterPhaseCount;
 	bool enableFSR2 = true;
 
+	struct PERF_QUALITY_ITEM
+	{
+		NVSDK_NGX_PerfQuality_Value PerfQuality;
+		const char* PerfQualityText;
+		bool                        PerfQualityAllowed;
+		bool                        PerfQualityDynamicAllowed;
+	};
+	std::vector<PERF_QUALITY_ITEM>        PERF_QUALITY_LIST =
+	{
+		{NVSDK_NGX_PerfQuality_Value_MaxPerf,          "Performance", false, false},
+		{NVSDK_NGX_PerfQuality_Value_Balanced,         "Balanced"   , false, false},
+		{NVSDK_NGX_PerfQuality_Value_MaxQuality,       "Quality"    , false, false},
+		{NVSDK_NGX_PerfQuality_Value_UltraPerformance, "UltraPerf"  , false, false},
+		{NVSDK_NGX_PerfQuality_Value_DLAA,             "DLAA"       , false, false},
+	};
 	std::unordered_map<NVSDK_NGX_PerfQuality_Value, DlssRecommendedSettings> m_RecommendedSettingsMap;
 	glm::ivec2 m_recommendedSettingsLastSize = {~0, ~0, }; // in case we need to refresh the recommended settings map
 	NGXWrapper m_NGX;
-
 	void FillReccomendedSettings(glm::ivec2 displaySize);
+	void PrepareDLSS();
 
 	float rcas_sharpness = 1.0f;
 

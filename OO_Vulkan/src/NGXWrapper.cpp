@@ -13,6 +13,7 @@
 
 #include "VulkanRenderer.h"
 
+#pragma optimize("" ,off)
 void NGXWrapper::Init()
 {
 	VulkanRenderer& vr = *VulkanRenderer::get();
@@ -57,11 +58,11 @@ void NGXWrapper::Init()
 	dis.FeatureID                    = NVSDK_NGX_Feature_SuperSampling;
 	dis.Identifier.IdentifierType    = NVSDK_NGX_Application_Identifier_Type_Application_Id;        
 	dis.ApplicationDataPath          = ApplicationDataPath.data();
-	dis.Identifier.v.ApplicationId   = 0x0023;
+	dis.Identifier.v.ApplicationId   = 0;
 
 	if (!IsFeatureSupported(&dis))
 	{
-		printf("Requested NGX DLSS Feature not supported");
+		printf("Requested NGX DLSS Feature not supported\n");
 		__debugbreak();
 		//return 1;
 	}        
@@ -107,6 +108,7 @@ void NGXWrapper::Init()
 		NVSDK_NGX_Parameter_GetI(m_ngxParameters, NVSDK_NGX_Parameter_SuperSampling_FeatureInitResult, (int*)&FeatureInitResult);
 		printf("NVIDIA DLSS not available on this hardward/platform., FeatureInitResult = 0x%08x, info: %ls\n", FeatureInitResult, GetNGXResultAsString(FeatureInitResult));
 		// shutdown ngx
+		Shutdown();
 		__debugbreak();
 	}
 }
@@ -116,6 +118,11 @@ void NGXWrapper::Shutdown()
 	if (m_initialized == false) return;
 
 	VulkanRenderer& vr = *VulkanRenderer::get();
+
+	if (DLSSisActive())
+	{
+		ReleaseDLSSFeatures();
+	}
 
 	NVSDK_NGX_VULKAN_DestroyParameters(m_ngxParameters);
 	NVSDK_NGX_Result shutdownResult = NVSDK_NGX_VULKAN_Shutdown1(vr.m_device.logicalDevice);
@@ -127,11 +134,16 @@ void NGXWrapper::Shutdown()
 	m_initialized = false;
 }
 
+bool NGXWrapper::DLSSisActive()
+{
+	return m_dlssFeature != nullptr;
+}
+
 bool NGXWrapper::InitializeDLSSFeatures(glm::ivec2 optimalRenderSize, glm::ivec2 displayOutSize, int isContentHDR, bool depthInverted, float depthScale, bool enableSharpening, bool enableAutoExposure, NVSDK_NGX_PerfQuality_Value qualValue, unsigned int renderPreset)
 {
 	VulkanRenderer& vr = *VulkanRenderer::get();
 
-	if (m_initialized)
+	if (m_initialized == false)
 	{
 		printf("Attempt to InitializeDLSSFeature without NGX being initialized.\n");
 		return false;
@@ -164,10 +176,10 @@ bool NGXWrapper::InitializeDLSSFeatures(glm::ivec2 optimalRenderSize, glm::ivec2
 	VkCommandBuffer cmd = vr.GetCommandBuffer();
 
 	ResultDLSS = NGX_VULKAN_CREATE_DLSS_EXT(cmd, CreationNodeMask, VisibilityNodeMask, &m_dlssFeature, m_ngxParameters, &DlssCreateParams);
-
 	if (NVSDK_NGX_FAILED(ResultDLSS))
 	{
 		printf("Failed to create DLSS Features = 0x%08x, info: %ls\n", ResultDLSS, GetNGXResultAsString(ResultDLSS));
+		__debugbreak();
 		return false;
 	}
 

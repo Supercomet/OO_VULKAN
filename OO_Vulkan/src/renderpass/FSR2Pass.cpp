@@ -271,12 +271,12 @@ void SetupConstantBuffers()
 	}
 	
 
-	printf("[%d] gpujitter [%1.4f,%1.4f], cameraJitter [%1.4f,%1.4f], previousJitter [%1.4f,%1.4f]\n",
-		vr.m_JitterIndex
-		, constantBuffer.jitterOffset[0]
-		, constantBuffer.jitterOffset[1]
-		, cam.jitterValues.x,cam.jitterValues.y
-		, vr.prevjitterX,	 vr.prevjitterY);
+	//printf("[%d] gpujitter [%1.4f,%1.4f], cameraJitter [%1.4f,%1.4f], previousJitter [%1.4f,%1.4f]\n",
+	//	vr.m_JitterIndex
+	//	, constantBuffer.jitterOffset[0]
+	//	, constantBuffer.jitterOffset[1]
+	//	, cam.jitterValues.x,cam.jitterValues.y
+	//	, vr.prevjitterX,	 vr.prevjitterY);
 
 	// compute the horizontal FOV for the shader from the vertical one.
 	float fovYrad = glm::radians(cam.m_fovDegrees);
@@ -307,8 +307,8 @@ void SetupConstantBuffers()
 		previousJitterOffset[1] = constantBuffer.jitterOffset[1];
 	 }
 
-	 constantBuffer.motionVectorScale.x = 1.0f *	 vr.m_ShaderDebugValues.vector4_values2.x;
-	 constantBuffer.motionVectorScale.y = 1.0f *	 vr.m_ShaderDebugValues.vector4_values2.y;
+	 constantBuffer.motionVectorScale.x = 1.0f;
+	 constantBuffer.motionVectorScale.y = 1.0f;
 
 	 // guarenteed OK
 

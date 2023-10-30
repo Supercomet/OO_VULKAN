@@ -35,6 +35,7 @@ public:
 
 	void OnResize();
 
+	bool DLSSisActive();
 	bool InitializeDLSSFeatures(glm::ivec2 optimalRenderSize, glm::ivec2 displayOutSize
 		, int isContentHDR, bool depthInverted
 		, float depthScale = 1.0f, bool enableSharpening = false

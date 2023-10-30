@@ -403,8 +403,16 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 		m_NGX.QueryOptimalSettings(glm::uvec2(m_swapchain.swapChainExtent.width, m_swapchain.swapChainExtent.height)
 			, NVSDK_NGX_PerfQuality_Value_UltraPerformance
 			, &reccos);
-		printf("Nvidia Reccomends {%d,%d}\n", reccos.m_ngxRecommendedOptimalRenderSize.x, reccos.m_ngxRecommendedOptimalRenderSize.y);
+	printf("Nvidia Reccomends {%d,%d}\n", reccos.m_ngxRecommendedOptimalRenderSize.x, reccos.m_ngxRecommendedOptimalRenderSize.y);
 
+	FillReccomendedSettings({ m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height });
+	for (PERF_QUALITY_ITEM& item : PERF_QUALITY_LIST)
+	{
+		DlssRecommendedSettings recco = m_RecommendedSettingsMap[item.PerfQuality];
+		
+		printf("[%d] %s\t:OK(%d) {%4d,%4d}\n", item.PerfQuality, item.PerfQualityText, item.PerfQualityAllowed? 1:0
+		, recco.m_ngxRecommendedOptimalRenderSize.x, recco.m_ngxRecommendedOptimalRenderSize.y);
+	}
 	// Calls "Init()" on all registered render passes. Order is not guarunteed.
 	auto rpd = RenderPassDatabase::Get();
 	rpd->RegisterRenderPass(g_ShadowPass);
@@ -445,7 +453,8 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	blackTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
 	normalTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
 	pinkTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
-		
+
+	PrepareDLSS();
 
 	RenderPassDatabase::InitAllRegisteredPasses();
 
@@ -1199,26 +1208,9 @@ void VulkanRenderer::FillReccomendedSettings(glm::ivec2 inDisplaySize)
 		return; // no need to refresh recommended Settings as the display resolution hasn't changed
 	}
 
-	struct PERF_QUALITY_ITEM
-	{
-		NVSDK_NGX_PerfQuality_Value PerfQuality;
-		const char *                PerfQualityText;
-		bool                        PerfQualityAllowed;
-		bool                        PerfQualityDynamicAllowed;
-	};
-
-	std::vector<PERF_QUALITY_ITEM>        PERF_QUALITY_LIST =
-	{   
-		{NVSDK_NGX_PerfQuality_Value_MaxPerf,          "Performance", false, false},
-		{NVSDK_NGX_PerfQuality_Value_Balanced,         "Balanced"   , false, false},
-		{NVSDK_NGX_PerfQuality_Value_MaxQuality,       "Quality"    , false, false},
-		{NVSDK_NGX_PerfQuality_Value_UltraPerformance, "UltraPerf"  , false, false},
-		{NVSDK_NGX_PerfQuality_Value_DLAA,             "DLAA"       , false, false},
-	};
-
 	for (PERF_QUALITY_ITEM &item : PERF_QUALITY_LIST)
 	{
-		m_NGXWrapper->QueryOptimalSettings(inDisplaySize, item.PerfQuality, &m_RecommendedSettingsMap[item.PerfQuality]);
+		m_NGX.QueryOptimalSettings(inDisplaySize, item.PerfQuality, &m_RecommendedSettingsMap[item.PerfQuality]);
 		if (m_RecommendedSettingsMap[item.PerfQuality].m_ngxRecommendedOptimalRenderSize.x == 0 ||
 			m_RecommendedSettingsMap[item.PerfQuality].m_ngxRecommendedOptimalRenderSize.y == 0)
 		{
@@ -1228,8 +1220,8 @@ void VulkanRenderer::FillReccomendedSettings(glm::ivec2 inDisplaySize)
 		{
 			item.PerfQualityAllowed = true;
 		}
-		if (all(m_RecommendedSettingsMap[item.PerfQuality].m_ngxDynamicMaximumRenderSize ==
-			m_RecommendedSettingsMap[item.PerfQuality].m_ngxDynamicMinimumRenderSize))
+		if (m_RecommendedSettingsMap[item.PerfQuality].m_ngxDynamicMaximumRenderSize ==
+			m_RecommendedSettingsMap[item.PerfQuality].m_ngxDynamicMinimumRenderSize)
 		{
 			item.PerfQualityDynamicAllowed = false;
 		}
@@ -1239,6 +1231,44 @@ void VulkanRenderer::FillReccomendedSettings(glm::ivec2 inDisplaySize)
 		}
 	}
 	m_recommendedSettingsLastSize = inDisplaySize;
+}
+
+void VulkanRenderer::PrepareDLSS()
+{
+	// dont always release
+	glm::ivec2 renderSize = { renderWidth,renderHeight };
+	glm::ivec2 displaySize = { m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height };
+
+	static glm::ivec2 oldRenderSize = { 0,0 };
+	if (renderSize == oldRenderSize) 
+	{
+		return;// it should be ok.
+		// might need to check for proper resize of display size
+	}
+	oldRenderSize = renderSize;
+
+	if (m_NGX.DLSSisActive()) 
+	{
+		m_NGX.ReleaseDLSSFeatures();
+	}
+
+	vkutils::Texture& target = attachments.lighting_target;
+
+	bool isContentHDR = target.format == G_HDR_FORMAT || target.format == G_HDR_FORMAT_ALPHA;
+	bool depthInverted = true;
+	bool m_SharpeningOn = false;
+	bool m_AutoExposureOn = false;
+	float depthScale = 1.0f;
+		
+
+	uint32_t noRenderPreset = 0;
+
+	m_NGX.InitializeDLSSFeatures(renderSize,
+		displaySize,
+		isContentHDR, depthInverted,
+		depthScale, m_SharpeningOn,
+		m_AutoExposureOn, NVSDK_NGX_PerfQuality_Value_Balanced,
+		noRenderPreset);
 }
 
 VkCommandBuffer VulkanRenderer::GetCommandBuffer()
