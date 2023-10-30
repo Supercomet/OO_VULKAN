@@ -62,7 +62,8 @@ Technology is prohibited.
 #include <functional>
 #include <memory>
 
-
+// dlss
+#include "NGXWrapper.h"
 
 struct Window;
 
@@ -497,6 +498,12 @@ public:
 	uint32_t fsrFrameCount;
 	int32_t jitterPhaseCount;
 	bool enableFSR2 = true;
+
+	std::unordered_map<NVSDK_NGX_PerfQuality_Value, DlssRecommendedSettings> m_RecommendedSettingsMap;
+	glm::ivec2 m_recommendedSettingsLastSize = {~0, ~0, }; // in case we need to refresh the recommended settings map
+	NGXWrapper m_NGX;
+
+	void FillReccomendedSettings(glm::ivec2 displaySize);
 
 	float rcas_sharpness = 1.0f;
 

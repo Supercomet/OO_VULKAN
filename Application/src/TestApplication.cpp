@@ -272,7 +272,7 @@ void TestApplication::Run()
 
     //setupSpec.debug = BoolQueryUser("Do you want debugging?");
     //setupSpec.renderDoc = BoolQueryUser("Do you want renderdoc?");
-    setupSpec.debug = false;
+    setupSpec.debug = true;
     setupSpec.renderDoc = false;
 
     //----------------------------------------------------------------------------------------------------

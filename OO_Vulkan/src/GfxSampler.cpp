@@ -31,7 +31,7 @@ void GfxSamplerManager::Init()
     auto& vr = *VulkanRenderer::get();
     auto& device = vr.m_device.logicalDevice;
     float maxAni = vr.m_device.properties.limits.maxSamplerAnisotropy;
-    VkBool32 aniEnabled = vr.m_device.enabledFeatures.samplerAnisotropy;
+    VkBool32 aniEnabled = vr.m_device.enabledFeatures.features.samplerAnisotropy;
 
     {        
         VkSamplerCreateInfo samplerCreateInfo{};
