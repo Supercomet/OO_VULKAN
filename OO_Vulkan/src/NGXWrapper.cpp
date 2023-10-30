@@ -200,6 +200,76 @@ void NGXWrapper::ReleaseDLSSFeatures()
 	m_dlssFeature = nullptr;
 }
 
+NVSDK_NGX_Resource_VK TextureToResourceVK(vkutils::Texture*  tex, VkImageSubresourceRange subresources)
+{
+	
+	NVSDK_NGX_Resource_VK resourceVK = {};
+	VkImageView imageView = tex->view;
+	VkFormat format = tex->format;
+	VkImage image = tex->image.image;
+	VkImageSubresourceRange subresourceRange = { 1, subresources.baseMipLevel, subresources.levelCount, subresources.baseArrayLayer, subresources.layerCount };
+
+	return NVSDK_NGX_Create_ImageView_Resource_VK(imageView, image, subresourceRange, format, tex->width, tex->height, tex->usage & VK_IMAGE_USAGE_STORAGE_BIT);
+}
+
+void NGXWrapper::EvaluateSuperSampling(VkCommandBuffer commandList
+	, vkutils::Texture* unresolvedColor
+	, vkutils::Texture* resolvedColor
+	, vkutils::Texture* motionVectors
+	, vkutils::Texture* depth
+	, vkutils::Texture* exposure
+	, VkViewport viewport
+	, bool bResetAccumulation, bool bUseNgxSdkExtApi
+	, glm::vec2 jitterOffset, glm::vec2 mVScale)
+{
+	OO_ASSERT(m_initialized);
+	OO_ASSERT(m_dlssFeature);
+
+	VulkanRenderer& vr = *VulkanRenderer::get();
+
+	NVSDK_NGX_Coordinates renderingOffset = { (unsigned int)0,
+											  (unsigned int)0 };
+	NVSDK_NGX_Dimensions  renderingSize = { (unsigned int)(viewport.width  - viewport.x),
+											(unsigned int)(viewport.height - viewport.y)};
+
+	VkImageSubresourceRange subresources{ VK_IMAGE_ASPECT_COLOR_BIT,0,1,0,1 };
+	NVSDK_NGX_Resource_VK unresolvedColorResource = TextureToResourceVK(unresolvedColor, subresources);
+	NVSDK_NGX_Resource_VK resolvedColorResource = TextureToResourceVK(resolvedColor, subresources);
+	NVSDK_NGX_Resource_VK motionVectorsResource = TextureToResourceVK(motionVectors, subresources);
+	NVSDK_NGX_Resource_VK depthResource = TextureToResourceVK(depth, subresources);
+	NVSDK_NGX_Resource_VK exposureResource = TextureToResourceVK(exposure, subresources); // might need to change
+
+	NVSDK_NGX_Result Result;
+
+	NVSDK_NGX_VK_DLSS_Eval_Params VkDlssEvalParams{};
+	memset(&VkDlssEvalParams, 0, sizeof(VkDlssEvalParams));
+
+	VkDlssEvalParams.Feature.pInColor = &unresolvedColorResource;
+	VkDlssEvalParams.Feature.pInOutput = &resolvedColorResource;
+	VkDlssEvalParams.pInDepth = &depthResource;
+	VkDlssEvalParams.pInMotionVectors = &motionVectorsResource;
+	VkDlssEvalParams.pInExposureTexture = &exposureResource;
+	VkDlssEvalParams.InJitterOffsetX = jitterOffset.x * -1.0f;
+	VkDlssEvalParams.InJitterOffsetY = jitterOffset.y * -1.0f;
+	VkDlssEvalParams.InReset = bResetAccumulation;
+	VkDlssEvalParams.InMVScaleX = mVScale.x;
+	VkDlssEvalParams.InMVScaleY = mVScale.y;
+	VkDlssEvalParams.InColorSubrectBase = renderingOffset;
+	VkDlssEvalParams.InDepthSubrectBase = renderingOffset;
+	VkDlssEvalParams.InTranslucencySubrectBase = renderingOffset;
+	VkDlssEvalParams.InMVSubrectBase = renderingOffset;
+	VkDlssEvalParams.InRenderSubrectDimensions = renderingSize;
+
+	Result = NGX_VULKAN_EVALUATE_DLSS_EXT(commandList, m_dlssFeature, m_ngxParameters, &VkDlssEvalParams);
+
+	if (NVSDK_NGX_FAILED(Result))
+	{
+		printf("Failed to NVSDK_NGX_VULKAN_EvaluateFeature for DLSS, code = 0x%08x, info: %ls\n", Result, GetNGXResultAsString(Result));
+	}
+
+
+}
+
 bool NGXWrapper::QueryOptimalSettings(glm::uvec2 inDisplaySize, NVSDK_NGX_PerfQuality_Value inQualValue, DlssRecommendedSettings* outRecommendedSettings)
 {
 	if (!m_initialized)

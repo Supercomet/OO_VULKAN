@@ -158,7 +158,8 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 		mainImage = &vr.attachments.fullres_HDR;
 	}
 	else {
-		mainImage = &vr.attachments.lighting_target;
+		mainImage = &vr.attachments.fullres_HDR;
+		//mainImage = &vr.attachments.lighting_target;
 	}
 
 	glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f };

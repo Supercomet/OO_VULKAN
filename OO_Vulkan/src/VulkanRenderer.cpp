@@ -60,6 +60,7 @@ extern GfxRenderpass* g_SSAORenderPass;
 extern GfxRenderpass* g_SkyRenderPass;
 extern GfxRenderpass* g_ZPrePass;
 extern GfxRenderpass* g_FSR2Pass;
+extern GfxRenderpass* g_DLSSPass;
 
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	#include "renderpass/ForwardDecalRenderpass.h"
@@ -428,6 +429,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	rpd->RegisterRenderPass(g_ForwardParticlePass);
 	rpd->RegisterRenderPass(g_BloomPass);
 	rpd->RegisterRenderPass(g_FSR2Pass);
+	rpd->RegisterRenderPass(g_DLSSPass);
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	ptr = new ForwardDecalRenderpass;
 	rpd->RegisterRenderPass(ptr);
@@ -2715,7 +2717,7 @@ void VulkanRenderer::BeginDraw()
 			{
 				Camera& cam = currWorld->cameras[i];		
 
-				if (m_useJitter && enableFSR2) {
+				if (m_useJitter) {
 
 					uint32_t x = getFrame();
 					float xval[]{ -.5,.5 };
@@ -2909,9 +2911,9 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		if (enableFSR2) {
 		AddRenderer(g_FSR2Pass);
 		}
-		//else {
-		//
-		//}
+		else {
+		AddRenderer(g_DLSSPass);
+		}
 		AddRenderer(g_BloomPass);
 		//AddRenderer(g_DebugDrawRenderpass);
 		

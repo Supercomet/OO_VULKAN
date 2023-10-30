@@ -6,11 +6,18 @@
 #endif
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
+
+
+
 // nvidia DLSS
 #include "nvsdk_ngx_defs.h"
 #include "nvsdk_ngx_vk.h"
 #include "nvsdk_ngx_params.h"
 #include "nvsdk_ngx_helpers_vk.h"
+
+namespace vkutils {
+class Texture;
+}
 
 struct NVSDK_NGX_FeatureDiscoveryInfo;
 struct NVSDK_NGX_Parameter;
@@ -42,6 +49,19 @@ public:
 		, bool enableAutoExposure = false, NVSDK_NGX_PerfQuality_Value qualValue = NVSDK_NGX_PerfQuality_Value_MaxPerf
 		, unsigned int renderPreset = 0);
 	void ReleaseDLSSFeatures();
+
+	void EvaluateSuperSampling(
+		VkCommandBuffer commandList,
+		vkutils::Texture* unresolvedColor,
+		vkutils::Texture* resolvedColor,
+		vkutils::Texture* motionVectors,
+		vkutils::Texture* depth,
+		vkutils::Texture* exposure,
+		VkViewport viewport,
+		bool bResetAccumulation = false,
+		bool bUseNgxSdkExtApi = false,
+		glm::vec2 jitterOffset = { 0.0f, 0.0f },
+		glm::vec2 mVScale = { 1.0f, 1.0f });
 
 	bool QueryOptimalSettings(glm::uvec2 inDisplaySize
 		, NVSDK_NGX_PerfQuality_Value inQualValue

@@ -254,8 +254,8 @@ void SetupConstantBuffers()
 	
 	// Jitter handled in main
 
-	constantBuffer.jitterOffset[0] = vr.jitterX * vr.m_ShaderDebugValues.vector4_values2.z ;
-	constantBuffer.jitterOffset[1] = vr.jitterY * vr.m_ShaderDebugValues.vector4_values2.w ;
+	constantBuffer.jitterOffset[0] = vr.jitterX * -1.0f;
+	constantBuffer.jitterOffset[1] = vr.jitterY * -1.0f;
 
 	if (constantBuffer.jitterPhaseCount == 0) {
 		constantBuffer.jitterPhaseCount = vr.jitterPhaseCount;
