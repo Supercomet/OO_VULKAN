@@ -154,12 +154,11 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 	cmd.BindPSO(pso_bloom_bright, PSOLayoutDB::doubleImageStoreLayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 	
 	vkutils::Texture2D* mainImage;
-	if (vr.enableFSR2) {
-		mainImage = &vr.attachments.fullres_HDR;
+	if (vr.m_upscaleType == VulkanRenderer::UPSCALING_TYPE::NONE) {
+		mainImage = &vr.attachments.lighting_target;
 	}
 	else {
 		mainImage = &vr.attachments.fullres_HDR;
-		//mainImage = &vr.attachments.lighting_target;
 	}
 
 	glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f };

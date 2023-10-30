@@ -484,7 +484,23 @@ public:
 
 	bool ResizeSwapchain();
 
+	enum UPSCALING_TYPE : uint8_t
+	{
+		NONE,
+		DLSS,
+		FSR2,
+	};
+	enum UPSCALING_QUALITY: uint8_t
+	{
+		NATIVE,
+		QUALITY,
+		BALANCED,
+		PERFORMANCE,
+		ULTRA_PERFORMANCE,
+		CUSTOM,
+	};
 	void UpdateRenderResolution();
+	void SetUpscaler(UPSCALING_TYPE upscaler);
 	float changedRenderResolution = 1.0f;
 	float renderResolution = 1.0f;
 	uint32_t renderWidth{};
@@ -497,7 +513,8 @@ public:
 	float jitterY;
 	uint32_t fsrFrameCount;
 	int32_t jitterPhaseCount;
-	bool enableFSR2 = true;
+	
+	UPSCALING_TYPE m_upscaleType = NONE;
 
 	struct PERF_QUALITY_ITEM
 	{

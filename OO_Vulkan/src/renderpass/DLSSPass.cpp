@@ -80,6 +80,8 @@ void DLSSPass::Draw(const VkCommandBuffer cmdlist)
 	rhi::CommandList cmd{ cmdlist, "DLSS",{1,0,0,0.5} };
 	lastCmd = cmdlist;
 
+	vr.PrepareDLSS();
+
 	cmd.DescriptorSetBegin(0)
 		.BindImage(0, &vr.attachments.lighting_target, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(1, &vr.attachments.fullres_HDR, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)

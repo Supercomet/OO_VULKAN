@@ -815,17 +815,24 @@ void TestApplication::Run()
                     "PERFORMANCE",
                     "ULTRA PERFORMANCE",
                     "CUSTOM",
-                };
-                if (ImGui::SliderFloat("RenderResolution", &gs_RenderEngine->changedRenderResolution, 0.1f, 1.0f))
-                {
-                    gs_RenderEngine->UpdateRenderResolution();
-                    currItem = 5;
-                }
+                };               
                 ImGui::Text("Rendering at {%4d,%4d}", gs_RenderEngine->renderWidth, gs_RenderEngine->renderHeight);
                
-                if (ImGui::Checkbox("Use FSR2", &gs_RenderEngine->enableFSR2)) {
-                    gs_RenderEngine->UpdateRenderResolution();
+                static int upscale_item = 0;
+                static const char* upscalers[]{
+                    "NONE",
+                    "DLSS",
+                    "FSR",
+                };
+                if (ImGui::ListBox("UpscaleType", &upscale_item, upscalers, 3))
+                {
+                    if (upscale_item < 3)
+                    {
+                        gs_RenderEngine->SetUpscaler((VulkanRenderer::UPSCALING_TYPE)upscale_item);
+                        gs_RenderEngine->UpdateRenderResolution();
+                    }
                 }
+
                 ImGui::Checkbox("Use Jitter", &gs_RenderEngine->m_useJitter);
                 if (ImGui::SliderFloat("RCAS Sharpness", &gs_RenderEngine->rcas_sharpness, 0.0f, 1.0f))
                 {
@@ -838,6 +845,11 @@ void TestApplication::Run()
                         gs_RenderEngine->changedRenderResolution = scales[currItem];
                         gs_RenderEngine->UpdateRenderResolution();
                     }
+                }
+                if (ImGui::SliderFloat("RenderResolution", &gs_RenderEngine->changedRenderResolution, 0.1f, 1.0f))
+                {
+                    gs_RenderEngine->UpdateRenderResolution();
+                    currItem = 5; // set to custom
                 }
                 if (ImGui::Button("Cause problems"))
                 {

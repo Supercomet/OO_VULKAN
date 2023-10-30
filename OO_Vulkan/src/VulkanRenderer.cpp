@@ -400,20 +400,13 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 	CreateLightingBuffers();
 
-	DlssRecommendedSettings reccos{};
-		m_NGX.QueryOptimalSettings(glm::uvec2(m_swapchain.swapChainExtent.width, m_swapchain.swapChainExtent.height)
-			, NVSDK_NGX_PerfQuality_Value_UltraPerformance
-			, &reccos);
-	printf("Nvidia Reccomends {%d,%d}\n", reccos.m_ngxRecommendedOptimalRenderSize.x, reccos.m_ngxRecommendedOptimalRenderSize.y);
+	//DlssRecommendedSettings reccos{};
+	//	m_NGX.QueryOptimalSettings(glm::uvec2(m_swapchain.swapChainExtent.width, m_swapchain.swapChainExtent.height)
+	//		, NVSDK_NGX_PerfQuality_Value_UltraPerformance
+	//		, &reccos);
+	//printf("Nvidia Reccomends {%d,%d}\n", reccos.m_ngxRecommendedOptimalRenderSize.x, reccos.m_ngxRecommendedOptimalRenderSize.y);
 
-	FillReccomendedSettings({ m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height });
-	for (PERF_QUALITY_ITEM& item : PERF_QUALITY_LIST)
-	{
-		DlssRecommendedSettings recco = m_RecommendedSettingsMap[item.PerfQuality];
-		
-		printf("[%d] %s\t:OK(%d) {%4d,%4d}\n", item.PerfQuality, item.PerfQualityText, item.PerfQualityAllowed? 1:0
-		, recco.m_ngxRecommendedOptimalRenderSize.x, recco.m_ngxRecommendedOptimalRenderSize.y);
-	}
+	
 	// Calls "Init()" on all registered render passes. Order is not guarunteed.
 	auto rpd = RenderPassDatabase::Get();
 	rpd->RegisterRenderPass(g_ShadowPass);
@@ -1203,6 +1196,15 @@ void VulkanRenderer::UpdateRenderResolution()
 	});
 }
 
+void VulkanRenderer::SetUpscaler(UPSCALING_TYPE upscaler)
+{
+	std::scoped_lock l{ g_mut_workQueue };
+	g_workQueue.push_back([this, u = upscaler] {
+		m_upscaleType = u;
+		resizeSwapchain = true;
+	});
+}
+
 void VulkanRenderer::FillReccomendedSettings(glm::ivec2 inDisplaySize)
 {
 	if (m_recommendedSettingsLastSize == inDisplaySize)
@@ -1259,9 +1261,8 @@ void VulkanRenderer::PrepareDLSS()
 	bool isContentHDR = target.format == G_HDR_FORMAT || target.format == G_HDR_FORMAT_ALPHA;
 	bool depthInverted = true;
 	bool m_SharpeningOn = false;
-	bool m_AutoExposureOn = false;
-	float depthScale = 1.0f;
-		
+	bool m_AutoExposureOn = true;
+	float depthScale = 1.0f;		
 
 	uint32_t noRenderPreset = 0;
 
@@ -1271,6 +1272,18 @@ void VulkanRenderer::PrepareDLSS()
 		depthScale, m_SharpeningOn,
 		m_AutoExposureOn, NVSDK_NGX_PerfQuality_Value_Balanced,
 		noRenderPreset);
+
+	FillReccomendedSettings({ m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height });
+	for (PERF_QUALITY_ITEM& item : PERF_QUALITY_LIST)
+	{
+		DlssRecommendedSettings recco = m_RecommendedSettingsMap[item.PerfQuality];
+
+		printf("[%d] %s\t:OK(%d) R{%4d,%4d} Mx{%4d,%4d} Mn{%4d,%4d}\n", item.PerfQuality, item.PerfQualityText, item.PerfQualityAllowed ? 1 : 0
+			, recco.m_ngxRecommendedOptimalRenderSize.x, recco.m_ngxRecommendedOptimalRenderSize.y
+			, recco.m_ngxDynamicMaximumRenderSize.x, recco.m_ngxDynamicMaximumRenderSize.y
+			, recco.m_ngxDynamicMinimumRenderSize.x, recco.m_ngxDynamicMinimumRenderSize.y
+		);
+	}
 }
 
 VkCommandBuffer VulkanRenderer::GetCommandBuffer()
@@ -2709,15 +2722,15 @@ void VulkanRenderer::BeginDraw()
 			jitterY = 0.0f;
 			jitterPhaseCount = 0;
 
-
+			
 			jitterPhaseCount = ffxFsr2GetJitterPhaseCount(renderWidth, resInfo.width);
 			ffxFsr2GetJitterOffset(&jitterX, &jitterY, m_JitterIndex, jitterPhaseCount);
-
+						
 			for (size_t i = 0; i < currWorld->numCameras; i++)
 			{
 				Camera& cam = currWorld->cameras[i];		
 
-				if (m_useJitter) {
+				if (m_useJitter && m_upscaleType != UPSCALING_TYPE::NONE) {
 
 					uint32_t x = getFrame();
 					float xval[]{ -.5,.5 };
@@ -2908,12 +2921,19 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		AddRenderer(g_LightingHistogram);
 		AddRenderer(g_ForwardUIPass);
 		AddRenderer(g_ForwardParticlePass);
-		if (enableFSR2) {
-		AddRenderer(g_FSR2Pass);
+		switch (m_upscaleType)
+		{
+		case VulkanRenderer::DLSS:
+			AddRenderer(g_DLSSPass);
+			break;
+		case VulkanRenderer::FSR2:
+			AddRenderer(g_FSR2Pass);
+			break;
+		case VulkanRenderer::NONE:
+		default:
+			break;
 		}
-		else {
-		AddRenderer(g_DLSSPass);
-		}
+
 		AddRenderer(g_BloomPass);
 		//AddRenderer(g_DebugDrawRenderpass);
 		
@@ -2944,12 +2964,8 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			auto nextID = currWorld->targetIDs[0];
 
 			vkutils::Texture* nextTexture;
-			if (1) {
 			nextTexture = &renderTargets[nextID].texture;
-			}
-			else {
-				nextTexture = &attachments.lighting_target;
-			}
+
 			FullscreenBlit(cmd, *nextTexture, nextTexture->referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 		}
@@ -2957,12 +2973,8 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		{
 			auto thisID = currWorld->targetIDs[0];
 			vkutils::Texture* texture;
-			if (1) {
-				texture = &renderTargets[thisID].texture;
-			}
-			else {
-				texture = &attachments.lighting_target;
-			}
+			texture = &renderTargets[thisID].texture;
+			
 			FullscreenBlit(cmd, *texture, texture->referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		}
 	};
