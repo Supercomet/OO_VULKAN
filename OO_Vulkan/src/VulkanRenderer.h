@@ -82,6 +82,25 @@ enum FSR2 : uint8_t {
 	MAX_SIZE
 };
 
+enum class UPSCALING_TYPE : uint8_t
+{
+	NONE,
+	DLSS,
+	FSR2,
+};
+ENUM_OPERATORS_GEN(UPSCALING_TYPE, uint8_t);
+enum class UPSCALING_QUALITY : uint8_t
+{
+	NATIVE,
+	QUALITY,
+	BALANCED,
+	PERFORMANCE,
+	ULTRA_PERFORMANCE,
+	CUSTOM,
+	NONE,
+};
+ENUM_OPERATORS_GEN(UPSCALING_QUALITY, uint8_t);
+
 // Moving all the Descriptor Set Layout out of the VulkanRenderer class abomination...
 struct SetLayoutDB // Think of a better name? Very short and sweet for easy typing productivity?
 {
@@ -485,23 +504,9 @@ public:
 
 	bool ResizeSwapchain();
 
-	enum UPSCALING_TYPE : uint8_t
-	{
-		NONE,
-		DLSS,
-		FSR2,
-	};
-	enum UPSCALING_QUALITY: uint8_t
-	{
-		NATIVE,
-		QUALITY,
-		BALANCED,
-		PERFORMANCE,
-		ULTRA_PERFORMANCE,
-		CUSTOM,
-	};
 	void UpdateRenderResolution();
 	void SetUpscaler(UPSCALING_TYPE upscaler);
+	void SetQuality(UPSCALING_QUALITY quality);
 	float changedRenderResolution = 1.0f;
 	float renderResolution = 1.0f;
 	uint32_t renderWidth{};
@@ -515,7 +520,8 @@ public:
 	uint32_t fsrFrameCount;
 	int32_t jitterPhaseCount;
 	
-	UPSCALING_TYPE m_upscaleType = NONE;
+	UPSCALING_TYPE m_upscaleType = UPSCALING_TYPE::NONE;
+	UPSCALING_QUALITY m_upscaleQuality = UPSCALING_QUALITY::NATIVE;
 
 	struct PERF_QUALITY_ITEM
 	{
@@ -524,13 +530,14 @@ public:
 		bool                        PerfQualityAllowed;
 		bool                        PerfQualityDynamicAllowed;
 	};
+	
 	std::vector<PERF_QUALITY_ITEM>        PERF_QUALITY_LIST =
 	{
-		{NVSDK_NGX_PerfQuality_Value_MaxPerf,          "Performance", false, false},
-		{NVSDK_NGX_PerfQuality_Value_Balanced,         "Balanced"   , false, false},
+		{NVSDK_NGX_PerfQuality_Value_DLAA,             "DLAA"       , false, false}, // basically native
 		{NVSDK_NGX_PerfQuality_Value_MaxQuality,       "Quality"    , false, false},
+		{NVSDK_NGX_PerfQuality_Value_Balanced,         "Balanced"   , false, false},
+		{NVSDK_NGX_PerfQuality_Value_MaxPerf,          "Performance", false, false},
 		{NVSDK_NGX_PerfQuality_Value_UltraPerformance, "UltraPerf"  , false, false},
-		{NVSDK_NGX_PerfQuality_Value_DLAA,             "DLAA"       , false, false},
 	};
 	std::unordered_map<NVSDK_NGX_PerfQuality_Value, DlssRecommendedSettings> m_RecommendedSettingsMap;
 	glm::ivec2 m_recommendedSettingsLastSize = {~0, ~0, }; // in case we need to refresh the recommended settings map

@@ -802,7 +802,7 @@ void TestApplication::Run()
                 static float scales[]{
                     1.0f,
                     1.0f / 1.5f,
-                    1.0f / 1.7f,
+                    1.0f / 1.724f, // conform to nvidia's scaling
                     1.0f / 2.0f,
                     1.0f / 3.0f,
                 };
@@ -828,7 +828,7 @@ void TestApplication::Run()
                 {
                     if (upscale_item < 3)
                     {
-                        gs_RenderEngine->SetUpscaler((VulkanRenderer::UPSCALING_TYPE)upscale_item);
+                        gs_RenderEngine->SetUpscaler((UPSCALING_TYPE)upscale_item);
                         gs_RenderEngine->UpdateRenderResolution();
                     }
                 }
@@ -843,6 +843,7 @@ void TestApplication::Run()
                     if (currItem < 5) 
                     {
                         gs_RenderEngine->changedRenderResolution = scales[currItem];
+                        gs_RenderEngine->SetQuality((UPSCALING_QUALITY)currItem);
                         gs_RenderEngine->UpdateRenderResolution();
                     }
                 }

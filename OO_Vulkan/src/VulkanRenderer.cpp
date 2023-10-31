@@ -1205,6 +1205,15 @@ void VulkanRenderer::SetUpscaler(UPSCALING_TYPE upscaler)
 	});
 }
 
+void VulkanRenderer::SetQuality(UPSCALING_QUALITY quality)
+{
+	std::scoped_lock l{ g_mut_workQueue };
+	g_workQueue.push_back([this, q = quality] {
+		m_upscaleQuality = q;
+		resizeSwapchain = true;
+	});
+}
+
 void VulkanRenderer::FillReccomendedSettings(glm::ivec2 inDisplaySize)
 {
 	if (m_recommendedSettingsLastSize == inDisplaySize)
@@ -1239,19 +1248,37 @@ void VulkanRenderer::FillReccomendedSettings(glm::ivec2 inDisplaySize)
 
 void VulkanRenderer::PrepareDLSS()
 {
+	auto engineToNVSDK = [](UPSCALING_QUALITY e) {
+		switch (e)
+		{
+		case UPSCALING_QUALITY::QUALITY: return NVSDK_NGX_PerfQuality_Value_MaxQuality;
+		case UPSCALING_QUALITY::BALANCED: return NVSDK_NGX_PerfQuality_Value_Balanced;
+		case UPSCALING_QUALITY::PERFORMANCE: return NVSDK_NGX_PerfQuality_Value_MaxPerf;
+		case UPSCALING_QUALITY::ULTRA_PERFORMANCE: return NVSDK_NGX_PerfQuality_Value_UltraPerformance;
+		case UPSCALING_QUALITY::NATIVE:
+		case UPSCALING_QUALITY::CUSTOM:
+		default: return NVSDK_NGX_PerfQuality_Value_DLAA;
+		}
+	};
+	DlssRecommendedSettings recco = m_RecommendedSettingsMap[engineToNVSDK(m_upscaleQuality)];
+
 	// dont always release
 	glm::ivec2 renderSize = { renderWidth,renderHeight };
 	glm::ivec2 displaySize = { m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height };
+	
 
 	static glm::ivec2 oldRenderSize = { 0,0 };
-	if (renderSize == oldRenderSize) 
+	static UPSCALING_QUALITY oldUpscaleQuality = UPSCALING_QUALITY::NONE;
+	if (renderSize == oldRenderSize && m_upscaleQuality == oldUpscaleQuality)
 	{
 		return;// it should be ok.
 		// might need to check for proper resize of display size
 	}
-	oldRenderSize = renderSize;
 
-	if (m_NGX.DLSSisActive()) 
+	oldRenderSize = renderSize;
+	oldUpscaleQuality = m_upscaleQuality;
+
+	if (m_NGX.DLSSisActive())
 	{
 		m_NGX.ReleaseDLSSFeatures();
 	}
@@ -1262,28 +1289,32 @@ void VulkanRenderer::PrepareDLSS()
 	bool depthInverted = true;
 	bool m_SharpeningOn = false;
 	bool m_AutoExposureOn = true;
-	float depthScale = 1.0f;		
+	float depthScale = 1.0f;
 
 	uint32_t noRenderPreset = 0;
-
-	m_NGX.InitializeDLSSFeatures(renderSize,
-		displaySize,
-		isContentHDR, depthInverted,
-		depthScale, m_SharpeningOn,
-		m_AutoExposureOn, NVSDK_NGX_PerfQuality_Value_Balanced,
-		noRenderPreset);
 
 	FillReccomendedSettings({ m_swapchain.swapChainExtent.width,m_swapchain.swapChainExtent.height });
 	for (PERF_QUALITY_ITEM& item : PERF_QUALITY_LIST)
 	{
-		DlssRecommendedSettings recco = m_RecommendedSettingsMap[item.PerfQuality];
+		recco = m_RecommendedSettingsMap[item.PerfQuality];
 
-		printf("[%d] %s\t:OK(%d) R{%4d,%4d} Mx{%4d,%4d} Mn{%4d,%4d}\n", item.PerfQuality, item.PerfQualityText, item.PerfQualityAllowed ? 1 : 0
+		printf("[%d] %s\t:A(%s) D(%s) R{%4d,%4d} Mx{%4d,%4d} Mn{%4d,%4d}\n", item.PerfQuality, item.PerfQualityText
+			, (item.PerfQualityAllowed ? "OK" : "NO")
+			, (item.PerfQualityDynamicAllowed ? "OK" : "NO")
 			, recco.m_ngxRecommendedOptimalRenderSize.x, recco.m_ngxRecommendedOptimalRenderSize.y
 			, recco.m_ngxDynamicMaximumRenderSize.x, recco.m_ngxDynamicMaximumRenderSize.y
 			, recco.m_ngxDynamicMinimumRenderSize.x, recco.m_ngxDynamicMinimumRenderSize.y
 		);
 	}
+	
+	m_NGX.InitializeDLSSFeatures(renderSize,
+		displaySize,
+		isContentHDR, depthInverted,
+		depthScale, m_SharpeningOn,
+		m_AutoExposureOn, engineToNVSDK(m_upscaleQuality),
+		noRenderPreset);
+
+	
 }
 
 VkCommandBuffer VulkanRenderer::GetCommandBuffer()
@@ -2923,13 +2954,13 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		AddRenderer(g_ForwardParticlePass);
 		switch (m_upscaleType)
 		{
-		case VulkanRenderer::DLSS:
+		case UPSCALING_TYPE::DLSS:
 			AddRenderer(g_DLSSPass);
 			break;
-		case VulkanRenderer::FSR2:
+		case UPSCALING_TYPE::FSR2:
 			AddRenderer(g_FSR2Pass);
 			break;
-		case VulkanRenderer::NONE:
+		case UPSCALING_TYPE::NONE:
 		default:
 			break;
 		}
