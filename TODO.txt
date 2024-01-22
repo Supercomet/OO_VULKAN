@@ -1,17 +1,14 @@
 Graphic Features:
 • IBL rendering
-    • Sky dome
-
+    • procedural sky dome
 • GBuffer Render Targets:
     • Remove Entity ID GBuffer RT
     • Emissive should be RGBA8
         • Optimization opportunity: Separate render pass for objects that have emissive, which should not be alot
-
 • Oct-tree culling on CPU
     • Practically mandatory. Uploading the entire scene's worth of instance transforms every frame cannot scale up.
     • Same for Directional Light Shadow pass
     • Cull objects ONCE per view-proj (Main Camera, each CSM cascade), then re-use culled lists of objects in all Renderers
-
 • Tile-based Deferred Rendering
     • Support point lights only for now
     • Classify tiles on screen based on complexity
@@ -19,15 +16,14 @@ Graphic Features:
         • material complexity?
     • Generate screen-space grid, using grid index as index to lights buffer
     • Dispatch draw calls on screen via DrawIndirect. Build tile screen positions & offsets in separate CS
-
-
 • AMD ShadowFX: https://github.com/GPUOpen-Effects/ShadowFX
-    
 • AMD Combined Adaptive Compute Ambient Occlusion (CACAO):  https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/combined-adaptive-compute-ambient-occlusion.md
-
 • AMD Stochastic Screen-Space Reflections: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/stochastic-screen-space-reflections.md
-
 • AMD FSR 2.0: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/main/docs/techniques/super-resolution-temporal.md
+• FFT & FBM simulation
+    • foam white caps
+• water surface dynamic tesselation
+• water properties' controls for water coefficients
 
 ///////////////////////////////////////////////////////////////////////////////
 Engineering Tasks:
