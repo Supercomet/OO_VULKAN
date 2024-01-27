@@ -24,6 +24,11 @@ Graphic Features:
     • foam white caps
 • water surface dynamic tesselation
 • water properties' controls for water coefficients
+• Area lights: https://learnopengl.com/Guest-Articles/2022/Area-Lights
+    • Implement in either your Vulkan Renderer or UE5
+• Investigate amortizing volumetric clouds' LUTs over multiple frames
+• Realistic & good looking water line effect
+• "fade" water simulation to zero over distance, effectively only paying simulation cost for nearby water pixels
 
 ///////////////////////////////////////////////////////////////////////////////
 Engineering Tasks:
