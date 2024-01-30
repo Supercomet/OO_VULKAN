@@ -101,7 +101,8 @@ void ForwardUIPass::Draw(const VkCommandBuffer cmdlist)
 	rhi::CommandList cmd{ cmdlist, "Forward UI Pass"};
 	
 	auto& attachments = vr.attachments.gbuffer;
-	auto& target = vr.attachments.lighting_target;
+	//auto& target = vr.attachments.lighting_tar get;
+	auto& target = vr.renderTargets[vr.renderTargetInUseID].texture;
 
 	cmd.BindAttachment(0, &target);
 	cmd.BindAttachment(1, &vr.attachments.gbuffer[VELOCITY]);

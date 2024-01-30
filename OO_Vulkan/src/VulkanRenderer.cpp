@@ -344,7 +344,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 #if VULKAN_MESSENGER
 	CreateDebugCallback();
-	if(setupSpecs.renderDoc)
+	if(setupSpecs.renderDoc && false)
 		hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, 0, 0);
 
 #endif // VULKAN_MESSENGER
@@ -2950,7 +2950,6 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		AddRenderer(g_LightingPass);
 		AddRenderer(g_SkyRenderPass);
 		AddRenderer(g_LightingHistogram);
-		AddRenderer(g_ForwardUIPass);
 		AddRenderer(g_ForwardParticlePass);
 		switch (m_upscaleType)
 		{
@@ -2966,6 +2965,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		}
 
 		AddRenderer(g_BloomPass);
+		AddRenderer(g_ForwardUIPass);
 		//AddRenderer(g_DebugDrawRenderpass);
 		
 		auto updateHistogram = [this](void*) {
