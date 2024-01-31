@@ -103,6 +103,7 @@
     <ClCompile Include="src\optick\optick_miniz.cpp" />
     <ClCompile Include="src\optick\optick_serialization.cpp" />
     <ClCompile Include="src\optick\optick_server.cpp" />
+    <ClCompile Include="src\renderpass\ScreenSpaceUIPass.cpp" />
     <ClCompile Include="src\renderpass\ShadowPass.cpp" />
     <ClCompile Include="src\loader\stbi_impl.cpp" />
     <ClCompile Include="src\renderpass\SkyRenderPass.cpp" />

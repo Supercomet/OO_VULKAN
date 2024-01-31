@@ -52,6 +52,7 @@ extern GfxRenderpass* g_DebugDrawRenderpass;
 extern GfxRenderpass* g_ImguiRenderpass;
 extern GfxRenderpass* g_ForwardParticlePass;
 extern GfxRenderpass* g_ForwardUIPass;
+extern GfxRenderpass* g_ScreenSpaceUIPass;
 extern GfxRenderpass* g_GBufferRenderPass;
 extern GfxRenderpass* g_LightingPass;
 extern GfxRenderpass* g_LightingHistogram;
@@ -344,7 +345,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 #if VULKAN_MESSENGER
 	CreateDebugCallback();
-	if(setupSpecs.renderDoc && false)
+	if(setupSpecs.debug)
 		hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, 0, 0);
 
 #endif // VULKAN_MESSENGER
@@ -423,6 +424,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	rpd->RegisterRenderPass(g_BloomPass);
 	rpd->RegisterRenderPass(g_FSR2Pass);
 	rpd->RegisterRenderPass(g_DLSSPass);
+	rpd->RegisterRenderPass(g_ScreenSpaceUIPass);
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	ptr = new ForwardDecalRenderpass;
 	rpd->RegisterRenderPass(ptr);
@@ -2643,6 +2645,7 @@ void VulkanRenderer::UploadUIData()
 
 bool VulkanRenderer::PrepareFrame()
 {
+	
 	{
 		PROFILE_SCOPED("Work queue");
 		std::scoped_lock s{ g_mut_workQueue };
@@ -2651,6 +2654,7 @@ bool VulkanRenderer::PrepareFrame()
 			g_workQueue[i]();
 		}
 		g_workQueue.clear();
+
 	}
 
 	if (resizeSwapchain || windowPtr->m_width == 0 ||windowPtr->m_height == 0)
@@ -2950,6 +2954,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		AddRenderer(g_LightingPass);
 		AddRenderer(g_SkyRenderPass);
 		AddRenderer(g_LightingHistogram);
+		AddRenderer(g_ForwardUIPass);
 		AddRenderer(g_ForwardParticlePass);
 		switch (m_upscaleType)
 		{
@@ -2965,7 +2970,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		}
 
 		AddRenderer(g_BloomPass);
-		AddRenderer(g_ForwardUIPass);
+		AddRenderer(g_ScreenSpaceUIPass);
 		//AddRenderer(g_DebugDrawRenderpass);
 		
 		auto updateHistogram = [this](void*) {
@@ -4576,6 +4581,8 @@ VulkanRenderer::TextureInfo VulkanRenderer::GetTextureInfo(uint32_t handle)
 
 void VulkanRenderer::InitDebugBuffers()
 {
+	g_DebugDrawVertexBufferCPU.reserve(1024 * 1024);
+	g_DebugDrawIndexBufferCPU.reserve(1024 * 1024);
 	g_DebugDrawVertexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	g_DebugDrawIndexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }

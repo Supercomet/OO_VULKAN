@@ -45,7 +45,6 @@ bool FramebufferBuilder::Build(VkFramebuffer& framebuffer, const VulkanRenderpas
 	{
 		auto& tex = textures[i];
 		const auto& attachmentDes = renderPass.rpci.pAttachments[i];
-		assert(swapchainTarget == tex->targetSwapchain && "Swapchain Target Unexpected!");
 		assert(w == tex->width && h == tex->height && "Incompatible attachment sizes!");
 		assert(attachmentDes.format != VK_FORMAT_UNDEFINED && "Why is this undefined");
 
