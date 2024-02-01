@@ -103,13 +103,14 @@ void main()
 	
     vec3 irradiance = vec3(1);
     irradiance = texture(samplerCube(irradianceCube, basicSampler), normal).rgb;
+    irradiance = vec3(0);
     vec3 R = normalize(reflect(-surface.V, surface.N));
 	
     const float MAX_REFLECTION_LOD = 6.0;
     vec3 prefilteredColor = textureLod(samplerCube(prefilterCube, basicSampler), R, roughness * MAX_REFLECTION_LOD).rgb;
     vec2 lutVal = texture(sampler2D( brdfLUT, basicSampler), vec2(max(dot(surface.N, surface.V), 0.0), roughness)).rg;
 
-
+	prefilteredColor = vec3(0);
 	vec3 result = SaschaWillemsDirectionalLight(surface,
 													irradiance,
 													prefilteredColor,
