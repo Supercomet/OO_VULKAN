@@ -59,10 +59,19 @@ struct SpotLightInstance
 {
     ivec4 info;
     vec4 position;
-    vec3 color;
+    vec4 color;
     vec4 radius; // x inner, y outer
     mat4 projection;
     mat4 view;
+};
+
+struct AreaLightInstance
+{
+    ivec4 info;
+    vec4 position;
+    vec4 color;
+    vec3 points[4];    
+    bool twoSided;
 };
 
 struct LightPC

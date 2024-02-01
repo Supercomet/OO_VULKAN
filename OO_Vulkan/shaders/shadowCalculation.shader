@@ -121,6 +121,11 @@ float EvalShadowMap(in LocalLightInstance lightInfo, int lightIndex, in vec3 nor
             shadow = ShadowCalculation(lightIndex, gridID + map.z, outFragmentLightPos, NdotL);
             
         }
+        case 2: // area light
+        {
+            // sample shadow map
+            //
+        }
         default: return shadow;
     }       
    

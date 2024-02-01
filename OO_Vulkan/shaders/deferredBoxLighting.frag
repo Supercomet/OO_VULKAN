@@ -111,14 +111,23 @@ void main()
     vec2 lutVal = texture(sampler2D( brdfLUT, basicSampler), vec2(max(dot(surface.N, surface.V), 0.0), roughness)).rg;
 
 	prefilteredColor = vec3(0);
-	vec3 result = SaschaWillemsDirectionalLight(surface,
+    vec3 result = vec3(0);
+	
+    if (lightInfo.info.x == 1) // point lights
+    {
+        result = SaschaWillemsDirectionalLight(surface,
 													irradiance,
 													prefilteredColor,
-													lutVal);
+													lutVal);	
+    }
+    else if (lightInfo.info.x == 2) // area lights
+    {
+		
+    }
 	
    
 	
-    float shadowValue = EvalShadowMap(lightInfo, inLightInstance, normal, fragWorldPos);
+        float shadowValue = EvalShadowMap(lightInfo, inLightInstance, normal, fragWorldPos);
  
     result *= shadowValue;
     result *= attenuation;
