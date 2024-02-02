@@ -26,6 +26,9 @@ layout (set = 0, binding = 11)uniform textureCube prefilterCube;
 layout (set = 0, binding = 12)uniform texture2D brdfLUT;
 layout (set = 0, binding = 13)uniform samplerShadow shadowSampler;
 
+//unused
+layout (set = 0, binding = 14)uniform texture2D LTCLUT;
+layout (set = 0, binding = 15)uniform texture2D LTCLUT2;
 
 #include "lights.shader"
 
