@@ -77,7 +77,7 @@
     <ClCompile Include="src\renderpass\FSR2Pass.cpp" />
     <ClCompile Include="src\renderpass\ImguiRenderpass.cpp" />
     <ClCompile Include="src\renderpass\LightingHistogram.cpp" />
-    <ClCompile Include="src\renderpass\LightingRenderpass.cpp" />
+    <ClCompile Include="src\renderpass\LightingPass.cpp" />
     <ClCompile Include="src\GfxRenderpass.cpp" />
     <ClCompile Include="src\renderpass\ForwardParticlePass.cpp" />
     <ClCompile Include="src\renderpass\ForwardUIPass.cpp" />

@@ -115,7 +115,9 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	vkutils::TransitionImage(cmdlist, *depth, depth->referenceLayout, depth->referenceLayout);
 	vkutils::TransitionImage(cmdlist, attachments[GBufferAttachmentIndex::DEPTH], attachments[GBufferAttachmentIndex::DEPTH].referenceLayout, attachments[GBufferAttachmentIndex::DEPTH].referenceLayout);
 
-	
+	vkutils::Texture* LTCtex = &vr.g_Textures[vr.LTCTextureID];
+	vkutils::Texture* LTCLUTtex = &vr.g_Textures[vr.LTCLUTTextureID];
+
 	cmd.BindPSO(pso_DeferredLightingComposition, PSOLayoutDB::lightingPSOLayout);
 	
 	cmd.BindAttachment(0, tex);
@@ -135,7 +137,10 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 		.BindImage(10, &vr.g_radianceMap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // cube map
 		.BindImage(11, &vr.g_prefilterMap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // prefilter map
 		.BindImage(12, &vr.g_brdfLUT, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // brdflut
-		.BindSampler(13, GfxSamplerManager::GetSampler_ShowMapClamp()); // shadwosampler
+		.BindSampler(13, GfxSamplerManager::GetSampler_ShowMapClamp()) // shadwosampler
+		.BindImage(14, LTCtex, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // brdflut
+		.BindImage(15, LTCLUTtex, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // brdflut
+	; 
 	
 	cmd.SetDefaultViewportAndScissor();
 
@@ -328,6 +333,8 @@ void LightingPass::CreatePipelineLayout()
 		.BindImage(11, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,VK_SHADER_STAGE_ALL_GRAPHICS) // prefilter map
 		.BindImage(12, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,VK_SHADER_STAGE_ALL_GRAPHICS) // brdflut
 		.BindImage(13, &dummy, VK_DESCRIPTOR_TYPE_SAMPLER,VK_SHADER_STAGE_ALL_GRAPHICS) // shadow sampler
+		.BindImage(14, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,VK_SHADER_STAGE_ALL_GRAPHICS) // brdflut
+		.BindImage(15, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,VK_SHADER_STAGE_ALL_GRAPHICS) // brdflut
 		.BuildLayout(SetLayoutDB::Lighting);
 
 

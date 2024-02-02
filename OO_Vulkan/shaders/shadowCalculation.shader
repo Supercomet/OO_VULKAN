@@ -109,7 +109,7 @@ float EvalShadowMap(in LocalLightInstance lightInfo, int lightIndex, in vec3 nor
     
     float NdotL = max(0.0, dot(N, L));
     float shadow = 1.0;
-    switch (lightInfo.info.x)
+    switch (lightInfo.info.w)
     {
         // this is point light
         case 1:
@@ -123,8 +123,8 @@ float EvalShadowMap(in LocalLightInstance lightInfo, int lightIndex, in vec3 nor
         }
         case 2: // area light
         {
-            // sample shadow map
-            //
+            // TODO : sample shadow map 
+            //            
         }
         default: return shadow;
     }       

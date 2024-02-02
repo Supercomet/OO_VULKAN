@@ -662,6 +662,7 @@ namespace oGFX
 			decodeType = ExtensionType::DDS;
 			//imgData = LoadDDS(fileName, &this->w, &this->h, &this->channels, &this->dataSize);
 			LoadDDS(fileName, *this);
+			generateMips = mipInformation.size() > 1;
 			return imgData.size() ? true : false;
 		}
 		else
@@ -684,6 +685,7 @@ namespace oGFX
 			bufferCopyRegion.bufferOffset = 0;
 			mipInformation.push_back(bufferCopyRegion);
 
+			generateMips = true;
 			this->format = VK_FORMAT_R8G8B8A8_UNORM;
 			return imgData.size() ? true : false;
 		}

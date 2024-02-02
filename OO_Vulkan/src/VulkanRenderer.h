@@ -439,7 +439,7 @@ public:
 	// Immediate command sending helper
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
-	uint32_t CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData, bool generateMips = true);
+	uint32_t CreateTexture(uint32_t width, uint32_t height, const unsigned char* imgData, uint32_t fileFormat = 1, bool generateMips = true);
 	uint32_t CreateTexture(const std::string& fileName);
 	uint32_t CreateCubeMapTexture(const std::string& folder);
 
@@ -567,6 +567,9 @@ public:
 	uint32_t blackTextureID = static_cast<uint32_t>(-1);
 	uint32_t normalTextureID = static_cast<uint32_t>(-1);
 	uint32_t pinkTextureID = static_cast<uint32_t>(-1);
+
+	uint32_t LTCTextureID = static_cast<uint32_t>(-1);
+	uint32_t LTCLUTTextureID = static_cast<uint32_t>(-1);
 
 	uint32_t GetDefaultCubeID();
 	uint32_t GetDefaultPlaneID();
@@ -758,8 +761,7 @@ public:
 	static VkPipelineShaderStageCreateInfo LoadShader(VulkanDevice& device, const std::string& fileName, VkShaderStageFlagBits stage);
 	private:
 		uint32_t CreateTextureImage(const oGFX::FileImageData& imageInfo);		
-		uint32_t CreateTextureImageImmediate(const oGFX::FileImageData& imageInfo);		
-		uint32_t CreateTextureImage(const std::string& fileName);
+		uint32_t LoadTextureData(const std::string& fileName);
 		
 		uint32_t UpdateBindlessGlobalTexture(uint32_t textureID);		
 

@@ -178,6 +178,7 @@ void GraphicsWorld::ClearUIInstances()
 int32_t GraphicsWorld::CreateLightInstance()
 {
 	auto light = OmniLightInstance();
+	light.info.w = 1; // point light
 	SetLightEnabled(light,true);
 	return CreateLightInstance(light);
 }

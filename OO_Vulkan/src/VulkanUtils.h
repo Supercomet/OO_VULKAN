@@ -266,10 +266,12 @@ namespace oGFX
 		float highestColValue{1.0f};
 		std::vector<uint8_t> imgData{};
 		std::vector<VkBufferImageCopy> mipInformation{};
+		bool generateMips{ false };
 		enum class ExtensionType : uint8_t
 		{
+			USER_DEFINED,
 			DDS,
-			STB
+			STB,
 		}decodeType{};
 
 		enum class ImageType : uint8_t
@@ -287,6 +289,8 @@ namespace oGFX
 
 	bool IsFileDDS(const std::string& fileName);
 	bool IsFileHDR(const std::string& fileName);
+
+	uint16_t float_to_half(const float x);
 
 	namespace vkutils
 	{

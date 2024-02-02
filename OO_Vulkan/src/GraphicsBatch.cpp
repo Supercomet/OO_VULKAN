@@ -376,8 +376,8 @@ void GraphicsBatch::ProcessLights()
 			}
 			else // else spotlight?
 			{
-				++m_numShadowCastGrids;
-				++gridIdx;
+			//	++m_numShadowCastGrids;
+			//	++gridIdx;
 			}
 
 			

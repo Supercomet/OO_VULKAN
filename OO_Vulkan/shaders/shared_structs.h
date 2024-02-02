@@ -36,7 +36,9 @@ struct CustomIndirectCommand
 
 struct LocalLightInstance
 {
-    // x:1? cast shadow:dont cast , y: 0? render : dont render
+    // info.x > 0 cast shadow,
+    // info.y grid index
+    // info.z 0 dont render, 1 point, 2 area
     ivec4 info;// TODO: does this take up too much space?
     vec4 position;
     vec4 color;

@@ -1906,8 +1906,8 @@ void TestApplication::Tool_HandleUI()
                             oGFX::Sphere s(light.position, light.radius.x);
                             oGFX::DebugDraw::AddSphere(s, light.color);
                         }
-					ImGui::PushID(i++);
-                    SetLightEnabled(light,true);
+					    ImGui::PushID(i++);
+                        SetLightEnabled(light,true);
                         ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.01f);
                         {
                             if (ImGui::BeginPopupContextItem("Gizmo hijacker"))
@@ -1919,6 +1919,19 @@ void TestApplication::Tool_HandleUI()
                                 }
                                 ImGui::EndPopup();
                             }
+                        }
+                       
+
+                        int light_type_selector = 0;
+                        light_type_selector = light.info.w -1;
+                        static const char* lights_types[]{
+                            //"OFF",
+                            "POINT",
+                            "AREA",
+                        };
+                        if (ImGui::ListBox("LightType", &light_type_selector, lights_types, 2))
+                        {
+                            light.info.w = light_type_selector + 1;
                         }
                         ImGui::DragFloat3("Color", glm::value_ptr(light.color),0.1f,0.0f,1.0f);
                         ImGui::DragFloat("Intensity", &light.color.a);

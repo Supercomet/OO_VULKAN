@@ -46,6 +46,8 @@ static ImDrawListSharedData s_imguiSharedData;
 
 #include "GfxRenderpass.h"
 
+#include "area_lights_ltc_matrix.h";
+
 
 extern GfxRenderpass* g_BloomPass;
 extern GfxRenderpass* g_DebugDrawRenderpass;
@@ -450,6 +452,9 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	blackTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
 	normalTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
 	pinkTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
+
+	LTCTextureID = CreateTexture(64, 64, reinterpret_cast<const unsigned char*>(LTC1), sizeof(float), false);
+	LTCLUTTextureID = CreateTexture(64, 64, reinterpret_cast<const unsigned char*>(LTC2), sizeof(float), false);
 
 	PrepareDLSS();
 
@@ -3545,7 +3550,7 @@ oGFX::Font * VulkanRenderer::LoadFont(const std::string & filename)
 	//atlas.buffer.resize(atlas.textureSize.x * atlas.textureSize.y * channels);
 
 	bool generateMips = false;
-	font->m_atlasID = CreateTexture(atlas.textureSize.x, atlas.textureSize.y, (uint8_t*)atlas.buffer.data(),generateMips);
+	font->m_atlasID = CreateTexture(atlas.textureSize.x, atlas.textureSize.y, (uint8_t*)atlas.buffer.data(),1 ,generateMips);
 
 	return font;
 }
@@ -4473,15 +4478,27 @@ void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer)
 
 }
 
-uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned char* imgData, bool generateMips)
+uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height,const unsigned char* imgData, uint32_t fileFormat, bool generateMips)
 {
 	using namespace oGFX;
 	FileImageData fileData;
 	fileData.w = width;
 	fileData.h = height;
 	fileData.channels = 4;
-	fileData.dataSize = (size_t)fileData.w * (size_t)fileData.h * (size_t)fileData.channels;
+	fileData.dataSize = (size_t)fileData.w * (size_t)fileData.h * (size_t)fileData.channels * (size_t)fileFormat;
 	fileData.imgData.resize(fileData.dataSize);
+	fileData.generateMips = generateMips;
+	fileData.decodeType = FileImageData::ExtensionType::USER_DEFINED;
+	fileData.format = [fileFormat]{
+			switch (fileFormat)
+			{
+			case 4:return VK_FORMAT_R16G16B16A16_SFLOAT;
+			//case 4:return VK_FORMAT_R32G32B32A32_SFLOAT;
+			default:
+				return VK_FORMAT_R8G8B8A8_UNORM;
+			break;
+			}
+		}();
 
 	VkBufferImageCopy copyRegion{};
 	copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -4496,6 +4513,20 @@ uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned
 
 	memcpy(fileData.imgData.data(), imgData, fileData.dataSize);
 	//fileData.imgData = imgData;
+
+	// process if half float
+	if (fileFormat == 4) {
+		std::vector<uint8_t> processed;
+		processed.resize(fileData.imgData.size() / 2);
+		uint16_t* data = (uint16_t*)processed.data();
+		for (size_t i = 0; i < processed.size() / 2; i++)
+		{
+			float fltValue = *(float*)(fileData.imgData.data() + i * sizeof(float));
+			data[i] = oGFX::float_to_half(fltValue);
+		}
+		std::swap(fileData.imgData, processed);
+		fileData.dataSize /= 2; // data is halved
+	}
 
 	auto ind = CreateTextureImage(fileData);
 	
@@ -4515,7 +4546,7 @@ uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height, unsigned
 uint32_t VulkanRenderer::CreateTexture(const std::string& file)
 {
 	// Create texture image and get its location in array
-	uint32_t textureImageLoc = CreateTextureImage(file);
+	uint32_t textureImageLoc = LoadTextureData(file);
 	//create texture descriptor
 	auto lam = [this, textureImageLoc]() {
 		UpdateBindlessGlobalTexture(textureImageLoc);
@@ -4697,7 +4728,7 @@ void VulkanRenderer::UpdateUniformBuffers()
 	vmaUnmapMemory(m_device.m_allocator, vpUniformBuffer[getFrame()].alloc);
 }
 
-uint32_t VulkanRenderer::CreateTextureImage(const std::string& fileName)
+uint32_t VulkanRenderer::LoadTextureData(const std::string& fileName)
 {
 	//Load image file
 	oGFX::FileImageData imageData;
@@ -4767,7 +4798,7 @@ uint32_t VulkanRenderer::CreateCubeMapTexture(const std::string& folderName)
 uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo)
 {
 	VkDeviceSize imageSize = imageInfo.dataSize;
-
+	OO_ASSERT(imageInfo.dataSize);
 	totalTextureSizeLoaded += imageSize;
 
 	auto indx = [this]{
@@ -4791,7 +4822,9 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 		texture.name = imageInfo.name;
 		texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue);
 
-		GenerateMipmaps(texture);
+		if (imageInfo.generateMips == true) {
+			GenerateMipmaps(texture);
+		}
 		//setup imgui binding
 		g_imguiIDs[indx] = CreateImguiBinding(samplerManager.GetDefaultSampler(), &texture);
 		
@@ -4804,42 +4837,6 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 	// Return index of new texture image
 	return static_cast<uint32_t>(indx);
 }
-
-uint32_t VulkanRenderer::CreateTextureImageImmediate(const oGFX::FileImageData& imageInfo)
-{
-	VkDeviceSize imageSize = imageInfo.dataSize;
-
-	totalTextureSizeLoaded += imageSize;
-
-	auto indx = [this]{
-		// mutex
-		std::scoped_lock s(g_mut_Textures);
-		auto indx = g_Textures.size();
-		g_Textures.push_back(vkutils::Texture2D());
-		g_imguiIDs.push_back({});
-
-		uint32_t texSiz = (uint32_t)g_Textures.size();
-		uint32_t imguiSiz = (uint32_t)g_imguiIDs.size();
-
-		assert(g_Textures.size() == g_imguiIDs.size());
-
-		return indx;
-	}();
-
-	
-	auto& texture = g_Textures[indx];
-
-	texture.fromBuffer((void*)imageInfo.imgData.data(), imageInfo.dataSize, imageInfo.format, imageInfo.w, imageInfo.h,imageInfo.mipInformation, &m_device, m_device.graphicsQueue, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	texture.name = imageInfo.name;
-
-	//setup imgui binding
-	g_imguiIDs[indx] = CreateImguiBinding(samplerManager.GetDefaultSampler(), &texture);
-	
-
-	// Return index of new texture image
-	return static_cast<uint32_t>(indx);
-}
-
 
 VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(VulkanDevice& device,const std::string& fileName, VkShaderStageFlagBits stage)
 {
