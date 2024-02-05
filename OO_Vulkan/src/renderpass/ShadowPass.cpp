@@ -158,7 +158,7 @@ void ShadowPass::Draw(const VkCommandBuffer cmdlist)
 		OO_ASSERT(GetCastsShadows(light) == true);
 
 		// this is an omnilight
-		if (light.info.x == 1)
+		if (light.info.x == 1 && (LightType)light.info.w == LightType::POINT)
 		{
 			// get the data for this light
 			const GraphicsBatch::CastersData& casterData = casterDatas[i];

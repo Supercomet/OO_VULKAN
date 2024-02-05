@@ -23,8 +23,9 @@ layout (set = 0, binding = 11)uniform textureCube prefilterCube;
 layout (set = 0, binding = 12)uniform texture2D brdfLUT;
 
 layout (set = 0, binding = 13)uniform samplerShadow shadowSampler;
-layout (set = 0, binding = 14)uniform texture2D LTC;
-layout (set = 0, binding = 15)uniform texture2D LTCLUT;
+layout (set = 0, binding = 14)uniform sampler clampedSampler;
+layout (set = 0, binding = 15)uniform texture2D LTC;
+layout (set = 0, binding = 16)uniform texture2D LTCLUT;
 
 
 #include "lights.shader"
@@ -88,7 +89,7 @@ vec3 N, vec3 V, vec3 P
     // check if the shading point is behind the light
     vec3 dir = points[0] - P; // LTC space
     vec3 lightNormal = cross(points[1] - points[0], points[3] - points[0]);
-    bool behind = (dot(dir, lightNormal) < 0.0);
+    bool behind = (dot(dir, lightNormal) > 0.0);
 
     // cos weighted space
     L[0] = normalize(L[0]);
@@ -98,10 +99,10 @@ vec3 N, vec3 V, vec3 P
 
 	// integrate
     vec3 vsum = vec3(0.0);
-    vsum += IntegrateEdgeVec(L[0], L[1]);
-    vsum += IntegrateEdgeVec(L[1], L[2]);
-    vsum += IntegrateEdgeVec(L[2], L[3]);
-    vsum += IntegrateEdgeVec(L[3], L[0]);
+    vsum += IntegrateEdgeVec(L[1],L[0]);
+    vsum += IntegrateEdgeVec(L[2],L[1]);
+    vsum += IntegrateEdgeVec(L[3],L[2]);
+    vsum += IntegrateEdgeVec(L[0],L[3]);
 
     // form factor of the polygon in direction vsum
     float len = length(vsum);
@@ -218,12 +219,15 @@ void main()
         case 2: // area lights
 		{
             // do area light caluclations
+            float NoV = max(dot(surface.N, surface.V), 0.0);
+            vec2 roughnessUV = vec2(surface.roughness, sqrt(1.0f - NoV));
+            roughnessUV = roughnessUV * LUT_SCALE + LUT_BIAS;
             
             // get 4 parameters for inverse_M
-            vec4 t1 = texture(sampler2D(LTC,shadowSampler), inUV);
+            vec4 t1 = texture(sampler2D(LTC,clampedSampler), roughnessUV);
 
             // Get 2 parameters for Fresnel calculation
-            vec4 t2 =texture(sampler2D(LTCLUT,shadowSampler), inUV);
+            vec4 t2 =texture(sampler2D(LTCLUT,clampedSampler), roughnessUV);
 
             mat3 Minv = mat3(
                 vec3(t1.x, 0, t1.y),
@@ -238,15 +242,19 @@ void main()
                 vec3(1.0, 1.0, 0.0)     // Top right
             );
             
+            LightInfo decodedLight = DecodeLightInfo(lightInfo);
+            
+            
             // Evaluate LTC shading
-                vec3 diffuse = LTC_Evaluate( /*LTCLUT,*/basicSampler, surface.N, surface.V, fragWorldPos, mat3(1), vertices, false);
-                vec3 specular = LTC_Evaluate( /*LTCLUT,*/basicSampler,  surface.N, surface.V, fragWorldPos, Minv, vertices, false);
+                vec3 diffuse  = LTC_Evaluate( /*LTCLUT,*/clampedSampler, surface.N, surface.V, fragWorldPos, mat3(1), decodedLight.rectPoints, false);
+                vec3 specular = LTC_Evaluate(/*LTCLUT,*/ clampedSampler, surface.N, surface.V, fragWorldPos, Minv, decodedLight.rectPoints, false);
                 
 		    // GGX BRDF shadowing and Fresnel
 		    // t2.x: shadowedF90 (F90 normally it should be 1.0)
 		    // t2.y: Smith function for Geometric Attenuation Term, it is dot(V or L, H).
             // specular *= mSpecular * t2.x + (1.0f - mSpecular) * t2.y;
 
+                specular *= surface.roughness * t2.x + (1.0f - surface.roughness) * t2.y;
 		    // Add contribution
                 result += surface.lightCol * (specular + surface.albedo.rgb * diffuse);
             }
@@ -254,9 +262,7 @@ void main()
         default:
             result = vec3(0);
 
-    }
-	
-   
+    }   
 	
     float shadowValue = EvalShadowMap(lightInfo, inLightInstance, normal, fragWorldPos);
  

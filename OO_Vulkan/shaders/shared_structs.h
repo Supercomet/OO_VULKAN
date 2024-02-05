@@ -38,7 +38,8 @@ struct LocalLightInstance
 {
     // info.x > 0 cast shadow,
     // info.y grid index
-    // info.z 0 dont render, 1 point, 2 area
+    // info.z 0 dont render
+    // info.w 1 point, 2 area
     ivec4 info;// TODO: does this take up too much space?
     vec4 position;
     vec4 color;
@@ -72,8 +73,9 @@ struct AreaLightInstance
     ivec4 info;
     vec4 position;
     vec4 color;
-    vec3 points[4];    
-    bool twoSided;
+    vec4 radius; // xy z=twoSided
+    mat4 projection;
+    vec4 points[4];  
 };
 
 struct LightPC

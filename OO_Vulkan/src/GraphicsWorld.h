@@ -53,6 +53,12 @@ enum class ObjectInstanceFlags : uint32_t
 };
 ENUM_OPERATORS_GEN(ObjectInstanceFlags, uint32_t)
 
+enum class LightType : uint32_t
+{
+    POINT = 0x1,
+    AREA = 0x2,
+};
+
 enum class UIInstanceFlags : uint32_t
 {
     RENDER_ENABLED   = 0x1,  // Object will never change after initialization

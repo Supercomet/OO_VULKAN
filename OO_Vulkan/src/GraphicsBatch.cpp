@@ -321,12 +321,24 @@ void GraphicsBatch::ProcessLights()
 		si.color = e.color;
 		si.radius = e.radius;
 		si.projection = e.projection;
-		//		// loop through all faces
-		for (size_t i = 0; i < 6; i++)
-		{
-			// setup views
-			si.view[i] = e.view[i];
+		if ((LightType)si.info.w == LightType::POINT) {
+			//		// loop through all faces
+			for (size_t i = 0; i < 6; i++)
+			{
+				// setup views
+				si.view[i] = e.view[i];
+			}
 		}
+		else // area light
+		{
+			mat4& mat = si.view[0];
+			mat4 translate = glm::translate(glm::mat4(1.0), vec3(si.position));
+			mat[0] = translate* vec4(-1.0, -1.0, 0.0, 1.0); // Bottom left
+			mat[1] = translate* vec4(-1.0, 1.0, 0.0, 1.0);  // Top left 
+			mat[2] = translate* vec4(1.0, -1.0, 0.0, 1.0);  // Bottom right 
+			mat[3] = translate* vec4(1.0, 1.0, 0.0, 1.0);	  // Top right
+		}
+	
 		m_culledLights.emplace_back(si);
 	}
 
@@ -365,7 +377,7 @@ void GraphicsBatch::ProcessLights()
 		SetCastsShadows(e,true);
 		{
 			e.info.y = gridIdx;
-			if (e.info.x == 1) // type one is omnilight
+			if (e.info.w == 1) // type one is omnilight
 			{
 				// loop through all faces
 				for (size_t i = 0; i < 6; i++)
