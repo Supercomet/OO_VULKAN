@@ -1,3 +1,5 @@
+#include "GraphicsWorld.h"
+#include "GraphicsWorld.h"
 /************************************************************************************//*!
 \file           GraphicsWorld.cpp
 \project        Ouroboros
@@ -349,6 +351,35 @@ void SetCastsShadows(LocalLightInstance& l, bool s)
 bool GetCastsShadows(const LocalLightInstance& l)
 {
 	return l.info.x >= 1;
+}
+
+void SetLightType(LocalLightInstance& l, LightType t)
+{
+	switch (t)
+	{
+	case LightType::AREA:
+		l.info.w = (int32_t)LightType::AREA;
+		break;
+	case LightType::POINT:
+	default:
+		l.info.w = (int32_t)LightType::POINT;
+		break;
+	}
+}
+
+LightType GetLightType(const LocalLightInstance& l)
+{
+	return (LightType)l.info.w;
+}
+
+void SetLightType(OmniLightInstance& l, LightType t)
+{
+	SetLightType(*reinterpret_cast<LocalLightInstance*>(&l), t);
+}
+
+LightType GetLightType(const OmniLightInstance& l)
+{
+	return GetLightType(*reinterpret_cast<const LocalLightInstance*>(&l));
 }
 
 void SetCastsShadows(OmniLightInstance& l, bool s)

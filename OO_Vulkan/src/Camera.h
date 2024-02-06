@@ -71,7 +71,7 @@ public:
 		glm::mat4 perspectiveJittered{};
 		glm::mat4 view{};
 	} previousMat{};
-	glm::vec2 jitterValues;
+	glm::vec2 jitterValues{};
 
 	void SetJitterValues(glm::vec2 vals);
 

@@ -622,7 +622,7 @@ namespace vkutils
 
 		if (mipLevels > 1) {
 			//recompute mips
-			mipLevels = std::floor(std::log2(std::max(width, height))) + 1;
+			mipLevels = (uint32_t)std::log2(std::max(width, height)) + 1u;
 		}
 
 		AllocateImageMemory(device, usage, mipLevels);

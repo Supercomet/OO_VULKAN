@@ -75,6 +75,7 @@ struct AreaLightInstance
     vec4 color;
     vec4 radius; // xy z=twoSided
     mat4 projection;
+    mat4 view; // for shadowing
     vec4 points[4];  
 };
 

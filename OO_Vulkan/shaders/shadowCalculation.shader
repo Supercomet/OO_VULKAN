@@ -21,7 +21,7 @@ vec2 GetShadowMapRegion(int gridID, in vec2 uv, in vec2 numCells)
     return (offset+oneTexelUV) + actualUV; //sampled position
 }
 
-float ShadowCalculation(int lightIndex, int gridID, in vec4 fragPosLightSpace, float NdotL)
+float ShadowCalculation(int gridID, in vec4 fragPosLightSpace, float NdotL)
 {
     const float oneTexelUV = 1.0 / (SHADOW_MAP_SIZE);
 	// perspective divide
@@ -118,14 +118,16 @@ float EvalShadowMap(in LocalLightInstance lightInfo, int lightIndex, in vec3 nor
             // get a cube coordinate for the layer to use
             ivec3 map = texCoordToCube(-L, vec2(1));                
             vec4 outFragmentLightPos = lightInfo.projection * lightInfo.view[map.z] * vec4(fragPos, 1.0);
-            shadow = ShadowCalculation(lightIndex, gridID + map.z, outFragmentLightPos, NdotL);
-            
+            shadow = ShadowCalculation(gridID + map.z, outFragmentLightPos, NdotL);            
         }
+        break;
         case 2: // area light
         {
-            // TODO : sample shadow map 
-            //            
+            int gridID = lightInfo.info.y;                   
+            vec4 outFragmentLightPos = lightInfo.projection * lightInfo.view[0] * vec4(fragPos, 1.0);
+            shadow = ShadowCalculation(gridID + 0, outFragmentLightPos, NdotL);
         }
+        break;
         default: return shadow;
     }       
    

@@ -118,7 +118,7 @@ struct EntityInfo
     glm::vec3 position{};
     glm::vec3 scale{1.0f};
     float rot{};
-    glm::vec3 rotVec{0.0f,0.0f,0.0f};
+    glm::vec3 rotVec{0.0f,1.0f,0.0f};
 
     uint32_t modelID{}; // Index for the mesh
     uint32_t entityID{}; // Unique ID for this entity instance // THIS IS THE ECS UUID
@@ -145,9 +145,9 @@ struct EntityInfo
     mat4 getLocalToWorld()
     {
         glm::mat4 xform{ 1.0f };
-        xform = glm::scale(xform, scale);
-        xform =  glm::orientate4(rotVec) * xform;
         xform = glm::translate(xform, position);
+        xform = glm::orientation( glm::normalize(rotVec), vec3(0,1,0)) * xform;
+        xform = glm::scale(xform, scale);
         //xform = glm::rotate(xform, glm::radians(rot), rotVec);
         return xform;
     }
@@ -273,7 +273,7 @@ void TestApplication::Run()
     //setupSpec.debug = BoolQueryUser("Do you want debugging?");
     //setupSpec.renderDoc = BoolQueryUser("Do you want renderdoc?");
     setupSpec.debug = true;
-    setupSpec.renderDoc = false;
+    setupSpec.renderDoc = true;
 
     //----------------------------------------------------------------------------------------------------
     // Setup Graphics Engine
@@ -1936,6 +1936,7 @@ void TestApplication::Tool_HandleUI()
                         ImGui::DragFloat3("Color", glm::value_ptr(light.color),0.1f,0.0f,1.0f);
                         ImGui::DragFloat("Intensity", &light.color.a);
                         ImGui::DragFloat("Radius", &light.radius.x,0.1f,0.0f);
+                        ImGui::DragFloat3("Direction", glm::value_ptr(light.view[0][0]));
                         {
                             bool sh = GetCastsShadows(light);
                             if (ImGui::Checkbox("Shadows", &sh))

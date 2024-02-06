@@ -243,18 +243,29 @@ void GraphicsBatch::ProcessLights()
 
 	for (auto& light : m_world->m_OmniLightCopy)
 	{
-		constexpr glm::vec3 up{ 0.0f,1.0f,0.0f };
-		constexpr glm::vec3 right{ 1.0f,0.0f,0.0f };
-		constexpr glm::vec3 forward{ 0.0f,0.0f,-1.0f };
+		if (LightType::POINT != GetLightType(light)) 
+		{
+			glm::vec3 dir = glm::normalize(glm::vec3(light.view[0][0]));
+			light.view[0] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + dir, glm::vec3{ 0.0f, 1.0f, 0.0f });
+			
+			// move to view1 for transform later
+			light.view[1][0] = glm::vec4(dir, 0);
+		}
+		else 
+		{
+			constexpr glm::vec3 up{ 0.0f,1.0f,0.0f };
+			constexpr glm::vec3 right{ 1.0f,0.0f,0.0f };
+			constexpr glm::vec3 forward{ 0.0f,0.0f,-1.0f };
 
-		// standardize to cubemap faces px, nx, py, ny, pz, nz
-		light.view[0] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) +	  right, glm::vec3{ 0.0f, 1.0f, 0.0f });
-		light.view[1] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) +	 -right, glm::vec3{ 0.0f, 1.0f, 0.0f });
-		light.view[2] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) +		 up, glm::vec3{ 0.0f, 0.0f, 1.0f });
-		light.view[3] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) +		-up, glm::vec3{ 0.0f, 0.0f,-1.0f });
-		light.view[4] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + -forward, glm::vec3{ 0.0f,-1.0f, 0.0f });
-		light.view[5] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) +  forward, glm::vec3{ 0.0f,-1.0f, 0.0f });
-		
+			// standardize to cubemap faces px, nx, py, ny, pz, nz
+			light.view[0] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + right, glm::vec3{ 0.0f, 1.0f, 0.0f });
+			light.view[1] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + -right, glm::vec3{ 0.0f, 1.0f, 0.0f });
+			light.view[2] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + up, glm::vec3{ 0.0f, 0.0f, 1.0f });
+			light.view[3] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + -up, glm::vec3{ 0.0f, 0.0f,-1.0f });
+			light.view[4] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + -forward, glm::vec3{ 0.0f,-1.0f, 0.0f });
+			light.view[5] = glm::lookAt(glm::vec3(light.position), glm::vec3(light.position) + forward, glm::vec3{ 0.0f,-1.0f, 0.0f });
+		}
+
 		auto inversed_perspectiveRH_ZO = [](float fovRad, float aspect, float n, float f)->glm::mat4 {
 			glm::mat4 result(0.0f);
 			assert(abs(aspect - std::numeric_limits<float>::epsilon()) > 0.0f);
@@ -271,7 +282,7 @@ void GraphicsBatch::ProcessLights()
 			result[3][2] = b;
 
 			return result;
-		};
+			};
 		light.projection = inversed_perspectiveRH_ZO(glm::radians(90.0f), 1.0f, 0.1f, light.radius.x);
 	}
 
@@ -321,7 +332,8 @@ void GraphicsBatch::ProcessLights()
 		si.color = e.color;
 		si.radius = e.radius;
 		si.projection = e.projection;
-		if ((LightType)si.info.w == LightType::POINT) {
+		if (GetLightType(si) == LightType::POINT) 
+		{
 			//		// loop through all faces
 			for (size_t i = 0; i < 6; i++)
 			{
@@ -331,12 +343,34 @@ void GraphicsBatch::ProcessLights()
 		}
 		else // area light
 		{
-			mat4& mat = si.view[0];
-			mat4 translate = glm::translate(glm::mat4(1.0), vec3(si.position));
-			mat[0] = translate* vec4(-1.0, -1.0, 0.0, 1.0); // Bottom left
-			mat[1] = translate* vec4(-1.0, 1.0, 0.0, 1.0);  // Top left 
-			mat[2] = translate* vec4(1.0, -1.0, 0.0, 1.0);  // Bottom right 
-			mat[3] = translate* vec4(1.0, 1.0, 0.0, 1.0);	  // Top right
+			si.view[0] = e.view[0];
+
+			mat4& rects = si.view[1];
+			vec3 dir = e.view[1][0];
+			glm::mat4 xform(1.0);
+			// Calculate the translation matrix
+			glm::mat4 translationMatrix = glm::translate(xform, glm::vec3(si.position));
+
+			// Calculate the rotation matrix
+			glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f); // Define the up vector for orientation
+			glm::vec3 forward = dir;
+			glm::vec3 right = glm::normalize(glm::cross(up, forward)); // Calculate the right vector
+			glm::vec3 newUp = glm::normalize(glm::cross(forward, right)); // Calculate the corrected up vector
+			glm::mat4 rotationMatrix = glm::mat4(glm::vec4(right, 0.0f),
+				glm::vec4(newUp, 0.0f),
+				glm::vec4(forward, 0.0f),
+				glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+
+			xform = translationMatrix * rotationMatrix;
+			//glm::mat4 rot = glm::lookAt(glm::vec3(0.0), glm::vec3(dir),glm::vec3(0,1,0));
+			rects[0] = xform * vec4(-0.5f, -0.5f, 0.0f, 1.0f); // Bottom left
+			rects[1] = xform * vec4(-0.5f,  0.5f, 0.0f, 1.0f);  // Top left 
+			rects[2] = xform * vec4( 0.5f, -0.5f, 0.0f, 1.0f);  // Bottom right 
+			rects[3] = xform * vec4( 0.5f,  0.5f, 0.0f, 1.0f);	  // Top right
+
+			float dbgsz = 0.1f;
+			oGFX::AABB mybox = oGFX::AABB(glm::vec3(rects[0]) - dbgsz * dir, glm::vec3(rects[3]) + dbgsz * dir);
+			oGFX::DebugDraw::AddAABB(mybox, si.color);
 		}
 	
 		m_culledLights.emplace_back(si);
@@ -377,49 +411,65 @@ void GraphicsBatch::ProcessLights()
 		SetCastsShadows(e,true);
 		{
 			e.info.y = gridIdx;
-			if (e.info.w == 1) // type one is omnilight
+			if (GetLightType(e) == LightType::POINT) // type one is omnilight
 			{
 				// loop through all faces
-				for (size_t i = 0; i < 6; i++)
+				for (size_t i = 0; i < POINT_LIGHT_FACE_COUNT; i++)
 				{
 					++m_numShadowCastGrids;
 					++gridIdx;
 				}
+				CastersData& caster = m_casterData[numLights];
+				glm::mat4 lightProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, e.radius.x);
+
+				for (size_t face = 0; face < POINT_LIGHT_FACE_COUNT; face++)
+				{
+					glm::mat4 vp = lightProj * e.view[face];
+					oGFX::Frustum f = oGFX::Frustum::CreateFromViewProj(vp);
+
+					bool draw = false;
+
+					containedEnt.clear();
+					intersectEnt.clear();
+					m_world->m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
+
+
+					CullDrawData(f, caster.m_culledObjects[face], containedEnt, intersectEnt, draw);
+					SortDrawDataByMesh(caster.m_culledObjects[face]);
+					GenerateCommands(caster.m_culledObjects[face], caster.m_commands[face]
+						, ObjectInstanceFlags::SHADOW_CASTER | ObjectInstanceFlags::RENDER_ENABLED);				
+				}
+				numLights++;
 			}
-			else // else spotlight?
+			else // else area light
 			{
-			//	++m_numShadowCastGrids;
-			//	++gridIdx;
-			}
 
-			
-			CastersData& caster = m_casterData[numLights];			
-			glm::mat4 lightProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, e.radius.x);
+				++m_numShadowCastGrids;
+				++gridIdx;
 
-			for (size_t face = 0; face < 6; face++)
-			{
-				glm::mat4 vp = lightProj * e.view[face];
-				oGFX::Frustum f = oGFX::Frustum::CreateFromViewProj(vp);					
-				
-				bool draw = false;
+				CastersData& caster = m_casterData[numLights];
+				glm::mat4 lightProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, e.radius.x);
 
-				containedEnt.clear();
-				intersectEnt.clear();
-				m_world->m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
-				
+				// TODO: maybe need 2 sides for 2 sided.. later..
+				for (size_t face = 0; face < AREA_LIGHT_FACE_COUNT; face++)
+				{
+					glm::mat4 vp = lightProj * e.view[face]; // get the only view 
+					oGFX::Frustum f = oGFX::Frustum::CreateFromViewProj(vp);
 
-				CullDrawData(f, caster.m_culledObjects[face], containedEnt, intersectEnt, draw);
-				SortDrawDataByMesh(caster.m_culledObjects[face]);
-				GenerateCommands(caster.m_culledObjects[face], caster.m_commands[face]
-					, ObjectInstanceFlags::SHADOW_CASTER | ObjectInstanceFlags::RENDER_ENABLED);
+					bool draw = false;
 
-				// size_t tree = containedEnt.size() + intersectEnt.size();
-				// size_t culled = caster.m_culledObjects[face].size();
-				// size_t commands = caster.m_commands[face].size();
-				//printf("F[%1llu] total[%3llu] cull[%3llu] cmd[%3llu]\n", face, tree, culled, commands);
-			}
+					containedEnt.clear();
+					intersectEnt.clear();
+					m_world->m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
 
-			numLights++;
+
+					CullDrawData(f, caster.m_culledObjects[face], containedEnt, intersectEnt, draw);
+					SortDrawDataByMesh(caster.m_culledObjects[face]);
+					GenerateCommands(caster.m_culledObjects[face], caster.m_commands[face]
+						, ObjectInstanceFlags::SHADOW_CASTER | ObjectInstanceFlags::RENDER_ENABLED);				
+				}
+				numLights++;
+			}						
 		}
 		m_shadowCasters.emplace_back(e);
 		if (numLights >= MAX_LIGHTS) break;

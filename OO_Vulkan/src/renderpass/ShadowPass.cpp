@@ -157,43 +157,86 @@ void ShadowPass::Draw(const VkCommandBuffer cmdlist)
 		OO_ASSERT(GetLightEnabled(light) == true);
 		OO_ASSERT(GetCastsShadows(light) == true);
 
-		// this is an omnilight
-		if (light.info.x == 1 && (LightType)light.info.w == LightType::POINT)
-		{
+		if (GetCastsShadows(light) == true)
+		{			
 			// get the data for this light
 			const GraphicsBatch::CastersData& casterData = casterDatas[i];
-			constexpr size_t cubeFaces = 6;
-			for (size_t face = 0; face < cubeFaces; face++)
+			switch (GetLightType(light))
 			{
-				int lightGrid = light.info.y + static_cast<int>(face);
-				// set custom viewport for each view
-				int ly = static_cast<int>(lightGrid / smGridDim);
-				int lx = static_cast<int>(lightGrid - (ly * smGridDim));
-				vec2 customVP = increment * glm::vec2{ lx,smGridDim - ly };
-
-				//light.info.z = customVP.x; // this is actually wasted
-				//light.info.w = customVP.y; // this is actually wasted
-
-				//cmd.SetViewport(VkViewport{ 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f });
-				//cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpWidth , (uint32_t)vpHeight } });
-
-				// calculate viewport for each light
-				cmd.SetViewport(VkViewport{ customVP.x+1, customVP.y+1,increment.x-1, -(increment.y-1), 0.0f, 1.0f });
-				// TODO: Set exact region for scissor
-				cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpHeight, (uint32_t)vpWidth } });
-			
-				glm::mat4 mm(1.0f);
-				mm = light.projection * light.view[face];
-				cmd.SetPushConstant(PSOLayoutDB::defaultPSOLayout, sizeof(glm::mat4), glm::value_ptr(mm));					
-
-				const std::vector<oGFX::IndirectCommand>& commands = casterData.m_commands[face];
-				for (const oGFX::IndirectCommand& c : commands)
+			// this is an omnilight
+			case LightType::POINT: 
+			{
+				for (size_t face = 0; face < POINT_LIGHT_FACE_COUNT; face++)
 				{
-					cmd.DrawIndexed(c.indexCount, c.instanceCount, c.firstIndex, c.vertexOffset, c.firstInstance);
-				}
-				//cmd.DrawIndexedIndirect(vr.shadowCasterCommandsBuffer.getBuffer(), 0, static_cast<uint32_t>(vr.shadowCasterCommandsBuffer.size()));
+					int lightGrid = light.info.y + static_cast<int>(face);
+					// set custom viewport for each view
+					int ly = static_cast<int>(lightGrid / smGridDim);
+					int lx = static_cast<int>(lightGrid - (ly * smGridDim));
+					vec2 customVP = increment * glm::vec2{ lx,smGridDim - ly };
 
-			}				
+					//light.info.z = customVP.x; // this is actually wasted
+					//light.info.w = customVP.y; // this is actually wasted
+
+					//cmd.SetViewport(VkViewport{ 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f });
+					//cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpWidth , (uint32_t)vpHeight } });
+
+					// calculate viewport for each light
+					cmd.SetViewport(VkViewport{ customVP.x + 1, customVP.y + 1,increment.x - 1, -(increment.y - 1), 0.0f, 1.0f });
+					// TODO: Set exact region for scissor
+					cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpHeight, (uint32_t)vpWidth } });
+
+					glm::mat4 mm(1.0f);
+					mm = light.projection * light.view[face];
+					cmd.SetPushConstant(PSOLayoutDB::defaultPSOLayout, sizeof(glm::mat4), glm::value_ptr(mm));
+
+					const std::vector<oGFX::IndirectCommand>& commands = casterData.m_commands[face];
+					for (const oGFX::IndirectCommand& c : commands)
+					{
+						cmd.DrawIndexed(c.indexCount, c.instanceCount, c.firstIndex, c.vertexOffset, c.firstInstance);
+					}
+					//cmd.DrawIndexedIndirect(vr.shadowCasterCommandsBuffer.getBuffer(), 0, static_cast<uint32_t>(vr.shadowCasterCommandsBuffer.size()));
+				}
+			}
+			break;
+			case LightType::AREA:
+			{
+				for (size_t face = 0; face < AREA_LIGHT_FACE_COUNT; face++)
+				{
+					int lightGrid = light.info.y + static_cast<int>(face);
+					// set custom viewport for each view
+					int ly = static_cast<int>(lightGrid / smGridDim);
+					int lx = static_cast<int>(lightGrid - (ly * smGridDim));
+					vec2 customVP = increment * glm::vec2{ lx,smGridDim - ly };
+
+					//light.info.z = customVP.x; // this is actually wasted
+					//light.info.w = customVP.y; // this is actually wasted
+
+					//cmd.SetViewport(VkViewport{ 0.0f, vpHeight, vpWidth, -vpHeight, 0.0f, 1.0f });
+					//cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpWidth , (uint32_t)vpHeight } });
+
+					// calculate viewport for each light
+					cmd.SetViewport(VkViewport{ customVP.x + 1, customVP.y + 1,increment.x - 1, -(increment.y - 1), 0.0f, 1.0f });
+					// TODO: Set exact region for scissor
+					cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpHeight, (uint32_t)vpWidth } });
+
+					glm::mat4 mm(1.0f);
+					mm = light.projection * light.view[face];
+					cmd.SetPushConstant(PSOLayoutDB::defaultPSOLayout, sizeof(glm::mat4), glm::value_ptr(mm));
+
+					const std::vector<oGFX::IndirectCommand>& commands = casterData.m_commands[face];
+					for (const oGFX::IndirectCommand& c : commands)
+					{
+						cmd.DrawIndexed(c.indexCount, c.instanceCount, c.firstIndex, c.vertexOffset, c.firstInstance);
+					}
+					//cmd.DrawIndexedIndirect(vr.shadowCasterCommandsBuffer.getBuffer(), 0, static_cast<uint32_t>(vr.shadowCasterCommandsBuffer.size()));
+				}
+			}
+			break;
+			default:
+				break;
+			}
+			
+						
 		}			
 	}	
 }

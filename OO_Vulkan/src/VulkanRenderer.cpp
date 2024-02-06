@@ -347,7 +347,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 #if VULKAN_MESSENGER
 	CreateDebugCallback();
-	if(setupSpecs.debug)
+	if(setupSpecs.debug && setupSpecs.renderDoc)
 		hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, 0, 0);
 
 #endif // VULKAN_MESSENGER
@@ -2976,7 +2976,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 
 		AddRenderer(g_BloomPass);
 		AddRenderer(g_ScreenSpaceUIPass);
-		//AddRenderer(g_DebugDrawRenderpass);
+		AddRenderer(g_DebugDrawRenderpass);
 		
 		auto updateHistogram = [this](void*) {
 			const VkCommandBuffer cmd = GetCommandBuffer();

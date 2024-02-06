@@ -28,6 +28,7 @@ Technology is prohibited.
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtc/quaternion.hpp"
 #include "glm/gtx/quaternion.hpp"
+#include "glm/gtx/rotate_vector.hpp"
 #include "glm/gtx/euler_angles.hpp"
 #include "glm/gtx/transform.hpp"
 #include "glm/gtc/constants.hpp"

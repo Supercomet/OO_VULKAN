@@ -38,7 +38,7 @@ namespace rhi
 		PROFILE_SCOPED();
 		memset(m_push_constant, 0, 128);
 		memcpy(m_push_constant, data, size);
-		vkCmdPushConstants(m_VkCommandBuffer, layout, VK_SHADER_STAGE_ALL, offset, size, data);
+		vkCmdPushConstants(m_VkCommandBuffer, layout, VK_SHADER_STAGE_ALL, (uint32_t)offset, (uint32_t)size, data);
 	}
 
 	DescriptorSetInfo& CommandList::DescriptorSetBegin(uint32_t set)

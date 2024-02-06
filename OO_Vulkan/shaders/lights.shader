@@ -43,10 +43,10 @@ LightInfo DecodeLightInfo(LocalLightInstance l)
         r.view[i] = l.view[i];
     }
     
-    r.rectPoints[0] = l.view[0][0].xyz;
-    r.rectPoints[1] = l.view[0][1].xyz;
-    r.rectPoints[2] = l.view[0][3].xyz;
-    r.rectPoints[3] = l.view[0][2].xyz;
+    r.rectPoints[0] = l.view[1][0].xyz;
+    r.rectPoints[1] = l.view[1][1].xyz;
+    r.rectPoints[2] = l.view[1][3].xyz;
+    r.rectPoints[3] = l.view[1][2].xyz;
     
     return r;
 }

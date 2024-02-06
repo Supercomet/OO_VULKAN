@@ -59,6 +59,9 @@ enum class LightType : uint32_t
     AREA = 0x2,
 };
 
+const uint32_t AREA_LIGHT_FACE_COUNT = 1;
+const uint32_t POINT_LIGHT_FACE_COUNT = 6;
+
 enum class UIInstanceFlags : uint32_t
 {
     RENDER_ENABLED   = 0x1,  // Object will never change after initialization
@@ -201,6 +204,11 @@ void SetCastsShadows(OmniLightInstance& l, bool s);
 bool GetCastsShadows(const OmniLightInstance& l);
 void SetCastsShadows(SpotLightInstance& l, bool s);
 bool GetCastsShadows(const SpotLightInstance& l);
+
+void SetLightType(LocalLightInstance& l, LightType t);
+LightType GetLightType(const LocalLightInstance& l);
+void SetLightType(OmniLightInstance& l, LightType t);
+LightType GetLightType(const OmniLightInstance& l);
 
 template <typename T>
 inline void SetLightEnabled(T& l, bool s) {

@@ -67,8 +67,8 @@ namespace vkutils
 
 	inline glm::uvec2 GetMipDims(Texture& tex, uint32_t mip) {
 		glm::uvec2 dims{};
-		dims.x = std::max<uint32_t>(tex.width / std::pow(2u, mip), 1u);
-		dims.y = std::max<uint32_t>(tex.height/ std::pow(2u, mip), 1u);
+		dims.x = (uint32_t)std::max<float>(tex.width / std::powf(2.0f, (float)mip), 1.0f);
+		dims.y = (uint32_t)std::max<float>(tex.height/ std::powf(2.0f, (float)mip), 1.0f);
 		return dims;
 	};
 
