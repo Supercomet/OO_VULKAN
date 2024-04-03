@@ -1983,7 +1983,7 @@ void InitLights(int32_t* someLights)
         for (size_t i = 0; i < hardCodedLights; i++)
         {
             lights[i] = &gs_GraphicsWorld.GetLightInstance(someLights[i]);
-            SetLightEnabled(lights[i], true);
+            SetLightEnabled(*lights[i], true);
         }
         // put here so we can edit the light values
         lights[0]->position = glm::vec4(0.0f, 3.0f, 1.0f, 0.0f);
