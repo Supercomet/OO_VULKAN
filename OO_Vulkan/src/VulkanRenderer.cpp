@@ -112,12 +112,14 @@ extern GfxRenderpass* g_DLSSPass;
 
 #pragma warning( pop )
 
+#define OPTICK_HOOK 0
+#if OPTICK_HOOK
 static HHOOK hook;
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam); // forward decl
+#endif
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
 // vulkan debug callback
-#pragma optimize("", off)
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -129,18 +131,21 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	constexpr int VALIDATION_MSG_Shader_OutputNotConsumed = 0x609a13b;
 	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT && pCallbackData->messageIdNumber != VALIDATION_MSG_Shader_OutputNotConsumed) //&& !(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
 	{
+#if OPTICK_HOOK
 		UnhookWindowsHookEx(hook);
+#endif
 		int x;
 		std::cerr << pCallbackData->pMessage << "\n" << std::endl;
 		//assert(false); temp comment out
 		x=5; // for breakpoint
+#if OPTICK_HOOK
 		hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, 0, 0);
+#endif
 	}
 
 	return VK_FALSE;
 
 }
-#pragma optimize("", on)
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
@@ -168,8 +173,9 @@ int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU
 
 VulkanRenderer::~VulkanRenderer()
 { 
-
+#if OPTICK_HOOK
 	UnhookWindowsHookEx(hook);
+#endif
 	//wait until no actions being run on device before destorying
 	vkDeviceWaitIdle(m_device.logicalDevice);
 
@@ -294,7 +300,6 @@ VulkanRenderer::~VulkanRenderer()
 	
 	PROFILE_GPU_SHUTDOWN();
 }
-#pragma optimize("", off)
 VulkanRenderer* VulkanRenderer::get()
 {
 	if (s_vulkanRenderer == nullptr)
@@ -304,6 +309,7 @@ VulkanRenderer* VulkanRenderer::get()
 	return s_vulkanRenderer;
 }
 
+#if OPTICK_HOOK
 // This is the callback function that will be triggered when the F7 key is pressed.
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 	static bool capturing = false;
@@ -333,6 +339,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 
 	return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
+#endif
 
 bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 {
@@ -347,10 +354,12 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 
 #if VULKAN_MESSENGER
 	CreateDebugCallback();
+#endif // VULKAN_MESSENGER
+#if OPTICK_HOOK
 	if(setupSpecs.debug && setupSpecs.renderDoc)
 		hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, 0, 0);
+#endif
 
-#endif // VULKAN_MESSENGER
 
 	CreateSurface(setupSpecs,window);
 	// set surface for imgui
@@ -2346,7 +2355,6 @@ void VulkanRenderer::GenerateCPUIndirectDrawCommands()
 
 	
 }
-#pragma optimize("" , off)
 void VulkanRenderer::UploadInstanceData()
 {
 	PROFILE_SCOPED();
@@ -2565,6 +2573,7 @@ void VulkanRenderer::UploadInstanceData()
 	}
 
 	auto cmd = GetCommandBuffer();
+	rhi::CommandList rhiCmd{ cmd, "Upload OI" };
 	PROFILE_GPU_CONTEXT(cmd);
 	PROFILE_GPU_EVENT("Upload OI");
 	VK_NAME(m_device.logicalDevice, "Upload OI", cmd);
@@ -3586,6 +3595,7 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 
 	if (!scene)
 	{
+		OO_ASSERT(scene);
 		return nullptr; // Dont explode...
 		//throw std::runtime_error("Failed to load model! (" + file + ")");
 	}
@@ -3693,6 +3703,36 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 
 	ModelFileResource* modelFile = new ModelFileResource(file);
 
+	modelFile->materials.resize(scene->mNumMaterials);
+	for (size_t i = 0; i < scene->mNumMaterials; i++)
+	{
+		const aiMaterial* material = scene->mMaterials[i];
+		Material& modelMaterial = modelFile->materials[i];
+
+		auto updateTexture = [&](aiTextureType type, std::string& saveTo) {
+			const unsigned int numTexture = material->GetTextureCount(type);
+			OO_ASSERT(numTexture <= 1);
+			for (unsigned int j = 0; j < numTexture; j++) {
+				aiString texturePath;
+				if (material->GetTexture(type, j, &texturePath) == AI_SUCCESS) {
+					// texturePath contains the path to the diffuse texture
+					std::filesystem::path pWithoutFile = file;
+					pWithoutFile.remove_filename();
+					std::string finalPath = pWithoutFile.string() + texturePath.C_Str();
+					if (std::filesystem::exists(finalPath)) {
+						saveTo = finalPath;
+					}
+				}
+			}
+		};
+		
+		updateTexture(aiTextureType_DIFFUSE, modelMaterial.albedo);
+		updateTexture(aiTextureType_NORMALS, modelMaterial.normal);
+		updateTexture(aiTextureType_DIFFUSE_ROUGHNESS, modelMaterial.roughness);
+		updateTexture(aiTextureType_SPECULAR, modelMaterial.specular);		
+	
+	}
+
 	uint32_t indx{};
 	{
 		std::scoped_lock s(g_mut_globalModels);
@@ -3706,9 +3746,13 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 
 	mdl.m_subMeshes.resize(scene->mNumMeshes);
 	modelFile->numSubmesh = scene->mNumMeshes;
+
+	modelFile->submeshToMaterial.resize(scene->mNumMeshes);
+	
 	mdl.cpuModel = modelFile;
 
 	uint32_t totalBones{ 0 };
+	mdl.m_subMeshes.resize(scene->mNumMeshes);
 	for (size_t i = 0; i < scene->mNumMeshes; i++)
 	{
 		auto& aimesh = scene->mMeshes[i];
@@ -3720,6 +3764,8 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 		}
 		SubMesh& submesh = g_globalSubmesh[submeshIdx];
 		mdl.m_subMeshes[i] = submeshIdx;
+		
+		modelFile->submeshToMaterial[i] = aimesh->mMaterialIndex;
 		LoadSubmesh(mdl, submesh, aimesh, modelFile);
 		totalBones += scene->mMeshes[i]->mNumBones;
 	}
@@ -4732,7 +4778,9 @@ uint32_t VulkanRenderer::LoadTextureData(const std::string& fileName)
 {
 	//Load image file
 	oGFX::FileImageData imageData;
-	imageData.Create(fileName);
+	if (imageData.Create(fileName) == false) {
+		OO_ASSERT(false && "fail to open file");
+	}
 	
 //#define OVERIDE_TEXTURE_SIZE_ONE
 #ifdef OVERIDE_TEXTURE_SIZE_ONE

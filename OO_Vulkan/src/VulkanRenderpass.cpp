@@ -15,7 +15,6 @@ Technology is prohibited.
 
 #include <cassert>
 
-#pragma optimize("", off)
 void VulkanRenderpass::Init(VulkanDevice& dev,VkRenderPassCreateInfo& ci) 
 {
 	device = &dev;

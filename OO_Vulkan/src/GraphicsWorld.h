@@ -114,7 +114,7 @@ struct ObjectInstance
     std::vector<glm::mat4> bones;
 
     uint32_t modelID{}; // Index for the mesh
-    std::bitset<MAX_SUBMESH>submesh;// submeshes to draw
+    uint32_t submesh;// submeshes to draw
     uint32_t entityID{}; // Unique ID for this entity instance
 };
 

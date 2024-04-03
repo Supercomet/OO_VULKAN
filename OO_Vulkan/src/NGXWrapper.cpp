@@ -13,7 +13,6 @@
 
 #include "VulkanRenderer.h"
 
-#pragma optimize("" ,off)
 void NGXWrapper::Init()
 {
 	VulkanRenderer& vr = *VulkanRenderer::get();

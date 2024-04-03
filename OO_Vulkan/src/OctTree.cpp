@@ -79,6 +79,12 @@ void OctTree::GetEntitiesInFrustum(const Frustum& frust, std::vector<ObjectInsta
 	GatherFrustEntities(m_root.get(), frust, contained, intersecting);	
 }
 
+void OctTree::GetAllEntities(std::vector<ObjectInstance*>& entities)
+{
+	std::vector<uint32_t>depth;
+	GatherEntities(m_root.get(), entities, depth);
+}
+
 void OctTree::GetActiveBoxList(std::vector<AABB>& boxes, std::vector<uint32_t>& depth)
 {
 	boxes.push_back(m_root->box);

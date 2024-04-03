@@ -7,6 +7,8 @@
 #include <string>
 #include "Font.h"
 
+struct ModelFileResource;
+
 class TestApplication
 {
 public:
@@ -27,6 +29,9 @@ private:
 
     void InitDefaultTextures();
     void InitDefaultMeshes();
+
+    void LoadMeshTextures(ModelFileResource* model);
+    void ProcessModelScene(ModelFileResource* model);
 
     void RunTest_DebugDraw();
     bool m_TestDebugDrawLine{ false };

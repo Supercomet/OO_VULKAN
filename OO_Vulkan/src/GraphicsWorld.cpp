@@ -23,7 +23,7 @@ GraphicsWorld::GraphicsWorld() :
 	m_OctTree{ std::make_shared<oGFX::OctTree>() }
 {
 }
-
+OO_OPTIMIZE_OFF
 void GraphicsWorld::BeginFrame()
 {
 	PROFILE_SCOPED();
@@ -68,7 +68,7 @@ void GraphicsWorld::BeginFrame()
 			}
 		}
 	}
-
+	
 	for (auto iter = m_ObjectInstances.begin(); iter != m_ObjectInstances.end(); iter++)
 	{
 		ObjectInstance& src = *iter;
@@ -112,6 +112,7 @@ void GraphicsWorld::BeginFrame()
 
 	
 }
+OO_OPTIMIZE_ON
 
 void GraphicsWorld::EndFrame()
 {

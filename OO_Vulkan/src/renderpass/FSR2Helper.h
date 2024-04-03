@@ -107,7 +107,6 @@ static FfxUInt32 ffx_packHalf2x16(FfxFloat32x2 x)
     return ffx_f32tof16(x[0]) + (ffx_f32tof16(x[1]) << 16);
 }
 
-#pragma optimize("" off)
 struct FSR2_CB_DATA {
     FfxInt32x2    renderSize;
     FfxInt32x2    maxRenderSize;

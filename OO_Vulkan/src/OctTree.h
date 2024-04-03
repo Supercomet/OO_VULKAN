@@ -28,7 +28,7 @@ class OctTree
 {
 public:
 	inline static constexpr uint32_t s_num_children = 8;
-	inline static constexpr uint32_t s_stop_depth = 5;
+	inline static constexpr uint32_t s_stop_depth = 8;
 public:
 	OctTree(const AABB rootBox = { Point3D{-500.0f},Point3D{500.0f} } ,int stopDepth = s_stop_depth);
 
@@ -38,6 +38,7 @@ public:
 
 	void GetActiveBoxList(std::vector<AABB>& boxes, std::vector<uint32_t>& depth);
 	void GetEntitiesInFrustum(const Frustum& frust, std::vector<ObjectInstance*>& contains, std::vector<ObjectInstance*>& intersect);
+	void GetAllEntities(std::vector<ObjectInstance*>& entities);
 	void GetBoxesInFrustum(const Frustum& frust, std::vector<AABB>& contains, std::vector<AABB>& intersect);
 
 	void ClearTree();

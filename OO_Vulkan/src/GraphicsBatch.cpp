@@ -46,6 +46,7 @@ DrawData ObjectInsToDrawData(const ObjectInstance& obj)
 	dd.instanceData = obj.instanceData;
 	dd.ptrToBoneBuffer = &obj.bones;
 	dd.modelID = obj.modelID;
+	dd.submeshID = obj.submesh;
 	return dd;
 }
 
@@ -58,7 +59,7 @@ oGFX::AABB getBoxFun(ObjectInstance& oi)
 	oGFX::AABB box;
 	auto& mdl = models[oi.modelID];
 
-	oGFX::Sphere bs = submeshes[mdl.m_subMeshes.front()].boundingSphere;
+	oGFX::Sphere bs = submeshes[oi.submesh].boundingSphere;
 
 	float sx = glm::length(glm::vec3(oi.localToWorld[0][0], oi.localToWorld[1][0], oi.localToWorld[2][0]));
 	float sy = glm::length(glm::vec3(oi.localToWorld[0][1], oi.localToWorld[1][1], oi.localToWorld[2][1]));
@@ -70,8 +71,8 @@ oGFX::AABB getBoxFun(ObjectInstance& oi)
 	box.halfExt = vec3{ maxSize };
 	return box;
 };
-
-void CullDrawData(const oGFX::Frustum& f, std::vector<DrawData>& outData, const std::vector<ObjectInstance*>& contained, const std::vector<ObjectInstance*>& intersecting, bool draw = false)
+OO_OPTIMIZE_OFF
+void CullDrawData(const oGFX::Frustum& f, std::vector<DrawData>& outData, const std::vector<ObjectInstance*>& contained, const std::vector<ObjectInstance*>& intersecting, bool debug = false)
 {
 	PROFILE_SCOPED();
 	auto& vr = *VulkanRenderer::get();
@@ -85,19 +86,20 @@ void CullDrawData(const oGFX::Frustum& f, std::vector<DrawData>& outData, const 
 
 		if (src.isRenderable() == false) continue;
 
-		if(draw)
+		if(debug)
 			oGFX::DebugDraw::AddAABB(getBoxFun(src), oGFX::Colors::GREEN);
 		DrawData dd = ObjectInsToDrawData(src);
 		gfxModel& mdl = vr.g_globalModels[src.modelID];
-		for (size_t s = 0; s < mdl.m_subMeshes.size(); s++)
-		{
-			// add draw call for each submesh
-			if (src.submesh[s] == true)
-			{
-				dd.submeshID = mdl.m_subMeshes[s];
+		//for (size_t s = 0; s < mdl.m_subMeshes.size(); s++)
+		//{
+		//	// add draw call for each submesh
+		//	if (src.submesh[s] == true)
+		//	{
+		//		dd.submeshID = mdl.m_subMeshes[s];
+				dd.submeshID = mdl.m_subMeshes[src.submesh];
 				outData.push_back(dd);
-			}
-		}
+		//	}
+		//}
 
 	}
 	size_t intersectAccepted{};
@@ -106,28 +108,30 @@ void CullDrawData(const oGFX::Frustum& f, std::vector<DrawData>& outData, const 
 		ObjectInstance& src = *intersecting[i];
 
 		if (src.isRenderable() == false) continue;
-		if (draw)
+		if (debug)
 			oGFX::DebugDraw::AddAABB(getBoxFun(src), oGFX::Colors::RED);
-		if (oGFX::coll::AABBInFrustum(f, getBoxFun(src), draw) != oGFX::coll::OUTSIDE) {
+		if (oGFX::coll::AABBInFrustum(f, getBoxFun(src), debug) != oGFX::coll::OUTSIDE) {
 			DrawData dd = ObjectInsToDrawData(src);
 			gfxModel& mdl = vr.g_globalModels[src.modelID];
-			for (size_t s = 0; s < mdl.m_subMeshes.size(); s++)
-			{
-				// add draw call for each submesh
-				if (src.submesh[s] == true)
-				{
-					dd.submeshID = mdl.m_subMeshes[s];
+			//for (size_t s = 0; s < mdl.m_subMeshes.size(); s++)
+			//{
+			//	// add draw call for each submesh
+			//	if (src.submesh[s] == true)
+			//	{
+			//		dd.submeshID = mdl.m_subMeshes[s];
+					dd.submeshID = mdl.m_subMeshes[src.submesh];
 					outData.push_back(dd);
-				}
-			}
-			if (draw)
+			//	}
+			//}
+			if (debug)
 				oGFX::DebugDraw::AddAABB(getBoxFun(src), oGFX::Colors::YELLOW);
 			intersectAccepted++;
 		}
 	}
-	//printf("Accepted Entities-%3llu/%3llu Intersect-%3llu/%3llu\n", m_DenseObjectsCopy.size(), m_ObjectInstances.size(), intersectAccepted, intersectEnt.size());
+	//if(debug)
+	//	printf("Accepted Entities-%3llu/%3llu Intersect-%3llu/%3llu\n", outData.size(), contained.size() + intersecting.size(), intersectAccepted, intersecting.size());
 }
-
+OO_OPTIMIZE_ON
 void SortDrawDataByMesh(std::vector<DrawData>& drawData)
 {
 	std::sort(drawData.begin(), drawData.end(),
@@ -142,7 +146,7 @@ void AppendBatch(std::vector<oGFX::IndirectCommand>& dest, oGFX::IndirectCommand
 		dest.emplace_back(cmd);
 	}
 }
-#pragma optimize("" ,off)
+
 void GenerateCommands(const std::vector<DrawData>& entities, std::vector<oGFX::IndirectCommand>& commands, ObjectInstanceFlags filter)
 {
 	auto& vr = *VulkanRenderer::get();
@@ -490,8 +494,9 @@ void GraphicsBatch::ProcessGeometry()
 	f = m_world->cameras[0].GetFrustum();
 	containedEnt.clear();
 	intersectEnt.clear();
-	m_world->m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
-	CullDrawData(f, m_culledCameraObjects, containedEnt, intersectEnt);
+	m_world->m_OctTree->GetAllEntities(containedEnt);
+	//m_world->m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
+	CullDrawData(f, m_culledCameraObjects, containedEnt, intersectEnt,false);
 	SortDrawDataByMesh(m_culledCameraObjects);
 	GenerateCommands(m_culledCameraObjects, m_batches[Batch::ALL_OBJECTS], Flags::RENDER_ENABLED);
 }

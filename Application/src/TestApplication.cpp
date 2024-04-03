@@ -111,7 +111,6 @@ struct EntityInfo
 {
     //helper to set the first bitset for trivial mesh
     EntityInfo() {
-        submeshes[0] = true;
     }
 
     std::string name;
@@ -133,7 +132,7 @@ struct EntityInfo
     uint8_t instanceData{ 0 };
 
     int32_t gfxID{}; // gfxworld id
-    std::bitset<MAX_SUBMESH>submeshes;
+    uint32_t submesh{ 0 };
 
     ObjectInstanceFlags flags{static_cast<ObjectInstanceFlags>(ObjectInstanceFlags::RENDER_ENABLED 
         | ObjectInstanceFlags::SHADOW_RECEIVER 
@@ -219,7 +218,7 @@ void CreateGraphicsEntityHelper(EntityInfo& ei)
 	o.modelID = ei.modelID;
 	o.entityID = ei.entityID;
     o.flags = ei.flags;
-    o.submesh = ei.submeshes;
+    o.submesh = ei.submesh;
 
 	auto id = gs_GraphicsWorld.CreateObjectInstance(o);
     // assign id
@@ -254,7 +253,7 @@ void ResetSpheres()
    
    
 }
-
+OO_OPTIMIZE_OFF
 void TestApplication::Run()
 {
     gs_RenderEngine = VulkanRenderer::get();
@@ -307,40 +306,11 @@ void TestApplication::Run()
    
   
     std::unique_ptr<oGFX::Font>testFont (gs_RenderEngine->LoadFont("../Application/fonts/Roboto-Medium.ttf"));
-    {
-       // using namespace msdfgen;
-       // FreetypeHandle *ft = initializeFreetype();
-       // if (ft) {
-       //     FontHandle *font = loadFont(ft, "C:\\Windows\\Fonts\\arialbd.ttf");
-       //     if (font) {
-       //         Shape shape;
-       //         if (loadGlyph(shape, font, 'A')) {
-       //             shape.normalize();
-       //             //                      max. angle
-       //             edgeColoringSimple(shape, 3.0);
-       //             //           image width, height
-       //             Bitmap<float, 3> msdf(32, 32);
-       //             //                     range, scale, translation
-       //             generateMSDF(msdf, shape, 4.0, 1.0, Vector2(4.0, 4.0));
-       //             savePng(msdf, "output.png");
-       //         }
-       //         destroyFont(font);
-       //     }
-       //     deinitializeFreetype(ft);
-       // }
-    }
-
    
 
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Textures
     //----------------------------------------------------------------------------------------------------
-
-    //uint32_t whiteTexture = 0xFFFFFFFF; // ABGR
-    //uint32_t blackTexture = 0xFF000000; // ABGR
-    //uint32_t normalTexture = 0xFFFF8080; // ABGR
-    //uint32_t pinkTexture = 0xFFA040A0; // ABGR
-
     gs_WhiteTexture = gs_RenderEngine->whiteTextureID;
     gs_BlackTexture = gs_RenderEngine->blackTextureID;
     gs_NormalTexture = gs_RenderEngine->normalTextureID;
@@ -374,8 +344,6 @@ void TestApplication::Run()
         float val = 1.0f / (roughness.size()-1);
         uint32_t byteVal = (uint32_t)(val * i * 0xFF);
         uint32_t colVal = byteVal << 24 | byteVal << 16 | byteVal << 8 | byteVal;
-
-        printf("Generating %llu/%llu [%x]\n", i, roughness.size(), colVal);
 
         roughness[i] = gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&colVal);
         metalic[i] = gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&colVal);
@@ -458,8 +426,10 @@ void TestApplication::Run()
     //----------------------------------------------------------------------------------------------------
 
     // Comment/Uncomment as needed
-    gs_test_scene.reset( gs_RenderEngine->LoadModelFromFile("../Application/models/AnimationTest_Box.fbx") );
-    //std::unique_ptr<ModelFileResource> test_scene = nullptr;
+    gs_test_scene.reset( gs_RenderEngine->LoadModelFromFile("../Application/models/scene/Sponza/gltf/Sponza.gltf") );
+    //gs_test_scene.reset( gs_RenderEngine->LoadModelFromFile("../Application/models/scene/Bistro/BistroExterior.fbx") );
+    if(gs_test_scene) LoadMeshTextures(gs_test_scene.get());
+    if(gs_test_scene) ProcessModelScene(gs_test_scene.get());
 
     std::array<uint32_t, 4> diffuseBindlessTextureIndexes =
     {
@@ -486,6 +456,27 @@ void TestApplication::Run()
         ed.bindlessGlobalTextureIndex_Roughness = r0;
         ed.bindlessGlobalTextureIndex_Emissive= r0;
     }
+
+    //{
+    //    auto& ed = entities.emplace_back(EntityInfo{});
+    //    ed.name = "Sponza";
+    //    ed.entityID = FastRandomMagic();
+    //    ed.modelID = gs_test_scene->meshResource;
+    //    ed.flags = ObjectInstanceFlags(static_cast<uint32_t>(ed.flags));
+    //    ed.position = { 0.0f,-0.5f,0.0f };
+    //    ed.scale = { 15.0f,1.0f,15.0f };
+    //
+    //    for (size_t i = 0; i < gs_test_scene->numSubmesh; i++)
+    //    {
+    //        ed.submeshes[i] = 1;
+    //    }       
+    //
+    //    ed.bindlessGlobalTextureIndex_Albedo = gs_WhiteTexture;
+    //    ed.bindlessGlobalTextureIndex_Normal = n0;
+    //    ed.bindlessGlobalTextureIndex_Metallic = m0;
+    //    ed.bindlessGlobalTextureIndex_Roughness = r0;
+    //    ed.bindlessGlobalTextureIndex_Emissive = r0;
+    //}
 
     uint32_t uiID = CreateTextHelper(glm::mat4(1.0f), std::string("123 Test\nNew Line"), testFont.get());
 
@@ -1189,6 +1180,52 @@ void TestApplication::InitDefaultMeshes()
     std::unique_ptr<ModelFileResource> box{ gs_RenderEngine->LoadMeshFromBuffers(defaultCubeMesh.m_VertexBuffer, defaultCubeMesh.m_IndexBuffer, nullptr) };
 }
 
+void TestApplication::LoadMeshTextures(ModelFileResource* model)
+{
+    for (size_t i = 0; i < model->materials.size(); i++)
+    {
+        if (model->materials[i].albedo.size()) {
+            auto result = gs_RenderEngine->CreateTexture(model->materials[i].albedo);
+            model->materials[i].albedoTexture = result;
+        }
+    }
+}
+
+void TestApplication::ProcessModelScene(ModelFileResource* model)
+{
+    Node* head = model->sceneInfo;
+
+    auto dfs = [&](auto&& dfs, Node* node) ->void{
+        if (node) {
+
+            if (node->meshRef != static_cast<uint32_t>(-1)) {
+                auto& ed = entities.emplace_back(EntityInfo{});
+                ed.name = node->name;
+                ed.entityID = FastRandomMagic();
+                ed.modelID = gs_test_scene->meshResource;
+                ed.scale /= 100.0f;
+
+                uint32_t matID = model->submeshToMaterial[node->meshRef];
+
+                // enable this mesh
+                ed.submesh = node->meshRef;
+
+                ed.bindlessGlobalTextureIndex_Albedo = model->materials[matID].albedoTexture;
+                ed.bindlessGlobalTextureIndex_Normal = model->materials[matID].normalTexture;
+                ed.bindlessGlobalTextureIndex_Metallic = model->materials[matID].albedoTexture;
+                ed.bindlessGlobalTextureIndex_Roughness = model->materials[matID].roughnessTexture;
+            }
+
+            for (size_t i = 0; i < node->children.size(); i++)
+            {
+                dfs(dfs, node->children[i]);
+            }
+        }
+    };
+    dfs(dfs, head);
+   
+}
+
 void TestApplication::RunTest_DebugDraw()
 {
     if (m_TestDebugDrawLine)
@@ -1778,16 +1815,17 @@ void TestApplication::Tool_HandleUI()
                         auto& msh = gs_RenderEngine->g_globalModels[entity.modelID];
                         ImGui::Text("Submesh");
                         ImGui::Dummy({1, 1});
-                        for (size_t i = 0; i < msh.m_subMeshes.size(); i++)
-                        {
+                        //for (size_t i = 0; i < msh.m_subMeshes.size(); i++)
+                        //{
                             ImGui::SameLine();
-                            bool val = entity.submeshes[i];
-                            if (ImGui::Checkbox(std::to_string(i).c_str(), &val))
-                            {
-                                entity.submeshes[i] = val;
-                                gs_GraphicsWorld.GetObjectInstance(entity.gfxID).submesh = entity.submeshes;
-                            }
-                        }
+                            bool val = entity.submesh;
+                            ImGui::Text("%d", val);
+                        //    if (ImGui::Checkbox(std::to_string(i).c_str(), &val))
+                        //    {
+                        //        entity.submeshes[i] = val;
+                        //        gs_GraphicsWorld.GetObjectInstance(entity.gfxID).submesh = entity.submeshes;
+                        //    }
+                        //}
 						valuesModified |= ImGui::DragFloat3("Position", glm::value_ptr(entity.position), 0.01f);
 						{
 							if (ImGui::BeginPopupContextItem("Gizmo hijacker"))

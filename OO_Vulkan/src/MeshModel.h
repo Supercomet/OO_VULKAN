@@ -79,7 +79,18 @@ struct CPUSkeletonInstance
 
 } // end namespace oGFX
 
-#define MAX_SUBMESH 64 
+struct Material {
+    std::string albedo;
+    uint32_t albedoTexture{ 0xffffffff };
+    std::string normal;
+    uint32_t normalTexture{ 0xffffffff };
+    std::string specular;
+    uint32_t specularTexture{ 0xffffffff };
+    std::string roughness;
+    uint32_t roughnessTexture{ 0xffffffff };
+};
+
+#define MAX_SUBMESH 128 
 struct ModelFileResource
 {
     ModelFileResource();
@@ -92,6 +103,8 @@ struct ModelFileResource
 
     std::vector<oGFX::Vertex> vertices;
     std::vector<uint32_t> indices;
+    std::vector<uint32_t> submeshToMaterial;
+    std::vector<Material> materials;
 
     Node* sceneInfo{ nullptr };
     uint32_t sceneMeshCount{};
