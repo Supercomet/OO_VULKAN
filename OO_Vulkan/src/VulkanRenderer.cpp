@@ -128,13 +128,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	
 	// Ignore all performance related warnings for now..
 
-	constexpr int VALIDATION_MSG_Shader_OutputNotConsumed = 0x609a13b;
-	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT && pCallbackData->messageIdNumber != VALIDATION_MSG_Shader_OutputNotConsumed) //&& !(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
+	//constexpr int VALIDATION_MSG_Shader_OutputNotConsumed = 0x609a13b;
+	constexpr int WARNING_MSG_Shader_OutputNotConsumed = -937765618;
+	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT && pCallbackData->messageIdNumber != WARNING_MSG_Shader_OutputNotConsumed) //&& !(messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
 	{
 #if OPTICK_HOOK
 		UnhookWindowsHookEx(hook);
 #endif
 		int x;
+		std::cerr << pCallbackData->messageIdNumber << '\n';
 		std::cerr << pCallbackData->pMessage << "\n" << std::endl;
 		//assert(false); temp comment out
 		x=5; // for breakpoint
@@ -2805,11 +2807,11 @@ void VulkanRenderer::BeginDraw()
 			std::vector<oGFX::AABB> visible;
 			std::vector<oGFX::AABB> intersecting;
 			currWorld->m_OctTree->GetBoxesInFrustum(f, visible, intersecting);
-			//size_t colsSz = oGFX::Colors::c.size();
-			//for (size_t i = 0; i < boxes.size(); i++)
-			//{
-			//	oGFX::DebugDraw::AddAABB(boxes[i], oGFX::Colors::c[depth[i] % colsSz]);
-			//}
+			size_t colsSz = oGFX::Colors::c.size();
+			for (size_t i = 0; i < boxes.size(); i++)
+			{
+				//oGFX::DebugDraw::AddAABB(boxes[i], oGFX::Colors::c[depth[i] % colsSz]);
+			}
 			for (size_t i = 0; i < visible.size(); i++)
 			{
 				//oGFX::DebugDraw::AddAABB(visible[i], oGFX::Colors::GREEN);

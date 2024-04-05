@@ -14,6 +14,7 @@ Technology is prohibited.
 #pragma once
 #include <vulkan/vulkan.h>
 #include "buildDefs.h"
+#include "UtilCommon.h"
 #include "MathCommon.h"
 #include "VmaUsage.h"
 
@@ -24,16 +25,6 @@ Technology is prohibited.
 #include <typeindex>
 
 #include "../shaders/shared_structs.h"
-
-#define OO_ASSERT(BoolCondition) do { if (!(BoolCondition)) { __debugbreak(); } } while (0)
-
-#ifdef _MSC_VER
-#define OO_OPTIMIZE_OFF __pragma(optimize( "", off ))
-#define OO_OPTIMIZE_ON __pragma(optimize( "", on ))
-#else
-#define OO_OPTIMIZE_OFF _Pragma(STRINGIFY(optimize( "", off )))
-#define OO_OPTIMIZE_ON _Pragma(STRINGIFY(optimize( "", on )))
-#endif
 
 namespace oGFX::vkutils::tools
 {

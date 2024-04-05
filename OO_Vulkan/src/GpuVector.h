@@ -318,7 +318,7 @@ inline void GpuVector<T>::flushToGPU(VkCommandBuffer command)
 template <typename T>
 void GpuVector<T>::resize(VkCommandBuffer cmd, size_t size)
 {
-	std::cout << "[GpuVector<T>::resize] " << "Resizing from " << m_size << " to " << size << "\n";
+	//std::cout << "[GpuVector<T>::resize] " << "Resizing from " << m_size << " to " << size << "\n";
 	reserve(cmd, size);
 	m_size = size;	
 }

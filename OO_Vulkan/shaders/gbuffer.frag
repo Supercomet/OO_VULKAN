@@ -130,7 +130,7 @@ void main()
          
         vec3 V = normalize(inPosition.xyz - uboFrameContext.cameraPosition.xyz);    
   
-        vec3 map = texture(sampler2D(textureDescriptorArray[textureIndex_Normal],basicSampler), inUV.xy, -2.585).xyz*2.0-1.0;
+        vec3 map = texture(sampler2D(textureDescriptorArray[textureIndex_Normal],basicSampler), inUV.xy).xyz*2.0-1.0;
         
         // new method
         mat3 TBN = cotangent_frame( N, V,  inUV.xy );

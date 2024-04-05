@@ -58,8 +58,9 @@ oGFX::AABB getBoxFun(ObjectInstance& oi)
 
 	oGFX::AABB box;
 	auto& mdl = models[oi.modelID];
+	uint32_t submeshID = mdl.m_subMeshes[oi.submesh];
 
-	oGFX::Sphere bs = submeshes[oi.submesh].boundingSphere;
+	oGFX::Sphere bs = submeshes[submeshID].boundingSphere;
 
 	float sx = glm::length(glm::vec3(oi.localToWorld[0][0], oi.localToWorld[1][0], oi.localToWorld[2][0]));
 	float sy = glm::length(glm::vec3(oi.localToWorld[0][1], oi.localToWorld[1][1], oi.localToWorld[2][1]));
@@ -494,11 +495,13 @@ void GraphicsBatch::ProcessGeometry()
 	f = m_world->cameras[0].GetFrustum();
 	containedEnt.clear();
 	intersectEnt.clear();
-	m_world->m_OctTree->GetAllEntities(containedEnt);
-	//m_world->m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
-	CullDrawData(f, m_culledCameraObjects, containedEnt, intersectEnt,false);
+	//m_world->m_OctTree->GetAllEntities(containedEnt);
+	m_world->m_OctTree->GetEntitiesInFrustum(f, containedEnt, intersectEnt);
+	CullDrawData(f, m_culledCameraObjects, containedEnt, intersectEnt);
 	SortDrawDataByMesh(m_culledCameraObjects);
 	GenerateCommands(m_culledCameraObjects, m_batches[Batch::ALL_OBJECTS], Flags::RENDER_ENABLED);
+
+	//printf("Total Entities[%3llu/%3llu] Con[%3llu] Int[%3llu]\n", m_culledCameraObjects.size(), m_world->m_OctTree->size(), containedEnt.size(), intersectEnt.size());
 }
 
 void GraphicsBatch::ProcessUI()

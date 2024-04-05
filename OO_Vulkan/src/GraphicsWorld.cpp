@@ -38,8 +38,9 @@ void GraphicsWorld::BeginFrame()
 	auto getBoxFun = [&ents = m_ObjectInstancesCopy.buffer(), &models = vr.g_globalModels,&submeshes = vr.g_globalSubmesh](ObjectInstance& oi)->oGFX::AABB {
 		oGFX::AABB box;
 		auto& mdl = models[oi.modelID];
+		uint32_t g_submeshID = mdl.m_subMeshes[oi.submesh];
 
-		oGFX::Sphere bs = submeshes[mdl.m_subMeshes.front()].boundingSphere;
+		oGFX::Sphere bs = submeshes[g_submeshID].boundingSphere;
 
 		float sx = glm::length(glm::vec3(oi.localToWorld[0][0], oi.localToWorld[1][0], oi.localToWorld[2][0]));
 		float sy = glm::length(glm::vec3(oi.localToWorld[0][1], oi.localToWorld[1][1], oi.localToWorld[2][1]));
