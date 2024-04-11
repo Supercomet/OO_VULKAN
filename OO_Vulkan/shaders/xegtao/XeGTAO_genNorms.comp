@@ -1,0 +1,29 @@
+#version 450
+// Engine-specific entry point for the first pass
+#include "XeGTAO.glsl"
+
+ layout (set = 0, binding = 0) uniform cbxegato_t {
+GTAOConstants g_GTAOConsts;
+};
+
+layout (set=0, binding = 1) uniform texture2D g_srcRawDepth;
+
+layout (set=0, binding = 2)uniform sampler g_samplerPointClamp;
+
+layout (set=0, binding = 3, rgba8) uniform  image2D g_outNormalmap;
+ 
+// engine helper
+#include "../shader_utility.shader"
+
+layout (local_size_x = XE_GTAO_NUMTHREADS_X, local_size_y = XE_GTAO_NUMTHREADS_Y) in; // <- hard coded to 8x8; each thread computes 2x2 blocks so processing 16x16 block: Dispatch needs to be called with (width + 16-1) / 16, (height + 16-1) / 16
+void main()
+{
+    uint2 pixCoord = gl_GlobalInvocationID.xy;
+    uint2 groupThreadID = gl_LocalInvocationID.xy;
+    
+    // g_samplerPointClamp is a sampler with D3D12_FILTER_MIN_MAG_MIP_POINT filter and D3D12_TEXTURE_ADDRESS_MODE_CLAMP addressing mode
+    float3 viewspaceNormal = XeGTAO_ComputeViewspaceNormal(pixCoord, g_GTAOConsts, g_srcRawDepth, g_samplerPointClamp);
+    
+    imageStore(g_outNormalmap, int2(pixCoord), vec4(EncodeNormalHelper(viewspaceNormal),0.0));
+    // g_outNormalmap[pixCoord] = XeGTAO_FLOAT3_to_R11G11B10_UNORM(saturate(viewspaceNormal * 0.5 + 0.5));
+}
