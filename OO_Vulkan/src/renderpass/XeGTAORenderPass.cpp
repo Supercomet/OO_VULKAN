@@ -28,12 +28,14 @@ Technology is prohibited.
 static const char* xegtao_shaders[]{
 	"Shaders/bin/xegtao_prefilterDepths.comp.spv"
 	,"Shaders/bin/xegtao_main.comp.spv"
+	,"Shaders/bin/XeGTAO_genNorms.comp.spv"
 ,"max_Str"
 };
 
 static const char* xegtao_shaders_names[]{
 	"xegtao_prefilterDepths"
 	,"xegtao_main"
+	,"XeGTAO_genNorms"
 	,"max_Str"
 };
 
@@ -73,44 +75,45 @@ void XeGTAORenderPass::Init()
 
 	SetupDependencies();
 
-	{
-		uint16_t data [64 * 64];
-		for (int x = 0; x < 64; x++)
-			for (int y = 0; y < 64; y++)
-			{
-				uint32_t r2index = XeGTAO::HilbertIndex(x, y);
-				assert(r2index < 65536);
-				data[x + 64 * y] = (uint16_t)r2index;
-			}
-		
-		VkBufferImageCopy copyRegion{};
-		copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		copyRegion.imageSubresource.mipLevel = 0;
-		copyRegion.imageSubresource.baseArrayLayer = 0;
-		copyRegion.imageSubresource.layerCount = 1;
-		copyRegion.bufferOffset = 0;
-		copyRegion.imageExtent.width = 64;
-		copyRegion.imageExtent.height = 64;
-		copyRegion.imageExtent.depth = 1;
-		std::vector<VkBufferImageCopy> copies{ copyRegion };
-
-		vr.attachments.xegtao_hilbert.name = "HILBERT_LUT";
-		vr.attachments.xegtao_hilbert.fromBuffer(data, 64*64 * sizeof(uint16_t), VK_FORMAT_R16_UINT,
-			64, 64, copies, &vr.m_device, vr.m_device.graphicsQueue, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_FILTER_NEAREST);
-	}		
 	InitRandomFactors();
-	auto cmd = vr.GetCommandBuffer();	
 
+	float fullResolution = 1.0f;
+	VkFormat AOTermFormat = VK_FORMAT_R32_UINT;
+
+	vr.attachments.xegtao_workingDepths.name = "xegtao_workingDepths";
+	vr.attachments.xegtao_workingDepths.forFrameBuffer(&vr.m_device, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, true, fullResolution, XE_GTAO_DEPTH_MIP_LEVELS, VK_IMAGE_LAYOUT_GENERAL);
+	vr.fbCache.RegisterFramebuffer(vr.attachments.xegtao_workingDepths);
+
+	vr.attachments.xegtao_genNormals.name = "xegtao_genNormals";
+	vr.attachments.xegtao_genNormals.forFrameBuffer(&vr.m_device, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL);
+	vr.fbCache.RegisterFramebuffer(vr.attachments.xegtao_genNormals);
+
+	vr.attachments.xegtao_workingEdges.name = "xegtao_workingEdges";
+	vr.attachments.xegtao_workingEdges.forFrameBuffer(&vr.m_device, VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL);
+	vr.fbCache.RegisterFramebuffer(vr.attachments.xegtao_workingEdges);
+
+	vr.attachments.xegtao_workingAOTerm.name = "xegtao_workingAOTerm";
+	vr.attachments.xegtao_workingAOTerm.forFrameBuffer(&vr.m_device, AOTermFormat, VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL);
+	vr.fbCache.RegisterFramebuffer(vr.attachments.xegtao_workingAOTerm);
+
+	vr.attachments.xegtao_workingAOTermPong.name = "xegtao_workingAOTermPong";
+	vr.attachments.xegtao_workingAOTermPong.forFrameBuffer(&vr.m_device, AOTermFormat, VK_IMAGE_USAGE_STORAGE_BIT,
+		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL);
+	vr.fbCache.RegisterFramebuffer(vr.attachments.xegtao_workingAOTermPong);
+
+	auto cmd = vr.GetCommandBuffer();	
 	vkutils::SetImageInitialState(cmd, vr.attachments.xegtao_workingDepths);
+	vkutils::SetImageInitialState(cmd, vr.attachments.xegtao_genNormals);
 	vkutils::SetImageInitialState(cmd, vr.attachments.xegtao_workingAOTerm);
 	vkutils::SetImageInitialState(cmd, vr.attachments.xegtao_workingAOTermPong);
 	vkutils::SetImageInitialState(cmd, vr.attachments.xegtao_workingEdges);
-	
 	vr.SubmitSingleCommandAndWait(cmd);
 
-
 	SetupRenderpass();
-
 }
 
 OO_OPTIMIZE_OFF
@@ -129,6 +132,8 @@ void XeGTAORenderPass::UpdateConstants()
 	consts.ViewportSize = { (int32_t)resInfo.width,(int32_t)resInfo.height };
 	consts.ViewportPixelSize = { 1.0f / (float)consts.ViewportSize.x, 1.0f / (float)consts.ViewportSize.y };
 	
+	consts.View = cam.matrices.view;
+
 	float depthLinearizeMul = (rowMajor) ? (-projMatrix[3][2]) : (-projMatrix[2][3]);     // float depthLinearizeMul = ( clipFar * clipNear ) / ( clipFar - clipNear );
 	float depthLinearizeAdd = (rowMajor) ? ( projMatrix[2][2]) : ( projMatrix[2][2]);     // float depthLinearizeAdd = clipFar / ( clipFar - clipNear );
 	
@@ -294,6 +299,22 @@ void XeGTAORenderPass::Draw(const VkCommandBuffer cmdlist)
 
 	rhi::CommandList cmd{ cmdlist, "XeGTAO", oGFX::Colors::ORANGE };
 	{
+		cmd.BindPSO(pso_xegtao[(uint8_t)XEGTAO::GEN_NORMS]
+			, PSOLayoutDB::xegtao_PSOLayouts[(uint8_t)XEGTAO::GEN_NORMS], VK_PIPELINE_BIND_POINT_COMPUTE);
+
+		// input SRVs
+		cmd.DescriptorSetBegin(0)
+			.BindBuffer(0, vr.XeGTAOconstants[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+			.BindImage(1, &vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+			.BindSampler(2, GfxSamplerManager::GetSampler_PointClamp())
+			.BindImage(3, &vr.attachments.xegtao_genNormals, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+			//.BindImage(3, &vr.attachments.xegtao_workingDepths, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+			;
+
+		cmd.Dispatch((m_size.x + XE_GTAO_NUMTHREADS_X - 1) / XE_GTAO_NUMTHREADS_X, (m_size.y + XE_GTAO_NUMTHREADS_Y - 1) / XE_GTAO_NUMTHREADS_Y, 1);
+	}
+
+	{
 		cmd.BindPSO(pso_xegtao[(uint8_t)XEGTAO::PREFILTER_DEPTHS]
 			, PSOLayoutDB::xegtao_PSOLayouts[(uint8_t)XEGTAO::PREFILTER_DEPTHS], VK_PIPELINE_BIND_POINT_COMPUTE);
 
@@ -406,29 +427,33 @@ void XeGTAORenderPass::InitRandomFactors()
 {
 	auto& vr = *VulkanRenderer::get();
 	auto swapchainext = vr.m_swapchain.swapChainExtent;
-	float fullResolution = 1.0f;
 
-	VkFormat AOTermFormat = VK_FORMAT_R32_UINT; 
+	{
+		uint16_t data[64 * 64];
+		for (int x = 0; x < 64; x++)
+			for (int y = 0; y < 64; y++)
+			{
+				uint32_t r2index = XeGTAO::HilbertIndex(x, y);
+				assert(r2index < 65536);
+				data[x + 64 * y] = (uint16_t)r2index;
+			}
 
-	vr.attachments.xegtao_workingDepths.name = "xegtao_workingDepths";
-	vr.attachments.xegtao_workingDepths.forFrameBuffer(&vr.m_device, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT,
-		swapchainext.width, swapchainext.height, true, fullResolution, XE_GTAO_DEPTH_MIP_LEVELS, VK_IMAGE_LAYOUT_GENERAL);
-	vr.fbCache.RegisterFramebuffer(vr.attachments.xegtao_workingDepths);
+		VkBufferImageCopy copyRegion{};
+		copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		copyRegion.imageSubresource.mipLevel = 0;
+		copyRegion.imageSubresource.baseArrayLayer = 0;
+		copyRegion.imageSubresource.layerCount = 1;
+		copyRegion.bufferOffset = 0;
+		copyRegion.imageExtent.width = 64;
+		copyRegion.imageExtent.height = 64;
+		copyRegion.imageExtent.depth = 1;
+		std::vector<VkBufferImageCopy> copies{ copyRegion };
 
-	vr.attachments.xegtao_workingEdges.name = "xegtao_workingEdges";
-	vr.attachments.xegtao_workingEdges.forFrameBuffer(&vr.m_device, VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_STORAGE_BIT,
-		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL);
-	vr.fbCache.RegisterFramebuffer(vr.attachments.xegtao_workingEdges);
-	
-	vr.attachments.xegtao_workingAOTerm.name = "xegtao_workingAOTerm";
-	vr.attachments.xegtao_workingAOTerm.forFrameBuffer(&vr.m_device, AOTermFormat, VK_IMAGE_USAGE_STORAGE_BIT,
-		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL);
-	vr.fbCache.RegisterFramebuffer(vr.attachments.xegtao_workingAOTerm);
-	
-	vr.attachments.xegtao_workingAOTermPong.name = "xegtao_workingAOTermPong";
-	vr.attachments.xegtao_workingAOTermPong.forFrameBuffer(&vr.m_device, AOTermFormat, VK_IMAGE_USAGE_STORAGE_BIT,
-		swapchainext.width, swapchainext.height, true, fullResolution, 1, VK_IMAGE_LAYOUT_GENERAL);
-	vr.fbCache.RegisterFramebuffer(vr.attachments.xegtao_workingAOTermPong);
+		vr.attachments.xegtao_hilbert.name = "HILBERT_LUT";
+		vr.attachments.xegtao_hilbert.fromBuffer(data, 64 * 64 * sizeof(uint16_t), VK_FORMAT_R16_UINT,
+			64, 64, copies, &vr.m_device, vr.m_device.graphicsQueue, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_FILTER_NEAREST);
+	}
+
 
 }
 
@@ -473,6 +498,18 @@ void XeGTAORenderPass::CreateDescriptors()
 
 		.BuildLayout(SetLayoutDB::compute_xegtao[(uint8_t)XEGTAO::MAIN_PASS]);
 
+
+	//gen norms
+	DescriptorBuilder::Begin()
+		.BindBuffer(0, nullptr, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+
+		.BindImage(1, nullptr, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+
+		.BindImage(2, nullptr, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT)
+
+		.BindImage(3, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT) // point clamp
+
+		.BuildLayout(SetLayoutDB::compute_xegtao[(uint8_t)XEGTAO::GEN_NORMS]);
 
 }
 

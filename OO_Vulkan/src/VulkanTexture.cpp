@@ -164,7 +164,7 @@ namespace vkutils
 		VkResult result = vmaCreateImage(device->m_allocator, &imageCreateInfo, &allocCI, &image.image, &image.allocation, &image.allocationInfo);
 		if (result != VK_SUCCESS)
 		{
-			std::cerr << "Failed to create a image!" << std::endl;
+			std::cerr << "Failed to create a image! - " << oGFX::vkutils::tools::VkResultString(result) << std::endl;
 			__debugbreak();
 		}
 		VK_NAME(device->logicalDevice, name.empty() ? "AllocateImage" : name.c_str(), image.image);

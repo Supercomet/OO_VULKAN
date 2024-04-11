@@ -84,9 +84,10 @@ enum FSR2 : uint8_t {
 
 
 enum class XEGTAO : uint8_t {
-	PREFILTER_DEPTHS,
-	MAIN_PASS,
-	MAX_SIZE
+	PREFILTER_DEPTHS
+	,MAIN_PASS
+	,GEN_NORMS
+	,MAX_SIZE
 };
 
 enum class UPSCALING_TYPE : uint8_t
@@ -287,6 +288,7 @@ public:
 
 		vkutils::Texture2D xegtao_hilbert;
 		vkutils::Texture2D xegtao_workingDepths;
+		vkutils::Texture2D xegtao_genNormals;
 		vkutils::Texture2D xegtao_workingEdges;
 		vkutils::Texture2D xegtao_workingAOTerm;
 		vkutils::Texture2D xegtao_workingAOTermPong;

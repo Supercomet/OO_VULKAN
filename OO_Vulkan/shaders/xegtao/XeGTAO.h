@@ -85,6 +85,7 @@ namespace XeGTAO
 
         Vector2                 DepthUnpackConsts;
         Vector2                 CameraTanHalfFOV;
+        mat4                    View;
 
         Vector2                 NDCToViewMul;
         Vector2                 NDCToViewAdd;

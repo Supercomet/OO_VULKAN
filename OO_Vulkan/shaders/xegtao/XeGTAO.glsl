@@ -25,7 +25,7 @@ RWTexture2D<float4>         g_outputDbgImage    : register( u2 );
 
 #include "XeGTAO.h"
 
-#define XE_GTAO_GENERATE_NORMALS_INPLACE 1
+#define XE_GTAO_GENERATE_NORMALS_INPLACE 0
 
 #define XE_GTAO_PI               	(3.1415926535897932384626433832795)
 #define XE_GTAO_PI_HALF             (1.5707963267948966192313216916398)

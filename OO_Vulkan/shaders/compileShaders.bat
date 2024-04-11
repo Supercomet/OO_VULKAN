@@ -39,6 +39,7 @@ rem echo endFSR
  set XeGTAO_PATH=xegtao\
  set "GTAO_FILES[0]=xegtao_prefilterDepths.comp"
  set "GTAO_FILES[1]=xegtao_main.comp"
+ set "GTAO_FILES[2]=XeGTAO_genNorms.comp"
  echo beginXeGTAO
  for /F "tokens=1* delims==" %%I in ('set GTAO_FILES[ 2^>nul') do (
  	set /A submitCount+=1
