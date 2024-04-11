@@ -1,0 +1,81 @@
+#version 450
+// Engine-specific entry point for the first pass
+#include "XeGTAO.glsl"
+
+ layout (set = 0, binding = 0) uniform cbxegato_t {
+GTAOConstants g_GTAOConsts;
+};
+
+layout (set=0, binding = 1) uniform texture2D g_srcWorkingDepth;
+
+layout (set=0, binding = 2)uniform sampler g_samplerPointClamp;
+
+layout (set=0, binding = 3, r16ui) uniform uimage2D g_srcHilbertLUT;
+layout (set=0, binding = 4, rgba8) uniform  image2D g_srcNormalmap;
+layout (set=0, binding = 5, r32ui) uniform uimage2D g_outWorkingAOTerm;
+layout (set=0, binding = 6, r8   ) uniform  image2D g_outWorkingEdges;
+//layout (set=0, binding = 7, r16f) uniform image2D g_outNormalmap; // for generating directly from depth
+
+ 
+// engine helper
+#include "../shader_utility.shader"
+#define XE_GTAO_HILBERT_LUT_AVAILABLE 1
+
+// Engine-specific screen & temporal noise loader
+lpfloat2 SpatioTemporalNoise(uint2 pixCoord, uint temporalIndex)    // without TAA, temporalIndex is always 0
+{
+    float2 noise;
+#if 1   // Hilbert curve driving R2 (see https://www.shadertoy.com/view/3tB3z3)
+#if XE_GTAO_HILBERT_LUT_AVAILABLE // load from lookup texture...
+    uint index = imageLoad(g_srcHilbertLUT, int2(pixCoord % 64)).x;
+        //uint index = g_srcHilbertLUT.Load( uint3( pixCoord % 64, 0 ) ).x;
+#else // ...or generate in-place?
+    uint index = HilbertIndex(pixCoord.x, pixCoord.y);
+#endif
+    index += 288 * (temporalIndex % 64); // why 288? tried out a few and that's the best so far (with XE_HILBERT_LEVEL 6U) - but there's probably better :)
+    // R2 sequence - see http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
+    return lpfloat2(frac(0.5 + index * float2(0.75487766624669276005, 0.5698402909980532659114)));
+#else   // Pseudo-random (fastest but looks bad - not a good choice)
+    uint baseHash = Hash32( pixCoord.x + (pixCoord.y << 15) );
+    baseHash = Hash32Combine( baseHash, temporalIndex );
+    return lpfloat2( Hash32ToFloat( baseHash ), Hash32ToFloat( Hash32( baseHash ) ) );
+#endif
+}
+
+// Engine-specific normal map loader
+lpfloat3 LoadNormal(uint2 pos)
+{
+#if 1
+    // special decoding for external normals stored in 11_11_10 unorm - modify appropriately to support your own encoding 
+    float3 unpackedOutput = DecodeNormalHelper(imageLoad(g_srcNormalmap, int2(pos)).rgb);
+    float3 normal = normalize(unpackedOutput);
+#else 
+    // example of a different encoding
+    float3 encodedNormal = g_srcNormalmap.Load(int3(pos, 0)).xyz;
+    float3 normal = normalize(encodedNormal * 2.0.xxx - 1.0.xxx);
+#endif
+
+#if 1 // compute worldspace to viewspace here if your engine stores normals in worldspace; if generating normals from depth here, they're already in viewspace
+    normal = mat3(g_GTAOConsts.View) * normal;
+    //normal = mul( (float3x3)g_globals.View, normal );
+#endif
+
+    return lpfloat3 (normal);
+}
+
+layout (local_size_x = XE_GTAO_NUMTHREADS_X, local_size_y = XE_GTAO_NUMTHREADS_Y) in; // <- hard coded to 8x8; each thread computes 2x2 blocks so processing 16x16 block: Dispatch needs to be called with (width + 16-1) / 16, (height + 16-1) / 16
+void main()
+{
+    uint2 pixCoord = gl_GlobalInvocationID.xy;
+    uint2 groupThreadID = gl_LocalInvocationID.xy;
+    
+    // g_samplerPointClamp is a sampler with D3D12_FILTER_MIN_MAG_MIP_POINT filter and D3D12_TEXTURE_ADDRESS_MODE_CLAMP addressing mode
+    XeGTAO_MainPass(pixCoord, 3, 3
+    , SpatioTemporalNoise(pixCoord, g_GTAOConsts.NoiseIndex)
+    , LoadNormal(pixCoord)
+    , g_GTAOConsts
+    , g_srcWorkingDepth
+    , g_samplerPointClamp
+    , g_outWorkingAOTerm
+    , g_outWorkingEdges);
+}
