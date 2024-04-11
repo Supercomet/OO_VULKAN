@@ -579,10 +579,10 @@ namespace vkutils
 		OO_ASSERT(aspectMask > 0);
 
 		//uint mipLevels = std::floor(std::log2(std::max(texWidth, texHeight))) + 1;
-		mipLevels = 1;
+		mipLevels = _mipLevels;
 
 		bool n = name.empty();
-		AllocateImageMemory(device, usage);
+		AllocateImageMemory(device, usage, mipLevels);
 
 		CreateImageView();
 

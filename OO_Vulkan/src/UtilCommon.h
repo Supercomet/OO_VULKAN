@@ -3,7 +3,7 @@
 \project        Ouroboros
 \author         Jamie Kong, j.kong, 390004720 | code contribution (100%)
 \par            email: j.kong\@digipen.edu
-\date           Oct 02, 2022
+\date           Mar 05, 2024
 \brief              Common utility
 
 Copyright (C) 2022 DigiPen Institute of Technology.

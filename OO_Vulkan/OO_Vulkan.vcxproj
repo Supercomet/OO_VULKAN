@@ -108,6 +108,7 @@
     <ClCompile Include="src\loader\stbi_impl.cpp" />
     <ClCompile Include="src\renderpass\SkyRenderPass.cpp" />
     <ClCompile Include="src\renderpass\SSAORenderPass.cpp" />
+    <ClCompile Include="src\renderpass\XeGTAORenderPass.cpp" />
     <ClCompile Include="src\renderpass\ZPrePass.cpp" />
     <ClCompile Include="src\rhi\CommandList.cpp" />
     <ClCompile Include="src\Tests_Assignment1.cpp" />

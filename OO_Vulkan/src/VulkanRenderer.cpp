@@ -60,6 +60,7 @@ extern GfxRenderpass* g_LightingPass;
 extern GfxRenderpass* g_LightingHistogram;
 extern GfxRenderpass* g_ShadowPass;
 extern GfxRenderpass* g_SSAORenderPass;
+extern GfxRenderpass* g_XeGTAORenderPass;
 extern GfxRenderpass* g_SkyRenderPass;
 extern GfxRenderpass* g_ZPrePass;
 extern GfxRenderpass* g_FSR2Pass;
@@ -119,6 +120,8 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam); // forwa
 #endif
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
+//OO_OPTIMIZE_OFF
+#pragma optimize("", off)
 // vulkan debug callback
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -148,6 +151,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 
 }
+#pragma optimize("", on)
+//OO_OPTIMIZE_ON
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {
@@ -432,6 +437,7 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	rpd->RegisterRenderPass(g_LightingPass);
 	rpd->RegisterRenderPass(g_LightingHistogram);
 	rpd->RegisterRenderPass(g_SSAORenderPass);
+	rpd->RegisterRenderPass(g_XeGTAORenderPass);
 	rpd->RegisterRenderPass(g_ForwardUIPass);
 	rpd->RegisterRenderPass(g_ForwardParticlePass);
 	rpd->RegisterRenderPass(g_BloomPass);
@@ -2966,6 +2972,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		}
 		AddRenderer(g_ZPrePass);
 		AddRenderer(g_GBufferRenderPass);
+		AddRenderer(g_XeGTAORenderPass);
 		AddRenderer(g_SSAORenderPass);
 		AddRenderer(g_LightingPass);
 		AddRenderer(g_SkyRenderPass);
@@ -3165,7 +3172,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 	generatedTexture.image.image = VK_NULL_HANDLE;
 	generatedTexture.image.allocation = VK_NULL_HANDLE;
 	generatedTexture.view = VK_NULL_HANDLE;
-	generatedTexture.name += " xd";
+	generatedTexture.name = texture.name + " xd";
 
 	generatedTexture.AllocateImageMemory(&m_device, generatedTexture.usage, (uint32_t)texMips);
 	generatedTexture.CreateImageView();
@@ -4077,6 +4084,8 @@ oGFX::TexturePacker VulkanRenderer::CreateFontAtlas(const std::string& filename,
 	return atlas;
 }
 
+#define FIX_VERTEX_ISSUES 0
+
 void VulkanRenderer::LoadSubmesh(gfxModel& mdl,
 	SubMesh& submesh,
 	aiMesh* aimesh,
@@ -4118,12 +4127,14 @@ void VulkanRenderer::LoadSubmesh(gfxModel& mdl,
 		vertices.emplace_back(vertex);
 
 
+
 		if (once == false) {
 			auto tanlen = glm::dot(vertex.tangent, vertex.tangent);
 			auto nlen = glm::dot(vertex.norm, vertex.norm);
 			auto bt = glm::cross(vertex.tangent, vertex.norm);
 			auto blen = glm::dot(bt, bt);
 
+#if FIX_VERTEX_ISSUES
 			// we can reject here if needed
 			if (tanlen == 0.0f || nlen == 0.0f || blen == 0.0f) {
 				once = true;
@@ -4133,6 +4144,7 @@ void VulkanRenderer::LoadSubmesh(gfxModel& mdl,
 				printf("Fixing vertex normals...\n");
 				//__debugbreak();
 			}
+#endif // FIX_VERTEX_ISSUES
 		}
 	}
 
@@ -4888,6 +4900,7 @@ uint32_t VulkanRenderer::CreateTextureImage(const oGFX::FileImageData& imageInfo
 	return static_cast<uint32_t>(indx);
 }
 
+OO_OPTIMIZE_OFF
 VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(VulkanDevice& device,const std::string& fileName, VkShaderStageFlagBits stage)
 {
 	// SHADER STAGE CREATION INFORMATION
@@ -4910,6 +4923,7 @@ VkPipelineShaderStageCreateInfo VulkanRenderer::LoadShader(VulkanDevice& device,
 	assert(shaderStageCreateInfo.module != VK_NULL_HANDLE);
 	return shaderStageCreateInfo;
 }
+OO_OPTIMIZE_ON
 
 uint32_t VulkanRenderer::UpdateBindlessGlobalTexture(uint32_t textureID)
 {

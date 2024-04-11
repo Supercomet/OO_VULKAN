@@ -82,6 +82,13 @@ enum FSR2 : uint8_t {
 	MAX_SIZE
 };
 
+
+enum class XEGTAO : uint8_t {
+	PREFILTER_DEPTHS,
+	MAIN_PASS,
+	MAX_SIZE
+};
+
 enum class UPSCALING_TYPE : uint8_t
 {
 	NONE,
@@ -142,6 +149,9 @@ struct SetLayoutDB // Think of a better name? Very short and sweet for easy typi
 	// FSR2
 	inline static VkDescriptorSetLayout compute_fsr2[FSR2::MAX_SIZE]{};
 
+	// XEGATO
+	inline static VkDescriptorSetLayout compute_xegtao[(uint8_t)XEGTAO::MAX_SIZE]{};
+
 };
 
 struct Attachments_imguiBinding {
@@ -177,6 +187,9 @@ struct PSOLayoutDB
 
 	// FSR2
 	inline static VkPipelineLayout fsr2_PSOLayouts[FSR2::MAX_SIZE]{};
+
+	// XEGATO
+	inline static VkPipelineLayout xegtao_PSOLayouts[(uint8_t)XEGTAO::MAX_SIZE]{};
 };
 
 // Moving all constant buffer structures into this CB namespace.
@@ -271,6 +284,12 @@ public:
 		vkutils::Texture2D fsr_lock_status[MAX_FRAME_DRAWS];
 		vkutils::Texture2D fsr_upscaled_color[MAX_FRAME_DRAWS];
 		vkutils::Texture2D fsr_luma_history[MAX_FRAME_DRAWS];
+
+		vkutils::Texture2D xegtao_hilbert;
+		vkutils::Texture2D xegtao_workingDepths;
+		vkutils::Texture2D xegtao_workingEdges;
+		vkutils::Texture2D xegtao_workingAOTerm;
+		vkutils::Texture2D xegtao_workingAOTermPong;
 	}attachments;
 
 	inline static uint64_t totalTextureSizeLoaded = 0;
@@ -637,6 +656,8 @@ public:
 	oGFX::AllocatedBuffer FSR2rcasBuffer[MAX_FRAME_DRAWS];
 	oGFX::AllocatedBuffer FSR2luminanceCB[MAX_FRAME_DRAWS];
 	oGFX::AllocatedBuffer FSR2autoGen[MAX_FRAME_DRAWS];
+
+	oGFX::AllocatedBuffer XeGTAOconstants[MAX_FRAME_DRAWS];
 
 	std::vector<oGFX::AllocatedBuffer> imguiVertexBuffer;
 	std::vector<oGFX::AllocatedBuffer> imguiIndexBuffer;

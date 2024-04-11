@@ -60,6 +60,7 @@ namespace rhi
 
 		DescriptorSetInfo& BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type);
 		DescriptorSetInfo& BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type, VkImageView viewOverride);
+		DescriptorSetInfo& BindImage(uint32_t binding, VkDescriptorImageInfo* imageInfo, VkDescriptorType type, uint32_t count = 1);
 		DescriptorSetInfo& BindSampler(uint32_t binding, VkSampler sampler, VkShaderStageFlags stageFlagsInclude = 0);
 		DescriptorSetInfo& BindBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type,ResourceUsage access = ResourceUsage::SRV, VkShaderStageFlags stageFlagsInclude = 0);
 	};

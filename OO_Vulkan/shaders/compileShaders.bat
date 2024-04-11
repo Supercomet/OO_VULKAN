@@ -27,13 +27,27 @@ set "FSR2_FILES[8]=fsr2\ffx_fsr2_tcr_autogen_pass.glsl"
 
 set submitCount=0
 
-echo beginFSR
-for /F "tokens=1* delims==" %%I in ('set FSR2_FILES[ 2^>nul') do (
-	set /A submitCount+=1
-	start /b cmd /c "echo Processing %%~nxJ && "%VULKAN_SDK%\Bin\glslc.exe" --target-env=vulkan1.3 -DFFX_GLSL -DFFX_GPU -fshader-stage=comp -O %FID_PATH%\%%J -o bin/%%~nxJ.spv -I fidelity\include\FidelityFX\gpu && (if !ERRORLEVEL! NEQ 0 (echo [91m%%~nxJ [COMPILATION ERROR][0m && set errorFlag=true) else (echo [92m%%~nxJ [COMPILATION SUCCESS][0m && echo|set /p="c">%%~nJ.chk))"
-)
-)
-echo endFSR
+rem echo beginFSR
+rem for /F "tokens=1* delims==" %%I in ('set FSR2_FILES[ 2^>nul') do (
+rem 	set /A submitCount+=1
+rem 	start /b cmd /c "echo Processing %%~nxJ && "%VULKAN_SDK%\Bin\glslc.exe" --target-env=vulkan1.3 -DFFX_GLSL -DFFX_GPU -fshader-stage=comp -O %FID_PATH%\%%J -o bin/%%~nxJ.spv -I fidelity\include\FidelityFX\gpu && (if !ERRORLEVEL! NEQ 0 (echo [91m%%~nxJ [COMPILATION ERROR][0m && set errorFlag=true) else (echo [92m%%~nxJ [COMPILATION SUCCESS][0m && echo|set /p="c">%%~nJ.chk))"
+rem )
+rem )
+rem echo endFSR
+
+
+ set XeGTAO_PATH=xegtao\
+ set "GTAO_FILES[0]=xegtao_prefilterDepths.comp"
+ set "GTAO_FILES[1]=xegtao_main.comp"
+ echo beginXeGTAO
+ for /F "tokens=1* delims==" %%I in ('set GTAO_FILES[ 2^>nul') do (
+ 	set /A submitCount+=1
+ 	start /b cmd /c "echo Processing %%~nxJ && "%VULKAN_SDK%\Bin\glslc.exe" --target-env=vulkan1.3 -fshader-stage=comp -g -O0 %XeGTAO_PATH%\%%J -o bin/%%~nxJ.spv && (if !ERRORLEVEL! NEQ 0 (echo [91m%%~nxJ [COMPILATION ERROR][0m && set errorFlag=true) else (echo [92m%%~nxJ [COMPILATION SUCCESS][0m && echo|set /p="c">%%~nJ.chk))"
+ )
+ )
+ echo endXeGTAO
+
+rem exit /B
 
 echo normalFiles
 for %%i in (*.vert *.frag *.comp *.geom) do (

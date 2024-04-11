@@ -672,6 +672,14 @@ DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Textu
 	return *this;
 }
 
+DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, VkDescriptorImageInfo* imageinfos, VkDescriptorType type, uint32_t count)
+{
+	OO_ASSERT(imageinfos);	
+	builder.BindImage(binding, imageinfos, type, shaderStage, count);		
+	
+	return *this;
+}
+
 DescriptorSetInfo& DescriptorSetInfo::BindSampler(uint32_t binding, VkSampler sampler, VkShaderStageFlags stageFlagsInclude)
 {
 	OO_ASSERT(sampler != VK_NULL_HANDLE);

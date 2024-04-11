@@ -104,13 +104,15 @@ void DebugDrawRenderpass::Draw(const VkCommandBuffer cmdlist)
 	auto& target = vr.renderTargets[vr.renderTargetInUseID].texture;
 	
 	cmd.BindAttachment(0, &target);
-	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
+	//cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
 
 	const float vpHeight = (float)vr.m_swapchain.swapChainExtent.height;
 	const float vpWidth = (float)vr.m_swapchain.swapChainExtent.width;
 	if (dodebugRendering)
 	{
-		cmd.SetDefaultViewportAndScissor();
+		//cmd.SetDefaultViewportAndScissor();
+		cmd.SetViewport({ 0.0f,vpHeight,vpWidth,-vpHeight,0.0f,1.0f });
+		cmd.SetScissor(VkRect2D{ {0, 0}, {(uint32_t)vpWidth, (uint32_t)vpHeight } });
 		VkPipeline pso = m_DebugDrawPSOSelector.GetPSO(vr.m_DebugDrawDepthTest, false, false);
 		uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 			vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
