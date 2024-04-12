@@ -2972,8 +2972,15 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		}
 		AddRenderer(g_ZPrePass);
 		AddRenderer(g_GBufferRenderPass);
-		AddRenderer(g_XeGTAORenderPass);
-		AddRenderer(g_SSAORenderPass);
+
+		if (currWorld->ssaoSettings.type == 0) {
+			attachments.SSAO_workingTarget = &attachments.SSAO_finalTarget;
+			AddRenderer(g_XeGTAORenderPass);
+		}
+		else {
+			attachments.SSAO_workingTarget = &attachments.SSAO_finalTarget;
+			AddRenderer(g_SSAORenderPass);
+		}
 		AddRenderer(g_LightingPass);
 		AddRenderer(g_SkyRenderPass);
 		AddRenderer(g_LightingHistogram);

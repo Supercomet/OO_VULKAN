@@ -133,6 +133,7 @@ void GfxSamplerManager::Init()
         
         samplerCreateInfo.magFilter = VK_FILTER_NEAREST;
         samplerCreateInfo.minFilter = VK_FILTER_NEAREST;
+        samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
         VK_CHK(vkCreateSampler(device, &samplerCreateInfo, nullptr, &pointClampSampler));
         VK_NAME(device, "pointClampSampler", pointClampSampler);
     }

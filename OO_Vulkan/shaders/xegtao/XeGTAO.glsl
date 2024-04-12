@@ -25,7 +25,7 @@ RWTexture2D<float4>         g_outputDbgImage    : register( u2 );
 
 #include "XeGTAO.h"
 
-#define XE_GTAO_GENERATE_NORMALS_INPLACE 0
+#define XE_GTAO_GENERATE_NORMALS_INPLACE 1
 
 #define XE_GTAO_PI               	(3.1415926535897932384626433832795)
 #define XE_GTAO_PI_HALF             (1.5707963267948966192313216916398)
@@ -749,7 +749,7 @@ void XeGTAO_AddSample( AOTermType ssaoValue, lpfloat edgeValue, inout AOTermType
     sumWeight += weight;
 }
 
-void XeGTAO_Output( uint2 pixCoord, in image2D outputTexture, AOTermType outputValue,  bool finalApply )
+void XeGTAO_Output( uint2 pixCoord, in writeonly uimage2D outputTexture, AOTermType outputValue,  bool finalApply )
 {
 #ifdef XE_GTAO_COMPUTE_BENT_NORMALS
     lpfloat     visibility = outputValue.w * ((finalApply)?((lpfloat)XE_GTAO_OCCLUSION_TERM_SCALE):(1));
@@ -757,7 +757,7 @@ void XeGTAO_Output( uint2 pixCoord, in image2D outputTexture, AOTermType outputV
     outputTexture[pixCoord.xy] = XeGTAO_EncodeVisibilityBentNormal( visibility, bentNormal );
 #else
     outputValue *=  (finalApply)?(lpfloat(XE_GTAO_OCCLUSION_TERM_SCALE)):(1);
-    imageStore(outputTexture, ivec2(pixCoord.xy), vec4(uint(outputValue * 255.0 + 0.5)) );
+    imageStore(outputTexture, ivec2(pixCoord.xy), ivec4(uint(outputValue * 255.0 + 0.5)) );
     //outputTexture[pixCoord.xy] = uint(outputValue * 255.0 + 0.5);
 #endif
 }
@@ -774,10 +774,10 @@ void XeGTAO_DecodeGatherPartial( uint4 packedValue, out AOTermType outDecoded[4]
 
 void XeGTAO_Denoise( const uint2 pixCoordBase
 , const GTAOConstants consts
-, texture2D<uint> sourceAOTerm
-, texture2D<lpfloat> sourceEdges
+, utexture2D sourceAOTerm
+, texture2D sourceEdges
 , sampler texSampler
-, image2D outputTexture
+, writeonly uimage2D outputTexture
 , bool finalApply )
 {
     const lpfloat blurAmount = (finalApply)?(lpfloat(consts.DenoiseBlurBeta)):(lpfloat(consts.DenoiseBlurBeta)/lpfloat(5.0));
@@ -804,10 +804,10 @@ void XeGTAO_Denoise( const uint2 pixCoordBase
     //AOTermType visQ2[4];    XeGTAO_DecodeGatherPartial( sourceAOTerm.GatherRed( texSampler, gatherCenter, int2( 0, 2 ) ), visQ2 );
     //AOTermType visQ3[4];    XeGTAO_DecodeGatherPartial( sourceAOTerm.GatherRed( texSampler, gatherCenter, int2( 2, 2 ) ), visQ3 );
 
-    AOTermType visQ0[4]; XeGTAO_DecodeGatherPartial(uvec4( textureGatherOffset( sampler2D(sourceAOTerm,texSampler), gatherCenter, ivec2( 0, 0 ) ) ), visQ0);
-    AOTermType visQ1[4]; XeGTAO_DecodeGatherPartial(uvec4( textureGatherOffset( sampler2D(sourceAOTerm,texSampler), gatherCenter, ivec2( 2, 0 ) ) ), visQ1);
-    AOTermType visQ2[4]; XeGTAO_DecodeGatherPartial(uvec4( textureGatherOffset( sampler2D(sourceAOTerm,texSampler), gatherCenter, ivec2( 0, 2 ) ) ), visQ2);
-    AOTermType visQ3[4]; XeGTAO_DecodeGatherPartial(uvec4( textureGatherOffset( sampler2D(sourceAOTerm,texSampler), gatherCenter, ivec2( 2, 2 ) ) ), visQ3);
+    AOTermType visQ0[4]; XeGTAO_DecodeGatherPartial(uvec4( textureGatherOffset( usampler2D(sourceAOTerm,texSampler), gatherCenter, ivec2( 0, 0 ) ) ), visQ0);
+    AOTermType visQ1[4]; XeGTAO_DecodeGatherPartial(uvec4( textureGatherOffset( usampler2D(sourceAOTerm,texSampler), gatherCenter, ivec2( 2, 0 ) ) ), visQ1);
+    AOTermType visQ2[4]; XeGTAO_DecodeGatherPartial(uvec4( textureGatherOffset( usampler2D(sourceAOTerm,texSampler), gatherCenter, ivec2( 0, 2 ) ) ), visQ2);
+    AOTermType visQ3[4]; XeGTAO_DecodeGatherPartial(uvec4( textureGatherOffset( usampler2D(sourceAOTerm,texSampler), gatherCenter, ivec2( 2, 2 ) ) ), visQ3);
 
     for( int side = 0; side < 2; side++ )
     {

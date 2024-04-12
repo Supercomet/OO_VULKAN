@@ -289,6 +289,7 @@ public:
         float bias = 0.025f;
         float intensity = 1.0f;
         uint32_t samples = 8;
+        uint32_t type = 0;
     }ssaoSettings{};
 
     struct LightingSettings

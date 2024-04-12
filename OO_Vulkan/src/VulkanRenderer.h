@@ -86,6 +86,8 @@ enum FSR2 : uint8_t {
 enum class XEGTAO : uint8_t {
 	PREFILTER_DEPTHS
 	,MAIN_PASS
+	,DENOISE
+	,DENOISE_LAST
 	,GEN_NORMS
 	,MAX_SIZE
 };
@@ -260,6 +262,8 @@ public:
 		vkutils::Texture2D SSAO_renderTarget{};
 		vkutils::Texture2D SSAO_finalTarget{};
 		vkutils::Texture2D randomNoise_texture{};
+
+		vkutils::Texture* SSAO_workingTarget{ nullptr };
 
 		vkutils::Texture2D shadow_depth{};
 

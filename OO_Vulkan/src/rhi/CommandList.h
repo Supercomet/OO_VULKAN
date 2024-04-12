@@ -94,6 +94,7 @@ public:
 	void RestoreBufferResourceStates();
 
 	void CopyImage(vkutils::Texture* src, vkutils::Texture* dst);
+	void BlitImage(vkutils::Texture* src, vkutils::Texture* dst);
 
 	//----------------------------------------------------------------------------------------------------
 	// Binding Commands

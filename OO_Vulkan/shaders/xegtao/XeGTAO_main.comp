@@ -12,7 +12,7 @@ layout (set=0, binding = 2)uniform sampler g_samplerPointClamp;
 
 layout (set=0, binding = 3, r16ui) uniform uimage2D g_srcHilbertLUT;
 layout (set=0, binding = 4, rgba8) uniform  image2D g_srcNormalmap;
-layout (set=0, binding = 5, r32ui) uniform uimage2D g_outWorkingAOTerm;
+layout (set=0, binding = 5, r8ui ) uniform uimage2D g_outWorkingAOTerm;
 layout (set=0, binding = 6, r8   ) uniform  image2D g_outWorkingEdges;
 //layout (set=0, binding = 7, r16f) uniform image2D g_outNormalmap; // for generating directly from depth
 
@@ -56,7 +56,7 @@ lpfloat3 LoadNormal(uint2 pos)
 #endif
 
 #if 1 // compute worldspace to viewspace here if your engine stores normals in worldspace; if generating normals from depth here, they're already in viewspace
-    normal = mat3(g_GTAOConsts.View) * normal;
+    normal = mat3x3(g_GTAOConsts.View) * normal;
     //normal = mul( (float3x3)g_globals.View, normal );
 #endif
 

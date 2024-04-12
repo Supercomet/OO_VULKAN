@@ -262,6 +262,7 @@ void TestApplication::Run()
     // Setup App Window
     //----------------------------------------------------------------------------------------------------
 
+    
     AppWindowSizeTypes appWindowSizeType = AppWindowSizeTypes::HD_900P_16_10;
     m_WindowSize = gs_AppWindowSizes[(int)appWindowSizeType];
     Window mainWindow(m_WindowSize.x, m_WindowSize.y);
@@ -278,7 +279,8 @@ void TestApplication::Run()
     // Setup Graphics Engine
     //----------------------------------------------------------------------------------------------------
 
-    
+   
+   //OPTICK_START_CAPTURE();
    
     auto result = gs_RenderEngine->Init(setupSpec, mainWindow);
 
@@ -744,6 +746,13 @@ void TestApplication::Run()
     {
         while (mainWindow.windowShouldClose == false)
         {
+            //static int once = 0;
+            //once += 1;
+            //if (once == 2) {
+            //    OPTICK_STOP_CAPTURE();
+            //    OPTICK_SAVE_CAPTURE("");
+            //    //OO_ASSERT(false);
+            //}
             PROFILE_FRAME("MainThread");
             int64_t frame = std::max<int64_t>(int64_t(m_ApplicationFrame) - 1, 0);
 
@@ -1097,7 +1106,8 @@ void TestApplication::Run()
                 PROFILE_SCOPED("wait gpu_2");
                 g_barrier.arrive_and_wait();
             }
-
+            
+           
             
             //finish for all windows
             // ImGui::EndFrame();
@@ -1501,8 +1511,19 @@ void TestApplication::ToolUI_Settings()
 
         auto& ssaoSettings = gs_RenderEngine->currWorld->ssaoSettings;
         {
+            static int ssao_type_selector = 0;
+            static const char* ssao_types[]{
+                //"OFF",
+                "XeGTAO",
+                "SSAO",
+            };           
+
             ImGui::Text("SSAO");
             ImGui::PushID(std::atoi("SSAO"));
+            if (ImGui::ListBox("SSAO type", &ssao_type_selector, ssao_types, 2))
+            {
+                ssaoSettings.type = ssao_type_selector;
+            }
             ImGui::Checkbox("UseSSAO", &gs_RenderEngine->useSSAO);
             ImGui::DragFloat("Radius", &ssaoSettings.radius, 0.01f);
             ImGui::DragFloat("Bias", &ssaoSettings.bias, 0.01f);

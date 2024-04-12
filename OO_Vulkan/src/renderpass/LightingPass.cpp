@@ -123,6 +123,9 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	cmd.BindAttachment(0, tex);
 	cmd.BindDepthAttachment(depth);
 
+	vkutils::Texture* ssaoTarget = vr.attachments.SSAO_workingTarget;
+	if (ssaoTarget == nullptr) ssaoTarget = &vr.g_Textures[vr.whiteTextureID];
+
 	cmd.DescriptorSetBegin(0)
 		.BindSampler(0, GfxSamplerManager::GetDefaultSampler())
 		.BindImage(1, &attachments[GBufferAttachmentIndex::DEPTH], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
@@ -131,7 +134,7 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 		.BindImage(4, &attachments[GBufferAttachmentIndex::MATERIAL], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(5, &attachments[GBufferAttachmentIndex::EMISSIVE], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindImage(6, &vr.attachments.shadow_depth, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
-		.BindImage(7, &vr.attachments.SSAO_finalTarget, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		.BindImage(7, ssaoTarget, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindBuffer(8, &vr.globalLightBuffer.GetDescriptorBufferInfo(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 		.BindSampler(9, GfxSamplerManager::GetSampler_Cube()) // cube sampler
 		.BindImage(10, &vr.g_radianceMap, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // cube map
@@ -141,6 +144,7 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 		.BindSampler(14, GfxSamplerManager::GetSampler_EdgeClamp()) // shadwosampler
 		.BindImage(15, LTCtex, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // brdflut
 		.BindImage(16, LTCLUTtex, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // brdflut
+		.BindSampler(17, GfxSamplerManager::GetSampler_PointClamp()) // ssaosampler
 	; 
 	
 	cmd.SetDefaultViewportAndScissor();
@@ -337,6 +341,7 @@ void LightingPass::CreatePipelineLayout()
 		.BindImage(14, &dummy, VK_DESCRIPTOR_TYPE_SAMPLER,VK_SHADER_STAGE_ALL_GRAPHICS) // clamped sampler
 		.BindImage(15, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,VK_SHADER_STAGE_ALL_GRAPHICS) // brdflut
 		.BindImage(16, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,VK_SHADER_STAGE_ALL_GRAPHICS) // brdflut
+		.BindImage(17, &dummy, VK_DESCRIPTOR_TYPE_SAMPLER,VK_SHADER_STAGE_ALL_GRAPHICS) // ssaosampler
 		.BuildLayout(SetLayoutDB::Lighting);
 
 

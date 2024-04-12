@@ -15,7 +15,7 @@ layout (set = 0, binding = 3) uniform texture2D textureAlbedo;
 layout (set = 0, binding = 4) uniform texture2D textureMaterial;
 layout (set = 0, binding = 5) uniform texture2D textureEmissive;
 layout (set = 0, binding = 6) uniform texture2D textureShadows;
-layout (set = 0, binding = 7) uniform texture2D textureSSAO;
+layout (set = 0, binding = 7) uniform utexture2D textureSSAO;
 // layout 8 taken by buffer
 layout (set = 0, binding = 9) uniform sampler cubeSampler;
 layout (set = 0, binding = 10) uniform textureCube irradianceCube;
@@ -26,6 +26,7 @@ layout (set = 0, binding = 13)uniform samplerShadow shadowSampler;
 layout (set = 0, binding = 14)uniform sampler clampedSampler;
 layout (set = 0, binding = 15)uniform texture2D LTC;
 layout (set = 0, binding = 16)uniform texture2D LTCLUT;
+layout (set = 0, binding = 17) uniform sampler ssaoSampler;
 
 
 #include "lights.shader"
@@ -154,7 +155,7 @@ void main()
     albedo.rgb = GammaToLinear(albedo.rgb);
 
 	vec4 material = texture(sampler2D(textureMaterial,basicSampler), inUV);
-	float SSAO = texture(sampler2D(textureSSAO,basicSampler), inUV).r;
+    float SSAO = float(texture(usampler2D(textureSSAO, ssaoSampler), inUV).r) / 255.0;
 	float roughness = material.r;
 	float metalness = material.g;
 	

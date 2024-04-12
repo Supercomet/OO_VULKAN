@@ -1,0 +1,28 @@
+#version 450
+// Engine-specific entry point for the first pass
+#include "XeGTAO.glsl"
+
+layout (set = 0, binding = 0) uniform cbxegato_t {
+GTAOConstants g_GTAOConsts;
+};
+
+layout (set=0, binding = 1) uniform utexture2D g_srcWorkingAOTerm;
+layout (set=0, binding = 2 /*r8*/) uniform texture2D g_srcWorkingEdges;
+
+layout (set=0, binding = 3)uniform sampler g_samplerPointClamp;
+
+layout (set=0, binding = 4, r32ui) uniform uimage2D g_outFinalAOTerm;
+
+// engine helper
+#include "../shader_utility.shader"
+
+layout (local_size_x = XE_GTAO_NUMTHREADS_X, local_size_y = XE_GTAO_NUMTHREADS_Y) in; // <- hard coded to 8x8; each thread computes 2x2 blocks so processing 16x16 block: Dispatch needs to be called with (width + 16-1) / 16, (height + 16-1) / 16
+void main()
+{
+    uint2 dispatchThreadID = gl_GlobalInvocationID.xy;
+    uint2 groupThreadID = gl_LocalInvocationID.xy;
+    
+    const uint2 pixCoordBase = dispatchThreadID * uint2( 2, 1 );    // we're computing 2 horizontal pixels at a time (performance optimization)
+    // g_samplerPointClamp is a sampler with D3D12_FILTER_MIN_MAG_MIP_POINT filter and D3D12_TEXTURE_ADDRESS_MODE_CLAMP addressing mode
+    XeGTAO_Denoise( pixCoordBase, g_GTAOConsts, g_srcWorkingAOTerm, g_srcWorkingEdges, g_samplerPointClamp, g_outFinalAOTerm, true );
+}

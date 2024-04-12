@@ -18,7 +18,7 @@ layout (set = 0, binding = 3) uniform texture2D textureAlbedo;
 layout (set = 0, binding = 4) uniform texture2D textureMaterial;
 layout (set = 0, binding = 5) uniform texture2D textureEmissive;
 layout (set = 0, binding = 6) uniform texture2D textureShadows;
-layout (set = 0, binding = 7) uniform texture2D textureSSAO;
+layout (set = 0, binding = 7) uniform utexture2D textureSSAO;
 
 layout (set = 0, binding = 9) uniform sampler cubeSampler;
 layout (set = 0, binding = 10) uniform textureCube irradianceCube;
@@ -29,6 +29,7 @@ layout (set = 0, binding = 13)uniform samplerShadow shadowSampler;
 //unused
 layout (set = 0, binding = 14)uniform texture2D LTCLUT;
 layout (set = 0, binding = 15)uniform texture2D LTCLUT2;
+layout (set = 0, binding = 17)uniform sampler ssaoSampler;
 
 #include "lights.shader"
 
@@ -65,7 +66,7 @@ void main()
     //albedo.rgb = vec3(1,1,0);
 
 	vec4 material = texture(sampler2D(textureMaterial,basicSampler), inUV);
-	float SSAO = texture(sampler2D(textureSSAO,basicSampler), inUV).r;
+    float SSAO = float(texture(usampler2D(textureSSAO, ssaoSampler), inUV).r) / 255.0;
     float roughness = clamp(material.r,0.01,1.0);
     float metalness = clamp(material.g,0.01,1.0);
 
@@ -112,4 +113,5 @@ void main()
 													lutVal);
 
     outFragcolor = vec4(result.rgb, albedo.a);
+    outFragcolor = vec4(SSAO.rrr, albedo.a);
 }

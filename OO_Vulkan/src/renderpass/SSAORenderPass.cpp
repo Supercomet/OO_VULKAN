@@ -69,7 +69,7 @@ void SSAORenderPass::Init()
 	vr.fbCache.RegisterFramebuffer(vr.attachments.SSAO_renderTarget);
 
 	vr.attachments.SSAO_finalTarget.name = "SSAO_FINAL";
-	vr.attachments.SSAO_finalTarget.forFrameBuffer(&vr.m_device, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+	vr.attachments.SSAO_finalTarget.forFrameBuffer(&vr.m_device, VK_FORMAT_R8_UINT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 		swapchainext.width, swapchainext.height, true, 1.0f); // full scale image
 	vr.fbCache.RegisterFramebuffer(vr.attachments.SSAO_finalTarget);
 
@@ -170,7 +170,9 @@ void SSAORenderPass::Draw(const VkCommandBuffer cmdlist)
 
 	cmd.DrawFullScreenQuad();
 	
-
+	if (vr.currWorld->ssaoSettings.type == 1) {
+		vr.attachments.SSAO_workingTarget = &vr.attachments.SSAO_renderTarget;
+	}
 	// wait for blurred image before next
 	// vkutils::TransitionImage(cmdlist, vr.attachments.SSAO_finalTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -476,6 +478,7 @@ void SSAORenderPass::CreatePipeline()
 	{
 		vkDestroyPipeline(m_device.logicalDevice, pso_SSAO_blur, nullptr);
 	}
+	format = vr.attachments.SSAO_finalTarget.format;
 	VK_CHK(vkCreateGraphicsPipelines(m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pso_SSAO_blur));
 	VK_NAME(m_device.logicalDevice, "SSAO_PSO_blur", pso_SSAO_blur);
 

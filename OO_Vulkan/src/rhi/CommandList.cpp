@@ -273,6 +273,11 @@ namespace rhi
 	{
 		OO_ASSERT(src != nullptr && dst != nullptr);
 
+		if (src->format != dst->format) {
+			BlitImage(src, dst);
+			return;
+		}
+
 		const ImageStateTracking* dstTrack = ensureTrackedImage(dst);
 		const ImageStateTracking* srcTrack = ensureTrackedImage(src);
 		// we will use and restore the tracked states
@@ -304,6 +309,38 @@ namespace rhi
 		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstTrack->currentLayout);
 
 		//dont need to modify tracked state because we have returned it
+	}
+
+	void CommandList::BlitImage(vkutils::Texture* src, vkutils::Texture* dst)
+	{
+		const ImageStateTracking* dstTrack = ensureTrackedImage(dst);
+		const ImageStateTracking* srcTrack = ensureTrackedImage(src);
+
+		VkImageSubresourceLayers srcCopy{ VK_IMAGE_ASPECT_COLOR_BIT ,0,0,1 };
+		srcCopy.layerCount = src->layerCount;
+		if (src->format == VulkanRenderer::G_DEPTH_FORMAT) {
+			srcCopy.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+
+		VkImageSubresourceLayers dstCopy{ VK_IMAGE_ASPECT_COLOR_BIT ,0,0,1 };
+		dstCopy.layerCount = src->layerCount;
+		if (dst->format == VulkanRenderer::G_DEPTH_FORMAT) {
+			dstCopy.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+
+		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *src, srcTrack->currentLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *dst, dstTrack->currentLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		VkImageBlit region{};
+		region.srcSubresource = srcCopy;
+		region.srcOffsets[1] = VkOffset3D{ (int32_t)src->width, (int32_t)src->height,1 };
+		region.dstSubresource = dstCopy;
+		region.dstOffsets[1] = VkOffset3D{ (int32_t)dst->width, (int32_t)dst->height,1 };
+		vkCmdBlitImage(m_VkCommandBuffer, src->image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			dst->image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &region, VkFilter::VK_FILTER_NEAREST);
+		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, srcTrack->currentLayout);
+		vkutils::ComputeImageBarrier(m_VkCommandBuffer, *dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstTrack->currentLayout);
+
 	}
 
 void CommandList::BeginNameRegion(const char* name, const glm::vec4 col)

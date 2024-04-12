@@ -1,5 +1,5 @@
 layout (location = 0) in vec2 inUV;
-layout (location = 0) out vec4 outFragcolor;
+layout (location = 0) out uvec4 outFragcolor;
 
 #include "frame.shader"
 layout(set = 1, binding = 0) uniform UboFrameContext
@@ -28,5 +28,5 @@ void main()
             result += texture(sampler2D(samplerSSAO,basicSampler), inUV + offset).r;
         }
     }
-    outFragcolor = vec4(result / (4.0 * 4.0));
+    outFragcolor = uvec4(result / (4.0 * 4.0));
 }
