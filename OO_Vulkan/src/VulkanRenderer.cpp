@@ -66,6 +66,8 @@ extern GfxRenderpass* g_ZPrePass;
 extern GfxRenderpass* g_FSR2Pass;
 extern GfxRenderpass* g_DLSSPass;
 
+#include "RenderGraph.h"
+
 #if defined (ENABLE_DECAL_IMPLEMENTATION)
 	#include "renderpass/ForwardDecalRenderpass.h"
 #endif
@@ -2938,6 +2940,8 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 	m_taskList = {}; // clear tasklist
 
 	
+	RenderGraph builder;
+
 	//for (size_t i = 0; i < currWorld->numCameras; i++)
 	{		
 		//if (currWorld->shouldRenderCamera[i] == false)
@@ -2965,41 +2969,43 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		
 		if (shadowsRendered == false)
 		{
-			AddRenderer(g_ShadowPass);
+			builder.AddPass(g_ShadowPass);
 			shadowsRendered = true;
 		}
-		AddRenderer(g_ZPrePass);
-		AddRenderer(g_GBufferRenderPass);
+		builder.AddPass(g_ZPrePass);
+		builder.AddPass(g_GBufferRenderPass);
 
 		if (currWorld->ssaoSettings.type == 0) {
 			attachments.SSAO_workingTarget = &attachments.SSAO_finalTarget;
-			AddRenderer(g_XeGTAORenderPass);
+			builder.AddPass(g_XeGTAORenderPass);
 		}
 		else {
 			attachments.SSAO_workingTarget = &attachments.SSAO_finalTarget;
-			AddRenderer(g_SSAORenderPass);
+			builder.AddPass(g_SSAORenderPass);
 		}
-		AddRenderer(g_LightingPass);
-		AddRenderer(g_SkyRenderPass);
-		AddRenderer(g_LightingHistogram);
-		AddRenderer(g_ForwardUIPass);
-		AddRenderer(g_ForwardParticlePass);
+		builder.AddPass(g_LightingPass);
+		builder.AddPass(g_SkyRenderPass);
+		builder.AddPass(g_LightingHistogram);
+		builder.AddPass(g_ForwardUIPass);
+		builder.AddPass(g_ForwardParticlePass);
 		switch (m_upscaleType)
 		{
 		case UPSCALING_TYPE::DLSS:
-			AddRenderer(g_DLSSPass);
+			builder.AddPass(g_DLSSPass);
 			break;
 		case UPSCALING_TYPE::FSR2:
-			AddRenderer(g_FSR2Pass);
+			builder.AddPass(g_FSR2Pass);
 			break;
 		case UPSCALING_TYPE::NONE:
 		default:
 			break;
 		}
 
-		AddRenderer(g_BloomPass);
-		AddRenderer(g_ScreenSpaceUIPass);
-		AddRenderer(g_DebugDrawRenderpass);
+		builder.AddPass(g_BloomPass);
+		builder.AddPass(g_ScreenSpaceUIPass);
+		builder.AddPass(g_DebugDrawRenderpass);
+
+		builder.Execute();
 		
 		auto updateHistogram = [this](void*) {
 			const VkCommandBuffer cmd = GetCommandBuffer();

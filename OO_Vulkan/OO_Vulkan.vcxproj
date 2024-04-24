@@ -117,6 +117,7 @@
     <ClCompile Include="src\VulkanInstance.cpp" />
     <ClCompile Include="src\VulkanRenderer.cpp" />
     <ClCompile Include="src\VulkanDevice.cpp" />
+    <ClCompile Include="src\RenderGraph.cpp" />
     <ClCompile Include="src\VulkanRenderpass.cpp" />
     <ClCompile Include="src\VulkanTexture.cpp" />
     <ClCompile Include="src\Window.cpp" />
@@ -187,6 +188,7 @@
     <ClInclude Include="src\VulkanInstance.h" />
     <ClInclude Include="src\VulkanRenderer.h" />
     <ClInclude Include="src\VulkanDevice.h" />
+    <ClInclude Include="src\RenderGraph.h" />
     <ClInclude Include="src\VulkanRenderpass.h" />
     <ClInclude Include="src\VulkanTexture.h" />
     <ClInclude Include="src\Window.h" />
