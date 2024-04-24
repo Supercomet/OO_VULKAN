@@ -117,7 +117,7 @@ void main()
    
     vec3 normalInfo = vec3(0.0);
     {
-        outAlbedo.rgb = texture(sampler2D(textureDescriptorArray[textureIndex_Albedo],basicSampler), inUV.xy, -2.585).rgb;
+        outAlbedo.rgb = texture(sampler2D(textureDescriptorArray[textureIndex_Albedo],basicSampler), inUV.xy).rgb;
     }
 	
     {
