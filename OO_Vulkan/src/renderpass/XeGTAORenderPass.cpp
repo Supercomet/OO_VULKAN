@@ -475,6 +475,9 @@ void XeGTAORenderPass::Shutdown()
 	vr.attachments.xegtao_workingAOTermPong.destroy();
 	vr.attachments.xegtao_genNormals.destroy();
 
+	normalA.destroy();
+	normalB.destroy();
+
 	for (size_t i = 0; i < MAX_FRAMES; i++)
 	{
 		vmaDestroyBuffer(vr.m_device.m_allocator, vr.XeGTAOconstants[i].buffer, vr.XeGTAOconstants[i].alloc);
