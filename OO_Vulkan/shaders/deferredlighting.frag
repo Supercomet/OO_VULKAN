@@ -113,5 +113,4 @@ void main()
 													lutVal);
 
     outFragcolor = vec4(result.rgb, albedo.a);
-    outFragcolor = vec4(SSAO.rrr, albedo.a);
 }
