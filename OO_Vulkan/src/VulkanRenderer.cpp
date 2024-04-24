@@ -120,8 +120,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam); // forwa
 #endif
 VulkanRenderer* VulkanRenderer::s_vulkanRenderer{ nullptr };
 
-//OO_OPTIMIZE_OFF
-#pragma optimize("", off)
+OO_OPTIMIZE_OFF
 // vulkan debug callback
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -151,8 +150,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 
 }
-#pragma optimize("", on)
-//OO_OPTIMIZE_ON
+OO_OPTIMIZE_ON
 
 int VulkanRenderer::ImGui_ImplWin32_CreateVkSurface(ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface)
 {

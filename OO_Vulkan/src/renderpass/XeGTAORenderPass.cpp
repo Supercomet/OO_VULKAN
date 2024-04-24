@@ -140,11 +140,12 @@ OO_OPTIMIZE_OFF
 void XeGTAORenderPass::UpdateConstants(XeGTAO::GTAOConstants& consts, XeGTAO::GTAOSettings& settings)
 {
 	VulkanRenderer& vr = *VulkanRenderer::get();
+	size_t frameCount = vr.currentFrame;
 	size_t currFrame = vr.getFrame();
 
 	Camera& cam = vr.currWorld->cameras[0];
 	VkExtent2D resInfo = { vr.renderWidth,vr.renderHeight };
-	glm::mat4 projMatrix = cam.matrices.perspective;
+	glm::mat4 projMatrix = cam.matrices.perspectiveJittered;
 	bool rowMajor = true;
 
 	consts.ViewportSize = { (int32_t)resInfo.width,(int32_t)resInfo.height };
@@ -179,7 +180,7 @@ void XeGTAORenderPass::UpdateConstants(XeGTAO::GTAOConstants& consts, XeGTAO::GT
 	consts.ThinOccluderCompensation = settings.ThinOccluderCompensation;
 	consts.FinalValuePower = settings.FinalValuePower;
 	consts.DepthMIPSamplingOffset = settings.DepthMIPSamplingOffset;
-	consts.NoiseIndex = (settings.DenoisePasses > 0) ? (currFrame % 64) : (0);
+	consts.NoiseIndex = (settings.DenoisePasses > 0) ? (frameCount % 64) : (0);
 	consts.Padding0 = 0;
 
 	memcpy(vr.XeGTAOconstants[currFrame].allocInfo.pMappedData, &consts, sizeof(XeGTAO::GTAOConstants));

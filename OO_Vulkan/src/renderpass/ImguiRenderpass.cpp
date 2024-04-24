@@ -61,7 +61,8 @@ bool ImguiRenderpass::SetupDependencies()
 
 	return true;
 }
-#pragma optimize("", off)
+
+OO_OPTIMIZE_OFF
 void ImguiRenderpass::Draw(const VkCommandBuffer cmdlist)
 {
 	auto& vr = *VulkanRenderer::get();
@@ -197,6 +198,7 @@ void ImguiRenderpass::Draw(const VkCommandBuffer cmdlist)
 	}	
 	
 }
+OO_OPTIMIZE_ON
 
 void ImguiRenderpass::Shutdown()
 {
