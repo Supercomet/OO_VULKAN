@@ -33,12 +33,13 @@ Technology is prohibited.
 struct ForwardUIPass : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(ForwardUIPass)
+	ForwardUIPass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 
 	void CreatePSO() override;
 
@@ -67,9 +68,14 @@ void ForwardUIPass::CreatePSO()
 	CreatePipeline();
 }
 
-bool ForwardUIPass::SetupDependencies()
+bool ForwardUIPass::SetupDependencies(RenderGraph& builder)
 {
+	auto& vr = *VulkanRenderer::get();
 	// TODO: If gbuffer rendering is disabled, return false.
+	builder.Write(vr.attachments.lighting_target, rhi::ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::VELOCITY], rhi::ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::ENTITY_ID], rhi::ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], rhi::ATTACHMENT);
 
 	// READ: Scene data SSBO
 	// READ: Instancing Data
@@ -101,7 +107,6 @@ void ForwardUIPass::Draw(const VkCommandBuffer cmdlist)
 	
 	auto& attachments = vr.attachments.gbuffer;
 	auto& target = vr.attachments.lighting_target;
-	//auto& target = vr.renderTargets[vr.renderTargetInUseID].texture;
 
 	cmd.BindAttachment(0, &target);
 	cmd.BindAttachment(1, &vr.attachments.gbuffer[VELOCITY]);
@@ -112,7 +117,8 @@ void ForwardUIPass::Draw(const VkCommandBuffer cmdlist)
 	cmd.BindPSO(pso_Forward_UI, PSOLayoutDB::defaultPSOLayout);
 	cmd.SetDefaultViewportAndScissor();
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
-																												vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
+												vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
+	
 	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
 		std::array<VkDescriptorSet, 3>{
 		vr.descriptorSet_gpuscene,

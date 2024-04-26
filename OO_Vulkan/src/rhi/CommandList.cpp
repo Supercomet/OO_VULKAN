@@ -107,8 +107,10 @@ namespace rhi
 		m_regionNamed = false;
 	}
 
-	void CommandList::BeginTrackingImage(vkutils::Texture* tex)
+	ImageStateTracking* CommandList::BeginTrackingImage(vkutils::Texture* tex)
 	{
+		OO_ASSERT(tex);
+
 		auto iter = m_trackedTextures.find(tex);
 		if (iter == m_trackedTextures.end())
 		{
@@ -119,8 +121,8 @@ namespace rhi
 			state.referenceLayout = tex->referenceLayout;
 			state.currentLayout = tex->referenceLayout;
 			m_trackedTextures[tex] = state;
-
 		}
+		return &m_trackedTextures[tex];
 	}
 
 	ImageStateTracking* CommandList::getTrackedImage(vkutils::Texture* tex)
@@ -136,21 +138,23 @@ namespace rhi
 	{
 		ImageStateTracking* result = getTrackedImage(tex);
 		if (result == nullptr)
-		{
-			BeginTrackingImage(tex);
-			result = getTrackedImage(tex);
+		{			
+			result = BeginTrackingImage(tex);
 		}
 		return result;
 	}
 
-	void CommandList::BeginTrackingBuffer(VkBuffer buffer)
+	BufferStateTracking* CommandList::BeginTrackingBuffer(VkBuffer buffer)
 	{
+		OO_ASSERT(buffer);
+
 		auto iter = m_trackedBuffers.find(buffer);
 		if (iter == m_trackedBuffers.end())
 		{
 			BufferStateTracking state;
 			m_trackedBuffers[buffer] = state;
 		}
+		return &m_trackedBuffers[buffer];
 	}
 
 	BufferStateTracking* CommandList::getTrackedBuffer(VkBuffer buffer)
@@ -166,9 +170,8 @@ namespace rhi
 	{
 		BufferStateTracking* result = getTrackedBuffer(buffer);
 		if (result == nullptr)
-		{
-			BeginTrackingBuffer(buffer);
-			result = getTrackedBuffer(buffer);
+		{			
+			result = BeginTrackingBuffer(buffer);
 		}
 		return result;
 	}

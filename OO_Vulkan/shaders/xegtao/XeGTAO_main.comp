@@ -1,4 +1,5 @@
 #version 450
+#extension GL_EXT_samplerless_texture_functions : require
 // Engine-specific entry point for the first pass
 #include "XeGTAO.glsl"
 
@@ -11,7 +12,7 @@ layout (set=0, binding = 1) uniform texture2D g_srcWorkingDepth;
 layout (set=0, binding = 2)uniform sampler g_samplerPointClamp;
 
 layout (set=0, binding = 3, r16ui) uniform uimage2D g_srcHilbertLUT;
-layout (set=0, binding = 4, rgba8) uniform  image2D g_srcNormalmap;
+layout (set=0, binding = 4) uniform texture2D g_srcNormalmap;
 layout (set=0, binding = 5, r8ui ) uniform uimage2D g_outWorkingAOTerm;
 layout (set=0, binding = 6, r8   ) uniform  image2D g_outWorkingEdges;
 //layout (set=0, binding = 7, r16f) uniform image2D g_outNormalmap; // for generating directly from depth
@@ -47,7 +48,7 @@ lpfloat3 LoadNormal(uint2 pos)
 {
 #if 1
     // special decoding for external normals stored in 11_11_10 unorm - modify appropriately to support your own encoding 
-    float3 unpackedOutput = DecodeNormalHelper(imageLoad(g_srcNormalmap, int2(pos)).rgb);
+    float3 unpackedOutput = DecodeNormalHelper(texelFetch(g_srcNormalmap, int2(pos),0).rgb);
     float3 normal = normalize(unpackedOutput);
 #else 
     // example of a different encoding

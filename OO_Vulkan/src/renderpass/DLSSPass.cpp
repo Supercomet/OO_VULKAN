@@ -21,12 +21,13 @@ Technology is prohibited.
 struct DLSSPass : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(DLSSPass)
+	DLSSPass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 
 	void CreatePSO() override;
 	void CreatePipelineLayout();
@@ -45,8 +46,6 @@ void DLSSPass::Init()
 {
 	auto& vr = *VulkanRenderer::get();
 	auto swapchainext = vr.m_swapchain.swapChainExtent;
-
-	SetupDependencies();
 	
 	CreateDescriptors();
 	CreatePipelineLayout();
@@ -59,7 +58,7 @@ void DLSSPass::CreatePSO()
 	CreatePipeline();
 }
 
-bool DLSSPass::SetupDependencies()
+bool DLSSPass::SetupDependencies(RenderGraph& builder)
 {
 	auto& vr = *VulkanRenderer::get();
 	constexpr size_t MAX_FRAMES = 2;
@@ -120,7 +119,6 @@ void DLSSPass::CreateDescriptors()
 {
 
 	auto& vr = *VulkanRenderer::get();
-	auto& target = vr.renderTargets[vr.renderTargetInUseID].texture;
 	auto currFrame = vr.getFrame();
 
 	

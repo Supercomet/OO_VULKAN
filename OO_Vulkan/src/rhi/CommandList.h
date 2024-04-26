@@ -32,7 +32,8 @@ namespace rhi
 	enum ResourceUsage {
 		UNKNOWN,
 		SRV,
-		UAV
+		UAV,
+		ATTACHMENT
 	};
 
 	struct BufferStateTracking {
@@ -77,11 +78,11 @@ public:
 	void BeginNameRegion(const char* name, const glm::vec4 col = glm::vec4{ 1.0f,1.0f,1.0f,0.0f });
 	void EndNamedRegion();
 
-	void BeginTrackingImage(vkutils::Texture* tex);
+	ImageStateTracking* BeginTrackingImage(vkutils::Texture* tex);
 	ImageStateTracking* getTrackedImage(vkutils::Texture* tex);
 	ImageStateTracking* ensureTrackedImage(vkutils::Texture* tex);
 
-	void BeginTrackingBuffer(VkBuffer buffer);
+	BufferStateTracking* BeginTrackingBuffer(VkBuffer buffer);
 	BufferStateTracking* getTrackedBuffer(VkBuffer buffer);
 	BufferStateTracking* ensureTrackedBuffer(VkBuffer buffer);
 

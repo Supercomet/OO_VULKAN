@@ -23,6 +23,7 @@ Technology is prohibited.
 #include <cassert>
 #include <iostream>
 #include <type_traits>
+#include "RenderGraph.h"
 
 enum GBufferAttachmentIndex
 {
@@ -42,6 +43,7 @@ enum GBufferAttachmentIndex
 class GfxRenderpass
 {
 public:
+    GfxRenderpass(const char* _name) :name {_name}{}
     virtual ~GfxRenderpass() = default;
     virtual void Init() = 0;
     virtual void Draw(const VkCommandBuffer cmdlist) = 0;
@@ -49,9 +51,10 @@ public:
     // Called once upon init    
     virtual void CreatePSO() {};
     // Called once per context, for render graph. "false" means this render pass is unused/skipped.
-    virtual bool SetupDependencies() = 0;
+    virtual bool SetupDependencies(RenderGraph&) = 0;
     uint8_t m_Index{ 0xFF };
     VkCommandBuffer lastCmd{VK_NULL_HANDLE};
+    std::string name{"UNNAMED"};
 };
 
 class RenderPassDatabase
@@ -105,7 +108,7 @@ inline static pass* m_pass{nullptr};
 
 // function declares and creates a renderpass automatically at runtime
 #define DECLARE_RENDERPASS(pass)\
-pass g_gfx##pass;\
+pass g_gfx##pass(#pass);\
 GfxRenderpass* g_##pass{ &g_gfx##pass };
 //namespace DeclareRenderPass_ns\
 //{\

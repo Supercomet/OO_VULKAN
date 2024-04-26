@@ -470,8 +470,8 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	normalTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
 	pinkTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
 
-	LTCTextureID = CreateTexture(64, 64, reinterpret_cast<const unsigned char*>(LTC1), sizeof(float), false);
-	LTCLUTTextureID = CreateTexture(64, 64, reinterpret_cast<const unsigned char*>(LTC2), sizeof(float), false);
+	LTCTextureID = CreateTexture(64, 64, reinterpret_cast<const unsigned char*>(LTC1), "LTCTex",sizeof(float), false);
+	LTCLUTTextureID = CreateTexture(64, 64, reinterpret_cast<const unsigned char*>(LTC2), "LTCLUT",sizeof(float), false);
 
 	PrepareDLSS();
 
@@ -1372,7 +1372,7 @@ void VulkanRenderer::AddRenderer(GfxRenderpass* pass)
 			const VkCommandBuffer cmd = this->GetCommandBuffer();
 			pass->Draw(cmd);		
 		};
-	m_taskList.push(Task(renderTask, nullptr, &drawCallRecrodingCompleted));
+	m_taskList.push(Task(renderTask, nullptr, &drawCallRecordingCompleted));
 
 	auto sequencer = [this, pass = pass](void*) {	
 		OO_ASSERT(pass->lastCmd);
@@ -2914,8 +2914,8 @@ void VulkanRenderer::RenderFrame()
 			w = false;
 			cond.notify_all();
 			};
-		drawCallRecrodingCompleted.CompletionTask = Task(tasksDone);
-		drawCallRecrodingCompleted.TaskCount = (uint32_t)m_taskList.size();
+		drawCallRecordingCompleted.CompletionTask = Task(tasksDone);
+		drawCallRecordingCompleted.TaskCount = (uint32_t)m_taskList.size();
 
 		g_taskManager.AddTaskList(m_taskList);
 		{
@@ -3005,6 +3005,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		builder.AddPass(g_ScreenSpaceUIPass);
 		builder.AddPass(g_DebugDrawRenderpass);
 
+		builder.Setup();
 		builder.Execute();
 		
 		auto updateHistogram = [this](void*) {
@@ -3014,7 +3015,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			vkCmdCopyBuffer(cmd, LuminanceBuffer.buffer, LuminanceMonitor.buffer, 1, &region);
 			vmaFlushAllocation(m_device.m_allocator, LuminanceMonitor.alloc, 0, sizeof(LuminenceData));
 		};
-		m_taskList.push(Task(updateHistogram, 0, &drawCallRecrodingCompleted));
+		m_taskList.push(Task(updateHistogram, 0, &drawCallRecordingCompleted));
 
 #if defined		(ENABLE_DECAL_IMPLEMENTATION)
 		RenderPassDatabase::GetRenderPass<ForwardDecalRenderpass>()->Draw();
@@ -3048,7 +3049,7 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 			FullscreenBlit(cmd, *texture, texture->referenceLayout, dst, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		}
 	};
-	m_taskList.push(Task(blitT, 0, &drawCallRecrodingCompleted));
+	m_taskList.push(Task(blitT, 0, &drawCallRecordingCompleted));
 	m_sequentialTasks.push_back(Task([this](void*) { QueueCommandBuffer(this->m_finalBlitCmd); }));
 	// only blit main framebuffer
 }
@@ -3579,7 +3580,7 @@ oGFX::Font * VulkanRenderer::LoadFont(const std::string & filename)
 	//atlas.buffer.resize(atlas.textureSize.x * atlas.textureSize.y * channels);
 
 	bool generateMips = false;
-	font->m_atlasID = CreateTexture(atlas.textureSize.x, atlas.textureSize.y, (uint8_t*)atlas.buffer.data(),1 ,generateMips);
+	font->m_atlasID = CreateTexture(atlas.textureSize.x, atlas.textureSize.y, (uint8_t*)atlas.buffer.data(),filename,1 ,generateMips);
 
 	return font;
 }
@@ -4549,10 +4550,12 @@ void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer)
 
 }
 
-uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height,const unsigned char* imgData, uint32_t fileFormat, bool generateMips)
+uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height,const unsigned char* imgData, std::string fname, uint32_t fileFormat, bool generateMips)
 {
 	using namespace oGFX;
+
 	FileImageData fileData;
+	fileData.name = std::move(fname);
 	fileData.w = width;
 	fileData.h = height;
 	fileData.channels = 4;

@@ -24,12 +24,13 @@ Technology is prohibited.
 struct LightingPass : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(DeferredCompositionRenderpass)
+	LightingPass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 	void CreatePSO() override;
 
 	void CreatePipeline();
@@ -64,9 +65,30 @@ void LightingPass::CreatePSO()
 	CreatePipeline(); // Dependency on GBuffer Init()
 }
 
-bool LightingPass::SetupDependencies()
+bool LightingPass::SetupDependencies(RenderGraph& builder)
 {
+	auto& vr = *VulkanRenderer::get();
 	// TODO: If shadows are disabled, return false.
+
+	builder.Write(vr.attachments.lighting_target, rhi::ATTACHMENT);
+	builder.Write(vr.renderTargets[vr.renderTargetInUseID].depth, rhi::ATTACHMENT);
+
+	builder.Read(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH]   );
+	builder.Read(vr.attachments.gbuffer[GBufferAttachmentIndex::NORMAL]  );
+	builder.Read(vr.attachments.gbuffer[GBufferAttachmentIndex::ALBEDO]  );
+	builder.Read(vr.attachments.gbuffer[GBufferAttachmentIndex::MATERIAL]);
+	builder.Read(vr.attachments.gbuffer[GBufferAttachmentIndex::EMISSIVE]);
+	builder.Read(vr.attachments.shadow_depth);
+	builder.Read(vr.attachments.SSAO_finalTarget);
+
+	builder.Read(vr.g_radianceMap);
+	builder.Read(vr.g_prefilterMap);
+	builder.Read(vr.g_brdfLUT);
+
+	builder.Read(vr.g_Textures[vr.LTCTextureID]);
+	builder.Read(vr.g_Textures[vr.LTCLUTTextureID]);
+
+
 
 	// READ: Lighting buffer (all the visible lights intersecting the camera frustum)
 	// READ: GBuffer Albedo
@@ -142,8 +164,8 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 		.BindImage(12, &vr.g_brdfLUT, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // brdflut
 		.BindSampler(13, GfxSamplerManager::GetSampler_ShowMapClamp()) // shadwosampler
 		.BindSampler(14, GfxSamplerManager::GetSampler_EdgeClamp()) // shadwosampler
-		.BindImage(15, LTCtex, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // brdflut
-		.BindImage(16, LTCLUTtex, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // brdflut
+		.BindImage(15, LTCtex, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // arealight lut
+		.BindImage(16, LTCLUTtex, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) // area light lut
 		.BindSampler(17, GfxSamplerManager::GetSampler_PointClamp()) // ssaosampler
 	; 
 	

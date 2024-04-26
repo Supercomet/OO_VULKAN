@@ -62,12 +62,13 @@ static const char* fsr_shaders_names[]{
 struct FSR2Pass : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(FSR2Pass)
+	FSR2Pass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 
 	void CreatePSO() override;
 	void CreatePipelineLayout();
@@ -92,7 +93,32 @@ void FSR2Pass::Init()
 	auto& vr = *VulkanRenderer::get();
 	auto swapchainext = vr.m_swapchain.swapChainExtent;
 
-	SetupDependencies();
+	constexpr size_t MAX_FRAMES = 2;
+
+
+	for (size_t i = 0; i < MAX_FRAMES; i++)
+	{
+		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(FSR2_CB_DATA)
+			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+			, vr.FSR2constantBuffer[i]);
+		VK_NAME(vr.m_device.logicalDevice, "FSR2 CB", vr.FSR2constantBuffer[i].buffer);
+
+		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(Fsr2SpdConstants)
+			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+			, vr.FSR2luminanceCB[i]);
+		VK_NAME(vr.m_device.logicalDevice, "FSR2 lumCB", vr.FSR2luminanceCB[i].buffer);
+
+		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(Fsr2RcasConstants)
+			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+			, vr.FSR2rcasBuffer[i]);
+		VK_NAME(vr.m_device.logicalDevice, "FSR2 RCAS_CB", vr.FSR2rcasBuffer[i].buffer);
+
+		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(FSR2AutogenConstants)
+			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+			, vr.FSR2autoGen[i]);
+		VK_NAME(vr.m_device.logicalDevice, "FSR2 autoGen", vr.FSR2autoGen[i].buffer);
+
+	}
 
 	float halfResolution = 0.5f;
 	float fullResolution = 1.0f;
@@ -221,35 +247,10 @@ void FSR2Pass::CreatePSO()
 	CreatePipeline();
 }
 
-bool FSR2Pass::SetupDependencies()
+bool FSR2Pass::SetupDependencies(RenderGraph& builder)
 {
 	auto& vr = *VulkanRenderer::get();
-	constexpr size_t MAX_FRAMES = 2;
-
-
-	for (size_t i = 0; i < MAX_FRAMES; i++)
-	{
-		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(FSR2_CB_DATA)
-			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
-			, vr.FSR2constantBuffer[i]);
-		VK_NAME(vr.m_device.logicalDevice, "FSR2 CB", vr.FSR2constantBuffer[i].buffer);
-		
-		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(Fsr2SpdConstants)
-			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
-			, vr.FSR2luminanceCB[i]);
-		VK_NAME(vr.m_device.logicalDevice, "FSR2 lumCB", vr.FSR2luminanceCB[i].buffer);
-
-		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(Fsr2RcasConstants)
-			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
-			, vr.FSR2rcasBuffer[i]);
-		VK_NAME(vr.m_device.logicalDevice, "FSR2 RCAS_CB", vr.FSR2rcasBuffer[i].buffer);
-		
-		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(FSR2AutogenConstants)
-			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
-			, vr.FSR2autoGen[i]);
-		VK_NAME(vr.m_device.logicalDevice, "FSR2 autoGen", vr.FSR2autoGen[i].buffer);
-				
-	}
+	
 
 	return true;
 }
@@ -669,9 +670,6 @@ void FSR2Pass::CreateDescriptors()
 {
 
 	auto& vr = *VulkanRenderer::get();
-	auto& target = vr.renderTargets[vr.renderTargetInUseID].texture;
-	auto currFrame = vr.getFrame();
-
 
 	// FSR2_BIND_SRV_INPUT_OPAQUE_ONLY                     0
 	// FSR2_BIND_SRV_INPUT_COLOR                           1

@@ -33,12 +33,13 @@ Technology is prohibited.
 struct ScreenSpaceUIPass : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(ScreenSpaceUIPass)
+	ScreenSpaceUIPass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 
 	void CreatePSO() override;
 
@@ -67,9 +68,12 @@ void ScreenSpaceUIPass::CreatePSO()
 	CreatePipeline();
 }
 
-bool ScreenSpaceUIPass::SetupDependencies()
+bool ScreenSpaceUIPass::SetupDependencies(RenderGraph& builder)
 {
+	auto& vr = *VulkanRenderer::get();
 	// TODO: If gbuffer rendering is disabled, return false.
+
+	builder.Write(vr.renderTargets[vr.renderTargetInUseID].texture, rhi::ATTACHMENT);
 
 	// READ: Scene data SSBO
 	// READ: Instancing Data

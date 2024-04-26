@@ -1,12 +1,13 @@
 #version 460
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_samplerless_texture_functions : require
 
 #include "shader_utility.shader"
 #include "shared_structs.h"
 
 layout (local_size_x = 16, local_size_y = 16) in;
-layout (binding = 1,r11f_g11f_b10f)  uniform readonly image2D inputImage;
+layout (binding = 1)  uniform texture2D inputImage;
 layout (binding = 2,rgba16f) uniform writeonly image2D resultImage;
 layout (binding = 3) readonly buffer Luminance
 {
@@ -45,7 +46,8 @@ vec3 QuadraticThreshold(vec3 color, float threshold, vec3 curve)
 void main()
 {	
     // Note: Load operations from any texel that is outside of the boundaries of the bound image will return all zeros.
-	vec4 res = imageLoad(inputImage, ivec2(gl_GlobalInvocationID.xy) );
+	//vec4 res = imageLoad(inputImage, ivec2(gl_GlobalInvocationID.xy) );
+	vec4 res = texelFetch(inputImage, ivec2(gl_GlobalInvocationID.xy), 0 );
 
     float brightness = RGBtoLuminance(res.rgb);
     vec3 result = vec4(QuadraticThreshold(res.rgb, pc.threshold.x, pc.threshold.yzw), res.a).rgb;

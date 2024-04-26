@@ -24,12 +24,13 @@ Technology is prohibited.
 struct SkyRenderPass : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(SkyRenderPass)
+	SkyRenderPass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 
 	void CreatePSO() override;
 
@@ -62,9 +63,15 @@ void SkyRenderPass::CreatePSO()
 	CreatePipeline();
 }
 
-bool SkyRenderPass::SetupDependencies()
+bool SkyRenderPass::SetupDependencies(RenderGraph& builder)
 {
+	auto& vr = *VulkanRenderer::get();
 	// TODO: If gbuffer rendering sis disabled, return false.
+
+	builder.Write(vr.attachments.lighting_target, rhi::ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], rhi::ATTACHMENT);
+
+	builder.Read(vr.g_cubeMap);
 
 	// READ: Scene data SSBO
 	// READ: Instancing Data
@@ -92,8 +99,6 @@ void SkyRenderPass::Draw(const VkCommandBuffer cmdlist)
 	rhi::CommandList cmd{ cmdlist, "SkyRenderPass" };
 
 	PROFILE_GPU_EVENT("SkyPass");	
-
-
 
 	auto& attachments = vr.attachments.gbuffer;
 

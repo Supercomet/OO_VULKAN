@@ -46,6 +46,7 @@ static const char* xegtao_shaders_names[]{
 struct XeGTAORenderPass : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(XeGTAORenderPass)
+	XeGTAORenderPass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
@@ -53,7 +54,7 @@ struct XeGTAORenderPass : public GfxRenderpass
 
 	void InitRandomFactors();
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 
 	void CreatePSO() override;
 	void CreatePipelineLayout();
@@ -80,7 +81,16 @@ void XeGTAORenderPass::Init()
 	auto& vr = *VulkanRenderer::get();
 	auto swapchainext = vr.m_swapchain.swapChainExtent;
 
-	SetupDependencies();
+
+	constexpr size_t MAX_FRAMES = 2;
+	for (size_t i = 0; i < MAX_FRAMES; i++)
+	{
+		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(XeGTAO::GTAOConstants)
+			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+			, vr.XeGTAOconstants[i]);
+		VK_NAME(vr.m_device.logicalDevice, "XeGTAOConstants CB", vr.XeGTAOconstants[i].buffer);
+	}
+
 
 	InitRandomFactors();
 
@@ -193,18 +203,13 @@ void XeGTAORenderPass::CreatePSO()
 	CreatePipeline(); // Dependency on GBuffer Init()
 }
 
-bool XeGTAORenderPass::SetupDependencies()
+bool XeGTAORenderPass::SetupDependencies(RenderGraph& builder)
 {
 	auto& vr = *VulkanRenderer::get();
-	constexpr size_t MAX_FRAMES = 2;
 
-	for (size_t i = 0; i < MAX_FRAMES; i++)
-	{
-		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(XeGTAO::GTAOConstants)
-			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
-			, vr.XeGTAOconstants[i]);
-		VK_NAME(vr.m_device.logicalDevice, "XeGTAOConstants CB", vr.XeGTAOconstants[i].buffer);
-	}
+	builder.Read(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH]);
+	builder.Read(vr.attachments.gbuffer[GBufferAttachmentIndex::NORMAL]);
+	builder.Write(vr.attachments.SSAO_finalTarget, rhi::UAV);
 
 	return true;
 }
@@ -373,7 +378,7 @@ void XeGTAORenderPass::Draw(const VkCommandBuffer cmdlist)
 			.BindSampler(2, GfxSamplerManager::GetSampler_PointClamp())
 
 			.BindImage(3, &vr.attachments.xegtao_hilbert, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-			.BindImage(4, &vr.attachments.gbuffer[GBufferAttachmentIndex::NORMAL], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+			.BindImage(4, &vr.attachments.gbuffer[GBufferAttachmentIndex::NORMAL], VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 			.BindImage(5, &vr.attachments.xegtao_workingAOTerm, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 			.BindImage(6, &vr.attachments.xegtao_workingEdges, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 			;
@@ -552,7 +557,7 @@ void XeGTAORenderPass::CreateDescriptors()
 
 		.BindImage(3, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT) // point clamp
 
-		.BindImage(4, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(4, nullptr, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(5, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindImage(6, nullptr, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 

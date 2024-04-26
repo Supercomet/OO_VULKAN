@@ -110,6 +110,7 @@
     <ClCompile Include="src\renderpass\SSAORenderPass.cpp" />
     <ClCompile Include="src\renderpass\XeGTAORenderPass.cpp" />
     <ClCompile Include="src\renderpass\ZPrePass.cpp" />
+    <ClCompile Include="src\RGResource.cpp" />
     <ClCompile Include="src\rhi\CommandList.cpp" />
     <ClCompile Include="src\Tests_Assignment1.cpp" />
     <ClCompile Include="src\TriOctTree.cpp" />
@@ -174,6 +175,7 @@
     <ClInclude Include="src\optick\optick_serialization.h" />
     <ClInclude Include="src\optick\optick_server.h" />
     <ClInclude Include="src\Profiling.h" />
+    <ClInclude Include="src\RGResource.h" />
     <ClInclude Include="src\rhi\CommandList.h" />
     <ClInclude Include="src\Tree.h" />
     <ClInclude Include="src\Node.h" />

@@ -300,7 +300,7 @@ bool NGXWrapper::QueryOptimalSettings(glm::uvec2 inDisplaySize, NVSDK_NGX_PerfQu
 		return false;
 	}
 
-
+	return true;
 }
 
 bool NGXWrapper::IsFeatureSupported(NVSDK_NGX_FeatureDiscoveryInfo* dis)

@@ -23,12 +23,14 @@ Technology is prohibited.
 struct BloomPass : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(BloomPass)
+	BloomPass(const char* _name) : GfxRenderpass{ _name } {}
+
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 
 	void CreatePSO() override;
 	void CreatePipelineLayout();
@@ -127,9 +129,22 @@ void BloomPass::CreatePSO()
 	CreatePipeline(); // Dependency on GBuffer Init()
 }
 
-bool BloomPass::SetupDependencies()
+bool BloomPass::SetupDependencies(RenderGraph& builder)
 {
+	auto& vr = *VulkanRenderer::get();
 	// TODO: If shadows are disabled, return false.
+
+	builder.Write(vr.renderTargets[0].texture, rhi::UAV);
+	builder.Write(vr.attachments.SD_target[0], rhi::UAV);
+
+	vkutils::Texture* mainImage = nullptr;
+	if (vr.m_upscaleType == UPSCALING_TYPE::NONE) {
+		mainImage = &vr.attachments.lighting_target;
+	}
+	else {
+		mainImage = &vr.attachments.fullres_HDR;
+	}
+	builder.Read(mainImage);
 
 	// READ: Lighting buffer (all the visible lights intersecting the camera frustum)
 	// READ: GBuffer Albedo
@@ -319,7 +334,6 @@ void BloomPass::CreateDescriptors()
 {
 
 	auto& vr = *VulkanRenderer::get();
-	auto& target = vr.renderTargets[vr.renderTargetInUseID].texture;
 	auto currFrame = vr.getFrame();
 	// At this point, all dependent resources (gbuffer etc) must be ready.
 
@@ -358,7 +372,7 @@ void BloomPass::CreateDescriptors()
 
 	VkDescriptorBufferInfo dbi{};
 	DescriptorBuilder::Begin()
-		.BindImage(1, &texSrc, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT) // we construct world position using depth
+		.BindImage(1, &texSrc, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT) // we construct world position using depth
 		.BindImage(2, &texOut, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BuildLayout(SetLayoutDB::compute_brightPixels);
@@ -438,7 +452,7 @@ vkutils::Texture2D* BloomPass::PerformBloom(rhi::CommandList& cmd, vkutils::Text
 		dbi.buffer = vr.LuminanceBuffer.buffer;
 		dbi.range = VK_WHOLE_SIZE;
 		cmd.DescriptorSetBegin(0)
-			.BindImage(1, &mainImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+			.BindImage(1, &mainImage, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 			.BindImage(2, &vr.attachments.Bloom_brightTarget, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 			.BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 

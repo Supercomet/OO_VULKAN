@@ -24,6 +24,7 @@ Technology is prohibited.
 struct SSAORenderPass : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(SSAORenderPass)
+	SSAORenderPass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
@@ -31,7 +32,7 @@ struct SSAORenderPass : public GfxRenderpass
 
 	void InitRandomFactors();
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 
 	void CreatePSO() override;
 	void CreatePipelineLayout();
@@ -91,7 +92,7 @@ void SSAORenderPass::CreatePSO()
 	CreatePipeline(); // Dependency on GBuffer Init()
 }
 
-bool SSAORenderPass::SetupDependencies()
+bool SSAORenderPass::SetupDependencies(RenderGraph& builder)
 {
 	// TODO: If shadows are disabled, return false.
 

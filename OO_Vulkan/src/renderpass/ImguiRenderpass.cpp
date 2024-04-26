@@ -27,12 +27,13 @@ Technology is prohibited.
 class ImguiRenderpass : public GfxRenderpass
 {
 public:
+	ImguiRenderpass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 
 private:
 	void CreatePipelineLayout();
@@ -51,7 +52,7 @@ void ImguiRenderpass::Init()
 	InitDebugBuffers();
 }
 
-bool ImguiRenderpass::SetupDependencies()
+bool ImguiRenderpass::SetupDependencies(RenderGraph& builder)
 {
 	// TODO: If debug drawing is disabled, return false.
 	

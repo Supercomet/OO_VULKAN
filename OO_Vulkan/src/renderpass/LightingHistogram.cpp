@@ -31,12 +31,13 @@ Technology is prohibited.
 struct LightingHistogram : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(LightingHistogram)
+	LightingHistogram(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 	void CreatePSO() override;
 
 
@@ -57,7 +58,21 @@ void LightingHistogram::Init()
 {
 	SetupRenderpass();
 	SetupFramebuffer();
-	SetupDependencies();
+	
+	auto& vr = *VulkanRenderer::get();
+
+	VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(HistoStruct)
+		, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, flags
+		, vr.lightingHistogram);
+
+	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(LuminenceData)
+		, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, flags
+		, vr.LuminanceBuffer);
+
+	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(LuminenceData), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT, vr.LuminanceMonitor);
+	VK_CHK(vmaMapMemory(vr.m_device.m_allocator, vr.LuminanceMonitor.alloc, &vr.monitorData));
 }
 
 void LightingHistogram::CreatePSO()
@@ -65,22 +80,13 @@ void LightingHistogram::CreatePSO()
 	CreatePipeline();
 }
 
-bool LightingHistogram::SetupDependencies()
+bool LightingHistogram::SetupDependencies(RenderGraph& builder)
 {
 	auto& vr = *VulkanRenderer::get();
-	VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(HistoStruct)
-						, VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, flags
-						, vr.lightingHistogram);
 
-	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(LuminenceData)
-		, VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_TRANSFER_SRC_BIT|VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, flags
-		, vr.LuminanceBuffer);
-	
-	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(LuminenceData), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT, vr.LuminanceMonitor);
-	VK_CHK(vmaMapMemory(vr.m_device.m_allocator,vr.LuminanceMonitor.alloc, &vr.monitorData));
+	builder.Read(vr.attachments.lighting_target);
 
+	//builder.Write(vr.LuminanceBuffer.buffer, rhi::UAV);
 
 	return true;
 }
@@ -122,7 +128,7 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 	};
 	cmd.SetPushConstant(PSOLayoutDB::histogramPSOLayout, sizeof(LuminencePC), &histogramParams);
 	cmd.DescriptorSetBegin(0)
-		.BindImage(0, &target, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+		.BindImage(0, &target, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 		.BindBuffer(1, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rhi::UAV);
 	cmd.Dispatch(target.width / 16 + 1, target.height / 16 + 1);
 
@@ -175,7 +181,7 @@ void LightingHistogram::SetupRenderpass()
 	VkDescriptorBufferInfo dummybuf{};
 
 	DescriptorBuilder::Begin()
-		.BindImage(0, &dummy, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.BindImage(0, &dummy, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BindBuffer(1, &dummybuf, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
 		.BuildLayout(SetLayoutDB::compute_histogram);
 	

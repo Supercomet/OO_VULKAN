@@ -28,12 +28,13 @@ Technology is prohibited.
 class DebugDrawRenderpass : public GfxRenderpass
 {
 public:
+	DebugDrawRenderpass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 
 private:
 
@@ -71,10 +72,12 @@ void DebugDrawRenderpass::Init()
 	InitDebugBuffers();
 }
 
-bool DebugDrawRenderpass::SetupDependencies()
+bool DebugDrawRenderpass::SetupDependencies(RenderGraph& builder)
 {
+	auto& vr = *VulkanRenderer::get();
 	// TODO: If debug drawing is disabled, return false.
 	
+	builder.Write(vr.renderTargets[vr.renderTargetInUseID].texture, rhi::ATTACHMENT);
 	// READ: Scene Depth
 	// WRITE: Color Output
 	// etc

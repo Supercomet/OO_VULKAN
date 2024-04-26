@@ -30,12 +30,13 @@ Technology is prohibited.
 struct GBufferRenderPass : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(GBufferRenderPass)
+	GBufferRenderPass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 
 	void CreatePSO() override;
 
@@ -73,9 +74,15 @@ void GBufferRenderPass::CreatePSO()
 	CreatePipeline();
 }
 
-bool GBufferRenderPass::SetupDependencies()
+bool GBufferRenderPass::SetupDependencies(RenderGraph& builder)
 {
+	auto& vr = *VulkanRenderer::get();
 	// TODO: If gbuffer rendering sis disabled, return false.
+
+	for (size_t i = 0; i < GBufferAttachmentIndex::MAX_ATTACHMENTS; i++)
+	{
+		builder.Write(&vr.attachments.gbuffer[i], rhi::ATTACHMENT);
+	}
 
 	// READ: Scene data SSBO
 	// READ: Instancing Data
@@ -681,7 +688,7 @@ void GBufferRenderPass::SetupResources() {
 
 	auto& attachments = vr.attachments.gbuffer;
 	attachments[GBufferAttachmentIndex::NORMAL	].name = "GB_Normal";
-	attachments[GBufferAttachmentIndex::NORMAL	].forFrameBuffer(&m_device, vr.G_NORMALS_FORMAT, VK_IMAGE_USAGE_STORAGE_BIT |VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
+	attachments[GBufferAttachmentIndex::NORMAL	].forFrameBuffer(&m_device, vr.G_NORMALS_FORMAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, width, height);
 	vr.fbCache.RegisterFramebuffer(attachments[GBufferAttachmentIndex::NORMAL]);
 	// linear texture
 	attachments[GBufferAttachmentIndex::ALBEDO	].name = "GB_Albedo";

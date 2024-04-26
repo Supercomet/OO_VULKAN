@@ -32,12 +32,13 @@ Technology is prohibited.
 struct ForwardParticlePass : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(ForwardParticlePass)
+	ForwardParticlePass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 
 	void CreatePSO() override;
 
@@ -66,9 +67,14 @@ void ForwardParticlePass::CreatePSO()
 	CreatePipeline();
 }
 
-bool ForwardParticlePass::SetupDependencies()
+bool ForwardParticlePass::SetupDependencies(RenderGraph& builder)
 {
+	auto& vr = *VulkanRenderer::get();
 	// TODO: If gbuffer rendering is disabled, return false.
+
+	builder.Write(vr.renderTargets[vr.renderTargetInUseID].texture, rhi::ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::ENTITY_ID], rhi::ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], rhi::ATTACHMENT);
 
 	// READ: Scene data SSBO
 	// READ: Instancing Data

@@ -1,10 +1,12 @@
 #version 460
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_samplerless_texture_functions : require
 
 #include "shared_structs.h"
 #include "shader_utility.shader"
 
 layout (local_size_x = 16, local_size_y = 16) in;
-layout (binding = 0, rgba16f) uniform readonly image2D inputImage;
+layout (binding = 0) uniform texture2D inputImage;
 layout(std430,/*set = 0,*/ binding = 1) buffer GPUhisto{
 	HistoStruct histo;
 };
@@ -40,7 +42,7 @@ void main()
 	ivec2 local = ivec2(gl_LocalInvocationID.x,gl_LocalInvocationID.y);
  	ivec2 texPos = ivec2(gl_GlobalInvocationID.x,gl_GlobalInvocationID.y);
 
-    ivec2 imgDim = imageSize(inputImage);
+    ivec2 imgDim = textureSize(inputImage,0);
 	
     int width = imgDim.x;//    int(gl_WorkGroupSize.x * gl_NumWorkGroups.x);
     int height = imgDim.y; //   int(gl_WorkGroupSize.y * gl_NumWorkGroups.y);
@@ -53,7 +55,7 @@ void main()
 
     if (texPos.x < width && texPos.y < height)
 	{
-        vec4 col = imageLoad(inputImage, texPos);
+        vec4 col = texelFetch(inputImage, texPos, 0);
 		
         uint binIdx = colorToBin(col.rgb, PC.minLogLum, PC.deltaLogLum);
        

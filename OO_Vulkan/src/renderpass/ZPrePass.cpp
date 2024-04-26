@@ -34,12 +34,13 @@ Technology is prohibited.
 struct ZPrePass : public GfxRenderpass
 {
 	//DECLARE_RENDERPASS_SINGLETON(ZPrePass)
+	ZPrePass(const char* _name) : GfxRenderpass{ _name } {}
 
 	void Init() override;
 	void Draw(const VkCommandBuffer cmdlist) override;
 	void Shutdown() override;
 
-	bool SetupDependencies() override;
+	bool SetupDependencies(RenderGraph& builder) override;
 	void CreatePSO() override;
 
 
@@ -66,13 +67,15 @@ void ZPrePass::CreatePSO()
 	CreatePipeline();
 }
 
-bool ZPrePass::SetupDependencies()
+bool ZPrePass::SetupDependencies(RenderGraph& builder)
 {
+	auto& vr = *VulkanRenderer::get();
 	// TODO: If shadows are disabled, return false.
 
 	// READ: Scene data SSBO
 	// READ: Instancing Data
 	// WRITE: Shadow Depth Map
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], rhi::ATTACHMENT);
 	// etc
 
 	return true;
