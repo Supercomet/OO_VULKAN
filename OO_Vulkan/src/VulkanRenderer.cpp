@@ -2213,10 +2213,8 @@ void VulkanRenderer::InitializeRenderBuffers()
 	g_particleDatas.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,"g_particleDatas");
 	
 
-	oGFX::CreateBuffer(m_device.m_allocator, sizeof(CB::AMDSPD_ATOMIC), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, SPDatomicBuffer);
-	VK_NAME(m_device.logicalDevice, "SPDatomicBuffer", SPDatomicBuffer.buffer);
-	oGFX::CreateBuffer(m_device.m_allocator, sizeof(CB::AMDSPD_UBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, SPDconstantBuffer);
-	VK_NAME(m_device.logicalDevice, "SPDconstantBuffer", SPDconstantBuffer.buffer);
+	oGFX::CreateBuffer("SPDatomicBuffer",m_device.m_allocator, sizeof(CB::AMDSPD_ATOMIC), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, SPDatomicBuffer);
+	oGFX::CreateBuffer("SPDconstantBuffer",m_device.m_allocator, sizeof(CB::AMDSPD_UBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, SPDconstantBuffer);
 	
 	const size_t STARTING_VERTEX_CNT = 5000;
 	size_t vertex_size = STARTING_VERTEX_CNT * sizeof(ImDrawVert);
@@ -2229,9 +2227,9 @@ void VulkanRenderer::InitializeRenderBuffers()
 
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
 	{
-		oGFX::CreateBuffer(m_device.m_allocator, vertex_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, imguiVertexBuffer[i]);
-		oGFX::CreateBuffer(m_device.m_allocator, index_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, imguiIndexBuffer[i]);
-		oGFX::CreateBuffer(m_device.m_allocator, imguiCBsize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, imguiConstantBuffer[i]);
+		oGFX::CreateBuffer("imgui_vert", m_device.m_allocator, vertex_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, imguiVertexBuffer[i]);
+		oGFX::CreateBuffer("imgui_indx", m_device.m_allocator, index_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, imguiIndexBuffer[i]);
+		oGFX::CreateBuffer("imgui_const", m_device.m_allocator, imguiCBsize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, imguiConstantBuffer[i]);
 	}
 
 
@@ -3006,6 +3004,11 @@ void VulkanRenderer::RenderFunc(bool shouldRunDebugDraw)
 		builder.AddPass(g_DebugDrawRenderpass);
 
 		builder.Setup();
+		if (m_dumpRenderpassInfo == true) {
+			m_dumpRenderpassInfo = false;
+			builder.DumpPassDependencies();
+		}
+
 		builder.Execute();
 		
 		auto updateHistogram = [this](void*) {
@@ -3184,7 +3187,7 @@ void VulkanRenderer::GenerateMipmaps(vkutils::Texture& texture)
 	generatedTexture.image.image = VK_NULL_HANDLE;
 	generatedTexture.image.allocation = VK_NULL_HANDLE;
 	generatedTexture.view = VK_NULL_HANDLE;
-	generatedTexture.name = texture.name + " xd";
+	generatedTexture.name = texture.name + "_mip";
 
 	generatedTexture.AllocateImageMemory(&m_device, generatedTexture.usage, (uint32_t)texMips);
 	generatedTexture.CreateImageView();
@@ -4688,8 +4691,8 @@ void VulkanRenderer::InitDebugBuffers()
 {
 	g_DebugDrawVertexBufferCPU.reserve(1024 * 1024);
 	g_DebugDrawIndexBufferCPU.reserve(1024 * 1024);
-	g_DebugDrawVertexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-	g_DebugDrawIndexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	g_DebugDrawVertexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,"g_DebugDrawVertexBufferGPU");
+	g_DebugDrawIndexBufferGPU.Init(&m_device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,"g_DebugDrawIndexBufferGPU");
 }
 
 bool VulkanRenderer::UploadDebugDrawBuffers()

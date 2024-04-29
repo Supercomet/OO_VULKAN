@@ -81,9 +81,12 @@ bool GBufferRenderPass::SetupDependencies(RenderGraph& builder)
 
 	for (size_t i = 0; i < GBufferAttachmentIndex::MAX_ATTACHMENTS; i++)
 	{
-		builder.Write(&vr.attachments.gbuffer[i], rhi::ATTACHMENT);
+		builder.Write(&vr.attachments.gbuffer[i], ATTACHMENT);
 	}
 
+	builder.Read(vr.indirectCommandsBuffer);
+	builder.Read(vr.instanceBuffer);
+	builder.Read(vr.gpuTransformBuffer);
 	// READ: Scene data SSBO
 	// READ: Instancing Data
 	// READ: Bindless stuff
@@ -114,7 +117,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		cmd.BindPSO(pso_ComputeCull, PSOLayoutDB::singleSSBOlayout, VK_PIPELINE_BIND_POINT_COMPUTE);
 
 		cmd.DescriptorSetBegin(0)
-			.BindBuffer(1, vr.indirectCommandsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rhi::UAV)
+			.BindBuffer(1, vr.indirectCommandsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, UAV)
 			.BindBuffer(2, vr.instanceBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 			.BindBuffer(3, vr.gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 		

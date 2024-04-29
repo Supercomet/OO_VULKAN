@@ -658,11 +658,6 @@ public:
 	oGFX::AllocatedBuffer SPDatomicBuffer;
 	oGFX::AllocatedBuffer SPDconstantBuffer;
 
-	oGFX::AllocatedBuffer FSR2constantBuffer[MAX_FRAME_DRAWS];
-	oGFX::AllocatedBuffer FSR2rcasBuffer[MAX_FRAME_DRAWS];
-	oGFX::AllocatedBuffer FSR2luminanceCB[MAX_FRAME_DRAWS];
-	oGFX::AllocatedBuffer FSR2autoGen[MAX_FRAME_DRAWS];
-
 	oGFX::AllocatedBuffer XeGTAOconstants[MAX_FRAME_DRAWS];
 
 	std::vector<oGFX::AllocatedBuffer> imguiVertexBuffer;
@@ -713,6 +708,7 @@ public:
 	bool m_prepared = false;
 	bool m_reloadShaders = false;
 	bool m_restartIMGUI = false;
+	bool m_dumpRenderpassInfo = false;
 
 	TaskManager g_taskManager;
 	std::mutex g_mut_taskMap;

@@ -88,6 +88,11 @@ VkPipeline pso_fsr2[FSR2::MAX_SIZE]{};
 vkutils::Texture2D FSR2atomicBuffer;
 vkutils::Texture2D FSR2AutoExposure;
 
+oGFX::AllocatedBuffer FSR2constantBuffer[VulkanRenderer::MAX_FRAME_DRAWS];
+oGFX::AllocatedBuffer FSR2rcasBuffer[VulkanRenderer::MAX_FRAME_DRAWS];
+oGFX::AllocatedBuffer FSR2luminanceCB[VulkanRenderer::MAX_FRAME_DRAWS];
+oGFX::AllocatedBuffer FSR2autoGen[VulkanRenderer::MAX_FRAME_DRAWS];
+
 void FSR2Pass::Init()
 {
 	auto& vr = *VulkanRenderer::get();
@@ -95,28 +100,23 @@ void FSR2Pass::Init()
 
 	constexpr size_t MAX_FRAMES = 2;
 
-
 	for (size_t i = 0; i < MAX_FRAMES; i++)
 	{
-		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(FSR2_CB_DATA)
+		oGFX::CreateBuffer("FSR2 CB",vr.m_device.m_allocator, sizeof(FSR2_CB_DATA)
 			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
-			, vr.FSR2constantBuffer[i]);
-		VK_NAME(vr.m_device.logicalDevice, "FSR2 CB", vr.FSR2constantBuffer[i].buffer);
+			, FSR2constantBuffer[i]);
 
-		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(Fsr2SpdConstants)
+		oGFX::CreateBuffer("FSR2 lumCB", vr.m_device.m_allocator, sizeof(Fsr2SpdConstants)
 			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
-			, vr.FSR2luminanceCB[i]);
-		VK_NAME(vr.m_device.logicalDevice, "FSR2 lumCB", vr.FSR2luminanceCB[i].buffer);
+			, FSR2luminanceCB[i]);
 
-		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(Fsr2RcasConstants)
+		oGFX::CreateBuffer("FSR2 RCAS_CB",vr.m_device.m_allocator, sizeof(Fsr2RcasConstants)
 			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
-			, vr.FSR2rcasBuffer[i]);
-		VK_NAME(vr.m_device.logicalDevice, "FSR2 RCAS_CB", vr.FSR2rcasBuffer[i].buffer);
+			, FSR2rcasBuffer[i]);
 
-		oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(FSR2AutogenConstants)
+		oGFX::CreateBuffer("FSR2 autoGen",vr.m_device.m_allocator, sizeof(FSR2AutogenConstants)
 			, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
-			, vr.FSR2autoGen[i]);
-		VK_NAME(vr.m_device.logicalDevice, "FSR2 autoGen", vr.FSR2autoGen[i].buffer);
+			, FSR2autoGen[i]);
 
 	}
 
@@ -250,7 +250,12 @@ void FSR2Pass::CreatePSO()
 bool FSR2Pass::SetupDependencies(RenderGraph& builder)
 {
 	auto& vr = *VulkanRenderer::get();
+	int currFrame = vr.getFrame();
 	
+	// probably local dont need
+	builder.Read(FSR2autoGen[currFrame]);
+	builder.Read(FSR2constantBuffer[currFrame]);
+	builder.Read(FSR2luminanceCB[currFrame]);
 
 	return true;
 }
@@ -350,7 +355,7 @@ void SetupConstantBuffers()
 	 constantBuffer.lumaMipDimensions[0] = mipDims.x;
 	 constantBuffer.lumaMipDimensions[1] = mipDims.y;
 
-	 memcpy(vr.FSR2constantBuffer[currFrame].allocInfo.pMappedData, &constantBuffer, sizeof(FSR2_CB_DATA));
+	 memcpy(FSR2constantBuffer[currFrame].allocInfo.pMappedData, &constantBuffer, sizeof(FSR2_CB_DATA));
 
 
 	 // compute the constants.
@@ -359,7 +364,7 @@ void SetupConstantBuffers()
 	 const float sharpenessRemapped = (-2.0f * sharpness) + 2.0f;
 	 FsrRcasCon(rcasCB.rcasConfig, sharpenessRemapped);
 
-	 memcpy(vr.FSR2rcasBuffer[currFrame].allocInfo.pMappedData, &rcasCB, sizeof(Fsr2RcasConstants));
+	 memcpy(FSR2rcasBuffer[currFrame].allocInfo.pMappedData, &rcasCB, sizeof(Fsr2RcasConstants));
 
 	 // autogen
 	 autogenCB = {};
@@ -370,7 +375,7 @@ void SetupConstantBuffers()
 		 FFX_FSR2_AUTOREACTIVEFLAGS_APPLY_THRESHOLD |
 		 FFX_FSR2_AUTOREACTIVEFLAGS_USE_COMPONENTS_MAX;
 
-	 memcpy(vr.FSR2autoGen[currFrame].allocInfo.pMappedData, &autogenCB, sizeof(FSR2AutogenConstants));
+	 memcpy(FSR2autoGen[currFrame].allocInfo.pMappedData, &autogenCB, sizeof(FSR2AutogenConstants));
 }
 
 void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
@@ -415,7 +420,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 	luminancePyramidConstants.renderSize[1] = vr.renderHeight;
 	
 	// copy over
-	memcpy(vr.FSR2luminanceCB[currFrame].allocInfo.pMappedData, &luminancePyramidConstants, sizeof(Fsr2SpdConstants));
+	memcpy(FSR2luminanceCB[currFrame].allocInfo.pMappedData, &luminancePyramidConstants, sizeof(Fsr2SpdConstants));
 
 	//  FSR2_BIND_SRV_INPUT_COLOR                     0
 	// 
@@ -473,8 +478,8 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindImage(2002, &vr.attachments.fsr_reactive_mask, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 
 
-		.BindBuffer(3000, vr.FSR2autoGen[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-		.BindBuffer(3001, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		.BindBuffer(3000, FSR2autoGen[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+		.BindBuffer(3001, FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	cmd.Dispatch(dispatchSrc[0], dispatchSrc[1]);
 
 
@@ -491,8 +496,8 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindImage(2003, &vr.attachments.fsr_exposure_mips, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,mipViews[5])
 		.BindImage(2004, &FSR2AutoExposure, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 
-		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-		.BindBuffer(3001, vr.FSR2luminanceCB[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		.BindBuffer(3000, FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+		.BindBuffer(3001, FSR2luminanceCB[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
 	cmd.Dispatch(spdDispatchThreads[0], spdDispatchThreads[1]);
 
@@ -516,7 +521,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindImage(2007, &vr.attachments.fsr_dilated_depth, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) // dont need clear..
 		.BindImage(2011, &vr.attachments.fsr_lock_input_luma, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 
-		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		.BindBuffer(3000, FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	cmd.Dispatch(dispatchSrc.x, dispatchSrc.y);
 
 	// Depth clip
@@ -540,7 +545,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindImage(2012, &vr.attachments.fsr_dilated_reactive_masks, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 		.BindImage(2013, &vr.attachments.fsr_prepared_input_color, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 
-		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		.BindBuffer(3000, FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	cmd.Dispatch(dispatchSrc.x, dispatchSrc.y);
 
 	// Generate Locks
@@ -554,7 +559,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindImage(2001, &vr.attachments.fsr_new_locks, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 		.BindImage(2002, &vr.attachments.fsr_reconstructed_prev_depth, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 
-		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		.BindBuffer(3000, FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	cmd.Dispatch(dispatchSrc.x, dispatchSrc.y);
 
 	// Reproject & accumulate
@@ -580,7 +585,7 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 		.BindImage(2016, &vr.attachments.fsr_new_locks, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 		.BindImage(2017, &vr.attachments.fsr_luma_history[currFrame], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 
-		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		.BindBuffer(3000, FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	cmd.Dispatch(dispatchDst.x, dispatchDst.y);
 
 	// RCAS
@@ -594,8 +599,8 @@ void FSR2Pass::Draw(const VkCommandBuffer cmdlist)
 
 		.BindImage(2002, &vr.attachments.fullres_HDR, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
 
-		.BindBuffer(3000, vr.FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-		.BindBuffer(3001, vr.FSR2rcasBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+		.BindBuffer(3000, FSR2constantBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+		.BindBuffer(3001, FSR2rcasBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	
 	const int32_t threadGroupWorkRegionDimRCAS = 16;
 	glm::uvec2 rcasDispatchDst = {
@@ -653,10 +658,10 @@ void FSR2Pass::Shutdown()
 	constexpr size_t MAX_FRAMES = 2;
 	for (size_t i = 0; i < MAX_FRAMES; i++)
 	{
-		vmaDestroyBuffer(vr.m_device.m_allocator, vr.FSR2constantBuffer[i].buffer, vr.FSR2constantBuffer[i].alloc);
-		vmaDestroyBuffer(vr.m_device.m_allocator, vr.FSR2luminanceCB[i].buffer, vr.FSR2luminanceCB[i].alloc);
-		vmaDestroyBuffer(vr.m_device.m_allocator, vr.FSR2rcasBuffer[i].buffer, vr.FSR2rcasBuffer[i].alloc);
-		vmaDestroyBuffer(vr.m_device.m_allocator, vr.FSR2autoGen[i].buffer, vr.FSR2autoGen[i].alloc);
+		vmaDestroyBuffer(vr.m_device.m_allocator, FSR2constantBuffer[i].buffer, FSR2constantBuffer[i].alloc);
+		vmaDestroyBuffer(vr.m_device.m_allocator, FSR2luminanceCB[i].buffer, FSR2luminanceCB[i].alloc);
+		vmaDestroyBuffer(vr.m_device.m_allocator, FSR2rcasBuffer[i].buffer, FSR2rcasBuffer[i].alloc);
+		vmaDestroyBuffer(vr.m_device.m_allocator, FSR2autoGen[i].buffer, FSR2autoGen[i].alloc);
 	}
 
 	for (size_t i = 0; i < FSR2::MAX_SIZE; i++)

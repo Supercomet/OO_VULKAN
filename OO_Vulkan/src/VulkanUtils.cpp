@@ -473,6 +473,13 @@ namespace oGFX
 		return fileBuffer;
 	}
 
+	void CreateBuffer(const std::string& name, VmaAllocator allocator, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage, VmaAllocationCreateFlags allocationFlags, oGFX::AllocatedBuffer& vmabuffer)
+	{
+		CreateBuffer(allocator, bufferSize, bufferUsage, allocationFlags, vmabuffer);
+		vmabuffer.name = name;
+		VK_NAME(VulkanRenderer::get()->m_device.logicalDevice, vmabuffer.name.c_str() , vmabuffer.buffer);
+	}
+
 	void CreateBuffer(VmaAllocator allocator, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage,
 		VmaAllocationCreateFlags allocationFlags, oGFX::AllocatedBuffer& vmabuffer)
 	{

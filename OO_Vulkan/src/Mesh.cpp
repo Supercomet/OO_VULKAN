@@ -80,7 +80,7 @@ void Mesh::CreateVertexBuffer(VkQueue transferQueue, VkCommandPool transferComma
 	oGFX::AllocatedBuffer stagingBuffer{};
 	
 	//create buffer and allocate memory to it
-	CreateBuffer(vmaAllocator, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	CreateBuffer("stagingBuffer", vmaAllocator, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, stagingBuffer);
 
 	//MAP MEMORY TO VERTEX BUFFER
@@ -92,7 +92,7 @@ void Mesh::CreateVertexBuffer(VkQueue transferQueue, VkCommandPool transferComma
 																		//create buffer with TRANSFER_DST_BIT to mark as recipient of transfer data (also VERTEX_BUFFER)
 																		// buffer memory is to be DEVICE_LOCAL_BIT meaning memory is on the GPU and only accessible by the GPU and not the CPU (host)
 	VmaAllocationCreateFlags noflags = 0;
-	CreateBuffer(vmaAllocator, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	CreateBuffer("mesh_VB", vmaAllocator, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 		noflags, vertexBuffer); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
 
 																				  //copy staging buffer to vertex buffer on GPU
@@ -122,7 +122,7 @@ void Mesh::CreateIndexBuffer(VkQueue transferQueue, VkCommandPool transferComman
 
 	// Create buffer for INDEX data on GPU access only area
 	VmaAllocationCreateFlags noflags = 0;
-	CreateBuffer(vmaAllocator, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+	CreateBuffer("mesh_IB", vmaAllocator, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 		noflags, indexBuffer);
 
 	// Copy from staging buffer to GPU access buffer

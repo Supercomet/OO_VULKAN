@@ -75,7 +75,13 @@ bool ShadowPass::SetupDependencies(RenderGraph& builder)
 	auto& vr = *VulkanRenderer::get();
 	// TODO: If shadows are disabled, return false.
 
-	builder.Write(&vr.attachments.shadow_depth, rhi::ATTACHMENT);
+	builder.Write(&vr.attachments.shadow_depth, ATTACHMENT);
+
+	builder.Read(vr.shadowCasterInstanceBuffer);
+	builder.Read(vr.gpuShadowCasterTransformBuffer);
+	builder.Read(vr.gpuBoneMatrixBuffer);
+	builder.Read(vr.casterObjectInformationBuffer);
+	builder.Read(vr.gpuSkinningWeightsBuffer);
 	// READ: Scene data SSBO
 	// READ: Instancing Data
 	// WRITE: Shadow Depth Map

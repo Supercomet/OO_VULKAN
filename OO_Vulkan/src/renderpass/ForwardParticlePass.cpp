@@ -72,9 +72,9 @@ bool ForwardParticlePass::SetupDependencies(RenderGraph& builder)
 	auto& vr = *VulkanRenderer::get();
 	// TODO: If gbuffer rendering is disabled, return false.
 
-	builder.Write(vr.renderTargets[vr.renderTargetInUseID].texture, rhi::ATTACHMENT);
-	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::ENTITY_ID], rhi::ATTACHMENT);
-	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], rhi::ATTACHMENT);
+	builder.Write(vr.renderTargets[vr.renderTargetInUseID].texture, ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::ENTITY_ID], ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], ATTACHMENT);
 
 	// READ: Scene data SSBO
 	// READ: Instancing Data
@@ -130,7 +130,7 @@ void ForwardParticlePass::Draw(const VkCommandBuffer cmdlist)
 																												vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
 	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
 		std::array<VkDescriptorSet, 3>{
-		vr.descriptorSet_gpuscene,
+			vr.descriptorSet_gpuscene,
 			vr.descriptorSets_uniform[currFrame],
 			vr.descriptorSet_bindless,
 	},

@@ -72,11 +72,13 @@ bool ForwardUIPass::SetupDependencies(RenderGraph& builder)
 {
 	auto& vr = *VulkanRenderer::get();
 	// TODO: If gbuffer rendering is disabled, return false.
-	builder.Write(vr.attachments.lighting_target, rhi::ATTACHMENT);
-	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::VELOCITY], rhi::ATTACHMENT);
-	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::ENTITY_ID], rhi::ATTACHMENT);
-	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], rhi::ATTACHMENT);
+	builder.Write(vr.attachments.lighting_target, ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::VELOCITY], ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::ENTITY_ID], ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], ATTACHMENT);
 
+	builder.Read(vr.g_UIVertexBufferGPU);
+	builder.Read(vr.g_UIIndexBufferGPU);
 	// READ: Scene data SSBO
 	// READ: Instancing Data
 	// READ: Bindless stuff
@@ -274,7 +276,7 @@ void ForwardUIPass::CreatePipeline()
 	blendAttachmentStates[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA; // save background albedo as well
 	blendAttachmentStates[0].alphaBlendOp = VK_BLEND_OP_ADD;
 
-	colorBlendState.attachmentCount = blendAttachmentStates.size();
+	colorBlendState.attachmentCount = (uint32_t)blendAttachmentStates.size();
 	colorBlendState.pAttachments = blendAttachmentStates.data();
 
 	std::array<VkFormat, 3> formats{
@@ -285,7 +287,7 @@ void ForwardUIPass::CreatePipeline()
 	VkPipelineRenderingCreateInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 	renderingInfo.viewMask = {};
-	renderingInfo.colorAttachmentCount = formats.size();
+	renderingInfo.colorAttachmentCount = (uint32_t)formats.size();
 	renderingInfo.pColorAttachmentFormats = formats.data();
 	renderingInfo.depthAttachmentFormat = vr.G_DEPTH_FORMAT;
 	renderingInfo.stencilAttachmentFormat = vr.G_DEPTH_FORMAT;

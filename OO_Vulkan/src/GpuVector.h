@@ -27,8 +27,8 @@ class GpuVector {
 public:
 	GpuVector();
 	GpuVector(VulkanDevice* device);
-	void Init(VkBufferUsageFlags usage, std::string name = {});
-	void Init(VulkanDevice* device, VkBufferUsageFlags usage, std::string name = {});
+	void Init(VkBufferUsageFlags usage, std::string name);
+	void Init(VulkanDevice* device, VkBufferUsageFlags usage, std::string name);
 
 	void blockingWriteTo(size_t size, const void* data, VkQueue queue, VkCommandPool pool, size_t offset = 0);
 	void writeToCmd(size_t writeSize, const void* data, VkCommandBuffer command, size_t offset = 0);
@@ -76,7 +76,7 @@ class VulkanRenderer;
 template<typename T>
 GpuVector<T>::GpuVector() : 
 	m_device{nullptr},
-	m_buffer{VK_NULL_HANDLE}
+	m_buffer{}
 {
 
 }
@@ -84,7 +84,7 @@ GpuVector<T>::GpuVector() :
 template <typename T>
 GpuVector<T>::GpuVector(VulkanDevice* device) :
 	m_device{ device },
-	m_buffer{VK_NULL_HANDLE}
+	m_buffer{}
 {
 
 }
@@ -93,12 +93,11 @@ template <typename T>
 void GpuVector<T>::Init(VkBufferUsageFlags usage, std::string name)
 {
 	assert(m_device != nullptr); // invalid device ptr. or didnt provide
-	if (name.empty() == false) m_name = name;
+	if (name.empty() == false) m_name = std::move(name);
 	m_usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	VmaAllocatorCreateFlags noflags = 0;
-	oGFX::CreateBuffer(m_device->m_allocator, 1, m_usage,
+	oGFX::CreateBuffer(m_name, m_device->m_allocator, 1, m_usage,
 		noflags, m_buffer);
-	VK_NAME(m_device->logicalDevice, m_name.c_str(), m_buffer.buffer);
 }
 
 template<typename T>
@@ -133,7 +132,7 @@ void GpuVector<T>::blockingWriteTo(size_t writeSize,const void* data, VkQueue qu
 	oGFX::AllocatedBuffer stagingBuffer{};
 	
 	//create buffer and allocate memory to it
-	CreateBuffer(m_device->m_allocator, bufferBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	CreateBuffer("stagingBuffer", m_device->m_allocator, bufferBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, stagingBuffer);
 
 	//MAP MEMORY TO VERTEX BUFFER
@@ -191,7 +190,7 @@ void GpuVector<T>::writeToCmd(size_t writeSize, const void* data,VkCommandBuffer
 	oGFX::AllocatedBuffer stagingBuffer{};
 
 	//create buffer and allocate memory to it
-	CreateBuffer(m_device->m_allocator, bufferBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	CreateBuffer("stagingBuffer", m_device->m_allocator, bufferBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, stagingBuffer);
 
 	//MAP MEMORY TO VERTEX BUFFER
@@ -283,7 +282,7 @@ inline void GpuVector<T>::flushToGPU(VkCommandBuffer command)
 	oGFX::AllocatedBuffer stagingBuffer;
 
 	//create buffer and allocate memory to it
-	oGFX::CreateBuffer(m_device->m_allocator, totalDataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	oGFX::CreateBuffer("stagingBuffer", m_device->m_allocator, totalDataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, stagingBuffer);
 
 	//MAP MEMORY TO VERTEX BUFFER
@@ -337,7 +336,7 @@ void GpuVector<T>::reserve(VkCommandBuffer cmd, size_t size)
 	oGFX::AllocatedBuffer tempBuffer;
 	
 	VmaPoolCreateFlags noflags = 0;
-	CreateBuffer(m_device->m_allocator, bufferSize, m_usage,
+	CreateBuffer(m_name, m_device->m_allocator, bufferSize, m_usage,
 		noflags , tempBuffer); // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT make this buffer local to the GPU
 																		//copy staging buffer to vertex buffer on GPU
 
@@ -354,7 +353,6 @@ void GpuVector<T>::reserve(VkCommandBuffer cmd, size_t size)
 
 
 	m_buffer = tempBuffer;
-	VK_NAME(m_device->logicalDevice, m_name.c_str(), m_buffer.buffer);
 
 	// accumulate bytes
 	accumulatedBytes -= m_capacity;

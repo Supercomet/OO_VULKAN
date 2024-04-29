@@ -17,6 +17,7 @@ Technology is prohibited.
 #include "GfxRenderpass.h"
 #include "VulkanRenderer.h"
 
+OO_OPTIMIZE_OFF
 RenderGraph::RenderGraph()
 {
 }
@@ -33,40 +34,12 @@ void RenderGraph::Setup()
 {
 	m_trackedTextures.resize(passes.size());
 	currentPass = 0;
-	printf("=============\n");
 	for (PassInfo& passInfo : passes)
 	{
 		GfxRenderpass* pass = passInfo.pass;
-		printf("Setting up pass %s\n", pass->name.c_str());
 		pass->SetupDependencies(*this);
-		printf("\tPass Requested:\n");
-		for (auto& kvp : passInfo.textureReg)
-		{
-			const char* state = nullptr;
-			switch (kvp.second.expectedLayout)
-			{	
-			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-				state = "SRV";
-				break;
-			case VK_IMAGE_LAYOUT_GENERAL:
-				state = "UAV";
-				break;
-			case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-				state = "RT";
-				break;
-			case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-				state = "Depth";
-				break;
-			default:
-				state = "UNDEF";
-				break;
-			} 
-			printf("\t  Tex[%s] requested : %s\n", kvp.first->name.c_str(), state);			
-		}
 		currentPass++;
 	}
-	printf("=============\n");
-	printf("\n");
 }
 
 void RenderGraph::Compile()
@@ -93,13 +66,13 @@ void RenderGraph::Execute()
 	}
 }
 
-void RenderGraph::Write(vkutils::Texture* t, rhi::ResourceUsage usage)
+void RenderGraph::Write(vkutils::Texture* t, ResourceUsage usage)
 {
 	OO_ASSERT(t);
-	OO_ASSERT(usage == rhi::UAV || usage == rhi::ATTACHMENT); // should there be anything else?
+	OO_ASSERT(usage == UAV || usage == ATTACHMENT); // should there be anything else?
 	//ensure tracking image globally ??
 	VkImageLayout imgFormat = VK_IMAGE_LAYOUT_UNDEFINED;
-	if (usage == rhi::ATTACHMENT) 
+	if (usage == ATTACHMENT) 
 	{
 		imgFormat = t->format == VulkanRenderer::G_DEPTH_FORMAT ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	}
@@ -109,22 +82,108 @@ void RenderGraph::Write(vkutils::Texture* t, rhi::ResourceUsage usage)
 	passes[currentPass].textureReg[t].expectedLayout = imgFormat;
 }
 
-void RenderGraph::Write(vkutils::Texture& t, rhi::ResourceUsage u)
+void RenderGraph::Write(vkutils::Texture& t, ResourceUsage u)
 {
 	Write(&t, u);
 }
 
-void RenderGraph::Read(vkutils::Texture* t, rhi::ResourceUsage usage)
+void RenderGraph::Read(vkutils::Texture* t, ResourceUsage usage)
 {
 	OO_ASSERT(t);
-	OO_ASSERT(usage == rhi::SRV); // should there be anything else?
+	OO_ASSERT(usage == SRV); // should there be anything else?
 	//ensure tracking image globally ??
 	passes[currentPass].textureReg[t].expectedLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
-void RenderGraph::Read(vkutils::Texture& t, rhi::ResourceUsage u)
+void RenderGraph::Read(vkutils::Texture& t, ResourceUsage u)
 {
 	Read(&t, u);
+}
+
+void RenderGraph::Read(oGFX::AllocatedBuffer* buffer)
+{
+	OO_ASSERT(buffer);
+	OO_ASSERT(buffer->buffer); // invalud buffer
+
+	//ensure tracking buffer globally ??
+	passes[currentPass].bufferReg[buffer].expectedAccess = ResourceUsage::SRV;
+}
+
+void RenderGraph::Read(oGFX::AllocatedBuffer& buffer)
+{
+	Read(&buffer);
+}
+
+void RenderGraph::Write(oGFX::AllocatedBuffer* buffer, ResourceUsage usage)
+{
+	OO_ASSERT(buffer);
+	OO_ASSERT(buffer->buffer); // invalud buffer
+	OO_ASSERT(usage == ResourceUsage::UAV); // should there be another??
+
+	//ensure tracking buffer globally ??
+	passes[currentPass].bufferReg[buffer].expectedAccess = ResourceUsage::UAV;
+}
+
+void RenderGraph::Write(oGFX::AllocatedBuffer& buffer, ResourceUsage)
+{
+}
+
+void RenderGraph::DumpPassDependencies()
+{
+	printf("=============\n");
+	for (PassInfo& passInfo : passes)
+	{
+		GfxRenderpass* pass = passInfo.pass;
+		printf("Setting up pass %s\n", pass->name.c_str());
+		printf("\tPass Requested:\n");
+		for (auto& kvp : passInfo.textureReg)
+		{
+			const char* state = nullptr;
+			switch (kvp.second.expectedLayout)
+			{
+			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+				state = "SRV";
+				break;
+			case VK_IMAGE_LAYOUT_GENERAL:
+				state = "UAV";
+				break;
+			case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+				state = "RT";
+				break;
+			case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+				state = "RT Depth";
+				break;
+			default:
+				state = "**UNDEF**";
+				break;
+			}
+			printf("\t  Tex[%s] requested : %s\n", kvp.first->name.c_str(), state);
+		}
+		for (auto& kvp : passInfo.bufferReg)
+		{
+			const char* state = nullptr;
+			
+			switch (kvp.second.expectedAccess)
+			{
+			case ResourceUsage::SRV:
+				state = "SRV";
+				break;
+			case ResourceUsage::UAV:
+				state = "UAV";
+				break;
+			case ResourceUsage::ATTACHMENT:
+				OO_ASSERT(state); // buffer shouldnt be attachment
+				state = "RT";
+				break;
+			default:
+				state = "**UNDEF**";
+				break;
+			}
+			printf("\t  Buf[%s] requested : %s\n", kvp.first->name.c_str(), state);
+		}
+	}
+	printf("=============\n");
+	printf("\n");
 }
 
 RGTextureRef RenderGraph::RegisterExternalTexture(vkutils::Texture& texture)

@@ -1582,6 +1582,10 @@ void TestApplication::ToolUI_Settings()
         {
             gs_RenderEngine->m_reloadShaders = true;
         }
+        if (ImGui::Button("Dump Renderpass", { 0,40 }))
+        {
+            gs_RenderEngine->m_dumpRenderpassInfo = true;
+        }
 		ImGui::DragFloat4("vector4_values0", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values0), 0.01f);      
 		ImGui::DragFloat4("vector4_values1", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values1), 0.01f);        
 		ImGui::DragFloat4("vector4_values2", glm::value_ptr(gs_RenderEngine->m_ShaderDebugValues.vector4_values2), 0.01f);

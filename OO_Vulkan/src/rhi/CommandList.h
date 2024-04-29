@@ -18,30 +18,11 @@ Technology is prohibited.
 #include <vulkan/vulkan.h>
 #include "VulkanTexture.h"
 #include "DescriptorBuilder.h"
+#include "RGResource.h"
 
 namespace rhi
 {
 	class CommandList;
-
-	struct ImageStateTracking {
-		VkImageLayout referenceLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
-		VkImageLayout currentLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
-		VkImageLayout expectedLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
-	};
-
-	enum ResourceUsage {
-		UNKNOWN,
-		SRV,
-		UAV,
-		ATTACHMENT
-	};
-
-	struct BufferStateTracking {
-		ResourceUsage referenceAccess{ SRV };
-		ResourceUsage currentAccess{ SRV };
-		ResourceUsage expectedAccess{ UNKNOWN };
-		VkPipelineBindPoint previousStage{ VK_PIPELINE_BIND_POINT_GRAPHICS };
-	};
 
 	class DescriptorSetInfo {
 	public:

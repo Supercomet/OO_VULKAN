@@ -209,7 +209,7 @@ bool XeGTAORenderPass::SetupDependencies(RenderGraph& builder)
 
 	builder.Read(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH]);
 	builder.Read(vr.attachments.gbuffer[GBufferAttachmentIndex::NORMAL]);
-	builder.Write(vr.attachments.SSAO_finalTarget, rhi::UAV);
+	builder.Write(vr.attachments.SSAO_finalTarget, UAV);
 
 	return true;
 }

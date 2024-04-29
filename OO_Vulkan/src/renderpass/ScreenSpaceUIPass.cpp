@@ -73,7 +73,7 @@ bool ScreenSpaceUIPass::SetupDependencies(RenderGraph& builder)
 	auto& vr = *VulkanRenderer::get();
 	// TODO: If gbuffer rendering is disabled, return false.
 
-	builder.Write(vr.renderTargets[vr.renderTargetInUseID].texture, rhi::ATTACHMENT);
+	builder.Write(vr.renderTargets[vr.renderTargetInUseID].texture, ATTACHMENT);
 
 	// READ: Scene data SSBO
 	// READ: Instancing Data
@@ -114,7 +114,7 @@ void ScreenSpaceUIPass::Draw(const VkCommandBuffer cmdlist)
 
 	const float vpWidth = (float)vr.renderWidth;
 	const float vpHeight = (float)vr.renderHeight;
-	VkViewport viewport = { 0.0f, target.height, target.width, -(float)target.height, 0.0f, 1.0f };
+	VkViewport viewport = { 0.0f, (float)target.height, (float)target.width, -(float)target.height, 0.0f, 1.0f };
 	VkRect2D scissor = { {0, 0}, {uint32_t(target.width), uint32_t(target.height) } };
 	cmd.SetViewport(viewport);
 	cmd.SetScissor(scissor);

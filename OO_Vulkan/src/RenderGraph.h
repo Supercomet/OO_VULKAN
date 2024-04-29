@@ -15,11 +15,13 @@ Technology is prohibited.
 
 #include <string>
 #include <vector>
+#include "GpuVector.h"
 #include "VulkanDevice.h"
 #include "VulkanTexture.h"
 #include "RGResource.h"
 #include "rhi/CommandList.h"
 
+OO_OPTIMIZE_OFF
 class GfxRenderpass;
 
 	class RenderGraph
@@ -35,20 +37,34 @@ class GfxRenderpass;
 		void Compile();
 		void Execute();
 
-		void Write(vkutils::Texture*, rhi::ResourceUsage);
-		void Write(vkutils::Texture&, rhi::ResourceUsage);
-		void Read(vkutils::Texture*, rhi::ResourceUsage = rhi::ResourceUsage::SRV);
-		void Read(vkutils::Texture&, rhi::ResourceUsage = rhi::ResourceUsage::SRV);
+		void Write(vkutils::Texture*, ResourceUsage);
+		void Write(vkutils::Texture&, ResourceUsage);
+		void Read(vkutils::Texture*, ResourceUsage = SRV);
+		void Read(vkutils::Texture&, ResourceUsage = SRV);
+
+		template<typename T> void Write(GpuVector<T>* buffer, ResourceUsage= UAV);
+		template<typename T> void Write(GpuVector<T>& buffer, ResourceUsage= UAV);
+		template<typename T> void Read(GpuVector<T>* buffer);
+		template<typename T> void Read(GpuVector<T>& buffer);
+
+		void Write(oGFX::AllocatedBuffer* buffer, ResourceUsage= UAV);
+		void Write(oGFX::AllocatedBuffer& buffer, ResourceUsage= UAV);
+		void Read(oGFX::AllocatedBuffer* buffer);
+		void Read(oGFX::AllocatedBuffer& buffer);
+
+		void DumpPassDependencies();
 
 		RGTextureRef RegisterExternalTexture(vkutils::Texture& texture);
 	private:
-		using TextureRegistry = std::unordered_map<vkutils::Texture*, rhi::ImageStateTracking>;
+		using TextureRegistry = std::unordered_map<vkutils::Texture*, ImageStateTracking>;
+		using BufferRegistry = std::unordered_map<oGFX::AllocatedBuffer*, BufferStateTracking>;
 
 		struct PassInfo {
 			std::string name;
 			GfxRenderpass* pass;
 
 			TextureRegistry textureReg;
+			BufferRegistry bufferReg;
 		};
 
 		std::vector<PassInfo> passes;
@@ -58,6 +74,29 @@ class GfxRenderpass;
 
 		std::vector<TextureRegistry>m_trackedTextures;
 
-		//std::unordered_map<VkBuffer, rhi::BufferStateTracking> m_trackedBuffers;
+		//std::unordered_map<VkBuffer, BufferStateTracking> m_trackedBuffers;
 	};
 
+	template<typename T>
+	inline void RenderGraph::Write(GpuVector<T>* gpuvector, ResourceUsage usage)
+	{
+		Write(gpuvector->m_buffer, usage);
+	}
+
+	template<typename T>
+	inline void RenderGraph::Write(GpuVector<T>& gpuvector, ResourceUsage usage)
+	{
+		Write(&gpuvector, usage);
+	}
+
+	template<typename T>
+	inline void RenderGraph::Read(GpuVector<T>* gpuvector)
+	{
+		Read(gpuvector->m_buffer);
+	}
+
+	template<typename T>
+	inline void RenderGraph::Read(GpuVector<T>& gpuvector)
+	{
+		Read(&gpuvector);
+	}

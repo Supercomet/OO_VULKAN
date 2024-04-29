@@ -75,7 +75,7 @@ bool ZPrePass::SetupDependencies(RenderGraph& builder)
 	// READ: Scene data SSBO
 	// READ: Instancing Data
 	// WRITE: Shadow Depth Map
-	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], rhi::ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], ATTACHMENT);
 	// etc
 
 	return true;

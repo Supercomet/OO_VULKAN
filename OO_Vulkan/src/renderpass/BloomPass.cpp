@@ -134,8 +134,8 @@ bool BloomPass::SetupDependencies(RenderGraph& builder)
 	auto& vr = *VulkanRenderer::get();
 	// TODO: If shadows are disabled, return false.
 
-	builder.Write(vr.renderTargets[0].texture, rhi::UAV);
-	builder.Write(vr.attachments.SD_target[0], rhi::UAV);
+	builder.Write(vr.renderTargets[0].texture, UAV);
+	builder.Write(vr.attachments.SD_target[0], UAV);
 
 	vkutils::Texture* mainImage = nullptr;
 	if (vr.m_upscaleType == UPSCALING_TYPE::NONE) {
@@ -145,6 +145,8 @@ bool BloomPass::SetupDependencies(RenderGraph& builder)
 		mainImage = &vr.attachments.fullres_HDR;
 	}
 	builder.Read(mainImage);
+
+	builder.Read(vr.LuminanceBuffer);
 
 	// READ: Lighting buffer (all the visible lights intersecting the camera frustum)
 	// READ: GBuffer Albedo
@@ -200,15 +202,11 @@ void BloomPass::Draw(const VkCommandBuffer cmdlist)
 		vkutils::Texture2D * outputBuffer = (&vr.renderTargets[0].texture);
 		vkutils::Texture2D * inputBuffer = previousBuffer;
 
-		VkDescriptorBufferInfo dbi{};
-		dbi.buffer = vr.LuminanceBuffer.buffer;
-		dbi.range = VK_WHOLE_SIZE;
-
 		cmd.DescriptorSetBegin(0)
 			.BindSampler(0, GfxSamplerManager::GetSampler_BlackBorder())
 			.BindImage(1, inputBuffer, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
 			.BindImage(2, outputBuffer, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-			.BindBuffer(3, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+			.BindBuffer(3, vr.LuminanceBuffer.getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
 		auto& colSettings = vr.currWorld->colourSettings;
 		ColourCorrectPC pc;

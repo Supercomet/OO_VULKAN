@@ -222,7 +222,7 @@ void SSAORenderPass::InitRandomFactors()
 		sample *= scale;
 		ssaoKernel.push_back(sample);  
 	}
-	randomVectorsSSBO.Init(&vr.m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	randomVectorsSSBO.Init(&vr.m_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "SSBO Random Vectors");
 	VkCommandBuffer cmd = vr.GetCommandBuffer();
 	randomVectorsSSBO.reserve(cmd, ssaoKernel.size());
 	// todo elegant way to do this

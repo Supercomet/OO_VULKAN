@@ -40,3 +40,25 @@ class RGTexture : RGResource
 
 using RGTextureRef = RGTexture*;
 
+
+enum ResourceUsage {
+	UNKNOWN,
+	SRV,
+	UAV,
+	ATTACHMENT
+};
+
+struct ImageStateTracking {
+	VkImageLayout referenceLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
+	VkImageLayout currentLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
+	VkImageLayout expectedLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
+};
+
+struct BufferStateTracking {
+	ResourceUsage referenceAccess{ SRV };
+	ResourceUsage currentAccess{ SRV };
+	ResourceUsage expectedAccess{ UNKNOWN };
+	VkPipelineBindPoint previousStage{ VK_PIPELINE_BIND_POINT_GRAPHICS };
+};
+
+

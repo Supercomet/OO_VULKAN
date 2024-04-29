@@ -191,6 +191,7 @@ namespace oGFX
 
 	struct AllocatedBuffer
 	{
+		std::string name{ "UNNAMED" };
 		VkBuffer buffer;
 		VmaAllocation alloc;
 		VmaAllocationInfo allocInfo;
@@ -231,6 +232,9 @@ namespace oGFX
 	VkShaderModule CreateShaderModule(VulkanDevice& device, const std::vector<char>& code);
 
 	std::vector<char> readFile(const std::string& filename);
+
+	void CreateBuffer(const std::string& name, VmaAllocator allocator, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage,
+		VmaAllocationCreateFlags allocationInfo, oGFX::AllocatedBuffer& vmabuffer);
 
 	void CreateBuffer(VmaAllocator allocator, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage,
 		VmaAllocationCreateFlags allocationInfo, oGFX::AllocatedBuffer& vmabuffer);

@@ -68,8 +68,8 @@ bool SkyRenderPass::SetupDependencies(RenderGraph& builder)
 	auto& vr = *VulkanRenderer::get();
 	// TODO: If gbuffer rendering sis disabled, return false.
 
-	builder.Write(vr.attachments.lighting_target, rhi::ATTACHMENT);
-	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], rhi::ATTACHMENT);
+	builder.Write(vr.attachments.lighting_target, ATTACHMENT);
+	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], ATTACHMENT);
 
 	builder.Read(vr.g_cubeMap);
 

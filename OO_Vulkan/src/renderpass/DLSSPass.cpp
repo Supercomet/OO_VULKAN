@@ -61,7 +61,13 @@ void DLSSPass::CreatePSO()
 bool DLSSPass::SetupDependencies(RenderGraph& builder)
 {
 	auto& vr = *VulkanRenderer::get();
-	constexpr size_t MAX_FRAMES = 2;
+
+	builder.Read(vr.attachments.lighting_target);
+	builder.Read(vr.attachments.gbuffer[VELOCITY]);
+	builder.Read(vr.attachments.gbuffer[DEPTH]);
+
+	builder.Write(vr.attachments.fullres_HDR, UAV);
+	builder.Write(vr.attachments.fsr_exposure_mips, UAV);
 
 
 	return true;

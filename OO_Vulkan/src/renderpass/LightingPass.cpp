@@ -70,8 +70,8 @@ bool LightingPass::SetupDependencies(RenderGraph& builder)
 	auto& vr = *VulkanRenderer::get();
 	// TODO: If shadows are disabled, return false.
 
-	builder.Write(vr.attachments.lighting_target, rhi::ATTACHMENT);
-	builder.Write(vr.renderTargets[vr.renderTargetInUseID].depth, rhi::ATTACHMENT);
+	builder.Write(vr.attachments.lighting_target, ATTACHMENT);
+	builder.Write(vr.renderTargets[vr.renderTargetInUseID].depth, ATTACHMENT);
 
 	builder.Read(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH]   );
 	builder.Read(vr.attachments.gbuffer[GBufferAttachmentIndex::NORMAL]  );
@@ -88,6 +88,7 @@ bool LightingPass::SetupDependencies(RenderGraph& builder)
 	builder.Read(vr.g_Textures[vr.LTCTextureID]);
 	builder.Read(vr.g_Textures[vr.LTCLUTTextureID]);
 
+	builder.Read(vr.globalLightBuffer);
 
 
 	// READ: Lighting buffer (all the visible lights intersecting the camera frustum)
@@ -170,8 +171,6 @@ void LightingPass::Draw(const VkCommandBuffer cmdlist)
 	; 
 	
 	cmd.SetDefaultViewportAndScissor();
-
-	const auto& info = vr.globalLightBuffer.GetDescriptorBufferInfo();
 
 	cmd.DescriptorSetBegin(2)
 		.BindBuffer(4, &vr.globalLightBuffer.GetDescriptorBufferInfo(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);

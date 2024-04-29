@@ -77,7 +77,7 @@ bool DebugDrawRenderpass::SetupDependencies(RenderGraph& builder)
 	auto& vr = *VulkanRenderer::get();
 	// TODO: If debug drawing is disabled, return false.
 	
-	builder.Write(vr.renderTargets[vr.renderTargetInUseID].texture, rhi::ATTACHMENT);
+	builder.Write(vr.renderTargets[vr.renderTargetInUseID].texture, ATTACHMENT);
 	// READ: Scene Depth
 	// WRITE: Color Output
 	// etc

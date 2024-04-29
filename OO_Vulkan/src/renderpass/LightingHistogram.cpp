@@ -86,7 +86,8 @@ bool LightingHistogram::SetupDependencies(RenderGraph& builder)
 
 	builder.Read(vr.attachments.lighting_target);
 
-	//builder.Write(vr.LuminanceBuffer.buffer, rhi::UAV);
+	builder.Write(vr.LuminanceBuffer);
+	//builder.Write(vr.LuminanceBuffer.buffer, UAV);
 
 	return true;
 }
@@ -103,14 +104,8 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 	auto* windowPtr = vr.windowPtr;
 
     PROFILE_GPU_CONTEXT(cmdlist);
-    PROFILE_GPU_EVENT("LightingHistogram");
-	
+    PROFILE_GPU_EVENT("LightingHistogram");	
 	rhi::CommandList cmd{ cmdlist, "LightingHistogram"};
-
-	VkDescriptorBufferInfo dbi{};
-	dbi.buffer = vr.lightingHistogram.buffer;
-	dbi.offset = 0;
-	dbi.range = VK_WHOLE_SIZE;
 	
 	vkCmdFillBuffer(cmdlist, vr.lightingHistogram.buffer, 0, VK_WHOLE_SIZE, 0);
 
@@ -129,7 +124,7 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 	cmd.SetPushConstant(PSOLayoutDB::histogramPSOLayout, sizeof(LuminencePC), &histogramParams);
 	cmd.DescriptorSetBegin(0)
 		.BindImage(0, &target, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
-		.BindBuffer(1, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rhi::UAV);
+		.BindBuffer(1, vr.lightingHistogram.getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, UAV);
 	cmd.Dispatch(target.width / 16 + 1, target.height / 16 + 1);
 
 	float tau = 1.1f;
@@ -142,14 +137,10 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 		static_cast<float>(target.width * target.height),
 	};
 
-	VkDescriptorBufferInfo lumBufferInfo{};
-	lumBufferInfo.buffer = vr.LuminanceBuffer.buffer;
-	lumBufferInfo.offset = 0;
-	lumBufferInfo.range = VK_WHOLE_SIZE;
 	cmd.BindPSO(pso_lightingCDFScan, PSOLayoutDB::luminancePSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
 	cmd.DescriptorSetBegin(0)
-		.BindBuffer(0, &lumBufferInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rhi::UAV)
-		.BindBuffer(1, &dbi, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rhi::UAV);
+		.BindBuffer(0, vr.LuminanceBuffer.getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, UAV)
+		.BindBuffer(1, vr.lightingHistogram.getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, UAV);
 	cmd.SetPushConstant(PSOLayoutDB::luminancePSOLayout, sizeof(LuminencePC), &avgParams);
 	cmd.Dispatch(1);
 }
