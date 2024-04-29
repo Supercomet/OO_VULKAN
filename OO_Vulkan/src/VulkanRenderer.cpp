@@ -465,13 +465,13 @@ bool VulkanRenderer::Init(const oGFX::SetupInfo& setupSpecs, Window& window)
 	uint32_t normalTexture = 0xFFFF8080; // ABGR
 	uint32_t pinkTexture = 0xFFA040A0; // ABGR
 
-	whiteTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&whiteTexture));
-	blackTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
-	normalTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
-	pinkTextureID = CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
+	whiteTextureID = CreateTexture("white_Etex",1, 1, reinterpret_cast<unsigned char*>(&whiteTexture));
+	blackTextureID = CreateTexture("black_Etex",1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
+	normalTextureID = CreateTexture("normal_Etex",1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
+	pinkTextureID = CreateTexture("pink_Etex",1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
 
-	LTCTextureID = CreateTexture(64, 64, reinterpret_cast<const unsigned char*>(LTC1), "LTCTex",sizeof(float), false);
-	LTCLUTTextureID = CreateTexture(64, 64, reinterpret_cast<const unsigned char*>(LTC2), "LTCLUT",sizeof(float), false);
+	LTCTextureID = CreateTexture("LTCTex", 64, 64, reinterpret_cast<const unsigned char*>(LTC1), sizeof(float), false);
+	LTCLUTTextureID = CreateTexture("LTCLUT", 64, 64, reinterpret_cast<const unsigned char*>(LTC2), sizeof(float), false);
 
 	PrepareDLSS();
 
@@ -3583,7 +3583,7 @@ oGFX::Font * VulkanRenderer::LoadFont(const std::string & filename)
 	//atlas.buffer.resize(atlas.textureSize.x * atlas.textureSize.y * channels);
 
 	bool generateMips = false;
-	font->m_atlasID = CreateTexture(atlas.textureSize.x, atlas.textureSize.y, (uint8_t*)atlas.buffer.data(),filename,1 ,generateMips);
+	font->m_atlasID = CreateTexture(filename, atlas.textureSize.x, atlas.textureSize.y, (uint8_t*)atlas.buffer.data(),1 ,generateMips);
 
 	return font;
 }
@@ -4553,7 +4553,7 @@ void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer)
 
 }
 
-uint32_t VulkanRenderer::CreateTexture(uint32_t width, uint32_t height,const unsigned char* imgData, std::string fname, uint32_t fileFormat, bool generateMips)
+uint32_t VulkanRenderer::CreateTexture(std::string fname, uint32_t width, uint32_t height,const unsigned char* imgData, uint32_t fileFormat, bool generateMips)
 {
 	using namespace oGFX;
 

@@ -464,7 +464,7 @@ public:
 	// Immediate command sending helper
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
-	uint32_t CreateTexture(uint32_t width, uint32_t height, const unsigned char* imgData, std::string name = "UNNAMED CREATE", uint32_t fileFormat = 1, bool generateMips = true);
+	uint32_t CreateTexture(std::string name, uint32_t width, uint32_t height, const unsigned char* imgData, uint32_t fileFormat = 1, bool generateMips = true);
 	uint32_t CreateTexture(const std::string& fileName);
 	uint32_t CreateCubeMapTexture(const std::string& folder);
 

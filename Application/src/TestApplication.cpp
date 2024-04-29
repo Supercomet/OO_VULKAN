@@ -319,7 +319,7 @@ void TestApplication::Run()
     gs_PinkTexture = gs_RenderEngine->pinkTextureID;
 
     uint32_t colRed = 0xFF0000FF;
-    gs_RedTexture = gs_RenderEngine->CreateTexture(1, 1, (unsigned char*) & colRed);
+    gs_RedTexture = gs_RenderEngine->CreateTexture("red_tex", 1, 1, (unsigned char*)&colRed);
 
     const BindlessTextureIndex diffuseTexture0 = gs_RenderEngine->CreateTexture("Textures/7/d.png");
     const BindlessTextureIndex diffuseTexture1 = gs_RenderEngine->CreateTexture("Textures/8/d.png");
@@ -347,8 +347,8 @@ void TestApplication::Run()
         uint32_t byteVal = (uint32_t)(val * i * 0xFF);
         uint32_t colVal = byteVal << 24 | byteVal << 16 | byteVal << 8 | byteVal;
 
-        roughness[i] = gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&colVal);
-        metalic[i] = gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&colVal);
+        roughness[i] = gs_RenderEngine->CreateTexture("r_"+ std::to_string(i), 1, 1, (unsigned char*)&colVal);
+        metalic[i] = gs_RenderEngine->CreateTexture("m_"+ std::to_string(i),1, 1, (unsigned char*)&colVal);
     }
     //----------------------------------------------------------------------------------------------------
     // Setup Initial Models
@@ -855,7 +855,7 @@ void TestApplication::Run()
                 if (ImGui::Button("Cause problems"))
                 {
                     uint32_t col = 0x00FFFF00;
-                    gs_RenderEngine->CreateTexture(1, 1, (unsigned char*)&col);
+                    gs_RenderEngine->CreateTexture("problematic Texture", 1, 1, (unsigned char*)&col);
 
                 }
                 {
@@ -1166,10 +1166,10 @@ void TestApplication::InitDefaultTextures()
     uint32_t normalTexture = 0xFFFF8080; // ABGR
     uint32_t pinkTexture = 0xFFA040A0; // ABGR
     
-    gs_WhiteTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&whiteTexture));
-    gs_BlackTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
-    gs_NormalTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
-    gs_PinkTexture = gs_RenderEngine->CreateTexture(1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
+    gs_WhiteTexture =  gs_RenderEngine->CreateTexture("white_tex",1, 1, reinterpret_cast<unsigned char*>(&whiteTexture));
+    gs_BlackTexture = gs_RenderEngine->CreateTexture("black_tex",1, 1, reinterpret_cast<unsigned char*>(&blackTexture));
+    gs_NormalTexture = gs_RenderEngine->CreateTexture("normal_tex",1, 1, reinterpret_cast<unsigned char*>(&normalTexture));
+    gs_PinkTexture = gs_RenderEngine->CreateTexture("pink_tex",1, 1, reinterpret_cast<unsigned char*>(&pinkTexture));
 
     BindlessTextureIndex diffuseTexture0 = gs_RenderEngine->CreateTexture("Textures/7/d.png");
     BindlessTextureIndex diffuseTexture1 = gs_RenderEngine->CreateTexture("Textures/8/d.png");

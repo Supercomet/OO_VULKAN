@@ -126,6 +126,7 @@ void RenderGraph::Write(oGFX::AllocatedBuffer* buffer, ResourceUsage usage)
 
 void RenderGraph::Write(oGFX::AllocatedBuffer& buffer, ResourceUsage)
 {
+	Write(&buffer);
 }
 
 void RenderGraph::DumpPassDependencies()
