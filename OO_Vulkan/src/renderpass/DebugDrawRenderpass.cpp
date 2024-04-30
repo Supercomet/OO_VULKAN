@@ -120,16 +120,20 @@ void DebugDrawRenderpass::Draw(const VkCommandBuffer cmdlist)
 		uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 			vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
 		cmd.BindPSO(pso, PSOLayoutDB::defaultPSOLayout);
-		cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
-			std::array<VkDescriptorSet, 3>
-			{
-				vr.descriptorSet_gpuscene,
-				vr.descriptorSets_uniform[currFrame],
-				vr.descriptorSet_bindless
-			},
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			1, &dynamicOffset
-		);
+		cmd.DescriptorSetBegin(0)
+			.BindSampler(0, GfxSamplerManager::GetDefaultSampler(), VK_SHADER_STAGE_ALL_GRAPHICS)
+			.BindBuffer(1, vr.instanceBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS)
+			.BindBuffer(3, vr.gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS)
+			.BindBuffer(4, vr.gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS)
+			.BindBuffer(5, vr.objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS)
+			.BindBuffer(6, vr.gpuSkinningWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS)
+			;
+
+		cmd.DescriptorSetBegin(1)
+			.BindBuffer(0, vr.vpUniformBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS | VK_SHADER_STAGE_COMPUTE_BIT)
+			.SetDynamicOffset(0, dynamicOffset)
+			;
+		cmd.BindDescriptorSet(2, 0, vr.descriptorSet_bindless);
 
 		cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_DebugDrawVertexBufferGPU.getBufferPtr());
 		cmd.BindIndexBuffer(vr.g_DebugDrawIndexBufferGPU.getBuffer(), 0, VK_INDEX_TYPE_UINT32);		

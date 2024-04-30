@@ -88,6 +88,16 @@ namespace rhi
 		{
 			a = VkRenderingAttachmentInfo{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
 		}
+
+		pipelineCI.pInputAssemblyState = &inputAssemblyState;
+		pipelineCI.pRasterizationState = &rasterizationState;
+		pipelineCI.pColorBlendState = &colorBlendState;
+		pipelineCI.pMultisampleState = &multisampleState;
+		pipelineCI.pViewportState = &viewportState;
+		pipelineCI.pDepthStencilState = &depthStencilState;
+		pipelineCI.pDynamicState = &dynamicState;
+		//pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
+		//pipelineCI.pStages = shaderStages.data();
 	}
 	CommandList::~CommandList()
 	{
@@ -662,7 +672,6 @@ void CommandList::CommitDescriptors()
 	if (count == 0) 
 		return;
 
-	uint32_t dynamicOffset = 0;
 	vkCmdBindDescriptorSets(
 		m_VkCommandBuffer,
 		m_pipelineBindPoint,
@@ -741,6 +750,14 @@ DescriptorSetInfo& DescriptorSetInfo::BindBuffer(uint32_t binding, const VkDescr
 	this->m_cmdList->BeginTrackingBuffer(bufferInfo->buffer);
 	BufferStateTracking* tracked = m_cmdList->getTrackedBuffer(bufferInfo->buffer);
 	tracked->expectedAccess = access;
+
+	return *this;
+}
+
+DescriptorSetInfo& DescriptorSetInfo::SetDynamicOffset(uint32_t binding, uint32_t offset)
+{
+	hasDynamicOffset = true;
+	dynamicOffset = offset;
 
 	return *this;
 }

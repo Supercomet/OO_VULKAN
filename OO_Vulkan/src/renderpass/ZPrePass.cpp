@@ -70,12 +70,22 @@ void ZPrePass::CreatePSO()
 bool ZPrePass::SetupDependencies(RenderGraph& builder)
 {
 	auto& vr = *VulkanRenderer::get();
+	auto currFrame = vr.getFrame();
 	// TODO: If shadows are disabled, return false.
 
 	// READ: Scene data SSBO
 	// READ: Instancing Data
 	// WRITE: Shadow Depth Map
 	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], ATTACHMENT);
+
+	builder.Read(vr.instanceBuffer);
+	builder.Read(vr.gpuTransformBuffer);
+	builder.Read(vr.gpuBoneMatrixBuffer);
+	builder.Read(vr.objectInformationBuffer);
+	builder.Read(vr.gpuSkinningWeightsBuffer);
+
+	builder.Read(vr.vpUniformBuffer[currFrame]);
+
 	// etc
 
 	return true;
@@ -118,16 +128,21 @@ void ZPrePass::Draw(const VkCommandBuffer cmdlist)
 
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 		vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
-	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 
-		std::array<VkDescriptorSet, 3>
-		{
-			vr.descriptorSet_gpuscene,
-			vr.descriptorSets_uniform[currFrame],
-			vr.descriptorSet_bindless
-		},
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		1, &dynamicOffset
-	);
+
+	cmd.DescriptorSetBegin(0)
+		.BindSampler(0, GfxSamplerManager::GetDefaultSampler(), VK_SHADER_STAGE_ALL_GRAPHICS)
+		.BindBuffer(1, vr.instanceBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.BindBuffer(3, vr.gpuTransformBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.BindBuffer(4, vr.gpuBoneMatrixBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.BindBuffer(5, vr.objectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.BindBuffer(6, vr.gpuSkinningWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS)
+		;
+
+	cmd.DescriptorSetBegin(1)
+		.BindBuffer(0, vr.vpUniformBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS | VK_SHADER_STAGE_COMPUTE_BIT)
+		.SetDynamicOffset(0, dynamicOffset)
+		;
+	cmd.BindDescriptorSet(2, 0, vr.descriptorSet_bindless);
 
 	// Bind merged mesh vertex & index buffers, instancing buffers.
 	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
@@ -167,7 +182,7 @@ void ZPrePass::CreatePipeline()
 	auto& vr = *VulkanRenderer::get();
 	auto& m_device = vr.m_device;
 
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo();
 	VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
 	//VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
 	VkPipelineColorBlendAttachmentState blendAttachmentState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);

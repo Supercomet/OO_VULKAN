@@ -62,15 +62,15 @@ void LightingHistogram::Init()
 	auto& vr = *VulkanRenderer::get();
 
 	VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(HistoStruct)
+	oGFX::CreateBuffer("Histo_struct",vr.m_device.m_allocator, sizeof(HistoStruct)
 		, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, flags
 		, vr.lightingHistogram);
 
-	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(LuminenceData)
+	oGFX::CreateBuffer("Luminance_buffer", vr.m_device.m_allocator, sizeof(LuminenceData)
 		, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, flags
 		, vr.LuminanceBuffer);
 
-	oGFX::CreateBuffer(vr.m_device.m_allocator, sizeof(LuminenceData), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+	oGFX::CreateBuffer("Luminance_data", vr.m_device.m_allocator, sizeof(LuminenceData), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT, vr.LuminanceMonitor);
 	VK_CHK(vmaMapMemory(vr.m_device.m_allocator, vr.LuminanceMonitor.alloc, &vr.monitorData));
 }

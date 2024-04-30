@@ -66,12 +66,14 @@ void SkyRenderPass::CreatePSO()
 bool SkyRenderPass::SetupDependencies(RenderGraph& builder)
 {
 	auto& vr = *VulkanRenderer::get();
+	auto currFrame = vr.getFrame();
 	// TODO: If gbuffer rendering sis disabled, return false.
 
 	builder.Write(vr.attachments.lighting_target, ATTACHMENT);
 	builder.Write(vr.attachments.gbuffer[GBufferAttachmentIndex::DEPTH], ATTACHMENT);
 
 	builder.Read(vr.g_cubeMap);
+	builder.Read(vr.vpUniformBuffer[currFrame]);
 
 	// READ: Scene data SSBO
 	// READ: Instancing Data
@@ -119,8 +121,10 @@ void SkyRenderPass::Draw(const VkCommandBuffer cmdlist)
 
 	cmd.SetPushConstant(PSOLayoutDB::skypassPSOLayout, sizeof(LightPC), &pc);
 
-	cmd.BindDescriptorSet(PSOLayoutDB::skypassPSOLayout, 1, 1, &vr.descriptorSets_uniform[currFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, 1, &dynamicOffset);
-
+	cmd.DescriptorSetBegin(1)
+		.BindBuffer(0, vr.vpUniformBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS | VK_SHADER_STAGE_COMPUTE_BIT)
+		.SetDynamicOffset(0, dynamicOffset)
+		;
 	cmd.DrawFullScreenQuad();
 
 }
@@ -169,7 +173,7 @@ void SkyRenderPass::CreatePipeline()
 		vr.LoadShader(m_device, shaderPS, VK_SHADER_STAGE_FRAGMENT_BIT)
 	};
 
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo();
 	VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
 	VkPipelineColorBlendAttachmentState blendAttachmentState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
 	VkPipelineColorBlendStateCreateInfo colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);

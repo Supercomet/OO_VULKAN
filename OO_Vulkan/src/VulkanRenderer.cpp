@@ -709,7 +709,7 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 		vpBufferInfo.range = sizeof(CB::FrameContextUBO);// size of data
 
 		DescriptorBuilder::Begin()
-			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT| VK_SHADER_STAGE_COMPUTE_BIT)
+			.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_ALL_GRAPHICS | VK_SHADER_STAGE_COMPUTE_BIT)
 			.Build(descriptorSets_uniform[i], SetLayoutDB::FrameUniform);
 	}
 	
@@ -734,7 +734,7 @@ void VulkanRenderer::CreateDefaultDescriptorSetLayout()
 	// CREATE TEXTURE SAMPLER DESCRIPTOR SET LAYOUT
 	// Texture binding info
 	VkDescriptorSetLayoutBinding samplerLayoutBinding =
-		oGFX::vkutils::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, MAX_OBJECTS);
+		oGFX::vkutils::inits::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS, 0, MAX_OBJECTS);
 
 	VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT 
 		| VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT 
@@ -1026,7 +1026,7 @@ void VulkanRenderer::CreateDefaultPSO()
 		LoadShader(m_device, shaderPS, VK_SHADER_STAGE_FRAGMENT_BIT)
 	};
 
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo();
 	VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
 	VkPipelineColorBlendAttachmentState blendAttachmentState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(VK_COLOR_COMPONENT_R_BIT , VK_FALSE);
 	VkPipelineColorBlendStateCreateInfo colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
@@ -1682,7 +1682,7 @@ void VulkanRenderer::CreateUniformBuffers()
 	//create uniform buffers
 	for (size_t i = 0; i < m_swapchain.swapChainImages.size(); i++)
 	{
-		oGFX::CreateBuffer(m_device.m_allocator, vpBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		oGFX::CreateBuffer("scene_uniform", m_device.m_allocator, vpBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
 			, vpUniformBuffer[i]);
 		/*createBuffer(mainDevice.physicalDevice, mainDevice.logicalDevice, modelBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -2871,7 +2871,7 @@ void VulkanRenderer::BeginDraw()
 			vpBufferInfo.offset = 0;				// position of start of data
 			vpBufferInfo.range = sizeof(CB::FrameContextUBO);		// size of data
 			DescriptorBuilder::Begin()
-				.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT)
+				.BindBuffer(0, &vpBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_ALL_GRAPHICS | VK_SHADER_STAGE_COMPUTE_BIT)
 				.Build(descriptorSets_uniform[getFrame()], SetLayoutDB::FrameUniform);
 	
 	

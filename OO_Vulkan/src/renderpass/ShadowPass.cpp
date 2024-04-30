@@ -133,16 +133,11 @@ void ShadowPass::Draw(const VkCommandBuffer cmdlist)
 		.BindBuffer(5, vr.casterObjectInformationBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 		.BindBuffer(6, vr.gpuSkinningWeightsBuffer.GetBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
-	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 1, 
-		std::array<VkDescriptorSet, 2>
-		{
-			//vr.descriptorSet_gpuscene,
-			vr.descriptorSets_uniform[currFrame],
-			vr.descriptorSet_bindless
-		},
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		1, &dynamicOffset
-	);
+	cmd.DescriptorSetBegin(1)
+		.BindBuffer(0, vr.vpUniformBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS | VK_SHADER_STAGE_COMPUTE_BIT)
+		.SetDynamicOffset(0, dynamicOffset)
+		;
+	cmd.BindDescriptorSet(2, 0, vr.descriptorSet_bindless);
 
 	// Bind merged mesh vertex & index buffers, instancing buffers.
 	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());
@@ -346,7 +341,7 @@ void ShadowPass::CreatePipeline()
 	auto& vr = *VulkanRenderer::get();
 	auto& m_device = vr.m_device;
 
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo();
 	VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
 	//VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
 	VkPipelineColorBlendAttachmentState blendAttachmentState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);

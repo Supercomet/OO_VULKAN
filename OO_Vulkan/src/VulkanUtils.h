@@ -589,9 +589,9 @@ namespace oGFX
 			}
 
 			inline VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo(
-				VkPolygonMode polygonMode,
-				VkCullModeFlags cullMode,
-				VkFrontFace frontFace,
+				VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL,
+				VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT,
+				VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
 				VkPipelineRasterizationStateCreateFlags flags = 0)
 			{
 				VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo{};
@@ -620,8 +620,8 @@ namespace oGFX
 			}
 
 			inline VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState(
-				VkColorComponentFlags colorWriteMask,
-				VkBool32 blendEnable)
+				VkColorComponentFlags colorWriteMask = 0x0F,
+				VkBool32 blendEnable = VK_TRUE)
 			{
 				VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState{};
 				pipelineColorBlendAttachmentState.colorWriteMask = colorWriteMask; //colors to apply blending to
@@ -656,9 +656,9 @@ namespace oGFX
 			}
 
 			inline VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo(
-				VkBool32 depthTestEnable,
-				VkBool32 depthWriteEnable,
-				VkCompareOp depthCompareOp)
+				VkBool32 depthTestEnable = VK_TRUE,
+				VkBool32 depthWriteEnable = VK_FALSE,
+				VkCompareOp depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL)
 			{
 				VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo{};
 				pipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;

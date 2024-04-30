@@ -45,6 +45,7 @@ namespace rhi
 		DescriptorSetInfo& BindImage(uint32_t binding, VkDescriptorImageInfo* imageInfo, VkDescriptorType type, uint32_t count = 1);
 		DescriptorSetInfo& BindSampler(uint32_t binding, VkSampler sampler, VkShaderStageFlags stageFlagsInclude = 0);
 		DescriptorSetInfo& BindBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo, VkDescriptorType type,ResourceUsage access = ResourceUsage::SRV, VkShaderStageFlags stageFlagsInclude = 0);
+		DescriptorSetInfo& SetDynamicOffset(uint32_t binding, uint32_t offset);
 	};
 
 // Another better alternative is to use Vulkan HPP.
@@ -200,6 +201,25 @@ private:
 	VkPipelineLayout m_pipeLayout{};
 	VkPipelineBindPoint m_pipelineBindPoint{ VK_PIPELINE_BIND_POINT_MAX_ENUM };
 	VkShaderStageFlags m_targetStage{ VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM };
+
+	//pipeline info
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = oGFX::vkutils::inits::pipelineInputAssemblyStateCreateInfo();
+	VkPipelineRasterizationStateCreateInfo rasterizationState = oGFX::vkutils::inits::pipelineRasterizationStateCreateInfo();
+	VkPipelineColorBlendAttachmentState blendAttachmentState = oGFX::vkutils::inits::pipelineColorBlendAttachmentState();
+	VkPipelineColorBlendStateCreateInfo colorBlendState = oGFX::vkutils::inits::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
+	VkPipelineDepthStencilStateCreateInfo depthStencilState = oGFX::vkutils::inits::pipelineDepthStencilStateCreateInfo();
+	VkPipelineViewportStateCreateInfo viewportState = oGFX::vkutils::inits::pipelineViewportStateCreateInfo();
+	VkPipelineMultisampleStateCreateInfo multisampleState = oGFX::vkutils::inits::pipelineMultisampleStateCreateInfo();
+	std::vector<VkDynamicState> dynamicStateEnables = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+	VkPipelineDynamicStateCreateInfo dynamicState = oGFX::vkutils::inits::pipelineDynamicStateCreateInfo(dynamicStateEnables);
+
+	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(VK_NULL_HANDLE, VK_NULL_HANDLE);
+
+	std::vector<VkVertexInputBindingDescription> bindingDescription = oGFX::GetGFXVertexInputBindings();
+	std::vector<VkVertexInputAttributeDescription>attributeDescriptions = oGFX::GetGFXVertexInputAttributes();
+
+	VkComputePipelineCreateInfo computeCI;
+	// end pipeline info
 
 	std::array<VkRect2D, 8> m_scissor;
 	std::array<VkViewport, 8> m_viewport;

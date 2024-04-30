@@ -716,6 +716,7 @@ namespace oGFX
 
 	bool FileImageData::CreateCube(const std::string& folder)
 	{
+		name = folder;
 		const uint32_t CUBE_FACES = 6;
 		std::array<std::string, CUBE_FACES> fileNames
 		{
