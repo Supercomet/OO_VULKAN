@@ -32,36 +32,11 @@ void DescriptorLayoutCache::Cleanup()
 
 VkDescriptorSetLayout DescriptorLayoutCache::CreateDescriptorLayout(VkDescriptorSetLayoutCreateInfo* info)
 {
-	DescriptorLayoutInfo layoutinfo;
-	layoutinfo.bindings.reserve(info->bindingCount);
-	bool isSorted = true;
-	int lastBinding = -1;
-
-	//copy from the direct info struct into our own one
-	for (uint32_t i = 0; i < info->bindingCount; i++)
-	{
-		layoutinfo.bindings.push_back(info->pBindings[i]);
-
-		//check that the bindings are in strict increasing order
-		if (int32_t(info->pBindings[i].binding) > lastBinding){
-			lastBinding = info->pBindings[i].binding;
-		}
-		else
-		{
-			isSorted = false;
-		}
-	}
-	//sort the bindings if they aren't in order
-	if (!isSorted)
-	{
-		std::sort(layoutinfo.bindings.begin(), layoutinfo.bindings.end(), [](VkDescriptorSetLayoutBinding& a, VkDescriptorSetLayoutBinding& b ){
-			return a.binding < b.binding;
-			});
-	}
-
+	DescriptorLayoutInfo layoutInfo = GetLayoutInfo(info);
+	
 	//try to grab from cache
 	std::scoped_lock lock{ m_mut };
-	auto it = layoutCache.find(layoutinfo);
+	auto it = layoutCache.find(layoutInfo);
 	if (it != layoutCache.end()){
 		return (*it).second;
 	}
@@ -72,9 +47,41 @@ VkDescriptorSetLayout DescriptorLayoutCache::CreateDescriptorLayout(VkDescriptor
 		VK_CHK(vkCreateDescriptorSetLayout(device, info, nullptr, &layout));
 		VK_NAME(device, "LayoutCache::layout", layout);
 		//add to cache
-		layoutCache[layoutinfo] = layout;
+		layoutCache[layoutInfo] = layout;
 		return layout;
 	}
+}
+
+DescriptorLayoutCache::DescriptorLayoutInfo DescriptorLayoutCache::GetLayoutInfo(VkDescriptorSetLayoutCreateInfo* info)
+{
+	DescriptorLayoutInfo layoutInfo;
+	layoutInfo.bindings.reserve(info->bindingCount);
+	bool isSorted = true;
+	int lastBinding = -1;
+
+	//copy from the direct info struct into our own one
+	for (uint32_t i = 0; i < info->bindingCount; i++)
+	{
+		layoutInfo.bindings.push_back(info->pBindings[i]);
+
+		//check that the bindings are in strict increasing order
+		if (int32_t(info->pBindings[i].binding) > lastBinding) {
+			lastBinding = info->pBindings[i].binding;
+		}
+		else
+		{
+			isSorted = false;
+		}
+	}
+	//sort the bindings if they aren't in order
+	if (!isSorted)
+	{
+		std::sort(layoutInfo.bindings.begin(), layoutInfo.bindings.end(), [](VkDescriptorSetLayoutBinding& a, VkDescriptorSetLayoutBinding& b) {
+			return a.binding < b.binding;
+			});
+	}
+
+	return layoutInfo;
 }
 
 bool DescriptorLayoutCache::DescriptorLayoutInfo::operator==(const DescriptorLayoutInfo& other) const
@@ -110,14 +117,18 @@ size_t DescriptorLayoutCache::DescriptorLayoutInfo::hash() const
 	using std::hash;
 
 	size_t result = hash<size_t>()(bindings.size());
-
 	for (const VkDescriptorSetLayoutBinding& b : bindings)
 	{
+		oGFX::HashCombine(result, b);
+		//oGFX::HashCombine(result, b.binding);
+		//oGFX::HashCombine(result, b.descriptorType);
+		//oGFX::HashCombine(result, b.descriptorCount);
+		//oGFX::HashCombine(result, b.stageFlags);
 		//pack the binding data into a single int64. Not fully correct but it's ok
-		size_t binding_hash = b.binding | b.descriptorType << 8 | b.descriptorCount << 16 | b.stageFlags << 24;
+		//size_t binding_hash = b.binding | b.descriptorType << 8 | b.descriptorCount << 16 | b.stageFlags << 24;
 
 		//shuffle the packed binding data and xor it with the main hash
-		result ^= hash<size_t>()(binding_hash);
+		//result ^= hash<size_t>()(binding_hash);
 	}
 
 	return result;

@@ -672,6 +672,9 @@ public:
 	std::vector<DescriptorAllocator> descAllocs;
 	DescriptorLayoutCache DescLayoutCache;
 
+	std::unordered_map<size_t, VkPipelineLayout> pipelineLayoutMap;
+	std::unordered_map<size_t, VkPipeline> pipelineMap;
+
 	FramebufferCache fbCache;
 
 	GfxSamplerManager samplerManager;

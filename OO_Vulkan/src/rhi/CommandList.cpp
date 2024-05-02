@@ -26,11 +26,31 @@ namespace rhi
 	void CommandList::BindPSO(const VkPipeline& pso, VkPipelineLayout pipelay, const VkPipelineBindPoint bindPoint)
 	{
 		PROFILE_SCOPED();
+		m_pipeline = pso;
 		m_pipelineBindPoint = bindPoint;
 		m_pipeLayout = pipelay;
 		m_targetStage = getStage(m_pipelineBindPoint);
 
 		vkCmdBindPipeline(m_VkCommandBuffer, bindPoint, pso);
+	}
+
+	void CommandList::BindPSO(std::string vertex, std::string fragment)
+	{
+		m_pipeline = VK_NULL_HANDLE;
+		m_pipeLayout = VK_NULL_HANDLE;
+
+		m_pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		shadercodes[VERTEX] = std::move(vertex);
+		shadercodes[FRAGMENT] = std::move(fragment);
+	}
+
+	void CommandList::BindPSO(std::string compute)
+	{
+		m_pipeline = VK_NULL_HANDLE;
+		m_pipeLayout = VK_NULL_HANDLE;
+
+		m_pipelineBindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
+		shadercodes[COMPUTE] = std::move(compute);
 	}
 
 	void CommandList::SetPushConstant(VkPipelineLayout layout, VkDeviceSize size, const void* data, VkDeviceSize offset)
@@ -57,7 +77,7 @@ namespace rhi
 		return descriptorSets[set];
 	}
 
-	void CommandList::BindDescriptorSet(uint32_t set,uint32_t binding, VkDescriptorSet descriptor)
+	void CommandList::BindDescriptorSet(uint32_t set,uint32_t binding, VkDescriptorSet descriptor, VkDescriptorSetLayout setLayout)
 	{
 		assert(set < 4);
 		assert(descriptor != VK_NULL_HANDLE);
@@ -65,6 +85,7 @@ namespace rhi
 		DenoteStateChanged();
 
 		descriptorSets[set].descriptor = descriptor;
+		descriptorSets[set].layout = setLayout;
 
 		descriptorSets[set].shaderStage = m_targetStage;
 	
@@ -87,6 +108,10 @@ namespace rhi
 		for (auto& a : m_attachments)
 		{
 			a = VkRenderingAttachmentInfo{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
+		}
+		for (auto& f : m_attachmentFormats)
+		{
+			f = VK_FORMAT_UNDEFINED;
 		}
 
 		pipelineCI.pInputAssemblyState = &inputAssemblyState;
@@ -191,6 +216,8 @@ namespace rhi
 		VerifyImageResourceStates();
 		VerifyBufferResourceStates();
 
+		PrepareDescriptors();
+		GetOrBuildPipeline();
 		CommitDescriptors();
 		m_attachmentReady = true;
 	}
@@ -395,6 +422,7 @@ void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture* tex, bool
 		albedoInfo.clearValue = VkClearValue{ {} };
 
 		m_attachments[bindPoint] = albedoInfo;
+		m_attachmentFormats[bindPoint] = tex->format;
 		m_shouldClearAttachment[bindPoint] = clearOnDraw;
 
 		m_highestAttachmentBound = std::max<int32_t>(bindPoint, m_highestAttachmentBound);
@@ -405,6 +433,7 @@ void CommandList::BindAttachment(uint32_t bindPoint, vkutils::Texture* tex, bool
 	{
 		//bind null
 		m_attachments[bindPoint] = VkRenderingAttachmentInfo{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR };
+		m_attachmentFormats[bindPoint] = VK_FORMAT_UNDEFINED;
 	}
 	DenoteStateChanged();
 }
@@ -431,6 +460,7 @@ void CommandList::BindDepthAttachment(vkutils::Texture* tex, bool clearOnDraw)
 		depthInfo.clearValue = VkClearValue{ {} };
 		m_depth = depthInfo;
 		m_depthBound = true;
+		m_depthFormat = tex->format;
 		m_shouldClearDepth = clearOnDraw;
 
 		m_renderArea.extent.width = std::max(tex->width, m_renderArea.extent.width);
@@ -439,6 +469,8 @@ void CommandList::BindDepthAttachment(vkutils::Texture* tex, bool clearOnDraw)
 	else 
 	{
 		m_depthBound = false;
+		m_depth = VkRenderingAttachmentInfo{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR };
+		m_depthFormat = VK_FORMAT_UNDEFINED;
 	}
 	DenoteStateChanged();
 }
@@ -634,22 +666,17 @@ VkCommandBuffer CommandList::getCommandBuffer()
 	return m_VkCommandBuffer;
 }
 
-void CommandList::CommitDescriptors()
+void CommandList::PrepareDescriptors()
 {
-	PROFILE_SCOPED();
-	uint32_t count{};
-	uint32_t firstSet{ UINT32_MAX };
-	std::array<VkDescriptorSet, 4> sets{};
-
-	uint32_t dynamicOffsetCnt{};
-	std::array<uint32_t, 4> dynOffsets{};
-
+	dynamicOffsetCnt = 0;
+	setCount = 0;
+	firstSet = UINT32_MAX;
 	for (size_t i = 0; i < descriptorSets.size(); i++)
 	{
 		DescriptorSetInfo& descSet = descriptorSets[i];
-		if (descSet.expected && descSet.bound == false) 
+		if (descSet.expected && descSet.bound == false)
 		{
-			firstSet = std::min(count, firstSet);
+			firstSet = std::min(setCount, firstSet);
 
 			if (descSet.built == false)
 			{
@@ -663,13 +690,20 @@ void CommandList::CommitDescriptors()
 				dynamicOffsetCnt++;
 			}
 
-			sets[count] = descSet.descriptor;
+			sets[setCount] = descSet.descriptor;
 			descSet.bound = true;
-			count++;
+			setCount++;
 		}
 	}
+}
 
-	if (count == 0) 
+void CommandList::CommitDescriptors()
+{
+	PROFILE_SCOPED();
+
+	
+
+	if (setCount == 0)
 		return;
 
 	vkCmdBindDescriptorSets(
@@ -677,7 +711,7 @@ void CommandList::CommitDescriptors()
 		m_pipelineBindPoint,
 		m_pipeLayout,
 		firstSet,
-		count,
+		setCount,
 		sets.data(),
 		dynamicOffsetCnt,
 		dynamicOffsetCnt ? dynOffsets.data() : nullptr);
@@ -692,6 +726,164 @@ void CommandList::EndIfRendering()
 {
 	if (m_currentlyRendering == true)
 		EndRendering();
+}
+
+void CommandList::GetOrBuildPipeline()
+{
+	if (m_pipeline != VK_NULL_HANDLE) return; // no pipeline, we assume bound
+	OO_ASSERT(m_pipelineBindPoint != VK_PIPELINE_BIND_POINT_MAX_ENUM);
+
+	auto& vr = *VulkanRenderer::get();
+	size_t hash{ 0 };
+	size_t setCount{};
+	std::vector<VkDescriptorSetLayout> setLayouts;
+	for (size_t i = 0; i < descriptorSets.size(); i++)
+	{
+		if (descriptorSets[i].expected) {
+			oGFX::HashCombine(hash, descriptorSets[i].builder.getHash());
+			setCount++;
+			setLayouts.push_back(descriptorSets[i].layout);
+		}
+	}
+	oGFX::HashCombine(hash, setCount);
+	size_t pipelineLayoutHash = hash;
+	{
+		auto& map = vr.pipelineLayoutMap;
+		auto iter = map.find(pipelineLayoutHash);
+		if (iter == map.end()) {
+			// does not contain, build;
+			VkPipelineLayoutCreateInfo plci = oGFX::vkutils::inits::pipelineLayoutCreateInfo(
+				setLayouts.data(), static_cast<uint32_t>(setLayouts.size()));
+
+			printf("Creating pipeline layout hash-0x%zX\n", pipelineLayoutHash);
+			VK_CHK(vkCreatePipelineLayout(vr.m_device.logicalDevice, &plci, nullptr, &m_pipeLayout));
+			//VK_NAME(m_device.logicalDevice, "Bloom_PSOLayout", play);
+			map[pipelineLayoutHash] = m_pipeLayout;
+		}
+		else {
+			m_pipeLayout = iter->second;
+		}
+	}
+
+	if (m_pipelineBindPoint == VK_PIPELINE_BIND_POINT_COMPUTE) 
+	{		
+		oGFX::StringHash comp(shadercodes[COMPUTE]);
+		oGFX::HashCombine(hash, comp.computedHash);
+		{
+			auto& map = vr.pipelineMap;
+			auto iter = map.find(hash);
+			if (iter == map.end()) {
+				// does not contain, build;
+
+				printf("Creating compute pipeline hash-0x%zX\n", hash);
+				computeCI = oGFX::vkutils::inits::computeCreateInfo(m_pipeLayout);
+				computeCI.stage = vr.LoadShader(vr.m_device, shadercodes[COMPUTE], VK_SHADER_STAGE_COMPUTE_BIT);
+				VK_CHK(vkCreateComputePipelines(vr.m_device.logicalDevice, VK_NULL_HANDLE, 1, &computeCI, nullptr, &m_pipeline));
+				vkDestroyShaderModule(vr.m_device.logicalDevice, computeCI.stage.module, nullptr);
+				map[hash] = m_pipeline;
+			}
+			else {
+				m_pipeline = iter->second;
+			}
+		}
+	}
+	else 
+	{
+		// do graphics pipeline
+		oGFX::StringHash vert(shadercodes[VERTEX]);
+		oGFX::StringHash frag(shadercodes[FRAGMENT]);
+		oGFX::HashCombine(hash, vert.computedHash);
+		oGFX::HashCombine(hash, frag.computedHash);
+
+		oGFX::HashCombine(hash, inputAssemblyState);
+		oGFX::HashCombine(hash, rasterizationState);
+		oGFX::HashCombine(hash, colorBlendState);
+		oGFX::HashCombine(hash, multisampleState);
+		oGFX::HashCombine(hash, viewportState);
+		oGFX::HashCombine(hash, depthStencilState);
+
+		{
+			auto& map = vr.pipelineMap;
+			auto iter = map.find(hash);
+			if (iter == map.end()) {
+				// does not contain, build;
+
+				printf("Creating graphics pipeline hash-0x%zX\n", hash);
+				pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(m_pipeLayout);
+
+				std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages =
+				{
+					vr.LoadShader(vr.m_device, shadercodes[VERTEX  ], VK_SHADER_STAGE_VERTEX_BIT),
+					vr.LoadShader(vr.m_device, shadercodes[FRAGMENT], VK_SHADER_STAGE_FRAGMENT_BIT)
+				};
+
+				pipelineCI.pInputAssemblyState = &inputAssemblyState;
+				pipelineCI.pRasterizationState = &rasterizationState;
+				pipelineCI.pColorBlendState = &colorBlendState;
+				pipelineCI.pMultisampleState = &multisampleState;
+				pipelineCI.pViewportState = &viewportState;
+				pipelineCI.pDepthStencilState = &depthStencilState;
+				pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
+				pipelineCI.pStages = shaderStages.data();
+
+				// Need to enable to 
+				depthStencilState.stencilTestEnable = VK_TRUE;
+				depthStencilState.back.compareOp = VK_COMPARE_OP_ALWAYS;
+				depthStencilState.back.failOp = VK_STENCIL_OP_REPLACE;
+				depthStencilState.back.depthFailOp = VK_STENCIL_OP_REPLACE;
+				depthStencilState.back.passOp = VK_STENCIL_OP_REPLACE;
+				depthStencilState.back.compareMask = 0xff;
+				depthStencilState.back.writeMask = 0xff;
+				depthStencilState.back.reference = 1;
+				depthStencilState.front = depthStencilState.back;
+				// =======================
+
+				pipelineCI.pVertexInputState = &vertexInputCreateInfo;
+
+				// not hashed as assumed not changing
+				pipelineCI.pDynamicState = &dynamicState;
+
+				size_t numAttachments = m_highestAttachmentBound + 1;
+
+				std::vector<VkFormat> colourFormats;
+				colourFormats.resize(numAttachments);
+				for (size_t i = 0; i < numAttachments; i++)
+				{
+					colourFormats[i] = m_attachmentFormats[i];
+				}
+
+				std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
+				blendAttachmentStates.resize(numAttachments);
+				for (size_t i = 0; i < numAttachments; i++)
+				{
+					blendAttachmentStates[i] = oGFX::vkutils::inits::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
+				}				
+
+				colorBlendState.attachmentCount = static_cast<uint32_t>(blendAttachmentStates.size());
+				colorBlendState.pAttachments = blendAttachmentStates.data();
+
+				VkPipelineRenderingCreateInfo renderingInfo{ VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
+				renderingInfo.viewMask = {};
+				renderingInfo.colorAttachmentCount = numAttachments;
+				renderingInfo.pColorAttachmentFormats = colourFormats.data();
+				renderingInfo.depthAttachmentFormat = m_depthFormat;
+				renderingInfo.stencilAttachmentFormat = m_depthFormat;
+
+				pipelineCI.pNext = &renderingInfo;
+
+				VK_CHK(vkCreateGraphicsPipelines(vr.m_device.logicalDevice, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_pipeline));
+
+				vkDestroyShaderModule(vr.m_device.logicalDevice, shaderStages[VERTEX  ].module, nullptr);
+				vkDestroyShaderModule(vr.m_device.logicalDevice, shaderStages[FRAGMENT].module, nullptr);
+
+				map[hash] = m_pipeline;
+			}
+			else {
+				m_pipeline = iter->second;
+			}
+		}
+	}
+	vkCmdBindPipeline(m_VkCommandBuffer, m_pipelineBindPoint, m_pipeline);
 }
 
 DescriptorSetInfo& DescriptorSetInfo::BindImage(uint32_t binding, vkutils::Texture* texture, VkDescriptorType type)

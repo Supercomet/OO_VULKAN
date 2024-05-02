@@ -34,7 +34,7 @@ public:
 		size_t hash() const;
 	};
 
-
+	DescriptorLayoutInfo GetLayoutInfo(VkDescriptorSetLayoutCreateInfo* info);
 
 private:
 

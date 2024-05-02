@@ -120,6 +120,67 @@ namespace oGFX
 	constexpr bool ERROR_VAL = 1;
 	constexpr bool SUCCESS_VAL = 0;
 
+	// FNV-1a 32bit hashing algorithm.
+	constexpr uint32_t fnv1a_32(char const* s, std::size_t count)
+	{
+		return ((count ? fnv1a_32(s, count - 1) : 2166136261u) ^ s[count]) * 16777619u;
+	}
+
+	constexpr size_t const_strlen(const char* s)
+	{
+		size_t size = 0;
+		while (s[size]) { size++; };
+		return size;
+	}
+
+	struct StringHash
+	{
+		uint32_t computedHash;
+
+		constexpr StringHash(uint32_t hash) noexcept : computedHash(hash) {}
+
+		constexpr StringHash(const char* s) noexcept : computedHash(0)
+		{
+			computedHash = fnv1a_32(s, const_strlen(s));
+		}
+		constexpr StringHash(const char* s, std::size_t count)noexcept : computedHash(0)
+		{
+			computedHash = fnv1a_32(s, count);
+		}
+		constexpr StringHash(std::string_view s)noexcept : computedHash(0)
+		{
+			computedHash = fnv1a_32(s.data(), s.size());
+		}
+		StringHash(const StringHash& other) = default;
+
+		constexpr operator uint32_t()noexcept { return computedHash; }
+	};
+
+	template <class T>
+	inline void HashCombine(std::size_t& seed, const T& v)
+	{
+		std::hash<T> hasher;
+		seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+	}
+
+	inline std::size_t HashRange(std::byte* startByte, std::size_t nbBytes)
+	{
+		std::size_t hash = 0;
+		for (std::size_t i = 0; i < nbBytes; ++i)
+		{
+			HashCombine(hash, *(startByte + i));
+		}
+		return hash;
+	}
+
+	
+
+	template <typename T>
+	inline std::size_t HashRawMem(const T& s)
+	{
+		return HashRange((std::byte*)&s, sizeof(T));
+	}
+
 	glm::mat4 customOrtho(float aspect_ratio, float size, float nr, float fr);
 
 	// Indices (locations) of Queue Familities (if they exist)
@@ -692,6 +753,10 @@ namespace oGFX
 				pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 				pipelineLayoutCreateInfo.setLayoutCount = setLayoutCount;
 				pipelineLayoutCreateInfo.pSetLayouts = pSetLayouts;
+
+				static VkPushConstantRange pushConstantRange{ VK_SHADER_STAGE_ALL, 0, 128 };
+				pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+				pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
 				return pipelineLayoutCreateInfo;
 			}
 
@@ -716,7 +781,7 @@ namespace oGFX
 
 			inline VkGraphicsPipelineCreateInfo pipelineCreateInfo(
 				VkPipelineLayout layout,
-				VkRenderPass renderPass,
+				VkRenderPass renderPass = VK_NULL_HANDLE,
 				VkPipelineCreateFlags flags = 0)
 			{
 				VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
@@ -856,3 +921,144 @@ namespace oGFX
 
 }
 
+// std::hash extensions
+
+namespace std {
+	template <> struct hash<VkDescriptorSetLayoutBinding>
+	{
+		size_t operator()(const VkDescriptorSetLayoutBinding& b) const
+		{
+			size_t result = 0;
+			oGFX::HashCombine(result, b.binding);
+			oGFX::HashCombine(result, b.descriptorType);
+			oGFX::HashCombine(result, b.descriptorCount);
+			oGFX::HashCombine(result, b.stageFlags);
+
+			return result;
+		}
+	};
+	
+	template <> struct hash<VkPipelineInputAssemblyStateCreateInfo>
+	{
+		size_t operator()(const VkPipelineInputAssemblyStateCreateInfo& b) const
+		{
+			size_t result = 0;
+			oGFX::HashCombine(result, b.flags);
+			oGFX::HashCombine(result, b.topology);
+			oGFX::HashCombine(result, b.primitiveRestartEnable);
+
+			return result;
+		}
+	};
+	template <> struct hash<VkPipelineRasterizationStateCreateInfo>
+	{
+		size_t operator()(const VkPipelineRasterizationStateCreateInfo& b) const
+		{
+			size_t result = 0;
+			oGFX::HashCombine(result, b.flags);
+			oGFX::HashCombine(result, b.depthClampEnable);
+			oGFX::HashCombine(result, b.rasterizerDiscardEnable);
+			oGFX::HashCombine(result, b.polygonMode);
+			oGFX::HashCombine(result, b.cullMode);
+			oGFX::HashCombine(result, b.frontFace);
+			oGFX::HashCombine(result, b.depthBiasEnable);
+
+			oGFX::HashCombine(result, b.lineWidth);
+
+			return result;
+		}
+	};
+	template <> struct hash<VkPipelineColorBlendAttachmentState>
+	{
+		size_t operator()(const VkPipelineColorBlendAttachmentState& b) const
+		{
+			size_t result = 0;
+			oGFX::HashCombine(result, b.blendEnable);
+			oGFX::HashCombine(result, b.srcColorBlendFactor);
+			oGFX::HashCombine(result, b.dstColorBlendFactor);
+			oGFX::HashCombine(result, b.colorBlendOp);
+			oGFX::HashCombine(result, b.srcAlphaBlendFactor);
+			oGFX::HashCombine(result, b.dstAlphaBlendFactor);
+			oGFX::HashCombine(result, b.alphaBlendOp);
+			oGFX::HashCombine(result, b.colorWriteMask);
+
+			return result;
+		}
+	};
+	template <> struct hash<VkPipelineColorBlendStateCreateInfo>
+	{
+		size_t operator()(const VkPipelineColorBlendStateCreateInfo& b) const
+		{
+			size_t result = 0;
+			oGFX::HashCombine(result, b.logicOpEnable);
+			oGFX::HashCombine(result, b.logicOp);
+			oGFX::HashCombine(result, b.attachmentCount);
+			oGFX::HashCombine(result, b.blendConstants[0]);
+			oGFX::HashCombine(result, b.blendConstants[1]);
+			oGFX::HashCombine(result, b.blendConstants[2]);
+			oGFX::HashCombine(result, b.blendConstants[3]);
+
+			return result;
+		}
+	};
+	template <> struct hash<VkStencilOpState>
+	{
+		size_t operator()(const VkStencilOpState& b) const
+		{
+			size_t result = 0;
+			oGFX::HashCombine(result, b.failOp);
+			oGFX::HashCombine(result, b.passOp);
+			oGFX::HashCombine(result, b.depthFailOp);
+			oGFX::HashCombine(result, b.compareOp);
+			oGFX::HashCombine(result, b.compareMask);
+			oGFX::HashCombine(result, b.writeMask);
+			oGFX::HashCombine(result, b.reference);
+
+			return result;
+		}
+	};
+	template <> struct hash<VkPipelineDepthStencilStateCreateInfo>
+	{
+		size_t operator()(const VkPipelineDepthStencilStateCreateInfo& b) const
+		{
+			size_t result = 0;
+			oGFX::HashCombine(result, b.flags);
+			oGFX::HashCombine(result, b.depthTestEnable);
+			oGFX::HashCombine(result, b.depthWriteEnable);
+			oGFX::HashCombine(result, b.depthCompareOp);
+			oGFX::HashCombine(result, b.depthBoundsTestEnable);
+			oGFX::HashCombine(result, b.stencilTestEnable);
+			oGFX::HashCombine(result, b.front);
+			oGFX::HashCombine(result, b.back);
+
+			return result;
+		}
+	};
+	template <> struct hash<VkPipelineMultisampleStateCreateInfo>
+	{
+		size_t operator()(const VkPipelineMultisampleStateCreateInfo& b) const
+		{
+			size_t result = 0;
+			oGFX::HashCombine(result, b.flags);
+			oGFX::HashCombine(result, b.rasterizationSamples);
+			oGFX::HashCombine(result, b.sampleShadingEnable);
+			oGFX::HashCombine(result, b.minSampleShading);
+			oGFX::HashCombine(result, b.alphaToCoverageEnable);
+			oGFX::HashCombine(result, b.alphaToOneEnable);
+
+			return result;
+		}
+	};
+	template <> struct hash<VkPipelineViewportStateCreateInfo>
+	{
+		size_t operator()(const VkPipelineViewportStateCreateInfo& b) const
+		{
+			size_t result = 0;
+			oGFX::HashCombine(result, b.flags);
+			oGFX::HashCombine(result, b.viewportCount);
+			oGFX::HashCombine(result, b.scissorCount);
+
+			return result;
+		}
+	};
+}

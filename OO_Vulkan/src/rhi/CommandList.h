@@ -101,6 +101,8 @@ public:
 	void EndRendering();
 
 	void BindPSO(const VkPipeline& pso, VkPipelineLayout pipelay, const VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
+	void BindPSO(std::string vertex, std::string fragment);
+	void BindPSO(std::string compute);
 
 	void SetPushConstant(VkPipelineLayout layout
 		, VkDeviceSize size, const void* data
@@ -108,7 +110,7 @@ public:
 
 	DescriptorSetInfo& DescriptorSetBegin(uint32_t set);
 
-	void BindDescriptorSet(uint32_t set,uint32_t binding, VkDescriptorSet descriptor);
+	void BindDescriptorSet(uint32_t set,uint32_t binding, VkDescriptorSet descriptor, VkDescriptorSetLayout setLayout);
 
 	void BindDescriptorSet(
 		VkPipelineLayout layout,
@@ -192,13 +194,24 @@ public:
 
 	VkCommandBuffer getCommandBuffer();
 private:
+	void PrepareDescriptors();
 	void CommitDescriptors();
 	void DenoteStateChanged();
 	void EndIfRendering();
 
+	void GetOrBuildPipeline();
+
+	enum
+	{
+		VERTEX,
+		FRAGMENT,
+		COMPUTE
+	};
+
 	VkCommandBuffer m_VkCommandBuffer{};
 
 	VkPipelineLayout m_pipeLayout{};
+	VkPipeline m_pipeline{};
 	VkPipelineBindPoint m_pipelineBindPoint{ VK_PIPELINE_BIND_POINT_MAX_ENUM };
 	VkShaderStageFlags m_targetStage{ VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM };
 
@@ -213,10 +226,14 @@ private:
 	std::vector<VkDynamicState> dynamicStateEnables = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 	VkPipelineDynamicStateCreateInfo dynamicState = oGFX::vkutils::inits::pipelineDynamicStateCreateInfo(dynamicStateEnables);
 
-	VkGraphicsPipelineCreateInfo pipelineCI = oGFX::vkutils::inits::pipelineCreateInfo(VK_NULL_HANDLE, VK_NULL_HANDLE);
+	VkGraphicsPipelineCreateInfo pipelineCI;
 
 	std::vector<VkVertexInputBindingDescription> bindingDescription = oGFX::GetGFXVertexInputBindings();
 	std::vector<VkVertexInputAttributeDescription>attributeDescriptions = oGFX::GetGFXVertexInputAttributes();
+
+	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = oGFX::vkutils::inits::pipelineVertexInputStateCreateInfo(bindingDescription, attributeDescriptions);
+
+	std::array< std::string, 3 > shadercodes;
 
 	VkComputePipelineCreateInfo computeCI;
 	// end pipeline info
@@ -224,11 +241,13 @@ private:
 	std::array<VkRect2D, 8> m_scissor;
 	std::array<VkViewport, 8> m_viewport;
 	std::array<VkRenderingAttachmentInfo, 8> m_attachments{};
+	std::array<VkFormat, 8> m_attachmentFormats{};
 	std::array<bool, 8> m_shouldClearAttachment{};
 	int32_t m_highestAttachmentBound{-1};
 	bool m_depthBound = false;
 	bool m_shouldClearDepth = false;
-	VkRenderingAttachmentInfo m_depth;
+	VkRenderingAttachmentInfo m_depth{};
+	VkFormat m_depthFormat{VK_FORMAT_UNDEFINED};
 	float m_push_constant[128 / sizeof(float)]{0.0f};
 	bool m_regionNamed = false;
 
@@ -240,6 +259,14 @@ private:
 	std::unordered_map<VkBuffer, BufferStateTracking> m_trackedBuffers;
 
 	std::array<DescriptorSetInfo, 4> descriptorSets; // only support 4 sets
+
+
+	uint32_t setCount{};
+	uint32_t firstSet{ UINT32_MAX };
+	std::array<VkDescriptorSet, 4> sets{};
+
+	uint32_t dynamicOffsetCnt{};
+	std::array<uint32_t, 4> dynOffsets{};
 	 
 	// TODO: Handle VK_PIPELINE_BIND_POINT_GRAPHICS etc nicely next time.
 	// TODO: Maybe we can cache the stuff that is bound, for easier debugging, else taking GPU captures is really unproductive.

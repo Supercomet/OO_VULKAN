@@ -129,3 +129,11 @@ bool DescriptorBuilder::BuildLayout(VkDescriptorSetLayout& layout)
 
 	return true;
 }
+
+size_t DescriptorBuilder::getHash()
+{
+	VkDescriptorSetLayoutCreateInfo layoutInfo = oGFX::vkutils::inits::descriptorSetLayoutCreateInfo(bindings.data(), static_cast<uint32_t>(bindings.size()));
+
+	size_t hash = cache->GetLayoutInfo(&layoutInfo).hash();
+	return hash;
+}

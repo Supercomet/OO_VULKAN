@@ -137,7 +137,7 @@ void ShadowPass::Draw(const VkCommandBuffer cmdlist)
 		.BindBuffer(0, vr.vpUniformBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS | VK_SHADER_STAGE_COMPUTE_BIT)
 		.SetDynamicOffset(0, dynamicOffset)
 		;
-	cmd.BindDescriptorSet(2, 0, vr.descriptorSet_bindless);
+	cmd.BindDescriptorSet(2, 0, vr.descriptorSet_bindless, SetLayoutDB::bindless);
 
 	// Bind merged mesh vertex & index buffers, instancing buffers.
 	cmd.BindVertexBuffer(BIND_POINT_VERTEX_BUFFER_ID, 1, vr.g_GlobalMeshBuffers.VtxBuffer.getBufferPtr());

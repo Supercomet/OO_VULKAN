@@ -111,7 +111,8 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 
 	auto& target = vr.attachments.lighting_target;
 
-	cmd.BindPSO(pso_LightingHistogram, PSOLayoutDB::histogramPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+	//cmd.BindPSO(pso_LightingHistogram, PSOLayoutDB::histogramPSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.BindPSO("Shaders/bin/histogram.comp.spv");
 
 	float minLogLum = -8.0f;
 	float maxLogLum = 3.5f;
@@ -137,7 +138,7 @@ void LightingHistogram::Draw(const VkCommandBuffer cmdlist)
 		static_cast<float>(target.width * target.height),
 	};
 
-	cmd.BindPSO(pso_lightingCDFScan, PSOLayoutDB::luminancePSOLayout,VK_PIPELINE_BIND_POINT_COMPUTE);
+	cmd.BindPSO("Shaders/bin/cdfscan.comp.spv");
 	cmd.DescriptorSetBegin(0)
 		.BindBuffer(0, vr.LuminanceBuffer.getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, UAV)
 		.BindBuffer(1, vr.lightingHistogram.getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, UAV);

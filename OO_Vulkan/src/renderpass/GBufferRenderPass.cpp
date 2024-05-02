@@ -183,8 +183,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 	}
 	
 	cmd.BindDepthAttachment(&attachments[GBufferAttachmentIndex::DEPTH]);
-	
-	cmd.BindPSO(pso_GBufferDefault, PSOLayoutDB::defaultPSOLayout);
+	cmd.BindPSO("Shaders/bin/gbuffer.vert.spv", "Shaders/bin/gbuffer.frag.spv");
 	cmd.SetDefaultViewportAndScissor();
 	uint32_t dynamicOffset = static_cast<uint32_t>(vr.renderIteration * oGFX::vkutils::tools::UniformBufferPaddedSize(sizeof(CB::FrameContextUBO), 
 																												vr.m_device.properties.limits.minUniformBufferOffsetAlignment));
@@ -202,7 +201,7 @@ void GBufferRenderPass::Draw(const VkCommandBuffer cmdlist)
 		.BindBuffer(0, vr.vpUniformBuffer[currFrame].getBufferInfoPtr(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, ResourceUsage::SRV, VK_SHADER_STAGE_ALL_GRAPHICS | VK_SHADER_STAGE_COMPUTE_BIT)
 		.SetDynamicOffset(0, dynamicOffset)
 	;
-	cmd.BindDescriptorSet(2, 0, vr.descriptorSet_bindless);
+	cmd.BindDescriptorSet(2, 0, vr.descriptorSet_bindless, SetLayoutDB::bindless);
 
 	/*
 	cmd.BindDescriptorSet(PSOLayoutDB::defaultPSOLayout, 0, 

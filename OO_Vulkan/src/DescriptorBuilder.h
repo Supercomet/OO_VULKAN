@@ -30,6 +30,8 @@ public:
 	bool Build(VkDescriptorSet& set, VkDescriptorSetLayout& layout);
 	bool Build(VkDescriptorSet& set);
 	bool BuildLayout(VkDescriptorSetLayout& layout);
+
+	size_t getHash();
 private:
 
 	std::vector<VkWriteDescriptorSet> writes;
