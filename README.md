@@ -42,6 +42,7 @@ The dependencies are bundled with the project
 ### Controls
 
 **WASD keys** — move around
+
 **Right click and drag** — look around
 
 Interact with the UI for more details

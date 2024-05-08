@@ -864,7 +864,7 @@ void CommandList::GetOrBuildPipeline()
 
 				VkPipelineRenderingCreateInfo renderingInfo{ VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
 				renderingInfo.viewMask = {};
-				renderingInfo.colorAttachmentCount = numAttachments;
+				renderingInfo.colorAttachmentCount = (uint32_t)numAttachments;
 				renderingInfo.pColorAttachmentFormats = colourFormats.data();
 				renderingInfo.depthAttachmentFormat = m_depthFormat;
 				renderingInfo.stencilAttachmentFormat = m_depthFormat;

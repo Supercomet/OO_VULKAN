@@ -211,12 +211,12 @@ namespace CB
 		glm::mat4 prevViewProjection{ 1.0f };
 		glm::vec4 renderTimer{ 0.0f, 0.0f, 0.0f, 0.0f };
 
-		glm::mat4 projectionJittered;
-		glm::mat4 viewProjJittered;
-		glm::mat4 inverseProjectionJittered;
-		glm::mat4 prevViewProjJittered;
-		glm::vec2 currJitter;
-		glm::vec2 prevJitter;
+		glm::mat4 projectionJittered{};
+		glm::mat4 viewProjJittered{};
+		glm::mat4 inverseProjectionJittered{};
+		glm::mat4 prevViewProjJittered{};
+		glm::vec2 currJitter{};
+		glm::vec2 prevJitter{};
 
 		// These variables area only to speedup development time by passing adjustable values from the C++ side to the shader.
 		// Bind this to every single shader possible.
@@ -235,11 +235,11 @@ namespace CB
 
 	struct AMDSPD_UBO
 	{
-		uint32_t	mips;
-		uint32_t	numWorkGroups;
+		uint32_t	mips{};
+		uint32_t	numWorkGroups{};
 		uint32_t	workGroupOffset[2];
-		glm::vec2	invInputSize; 
-		glm::vec2	padding;
+		glm::vec2	invInputSize{}; 
+		glm::vec2	padding{};
 	};
 
 	struct AMDSPD_ATOMIC {

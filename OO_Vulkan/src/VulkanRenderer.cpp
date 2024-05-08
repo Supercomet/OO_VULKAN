@@ -225,6 +225,16 @@ VulkanRenderer::~VulkanRenderer()
 
 	RenderPassDatabase::Shutdown();
 
+	for (auto& kvp : pipelineMap)
+	{
+		vkDestroyPipeline(m_device.logicalDevice, kvp.second, nullptr);
+	}
+
+	for (auto& kvp : pipelineLayoutMap)
+	{
+		vkDestroyPipelineLayout(m_device.logicalDevice, kvp.second, nullptr);
+	}
+
 #if VULKAN_MESSENGER
 	DestroyDebugMessenger();
 #endif // VULKAN_MESSENGER
@@ -548,8 +558,8 @@ void VulkanRenderer::InitVMA(const oGFX::SetupInfo& setupSpecs)
 void VulkanRenderer::SetupSwapchain()
 {
 	m_swapchain.Init(m_instance,m_device);
-	renderWidth = renderResolution * m_swapchain.swapChainExtent.width;
-	renderHeight= renderResolution * m_swapchain.swapChainExtent.height;
+	renderWidth = (uint32_t)(renderResolution * m_swapchain.swapChainExtent.width);
+	renderHeight= (uint32_t)(renderResolution * m_swapchain.swapChainExtent.height);
 }
 
 void VulkanRenderer::CreateDefaultRenderpass()
@@ -3150,7 +3160,7 @@ void VulkanRenderer::Present()
 		}
 	}
 
-	uint64_t  signalCounter = currentFrame + 1;
+	uint64_t  signalCounter = currentFrame + 1ull;
 	VkTimelineSemaphoreSubmitInfo computeTimelineInfo{};
 	computeTimelineInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
 	computeTimelineInfo.pNext = nullptr;

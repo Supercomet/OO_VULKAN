@@ -274,7 +274,7 @@ void SetupConstantBuffers()
 	constantBuffer.jitterOffset[1] = vr.jitterY * -1.0f;
 
 	if (constantBuffer.jitterPhaseCount == 0) {
-		constantBuffer.jitterPhaseCount = vr.jitterPhaseCount;
+		constantBuffer.jitterPhaseCount = (float)vr.jitterPhaseCount;
 	}
 	else {
 		const int32_t jitterPhaseCountDelta = (int32_t)(vr.jitterPhaseCount - constantBuffer.jitterPhaseCount);
