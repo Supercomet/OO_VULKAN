@@ -1,4 +1,4 @@
-# Vulkan.md
+# Vulkan Rendering Engine
 
 Physically based renderer using the Vulkan API written in C++.
 
