@@ -1,22 +1,47 @@
+# Vulkan.md
 
-Ensure you run the "updateExamplesDependencies.bat" in the Build folder to get the dependancies.
+Physically based renderer using the Vulkan API written in C++.
+
+A test environment for me to experiment with graphics features.
+
+### Features
+
+- Physically based rendering
+- IBL environment map
+- Adaptive exposure
+- Bindless textures
+- Particle system
+- Multi-threaded CPU octree culling
+- Shadow casting point lights
+- Area lights
+- Auto-partitioning Shadowmap atlas
+- Multi-threaded command list recording
+- [MSDF](https://github.com/Chlumsky/msdfgen) font atlas
+- Post processing stack
+- [XeGTAO](https://github.com/GameTechDev/XeGTAO) ambient occlusion
+- FidelityFX [Single Pass Downsampler](https://gpuopen.com/fidelityfx-spd/)
+- FidelityFX [FSR2](https://gpuopen.com/fidelityfx-superresolution-2/) and Nvidia [DLSS](https://www.nvidia.com/en-sg/geforce/technologies/dlss/)
 
 ### Prerequisites
-+ [Visual Studio 2019](https://visualstudio.microsoft.com/downloads/)
-+ [cmake](https://cmake.org/download/)
-+ [vulkan](https://vulkan.lunarg.com/)
+
+- [Visual Studio 2019](https://visualstudio.microsoft.com/downloads/) (C++20)
+- [Vulkan SDK](https://vulkan.lunarg.com/) (v1.3+)
 
 ### Dependencies
-To see the examples you will need to run a batch located: **Build/updateExamplesDependencies.bat**
-it will gather and build the dependencies:
-- [GLM](https://https://github.com/g-truc/glm)
-- [assimp](https://github.com/assimp/assimp)
 
+The dependencies are bundled with the project
+
+- [glm](https://github.com/g-truc/glm)
+- [assimp](https://github.com/assimp/assimp)
+- [freetype](https://gitlab.freedesktop.org/freetype)
+- [imgui](https://github.com/ocornut/imgui)
+- [msdfgen](https://github.com/Chlumsky/msdfgen)
+- [Nvidia DLSS](https://github.com/NVIDIA/DLSS)
+- [VMA](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 
 ### Controls
-The demo will show a model in the centre of the scene.
-The surrounding skeleton models are rendered using indirect draw commands.
-These commands are using bindless textures to render more than 100 textures using a single draw call.
 
-Spacebar -- toggles light follow camera
-Click and drag -- to rotate around the focused object
+**WASD keys** — move around
+**Right click and drag** — look around
+
+Interact with the UI for more details
