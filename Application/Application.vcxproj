@@ -111,6 +111,7 @@
 xcopy "$(SolutionDir)OO_Vulkan\models" "$(OutDir)\models" /Q /E /S /Y /I 
 xcopy "$(SolutionDir)OO_Vulkan\textures" "$(OutDir)\textures" /Q /E /S /Y /I 
 xcopy "$(SolutionDir)vendor\assimp\BINARIES\Win32\bin\Release\assimp-vc142-mt.dll" "$(OutDir)" /Q /E /S /Y /I 
+xcopy "$(SolutionDir)vendor\nvDLSS\lib\Windows_x86_64\rel\nvngx_dlss.dll" "$(OutDir)" /Q /E /S /Y /I 
 xcopy "$(SolutionDir)OO_Vulkan\defaultAsset" "$(OutDir)\defaultAsset" /Q /E /S /Y /I </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

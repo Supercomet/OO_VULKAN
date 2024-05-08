@@ -182,6 +182,7 @@ void GraphicsWorld::ClearUIInstances()
 int32_t GraphicsWorld::CreateLightInstance()
 {
 	auto light = OmniLightInstance();
+	light.view[0][0] = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f); // set area light direction
 	light.info.w = (int)LightType::POINT; // point light
 	SetLightEnabled(light,true);
 	return CreateLightInstance(light);

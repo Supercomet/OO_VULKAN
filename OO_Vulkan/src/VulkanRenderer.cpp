@@ -3619,7 +3619,7 @@ ModelFileResource* VulkanRenderer::LoadModelFromFile(const std::string& file)
 
 	if (!scene)
 	{
-		OO_ASSERT(scene);
+		//OO_ASSERT(scene);
 		return nullptr; // Dont explode...
 		//throw std::runtime_error("Failed to load model! (" + file + ")");
 	}

@@ -273,7 +273,7 @@ void TestApplication::Run()
     //setupSpec.debug = BoolQueryUser("Do you want debugging?");
     //setupSpec.renderDoc = BoolQueryUser("Do you want renderdoc?");
     setupSpec.debug = true;
-    setupSpec.renderDoc = true;
+    setupSpec.renderDoc = false;
 
     //----------------------------------------------------------------------------------------------------
     // Setup Graphics Engine
@@ -2052,7 +2052,7 @@ void InitLights(int32_t* someLights)
         lights[0]->position = glm::vec4(0.0f, 3.0f, 1.0f, 0.0f);
         lights[0]->color = glm::vec4(1.0f);
         lights[0]->radius.x = 30.0f;
-        lights[0]->color.a = 90.0f; //intensity
+        lights[0]->color.a = 5.0f; //intensity
         SetCastsShadows(*lights[0], true);
         SetLightEnabled(*lights[0], true);
 
